@@ -19,7 +19,7 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.59.1",
-    "@cloudflare/workers-types": "^4.20260405.1",
+    "@cloudflare/workers-types": "^4.20260410.1",
     "@eslint/js": "^9.39.1",
     "@testing-library/jest-dom": "^6.8.0",
     "@testing-library/react": "^16.3.0",
