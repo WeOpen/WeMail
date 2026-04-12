@@ -52,9 +52,15 @@ type AppRoutesProps = {
     submitQuota: (event: FormEvent<HTMLFormElement>, userId: string) => Promise<void>;
     toggleFeatures: (nextFeatureToggles: FeatureToggles) => Promise<void>;
   };
+  workspace: {
+    mailboxComposerOpen: boolean;
+    onOpenMailboxComposer: () => void;
+    onCloseMailboxComposer: () => void;
+    onCreateMailbox: (label: string) => Promise<void>;
+  };
 };
 
-export function AppRoutes({ session, inbox, selectedMessage, settings, admin }: AppRoutesProps) {
+export function AppRoutes({ session, inbox, selectedMessage, settings, admin, workspace }: AppRoutesProps) {
   return (
     <Routes>
       <Route
@@ -67,13 +73,13 @@ export function AppRoutes({ session, inbox, selectedMessage, settings, admin }: 
             selectedMessageId={inbox.selectedMessageId}
             selectedMessage={selectedMessage}
             outboundHistory={inbox.outboundHistory}
+            mailboxComposerOpen={workspace.mailboxComposerOpen}
+            onCloseMailboxComposer={workspace.onCloseMailboxComposer}
+            onCreateMailbox={workspace.onCreateMailbox}
+            onOpenMailboxComposer={workspace.onOpenMailboxComposer}
             onSelectMailbox={inbox.setSelectedMailboxId}
             onSelectMessage={inbox.setSelectedMessageId}
             onRefreshMessages={() => void inbox.refreshMessages()}
-            onRequestCreateMailbox={() => {
-              const label = prompt("Mailbox label", `Mailbox ${inbox.mailboxes.length + 1}`);
-              if (label) void inbox.createMailbox(label);
-            }}
             onSendMail={inbox.sendMail}
           />
         }
@@ -94,8 +100,15 @@ export function AppRoutes({ session, inbox, selectedMessage, settings, admin }: 
         path="/admin"
         element={
           session.user.role !== "admin" ? (
-            <main className="panel">
-              <p>Admin access only.</p>
+            <main className="workspace-grid restricted-grid">
+              <section className="panel workspace-card restricted-card">
+                <p className="panel-kicker">Restricted</p>
+                <h2>Admin controls are locked</h2>
+                <p className="section-copy">
+                  This route keeps the control shell visible, but only administrative operators can adjust invites,
+                  quotas, feature switches, or mailbox oversight.
+                </p>
+              </section>
             </main>
           ) : (
             <AdminPage

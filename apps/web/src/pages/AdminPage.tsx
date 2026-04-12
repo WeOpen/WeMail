@@ -6,14 +6,7 @@ import { FeatureTogglesPanel } from "../features/admin/FeatureTogglesPanel";
 import { InvitePanel } from "../features/admin/InvitePanel";
 import { MailboxOversightPanel } from "../features/admin/MailboxOversightPanel";
 import { QuotaPanel } from "../features/admin/QuotaPanel";
-
-type InviteSummary = {
-  id: string;
-  code: string;
-  createdAt: string;
-  redeemedAt: string | null;
-  disabledAt: string | null;
-};
+import type { InviteSummary } from "../features/admin/types";
 
 type AdminPageProps = {
   adminUsers: UserSummary[];
@@ -41,12 +34,8 @@ export function AdminPage({
   onToggleFeatures
 }: AdminPageProps) {
   return (
-    <main className="settings-grid">
-      <InvitePanel
-        adminInvites={adminInvites}
-        onCreateInvite={onCreateInvite}
-        onDisableInvite={onDisableInvite}
-      />
+    <main className="workspace-grid admin-grid">
+      <InvitePanel adminInvites={adminInvites} onCreateInvite={onCreateInvite} onDisableInvite={onDisableInvite} />
       <QuotaPanel
         adminUsers={adminUsers}
         adminQuota={adminQuota}

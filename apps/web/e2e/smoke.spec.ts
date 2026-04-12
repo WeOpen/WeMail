@@ -1,13 +1,15 @@
 import { expect, test } from "@playwright/test";
 
 test("shows the landing page headline", async ({ page }) => {
+  test.setTimeout(60000);
   await page.goto("/");
   await expect(
-    page.getByRole("heading", { name: /self-hosted temporary email with a control-room aesthetic/i })
+    page.getByRole("heading", { name: /自托管临时邮箱，给团队一套可控的收信与管理工作台/i })
   ).toBeVisible();
 });
 
-test.skip("shows settings sections for an authenticated member", async ({ page }) => {
+test("shows the shared access shell for an authenticated member", async ({ page }) => {
+  test.setTimeout(60000);
   await page.route("**/auth/session", async (route) => {
     await route.fulfill({
       json: {
@@ -27,125 +29,63 @@ test.skip("shows settings sections for an authenticated member", async ({ page }
     });
   });
 
-  await page.route("**/api/mailboxes", async (route) => route.fulfill({ json: { mailboxes: [] } }));
-  await page.route("**/api/keys", async (route) => route.fulfill({ json: { keys: [] } }));
-  await page.route("**/api/telegram", async (route) =>
-    route.fulfill({ json: { subscription: null } })
+  await page.route("**/api/mailboxes", async (route) =>
+    route.fulfill({
+      json: {
+        mailboxes: [{ id: "box-1", address: "ops@example.com", label: "Ops", createdAt: "2026-04-08T00:00:00.000Z" }]
+      }
+    })
   );
+  await page.route("**/api/messages?mailboxId=box-1", async (route) =>
+    route.fulfill({
+      json: {
+        messages: [
+          {
+            id: "msg-1",
+            mailboxId: "box-1",
+            fromAddress: "ops@example.com",
+            subject: "Verification",
+            previewText: "Use 123456",
+            bodyText: "Use 123456",
+            extraction: { method: "regex", type: "auth_code", value: "123456", label: "Code" },
+            oversizeStatus: null,
+            attachmentCount: 0,
+            attachments: [],
+            receivedAt: "2026-04-08T00:00:00.000Z"
+          }
+        ]
+      }
+    })
+  );
+  await page.route("**/api/outbound?mailboxId=box-1", async (route) => route.fulfill({ json: { messages: [] } }));
+  await page.route("**/api/keys", async (route) => route.fulfill({ json: { keys: [] } }));
+  await page.route("**/api/telegram", async (route) => route.fulfill({ json: { subscription: null } }));
 
   await page.goto("/settings");
-  await expect(page.getByRole("heading", { name: /member@example.com/i })).toBeVisible({ timeout: 15000 });
-  await expect(page.getByRole("heading", { name: /api keys/i })).toBeVisible({ timeout: 15000 });
-  await expect(page.getByRole("heading", { name: /telegram/i })).toBeVisible({ timeout: 15000 });
-});
+  await expect(page.getByRole("navigation", { name: /workspace navigation/i })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /keys, alerts, every integration/i })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /api keys/i })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /telegram relay/i })).toBeVisible();
 
-test.skip("registers with an invite and enters the signed-in shell", async ({ page }) => {
-  await page.route("**/auth/register", async (route) => {
-    await route.fulfill({
-      json: {
-        user: {
-          id: "member-1",
-          email: "new@example.com",
-          role: "member",
-          createdAt: "2026-04-08T00:00:00.000Z"
-        },
-        featureToggles: {
-          aiEnabled: true,
-          telegramEnabled: true,
-          outboundEnabled: true,
-          mailboxCreationEnabled: true
-        }
-      }
-    });
-  });
-
-  await page.route("**/auth/session", async (route) => {
-    await route.fulfill({ status: 401, json: { error: "Not authenticated" } });
-  });
-
-  await page.route("**/api/mailboxes", async (route) => route.fulfill({ json: { mailboxes: [] } }));
-  await page.route("**/api/keys", async (route) => route.fulfill({ json: { keys: [] } }));
-  await page.route("**/api/telegram", async (route) => route.fulfill({ json: { subscription: null } }));
-
-  await page.goto("/");
-  await page.getByLabel("Email").first().fill("new@example.com");
-  await page.getByLabel("Password").first().fill("password123");
-  await page.getByLabel("Invite code").fill("INV-001");
-  await page.getByRole("button", { name: /create account/i }).click();
-  await expect(page.getByRole("heading", { name: /new@example.com/i })).toBeVisible({ timeout: 15000 });
-});
-
-test.skip("creates an API key from settings and shows the success notice", async ({ page }) => {
-  let apiKeys: Array<{ id: string; label: string; prefix: string; createdAt: string; lastUsedAt: null; revokedAt: null }> = [];
-
-  await page.route("**/auth/session", async (route) => {
-    await route.fulfill({
-      json: {
-        user: {
-          id: "member-1",
-          email: "member@example.com",
-          role: "member",
-          createdAt: "2026-04-08T00:00:00.000Z"
-        },
-        featureToggles: {
-          aiEnabled: true,
-          telegramEnabled: true,
-          outboundEnabled: true,
-          mailboxCreationEnabled: true
-        }
-      }
-    });
-  });
-
-  await page.route("**/api/mailboxes", async (route) => route.fulfill({ json: { mailboxes: [] } }));
-  await page.route("**/api/telegram", async (route) => route.fulfill({ json: { subscription: null } }));
-  await page.route("**/api/keys", async (route, request) => {
-    if (request.method() === "POST") {
-      apiKeys = [
-        {
-          id: "key-1",
-          label: "CLI key 1",
-          prefix: "wk_1234567890",
-          createdAt: "2026-04-08T00:00:00.000Z",
-          lastUsedAt: null,
-          revokedAt: null
-        }
-      ];
-      await route.fulfill({
-        json: {
-          key: {
-            secret: "wk_1234567890abcdef",
-            prefix: "wk_1234567890"
-          }
-        }
-      });
-      return;
-    }
-
-    await route.fulfill({ json: { keys: apiKeys } });
-  });
-
-  await page.goto("/");
-  await expect(page.getByRole("heading", { name: /member@example.com/i })).toBeVisible({ timeout: 15000 });
+  const themeToggle = page.locator(".workspace-theme-toggle");
+  await expect(themeToggle).toBeVisible();
   await page.evaluate(() => {
-    window.history.pushState({}, "", "/settings");
-    window.dispatchEvent(new PopStateEvent("popstate"));
+    window.localStorage.setItem("wemail-workspace-theme", "light");
+    document.documentElement.dataset.theme = "light";
+    document.documentElement.style.colorScheme = "light";
   });
-  await expect(page.getByRole("heading", { name: /api keys/i })).toBeVisible({ timeout: 15000 });
-  await page.evaluate(() => {
-    const button = Array.from(document.querySelectorAll("button")).find((item) =>
-      item.textContent?.match(/create api key/i)
-    );
-    if (!(button instanceof HTMLButtonElement)) {
-      throw new Error("Create API key button not found");
-    }
-    button.click();
-  });
-  await expect(page.getByText(/api key created/i)).toBeVisible({ timeout: 15000 });
-  await expect(page.getByText(/wk_1234567890/i)).toBeVisible({ timeout: 15000 });
+  await page.reload();
+  await expect.poll(async () => page.evaluate(() => document.documentElement.dataset.theme), { timeout: 10000 }).toBe("light");
+
+  await page.getByRole("navigation", { name: /workspace navigation/i }).getByRole("link", { name: /^Inbox$/i }).click();
+  await expect(page.getByRole("heading", { name: /one workspace, every mailbox/i })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /active mailboxes/i })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /recent messages/i })).toBeVisible();
+  await expect.poll(async () => page.evaluate(() => document.documentElement.dataset.theme), { timeout: 10000 }).toBe("light");
 });
 
-test.skip("shows admin panels for an authenticated admin", async ({ page }) => {
+test("shows the control workspace for an authenticated admin", async ({ page }) => {
+  test.setTimeout(60000);
   await page.route("**/auth/session", async (route) => {
     await route.fulfill({
       json: {
@@ -167,24 +107,24 @@ test.skip("shows admin panels for an authenticated admin", async ({ page }) => {
 
   await page.route("**/api/mailboxes", async (route) => route.fulfill({ json: { mailboxes: [] } }));
   await page.route("**/api/keys", async (route) => route.fulfill({ json: { keys: [] } }));
-  await page.route("**/api/telegram", async (route) =>
-    route.fulfill({ json: { subscription: null } })
-  );
+  await page.route("**/api/telegram", async (route) => route.fulfill({ json: { subscription: null } }));
   await page.route("**/admin/users", async (route) =>
     route.fulfill({
       json: {
         users: [
-          {
-            id: "admin-1",
-            email: "admin@example.com",
-            role: "admin",
-            createdAt: "2026-04-08T00:00:00.000Z"
-          }
+          { id: "admin-1", email: "admin@example.com", role: "admin", createdAt: "2026-04-08T00:00:00.000Z" },
+          { id: "member-1", email: "member@example.com", role: "member", createdAt: "2026-04-10T00:00:00.000Z" }
         ]
       }
     })
   );
-  await page.route("**/admin/invites", async (route) => route.fulfill({ json: { invites: [] } }));
+  await page.route("**/admin/invites", async (route) =>
+    route.fulfill({
+      json: {
+        invites: [{ id: "invite-1", code: "ALPHA-2026", createdAt: "2026-04-08T00:00:00.000Z", redeemedAt: null, disabledAt: null }]
+      }
+    })
+  );
   await page.route("**/admin/features", async (route) =>
     route.fulfill({
       json: {
@@ -196,9 +136,6 @@ test.skip("shows admin panels for an authenticated admin", async ({ page }) => {
         }
       }
     })
-  );
-  await page.route("**/admin/mailboxes", async (route) =>
-    route.fulfill({ json: { mailboxes: [{ id: "box-1", address: "ops@example.com", label: "Ops", createdAt: "2026-04-08T00:00:00.000Z" }] } })
   );
   await page.route("**/admin/quotas/**", async (route) =>
     route.fulfill({
@@ -213,13 +150,19 @@ test.skip("shows admin panels for an authenticated admin", async ({ page }) => {
       }
     })
   );
+  await page.route("**/admin/mailboxes", async (route) =>
+    route.fulfill({
+      json: {
+        mailboxes: [{ id: "box-1", address: "ops@example.com", label: "Ops", createdAt: "2026-04-08T00:00:00.000Z" }]
+      }
+    })
+  );
 
-  await page.goto("/");
-  await expect(page.getByRole("heading", { name: /admin@example.com/i })).toBeVisible({ timeout: 15000 });
-  await page.evaluate(() => {
-    window.history.pushState({}, "", "/admin");
-    window.dispatchEvent(new PopStateEvent("popstate"));
-  });
-  await expect(page.getByRole("heading", { name: /invite control/i })).toBeVisible({ timeout: 15000 });
-  await expect(page.getByText(/ops@example.com/i)).toBeVisible({ timeout: 15000 });
+  await page.goto("/admin");
+  await expect(page.getByRole("navigation", { name: /workspace navigation/i })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /control access, quotas, every switch/i })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /invite control/i })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /quota control/i })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /mailbox oversight/i })).toBeVisible();
+  await expect(page.getByText(/ops@example.com/i)).toBeVisible();
 });

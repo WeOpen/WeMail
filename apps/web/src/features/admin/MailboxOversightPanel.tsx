@@ -6,17 +6,21 @@ type MailboxOversightPanelProps = {
 
 export function MailboxOversightPanel({ adminMailboxes }: MailboxOversightPanelProps) {
   return (
-    <section className="panel">
-      <p className="panel-kicker">Mailbox oversight</p>
+    <section className="panel workspace-card page-panel">
+      <p className="panel-kicker">Address map</p>
       <h2>Mailbox oversight</h2>
-      <div className="stack-list">
+      <p className="section-copy">Inspect every created mailbox label and address from the unified operator surface.</p>
+      <div className="stack-list workspace-stack-list">
         {adminMailboxes.map((mailbox) => (
-          <div key={mailbox.id} className="stack-item">
-            <strong>{mailbox.label}</strong>
-            <span>{mailbox.address}</span>
+          <div key={mailbox.id} className="stack-item admin-stack-item">
+            <div>
+              <strong>{mailbox.label}</strong>
+              <span>{mailbox.address}</span>
+            </div>
+            <small>{mailbox.createdAt.slice(0, 10)}</small>
           </div>
         ))}
-        {adminMailboxes.length === 0 ? <p className="empty-state">No mailboxes created yet.</p> : null}
+        {adminMailboxes.length === 0 ? <p className="empty-state">No mailbox records are visible yet.</p> : null}
       </div>
     </section>
   );

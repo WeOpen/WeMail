@@ -1,5 +1,12 @@
 import type { FeatureToggles } from "@wemail/shared";
 
+const featureLabels: Record<string, string> = {
+  aiEnabled: "AI extraction",
+  telegramEnabled: "Telegram relay",
+  outboundEnabled: "Outbound mail",
+  mailboxCreationEnabled: "Mailbox creation"
+};
+
 type FeatureTogglesPanelProps = {
   adminFeatures: FeatureToggles | null;
   onToggleFeatures: (nextFeatureToggles: FeatureToggles) => Promise<void>;
@@ -10,11 +17,12 @@ export function FeatureTogglesPanel({
   onToggleFeatures
 }: FeatureTogglesPanelProps) {
   return (
-    <section className="panel">
-      <p className="panel-kicker">Feature toggles</p>
-      <h2>Launch guardrails</h2>
+    <section className="panel workspace-card page-panel">
+      <p className="panel-kicker">Feature switches</p>
+      <h2>System flags</h2>
+      <p className="section-copy">Flip runtime switches for AI, Telegram, outbound delivery, and mailbox creation with immediate feedback.</p>
       {adminFeatures ? (
-        <div className="toggle-grid">
+        <div className="toggle-grid workspace-toggle-grid">
           {Object.entries(adminFeatures).map(([key, value]) => (
             <label key={key} className="toggle-card">
               <input
@@ -27,11 +35,13 @@ export function FeatureTogglesPanel({
                   })
                 }
               />
-              <span>{key}</span>
+              <span>{featureLabels[key] ?? key}</span>
             </label>
           ))}
         </div>
-      ) : null}
+      ) : (
+        <p className="empty-state">No runtime flags are available in this environment.</p>
+      )}
     </section>
   );
 }

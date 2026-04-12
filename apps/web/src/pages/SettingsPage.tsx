@@ -21,7 +21,7 @@ export function SettingsPage({
   onSaveTelegram
 }: SettingsPageProps) {
   return (
-    <main className="settings-grid">
+    <main className="workspace-grid settings-grid">
       <ApiKeysPanel apiKeys={apiKeys} onCreateApiKey={onCreateApiKey} onRevokeApiKey={onRevokeApiKey} />
       <TelegramPanel telegram={telegram} onSaveTelegram={onSaveTelegram} />
     </main>

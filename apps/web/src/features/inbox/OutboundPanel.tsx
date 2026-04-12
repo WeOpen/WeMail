@@ -1,13 +1,5 @@
 import type { FormEvent } from "react";
-
-type OutboundHistoryItem = {
-  id: string;
-  toAddress: string;
-  subject: string;
-  status: string;
-  errorText: string | null;
-  createdAt: string;
-};
+import type { OutboundHistoryItem } from "./types";
 
 type OutboundPanelProps = {
   selectedMailboxId: string | null;
@@ -21,22 +13,31 @@ export function OutboundPanel({
   onSendMail
 }: OutboundPanelProps) {
   return (
-    <section className="panel composer-panel">
-      <div className="panel-header">
+    <section className="panel workspace-card composer-panel">
+      <div className="panel-header workspace-card-header">
         <div>
-          <p className="panel-kicker">Outbound</p>
-          <h2>Send a message</h2>
+          <p className="panel-kicker">Outbound lane</p>
+          <h2>Send follow-ups</h2>
         </div>
       </div>
-      <form className="composer-form" onSubmit={onSendMail}>
-        <label>To<input name="toAddress" type="email" required /></label>
-        <label>Subject<input name="subject" required /></label>
-        <label>Body<textarea name="bodyText" rows={6} required /></label>
-        <button type="submit" disabled={!selectedMailboxId}>
-          Send
+      <form className="composer-form outbound-form" onSubmit={onSendMail}>
+        <label>
+          Recipient
+          <input name="toAddress" type="email" required />
+        </label>
+        <label>
+          Subject
+          <input name="subject" required />
+        </label>
+        <label>
+          Body
+          <textarea name="bodyText" rows={6} required />
+        </label>
+        <button className="workspace-action-button primary" type="submit" disabled={!selectedMailboxId}>
+          Send message
         </button>
       </form>
-      <div className="history-list">
+      <div className="history-list workspace-stack-list">
         {outboundHistory.map((item) => (
           <div key={item.id} className="history-item">
             <strong>{item.subject}</strong>
@@ -44,6 +45,7 @@ export function OutboundPanel({
             <small>{item.status}</small>
           </div>
         ))}
+        {outboundHistory.length === 0 ? <p className="empty-state">Outbound history will land here after the first send.</p> : null}
       </div>
     </section>
   );
