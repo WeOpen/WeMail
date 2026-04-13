@@ -79,6 +79,9 @@ describe("settings integration", () => {
       expect(screen.getByRole("heading", { name: /密钥、通知与接入控制/i })).toBeInTheDocument();
       expect(screen.getByRole("heading", { name: /API 密钥/i })).toBeInTheDocument();
       expect(screen.getByRole("heading", { name: /Telegram 通知/i })).toBeInTheDocument();
+      expect(screen.queryByLabelText(/工作台快速搜索/i)).not.toBeInTheDocument();
+      fireEvent.click(screen.getByRole("button", { name: /用户菜单/i }));
+      expect(screen.getByRole("menuitem", { name: /退出登录/i })).toBeInTheDocument();
 
       fireEvent.click(screen.getByRole("button", { name: /切换到浅色主题/i }));
       expect(document.documentElement.dataset.theme).toBe("light");

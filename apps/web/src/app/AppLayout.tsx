@@ -1,4 +1,4 @@
-import { ReactNode } from "react";
+import { ReactNode, useEffect, useRef, useState } from "react";
 import { NavLink } from "react-router-dom";
 
 import type { SessionSummary } from "@wemail/shared";
@@ -25,16 +25,45 @@ export function AppLayout({
   shell,
   children
 }: AppLayoutProps) {
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const userMenuRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const handlePointerDown = (event: MouseEvent) => {
+      if (!userMenuRef.current) return;
+      if (userMenuRef.current.contains(event.target as Node)) return;
+      setIsUserMenuOpen(false);
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setIsUserMenuOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, []);
+
   return (
     <div className="app-layout workspace-shell">
       <header className="workspace-topbar panel">
         <div className="workspace-brand" aria-label="wemail 工作台品牌">
           <span className="workspace-brand-mark" aria-hidden="true">
-            ✦
+            <svg viewBox="0 0 24 24" role="presentation">
+              <path
+                d="M3 7.75A2.75 2.75 0 0 1 5.75 5h12.5A2.75 2.75 0 0 1 21 7.75v8.5A2.75 2.75 0 0 1 18.25 19H5.75A2.75 2.75 0 0 1 3 16.25zm2.12-.25L12 12.42l6.88-4.92H5.12zm13.38 9.86a1.1 1.1 0 0 0 .3-.76V8.8l-6.16 4.4a1.1 1.1 0 0 1-1.28 0L5.2 8.8v7.8c0 .28.1.56.3.76.2.2.48.3.76.3h11.48c.28 0 .56-.1.76-.3"
+                fill="currentColor"
+              />
+            </svg>
           </span>
           <div>
-            <strong>wemail</strong>
-            <span>运营工作台</span>
+            <strong>WeMail</strong>
           </div>
         </div>
 
@@ -47,16 +76,7 @@ export function AppLayout({
           ))}
         </nav>
 
-        <div className="workspace-search" aria-label="工作台快速搜索">
-          <span aria-hidden="true">⌘K</span>
-          <strong>{shell.searchPlaceholder}</strong>
-        </div>
-
         <div className="workspace-topbar-actions">
-          <div className="workspace-identity-pill">
-            <strong>{session.user.email}</strong>
-            <span>{session.user.role === "admin" ? "管理员" : "成员"}</span>
-          </div>
           <button
             className="workspace-theme-toggle"
             onClick={onToggleTheme}
@@ -65,9 +85,45 @@ export function AppLayout({
           >
             {theme === "dark" ? "☼" : "☾"}
           </button>
-          <button className="ghost-button workspace-logout-button" onClick={onLogout} type="button">
-            退出登录
-          </button>
+          <div className="workspace-user-menu" ref={userMenuRef}>
+            <button
+              aria-expanded={isUserMenuOpen}
+              aria-haspopup="menu"
+              aria-label="用户菜单"
+              className="workspace-user-trigger"
+              onClick={() => setIsUserMenuOpen((currentState) => !currentState)}
+              type="button"
+            >
+              <span>{session.user.email}</span>
+              <svg viewBox="0 0 20 20" role="presentation">
+                <path
+                  d="M5.22 7.97a.75.75 0 0 1 1.06 0L10 11.69l3.72-3.72a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L5.22 9.03a.75.75 0 0 1 0-1.06"
+                  fill="currentColor"
+                />
+              </svg>
+            </button>
+            {isUserMenuOpen ? (
+              <div className="workspace-user-dropdown panel" role="menu">
+                <button
+                  className="workspace-user-dropdown-item"
+                  onClick={() => {
+                    setIsUserMenuOpen(false);
+                    onLogout();
+                  }}
+                  role="menuitem"
+                  type="button"
+                >
+                  <svg viewBox="0 0 20 20" role="presentation">
+                    <path
+                      d="M10.25 3a.75.75 0 0 1 .75-.75h4A1.75 1.75 0 0 1 16.75 4v12A1.75 1.75 0 0 1 15 17.75h-4a.75.75 0 0 1 0-1.5h4a.25.25 0 0 0 .25-.25V4A.25.25 0 0 0 15 3.75h-4a.75.75 0 0 1-.75-.75M9.78 6.22a.75.75 0 0 1 0 1.06L8.31 8.75H13a.75.75 0 0 1 0 1.5H8.31l1.47 1.47a.75.75 0 1 1-1.06 1.06l-2.75-2.75a.75.75 0 0 1 0-1.06l2.75-2.75a.75.75 0 0 1 1.06 0"
+                      fill="currentColor"
+                    />
+                  </svg>
+                  <span>退出登录</span>
+                </button>
+              </div>
+            ) : null}
+          </div>
         </div>
       </header>
 

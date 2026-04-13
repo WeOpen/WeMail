@@ -66,6 +66,10 @@ test("shows the shared access shell for an authenticated member", async ({ page 
   await expect(page.getByRole("heading", { name: /密钥、通知与接入控制/i })).toBeVisible();
   await expect(page.getByRole("heading", { name: /API 密钥/i })).toBeVisible();
   await expect(page.getByRole("heading", { name: /Telegram 通知/i })).toBeVisible();
+  await expect(page.getByLabel(/工作台品牌/i)).toContainText("WeMail");
+  await expect(page.getByLabel(/工作台快速搜索/i)).toHaveCount(0);
+  await page.getByRole("button", { name: /用户菜单/i }).click();
+  await expect(page.getByRole("menuitem", { name: /退出登录/i })).toBeVisible();
 
   const themeToggle = page.locator(".workspace-theme-toggle");
   await expect(themeToggle).toBeVisible();
@@ -164,5 +168,6 @@ test("shows the control workspace for an authenticated admin", async ({ page }) 
   await expect(page.getByRole("heading", { name: /邀请码控制/i })).toBeVisible();
   await expect(page.getByRole("heading", { name: /配额控制/i })).toBeVisible();
   await expect(page.getByRole("heading", { name: /邮箱总览/i })).toBeVisible();
+  await expect(page.getByLabel(/工作台品牌/i)).toContainText("WeMail");
   await expect(page.getByText(/ops@example.com/i)).toBeVisible();
 });

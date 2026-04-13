@@ -130,6 +130,9 @@ describe("App", () => {
 
       expect(await screen.findByRole("heading", { name: /访问、配额与系统开关/i })).toBeInTheDocument();
       expect(screen.getByRole("heading", { name: /邮箱总览/i })).toBeInTheDocument();
+      expect(screen.queryByLabelText(/工作台快速搜索/i)).not.toBeInTheDocument();
+      fireEvent.click(screen.getByRole("button", { name: /用户菜单/i }));
+      expect(screen.getByRole("menuitem", { name: /退出登录/i })).toBeInTheDocument();
       expect(await screen.findByText(/ops@example.com/i)).toBeInTheDocument();
     },
     10000
