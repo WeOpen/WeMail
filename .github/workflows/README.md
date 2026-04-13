@@ -1,12 +1,12 @@
-# workflows
+# ⚙️ workflows
 
 GitHub Actions 工作流目录。
 
-## 放什么
+## ✅ 放什么
 - CI 验证
 - 构建检查
-- 未来的发布自动化
+- 发布自动化
 
-## 不放什么
+## 🚫 不放什么
 - 本地开发脚本
 - 与 GitHub Actions 无关的说明文件

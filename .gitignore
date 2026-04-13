@@ -4,6 +4,7 @@ node_modules/
 dist/
 apps/*/dist/
 apps/*/.wrangler/
+apps/*/.env
 packages/*/dist/
 .omx/*
 !.omx/context/
@@ -16,3 +17,5 @@ packages/*/dist/
 !.omx/plans/*.md
 apps/web/playwright-report/
 apps/web/test-results/
+.spec-workflow/
+.omx/

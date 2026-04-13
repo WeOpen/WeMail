@@ -1,6 +1,7 @@
 import type { FeatureToggles } from "@wemail/shared";
 
 import type { AppBindings, AppStore } from "../../core/bindings";
+import { resolveAppConfig } from "../../core/config";
 import { hashPassword, readSessionCookie, setSessionCookie, verifyPassword } from "../../shared/auth";
 import { toSessionResponse } from "../routes/dto/auth-dto";
 import { jsonError, recordAudit } from "../services/audit-service";
@@ -24,7 +25,7 @@ export async function registerUserWithInvite(
 
   const shouldBeAdmin =
     (await c.store.users.count()) === 0 ||
-    c.env.ADMIN_EMAILS.split(",").map((v) => v.trim()).filter(Boolean).includes(payload.email);
+    resolveAppConfig(c.env).adminEmails.includes(payload.email);
 
   const user = await c.store.users.create({
     email: payload.email,
@@ -41,7 +42,7 @@ export async function registerUserWithInvite(
     updatedAt: new Date().toISOString()
   });
 
-  const session = await c.store.sessions.create({ userId: user.id, expiresAt: sessionExpiryIso() });
+  const session = await c.store.sessions.create({ userId: user.id, expiresAt: sessionExpiryIso(c.env) });
   setSessionCookie(rawContext, session.id);
   await recordAudit(c.store, "user", user.id, "register", { inviteCode: payload.inviteCode });
 
@@ -61,7 +62,7 @@ export async function loginUser(
     return jsonError("Invalid credentials", 401);
   }
 
-  const session = await c.store.sessions.create({ userId: user.id, expiresAt: sessionExpiryIso() });
+  const session = await c.store.sessions.create({ userId: user.id, expiresAt: sessionExpiryIso(c.env) });
   setSessionCookie(rawContext, session.id);
   await recordAudit(c.store, "user", user.id, "login", {});
 

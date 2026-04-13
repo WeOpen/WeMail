@@ -1,28 +1,23 @@
-import { APP_LIMITS } from "@wemail/shared";
-
 import type { AppBindings, AppStore, MailboxRecord } from "../core/bindings";
+import { resolveAppConfig } from "../core/config";
 import { buildExtraction, buildTelegramClient, createPreview, maybeRunAiFallback, parseRawEmail } from "../shared/mail";
 import { recordAudit } from "./services/audit-service";
 import { defaultFeatureToggles } from "./services/config-service";
 
 function retentionDays(env: AppBindings) {
-  const parsed = Number(env.MESSAGE_RETENTION_DAYS);
-  return Number.isFinite(parsed) ? parsed : APP_LIMITS.messageRetentionDays;
+  return resolveAppConfig(env).message.retentionDays;
 }
 
 function attachmentLimit(env: AppBindings) {
-  const parsed = Number(env.MAX_ATTACHMENT_BYTES);
-  return Number.isFinite(parsed) ? parsed : APP_LIMITS.maxAttachmentBytes;
+  return resolveAppConfig(env).attachments.maxBytes;
 }
 
 function totalAttachmentLimit(env: AppBindings) {
-  const parsed = Number(env.MAX_TOTAL_ATTACHMENT_BYTES);
-  return Number.isFinite(parsed) ? parsed : APP_LIMITS.maxTotalAttachmentBytes;
+  return resolveAppConfig(env).attachments.maxTotalBytes;
 }
 
 function aiFallbackLimit(env: AppBindings) {
-  const parsed = Number(env.AI_FALLBACK_LIMIT);
-  return Number.isFinite(parsed) ? parsed : APP_LIMITS.aiFallbackLimit;
+  return resolveAppConfig(env).ai.fallbackLimit;
 }
 
 async function getFeatureToggles(store: AppStore, env: AppBindings) {
@@ -102,7 +97,7 @@ async function processInboundForMailbox(
 
   const telegram = await store.telegram.findByUserId(mailbox.userId);
   if (telegram?.enabled) {
-    const client = buildTelegramClient(env.TELEGRAM_BOT_TOKEN);
+    const client = buildTelegramClient(resolveAppConfig(env).integrations.telegramBotToken);
     const result = await client?.sendMessage({
       chatId: telegram.chatId,
       text: `New mail for ${mailbox.address}\nFrom: ${parsed.fromAddress}\nSubject: ${parsed.subject}`

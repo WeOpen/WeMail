@@ -1,9 +1,11 @@
 import type { AppBindings, AppStore } from "../../core/bindings";
+import { resolveAppConfig } from "../../core/config";
 import { hashString, readSessionCookie } from "../../shared/auth";
 
-export function sessionExpiryIso() {
+export function sessionExpiryIso(env?: Pick<AppBindings, "SESSION_TTL_HOURS">) {
   const expires = new Date();
-  expires.setHours(expires.getHours() + 72);
+  const ttlHours = env ? resolveAppConfig(env as AppBindings).session.ttlHours : 72;
+  expires.setHours(expires.getHours() + ttlHours);
   return expires.toISOString();
 }
 

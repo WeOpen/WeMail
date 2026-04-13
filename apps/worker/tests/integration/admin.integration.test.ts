@@ -41,4 +41,22 @@ describe("worker admin integration", () => {
     const response = await app.request("/admin/users", {}, env);
     expect(response.status).toBe(403);
   });
+
+  it("rejects feature toggle routes without an admin session", async () => {
+    const { app, env } = createWorkerTestHarness();
+
+    const getResponse = await app.request("/admin/features", {}, env);
+    expect(getResponse.status).toBe(403);
+
+    const patchResponse = await app.request(
+      "/admin/features",
+      {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ outboundEnabled: false })
+      },
+      env
+    );
+    expect(patchResponse.status).toBe(403);
+  });
 });

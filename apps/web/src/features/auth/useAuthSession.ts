@@ -43,7 +43,7 @@ export function useAuthSession({ onSignedIn, onSignedOut, onNotice }: UseAuthSes
           inviteCode: form.get("inviteCode")
         });
         onSignedIn(nextSession);
-        onNotice("Account created. Welcome to your private mail control tower.");
+        onNotice("注册成功，欢迎进入你的邮箱工作台。");
         setAuthError(null);
       } catch (error) {
         setAuthError((error as Error).message);
@@ -62,7 +62,7 @@ export function useAuthSession({ onSignedIn, onSignedOut, onNotice }: UseAuthSes
           password: form.get("password")
         });
         onSignedIn(nextSession);
-        onNotice("Signed in.");
+        onNotice("登录成功。");
         setAuthError(null);
       } catch (error) {
         setAuthError((error as Error).message);
@@ -74,7 +74,7 @@ export function useAuthSession({ onSignedIn, onSignedOut, onNotice }: UseAuthSes
   const handleLogout = useCallback(async () => {
     await logoutSessionAction();
     onSignedOut();
-    onNotice("Signed out.");
+    onNotice("已退出登录。");
   }, [onNotice, onSignedOut]);
 
   return {

@@ -78,6 +78,43 @@ describe("worker app", () => {
     expect(response.headers.get("set-cookie")).toContain("Secure");
   });
 
+  it("uses SESSION_TTL_HOURS from config for both the cookie and stored session expiry", async () => {
+    const store = createInMemoryStore();
+    const app = createApp({ store });
+
+    const invite = await store.invites.create({
+      code: "INVITE-TTL",
+      createdByUserId: "system"
+    });
+
+    const before = Date.now();
+    const response = await app.request(
+      "/auth/register",
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          email: "ttl@example.com",
+          password: "password123",
+          inviteCode: invite.code
+        })
+      },
+      {
+        ...env,
+        SESSION_TTL_HOURS: "24"
+      }
+    );
+
+    const cookie = response.headers.get("set-cookie") ?? "";
+    const sessionId = cookie.match(/^([^=]+)=([^;]+)/)?.[2] ?? "";
+    const session = await store.sessions.findById(sessionId);
+
+    expect(cookie).toContain("Max-Age=86400");
+    expect(session).not.toBeNull();
+    expect(new Date(session!.expiresAt).getTime() - before).toBeLessThanOrEqual(24 * 60 * 60 * 1000 + 5000);
+    expect(new Date(session!.expiresAt).getTime() - before).toBeGreaterThan(23 * 60 * 60 * 1000);
+  });
+
   it("prevents anonymous mailbox creation", async () => {
     const app = createApp({ store: createInMemoryStore() });
 
@@ -145,5 +182,24 @@ describe("worker app", () => {
     const payload = (await listResponse.json()) as { mailboxes: Array<{ address: string }> };
     expect(payload.mailboxes).toHaveLength(1);
     expect(payload.mailboxes[0].address).toContain("@example.com");
+  });
+
+  it("returns an explicit origin for credentialed local CORS requests", async () => {
+    const app = createApp({ store: createInMemoryStore() });
+
+    const response = await app.request(
+      "/auth/session",
+      {
+        method: "OPTIONS",
+        headers: {
+          origin: "http://127.0.0.1:5173",
+          "access-control-request-method": "GET"
+        }
+      },
+      env
+    );
+
+    expect(response.headers.get("access-control-allow-origin")).toBe("http://127.0.0.1:5173");
+    expect(response.headers.get("access-control-allow-credentials")).toBe("true");
   });
 });

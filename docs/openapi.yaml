@@ -1,0 +1,1675 @@
+openapi: 3.1.0
+info:
+  title: wemail 后端 API
+  version: 1.0.0
+  description: |
+    这是当前 `apps/worker` 已实现 HTTP 接口的 OpenAPI 文档，内容按现有代码行为整理。
+
+    鉴权方式：
+    - Session Cookie：默认 Cookie 名为 `wemail_session`，实际名称可由后端配置 `COOKIE_NAME` 调整。
+    - API Key：通过 `Authorization: Bearer <token>` 或 `x-api-key: <token>` 传递。
+    - 管理接口：大多数 `/admin/*` 接口要求管理员角色 + Session 鉴权。
+
+    前端使用场景：
+    1. 注册与登录：`/auth/register`、`/auth/login`、`/auth/session`、`/auth/logout`
+    2. 邮箱管理：`/api/mailboxes`、`/api/mailboxes/{id}`
+    3. 收信与读信：`/api/messages`、`/api/messages/{id}`、`/api/messages/{messageId}/attachments/{attachmentId}`
+    4. 外发邮件：`/api/outbound`、`/api/outbound/send`
+    5. 个人设置：`/api/telegram`、`/api/keys`、`/api/keys/{id}`
+    6. 管理后台：`/admin/users`、`/admin/invites`、`/admin/mailboxes`、`/admin/quotas/{userId}`、`/admin/features`
+
+    说明：
+    - `/admin/features` 已与其余管理接口对齐，要求管理员角色 + Session 鉴权。
+    - 部分接口会受到限流保护：`/auth/register`、`/auth/login`、`/api/mailboxes`、`/api/outbound/send`、`/api/keys`。
+servers:
+  - url: /
+    description: 当前 Worker 服务根路径
+
+externalDocs:
+  description: 中文 API 使用指南
+  url: ./api-guide.md
+
+x-tagGroups:
+  - name: 基础能力
+    tags:
+      - 健康检查
+      - 认证
+  - name: 用户核心流程
+    tags:
+      - 邮箱
+      - 消息
+      - 外发
+      - 设置
+  - name: 管理后台
+    tags:
+      - 管理
+
+tags:
+  - name: 健康检查
+    description: 服务可用性、环境信息和功能开关总览。
+  - name: 认证
+    description: 注册、登录、退出和当前会话查询。
+  - name: 邮箱
+    description: 用户邮箱的创建、查询和删除。
+  - name: 消息
+    description: 收信列表、消息详情和附件读取。
+  - name: 外发
+    description: 外发记录查询与邮件发送。
+  - name: 设置
+    description: Telegram 订阅、API Key 管理等个人设置能力。
+  - name: 管理
+    description: 管理员用户、邀请码、配额和功能开关相关接口。
+
+paths:
+  /health:
+    get:
+      tags: [健康检查]
+      summary: 获取服务健康状态
+      description: 返回服务可用性、运行环境、应用名和当前功能开关状态。
+      operationId: getHealth
+      responses:
+        "200":
+          description: 请求成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+
+  /auth/register:
+    post:
+      tags: [认证]
+      summary: 使用邀请码注册账号
+      description: |
+        使用邮箱、密码和邀请码创建账号。
+
+        当前实现中：
+        - 第一个注册成功的用户会被授予 `admin` 角色。
+        - 邮箱命中 `ADMIN_EMAILS` 配置时也会被授予 `admin` 角色。
+        - 注册成功后会立即创建 Session 并写入 Cookie。
+      operationId: registerUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterRequest"
+            examples:
+              默认注册示例:
+                value:
+                  email: admin@example.com
+                  password: password123
+                  inviteCode: INVITE-ABCD1234
+      responses:
+        "201":
+          description: 注册成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionSummary"
+              examples:
+                注册成功示例:
+                  value:
+                    user:
+                      id: user_001
+                      email: admin@example.com
+                      role: admin
+                      createdAt: 2026-04-12T13:00:00.000Z
+                    featureToggles:
+                      aiEnabled: true
+                      telegramEnabled: true
+                      outboundEnabled: true
+                      mailboxCreationEnabled: true
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          description: 邀请码无效、已使用或已禁用
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                inviteInvalid:
+                  value:
+                    error: Invite is invalid
+        "409":
+          description: 用户已存在
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                userExists:
+                  value:
+                    error: User already exists
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+
+  /auth/login:
+    post:
+      tags: [认证]
+      summary: 登录账号
+      description: 登录成功后会创建 Session 并写入 Cookie。
+      operationId: loginUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+            examples:
+              密码登录示例:
+                value:
+                  email: member@example.com
+                  password: password123
+      responses:
+        "200":
+          description: 登录成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionSummary"
+              examples:
+                登录成功示例:
+                  value:
+                    user:
+                      id: user_002
+                      email: member@example.com
+                      role: member
+                      createdAt: 2026-04-12T13:05:00.000Z
+                    featureToggles:
+                      aiEnabled: true
+                      telegramEnabled: true
+                      outboundEnabled: true
+                      mailboxCreationEnabled: true
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          description: 邮箱或密码错误
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                invalidCredentials:
+                  value:
+                    error: Invalid credentials
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+
+  /auth/logout:
+    post:
+      tags: [认证]
+      summary: 退出登录
+      description: 清理当前 Session Cookie；若存在服务端 Session，也会一并删除。
+      operationId: logoutUser
+      responses:
+        "200":
+          description: 退出成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OkResponse"
+
+  /auth/session:
+    get:
+      tags: [认证]
+      summary: 获取当前登录态
+      description: |
+        返回当前认证用户和功能开关。
+
+        当前实现支持：
+        - Session Cookie
+        - API Key
+      operationId: getCurrentSession
+      security:
+        - cookieAuth: []
+        - bearerAuth: []
+      responses:
+        "200":
+          description: 请求成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionSummary"
+        "401":
+          description: 未认证
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                notAuthenticated:
+                  value:
+                    error: Not authenticated
+        "404":
+          description: 当前用户不存在
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                userNotFound:
+                  value:
+                    error: User not found
+
+  /api/mailboxes:
+    get:
+      tags: [邮箱]
+      summary: 获取当前用户邮箱列表
+      operationId: listMailboxes
+      security:
+        - cookieAuth: []
+        - bearerAuth: []
+      responses:
+        "200":
+          description: 请求成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MailboxListResponse"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+    post:
+      tags: [邮箱]
+      summary: 创建邮箱
+      description: |
+        为当前用户创建一个新的临时邮箱。
+
+        约束：
+        - 需要已认证用户。
+        - 受 `mailboxCreationEnabled` 功能开关控制。
+        - 受 `MAILBOX_LIMIT` 配置限制。
+        - 该路径受限流保护。
+      operationId: createMailbox
+      security:
+        - cookieAuth: []
+        - bearerAuth: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MailboxCreateRequest"
+            examples:
+              创建邮箱示例:
+                value:
+                  label: Primary inbox
+      responses:
+        "201":
+          description: 创建成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MailboxCreateResponse"
+              examples:
+                创建成功示例:
+                  value:
+                    mailbox:
+                      id: mailbox_001
+                      address: primary-inbox-a1b2c3d4@example.com
+                      label: Primary inbox
+                      createdAt: 2026-04-12T13:10:00.000Z
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "403":
+          description: 功能关闭或数量超限
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                mailboxCreationDisabled:
+                  value:
+                    error: Mailbox creation disabled
+                mailboxLimitReached:
+                  value:
+                    error: Mailbox limit reached
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+
+  /api/mailboxes/{id}:
+    delete:
+      tags: [邮箱]
+      summary: 删除邮箱
+      operationId: deleteMailbox
+      security:
+        - cookieAuth: []
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/MailboxIdPath"
+      responses:
+        "200":
+          description: 删除成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OkResponse"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "404":
+          description: 邮箱不存在或不属于当前用户
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                mailboxNotFound:
+                  value:
+                    error: Mailbox not found
+
+  /api/messages:
+    get:
+      tags: [消息]
+      summary: 按邮箱获取消息列表
+      operationId: listMessages
+      security:
+        - cookieAuth: []
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/MailboxIdQuery"
+      responses:
+        "200":
+          description: 请求成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageListResponse"
+              examples:
+                消息列表示例:
+                  value:
+                    messages:
+                      - id: message_001
+                        mailboxId: mailbox_001
+                        fromAddress: service@example.com
+                        subject: Your verification code
+                        previewText: Code 123456
+                        bodyText: Use code 123456 to continue.
+                        extraction:
+                          method: regex
+                          type: auth_code
+                          value: "123456"
+                          label: Verification code
+                        oversizeStatus: null
+                        attachmentCount: 0
+                        attachments: []
+                        receivedAt: 2026-04-12T13:20:00.000Z
+        "400":
+          description: 缺少 mailboxId 参数
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                mailboxRequired:
+                  value:
+                    error: mailboxId is required
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "404":
+          description: 邮箱不存在或不属于当前用户
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                mailboxNotFound:
+                  value:
+                    error: Mailbox not found
+
+  /api/messages/{id}:
+    get:
+      tags: [消息]
+      summary: 获取消息详情
+      operationId: getMessageDetail
+      security:
+        - cookieAuth: []
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/MessageIdPath"
+      responses:
+        "200":
+          description: 请求成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageDetailResponse"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "404":
+          description: 消息不存在或不属于当前用户
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                messageNotFound:
+                  value:
+                    error: Message not found
+
+  /api/messages/{messageId}/attachments/{attachmentId}:
+    get:
+      tags: [消息]
+      summary: 获取消息附件
+      description: |
+        当前实现有两种返回模式：
+        - 若未配置 R2 附件存储，返回附件元数据 JSON。
+        - 若已配置 R2 且对象存在，直接返回附件二进制流。
+      operationId: getMessageAttachment
+      security:
+        - cookieAuth: []
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/MessageIdPathNamed"
+        - $ref: "#/components/parameters/AttachmentIdPath"
+      responses:
+        "200":
+          description: 获取成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AttachmentMetadataResponse"
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "404":
+          description: 消息、附件或对象不存在
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                messageNotFound:
+                  value:
+                    error: Message not found
+                attachmentNotFound:
+                  value:
+                    error: Attachment not found
+                attachmentMissing:
+                  value:
+                    error: Attachment missing
+
+  /api/outbound:
+    get:
+      tags: [外发]
+      summary: 获取邮箱外发记录
+      operationId: listOutboundMessages
+      security:
+        - cookieAuth: []
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/MailboxIdQuery"
+      responses:
+        "200":
+          description: 请求成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OutboundListResponse"
+        "400":
+          description: 缺少 mailboxId 参数
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                mailboxRequired:
+                  value:
+                    error: mailboxId is required
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "404":
+          description: 邮箱不存在或不属于当前用户
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                mailboxNotFound:
+                  value:
+                    error: Mailbox not found
+
+  /api/outbound/send:
+    post:
+      tags: [外发]
+      summary: 发送邮件
+      description: |
+        以当前用户拥有的邮箱发出邮件。
+
+        约束：
+        - 需要已认证用户。
+        - 受 `outboundEnabled` 功能开关控制。
+        - 受每日发送配额限制。
+        - 依赖 Resend 配置。
+        - 该路径受限流保护。
+      operationId: sendOutboundMessage
+      security:
+        - cookieAuth: []
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OutboundSendRequest"
+            examples:
+              外发邮件示例:
+                value:
+                  mailboxId: mailbox_001
+                  toAddress: target@example.com
+                  subject: Hello
+                  bodyText: World
+      responses:
+        "200":
+          description: 发送成功，返回最新配额状态
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QuotaResponse"
+              examples:
+                发送成功示例:
+                  value:
+                    ok: true
+                    quota:
+                      dailyLimit: 20
+                      sendsToday: 1
+                      disabled: false
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "403":
+          description: 外发功能关闭或配额耗尽
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                outboundDisabled:
+                  value:
+                    error: Outbound sending disabled
+                quotaExhausted:
+                  value:
+                    error: Outbound quota exhausted
+        "404":
+          description: 邮箱不存在或不属于当前用户
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                mailboxNotFound:
+                  value:
+                    error: Mailbox not found
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "502":
+          description: 外部邮件服务发送失败
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: Resend 未配置
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                resendNotConfigured:
+                  value:
+                    error: Resend not configured
+
+  /api/telegram:
+    get:
+      tags: [设置]
+      summary: 获取 Telegram 订阅状态
+      operationId: getTelegramSubscription
+      security:
+        - cookieAuth: []
+        - bearerAuth: []
+      responses:
+        "200":
+          description: 请求成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TelegramSubscriptionResponse"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+    put:
+      tags: [设置]
+      summary: 更新 Telegram 订阅状态
+      description: 受 `telegramEnabled` 功能开关控制。
+      operationId: updateTelegramSubscription
+      security:
+        - cookieAuth: []
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TelegramUpdateRequest"
+            examples:
+              Telegram 订阅示例:
+                value:
+                  chatId: "123456789"
+                  enabled: true
+      responses:
+        "200":
+          description: 更新成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TelegramSubscriptionResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "403":
+          description: Telegram 功能关闭
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                telegramDisabled:
+                  value:
+                    error: Telegram disabled
+
+  /api/keys:
+    get:
+      tags: [设置]
+      summary: 获取当前用户 API Key 列表
+      operationId: listApiKeys
+      security:
+        - cookieAuth: []
+        - bearerAuth: []
+      responses:
+        "200":
+          description: 请求成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiKeyListResponse"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+    post:
+      tags: [设置]
+      summary: 创建 API Key
+      description: |
+        创建新的 API Key。
+
+        当前实现要求：
+        - 用户必须已登录。
+        - 必须来自 Session 鉴权请求，不能通过已有 API Key 再创建 API Key。
+        - 该路径受限流保护。
+      operationId: createApiKey
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApiKeyCreateRequest"
+      responses:
+        "201":
+          description: 创建成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiKeyCreateResponse"
+              examples:
+                创建成功示例:
+                  value:
+                    key:
+                      secret: wk_live_example_secret_value
+                      prefix: wk_live_exa
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "403":
+          description: 请求不是 Session 鉴权
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                sessionRequired:
+                  value:
+                    error: API keys must be created from a session-authenticated request
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+
+  /api/keys/{id}:
+    delete:
+      tags: [设置]
+      summary: 吊销 API Key
+      operationId: revokeApiKey
+      security:
+        - cookieAuth: []
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ApiKeyIdPath"
+      responses:
+        "200":
+          description: 吊销成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OkResponse"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+
+  /admin/features:
+    get:
+      tags: [管理]
+      summary: 获取功能开关
+      description: 需要管理员角色，且必须使用 Session 鉴权。
+      operationId: getFeatureToggles
+      security:
+        - cookieAuth: []
+      responses:
+        "200":
+          description: 请求成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FeatureToggleResponse"
+              examples:
+                当前功能开关示例:
+                  value:
+                    featureToggles:
+                      aiEnabled: true
+                      telegramEnabled: true
+                      outboundEnabled: true
+                      mailboxCreationEnabled: true
+        "403":
+          $ref: "#/components/responses/AdminSessionRequired"
+    patch:
+      tags: [管理]
+      summary: 更新功能开关
+      description: 需要管理员角色，且必须使用 Session 鉴权。
+      operationId: updateFeatureToggles
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FeatureTogglePatchRequest"
+            examples:
+              部分更新示例:
+                value:
+                  outboundEnabled: false
+                  telegramEnabled: false
+      responses:
+        "200":
+          description: 更新成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FeatureToggleResponse"
+        "403":
+          $ref: "#/components/responses/AdminSessionRequired"
+
+  /admin/users:
+    get:
+      tags: [管理]
+      summary: 获取用户列表
+      description: 需要管理员角色，且必须使用 Session 鉴权。
+      operationId: listAdminUsers
+      security:
+        - cookieAuth: []
+      responses:
+        "200":
+          description: 请求成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminUserListResponse"
+              examples:
+                用户列表示例:
+                  value:
+                    users:
+                      - id: user_admin_001
+                        email: admin@example.com
+                        role: admin
+                        createdAt: 2026-04-12T12:00:00.000Z
+                      - id: user_member_001
+                        email: member@example.com
+                        role: member
+                        createdAt: 2026-04-12T12:30:00.000Z
+        "403":
+          $ref: "#/components/responses/AdminSessionRequired"
+
+  /admin/invites:
+    get:
+      tags: [管理]
+      summary: 获取邀请码列表
+      description: 需要管理员角色，且必须使用 Session 鉴权。
+      operationId: listAdminInvites
+      security:
+        - cookieAuth: []
+      responses:
+        "200":
+          description: 请求成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InviteListResponse"
+              examples:
+                邀请码列表示例:
+                  value:
+                    invites:
+                      - id: invite_001
+                        code: INVITE-ABCD1234
+                        createdAt: 2026-04-12T12:00:00.000Z
+                        redeemedAt: null
+                        disabledAt: null
+                        status: ready
+        "403":
+          $ref: "#/components/responses/AdminSessionRequired"
+    post:
+      tags: [管理]
+      summary: 创建邀请码
+      description: 需要管理员角色，且必须使用 Session 鉴权。
+      operationId: createAdminInvite
+      security:
+        - cookieAuth: []
+      responses:
+        "201":
+          description: 创建成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreateInviteResponse"
+              examples:
+                创建邀请码示例:
+                  value:
+                    invite:
+                      id: invite_002
+                      code: INVITE-ZYXW9876
+                      createdByUserId: user_admin_001
+                      redeemedByUserId: null
+                      redeemedAt: null
+                      disabledAt: null
+                      createdAt: 2026-04-12T13:40:00.000Z
+        "403":
+          $ref: "#/components/responses/AdminSessionRequired"
+
+  /admin/invites/{id}:
+    delete:
+      tags: [管理]
+      summary: 禁用邀请码
+      description: 需要管理员角色，且必须使用 Session 鉴权。
+      operationId: disableAdminInvite
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: "#/components/parameters/InviteIdPath"
+      responses:
+        "200":
+          description: 禁用成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OkResponse"
+        "403":
+          $ref: "#/components/responses/AdminSessionRequired"
+
+  /admin/mailboxes:
+    get:
+      tags: [管理]
+      summary: 获取全量邮箱列表
+      description: 需要管理员角色，且必须使用 Session 鉴权。
+      operationId: listAdminMailboxes
+      security:
+        - cookieAuth: []
+      responses:
+        "200":
+          description: 请求成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminMailboxListResponse"
+              examples:
+                全量邮箱列表示例:
+                  value:
+                    mailboxes:
+                      - id: mailbox_001
+                        userId: user_member_001
+                        address: primary@example.com
+                        label: Primary inbox
+                        createdAt: 2026-04-12T13:10:00.000Z
+        "403":
+          $ref: "#/components/responses/AdminSessionRequired"
+
+  /admin/quotas/{userId}:
+    get:
+      tags: [管理]
+      summary: 获取用户外发配额
+      description: 需要管理员角色，且必须使用 Session 鉴权。
+      operationId: getAdminQuota
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: "#/components/parameters/UserIdPath"
+      responses:
+        "200":
+          description: 请求成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminQuotaResponse"
+              examples:
+                配额读取示例:
+                  value:
+                    quota:
+                      userId: user_member_001
+                      dailyLimit: 20
+                      sendsToday: 3
+                      disabled: false
+                      updatedAt: 2026-04-12T13:50:00.000Z
+        "403":
+          $ref: "#/components/responses/AdminSessionRequired"
+    patch:
+      tags: [管理]
+      summary: 更新用户外发配额
+      description: |
+        需要管理员角色，且必须使用 Session 鉴权。
+
+        请求体字段均为可选：
+        - `dailyLimit` 未传时沿用当前值
+        - `disabled` 未传时沿用当前值
+      operationId: updateAdminQuota
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: "#/components/parameters/UserIdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/QuotaUpdateRequest"
+      responses:
+        "200":
+          description: 更新成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminQuotaResponse"
+              examples:
+                配额更新示例:
+                  value:
+                    quota:
+                      userId: user_member_001
+                      dailyLimit: 50
+                      sendsToday: 3
+                      disabled: false
+                      updatedAt: 2026-04-12T13:55:00.000Z
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/AdminSessionRequired"
+
+components:
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: wemail_session
+      description: 默认 Session Cookie 名。实际部署时可能由 `COOKIE_NAME` 配置覆盖。
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: |
+        API Key 认证。
+        当前实现支持两种传法：
+        - `Authorization: Bearer <token>`
+        - `x-api-key: <token>`
+
+  parameters:
+    MailboxIdQuery:
+      name: mailboxId
+      in: query
+      required: true
+      description: 邮箱 ID
+      schema:
+        type: string
+    MailboxIdPath:
+      name: id
+      in: path
+      required: true
+      description: 邮箱 ID
+      schema:
+        type: string
+    MessageIdPath:
+      name: id
+      in: path
+      required: true
+      description: 消息 ID
+      schema:
+        type: string
+    MessageIdPathNamed:
+      name: messageId
+      in: path
+      required: true
+      description: 消息 ID
+      schema:
+        type: string
+    AttachmentIdPath:
+      name: attachmentId
+      in: path
+      required: true
+      description: 附件 ID
+      schema:
+        type: string
+    ApiKeyIdPath:
+      name: id
+      in: path
+      required: true
+      description: API Key ID
+      schema:
+        type: string
+    InviteIdPath:
+      name: id
+      in: path
+      required: true
+      description: 邀请码 ID
+      schema:
+        type: string
+    UserIdPath:
+      name: userId
+      in: path
+      required: true
+      description: 用户 ID
+      schema:
+        type: string
+
+  responses:
+    BadRequest:
+      description: 请求参数或请求体不合法
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    TooManyRequests:
+      description: 请求频率过高
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          examples:
+            rateLimitExceeded:
+              value:
+                error: Rate limit exceeded
+    AuthenticationRequired:
+      description: 需要先完成认证
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          examples:
+            authRequired:
+              value:
+                error: Authentication required
+    AdminSessionRequired:
+      description: 需要管理员 Session
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          examples:
+            adminSessionRequired:
+              value:
+                error: Admin session required
+
+  schemas:
+    ErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+          description: 错误信息
+
+    OkResponse:
+      type: object
+      required: [ok]
+      properties:
+        ok:
+          type: boolean
+          const: true
+
+    FeatureToggles:
+      type: object
+      required:
+        - aiEnabled
+        - telegramEnabled
+        - outboundEnabled
+        - mailboxCreationEnabled
+      properties:
+        aiEnabled:
+          type: boolean
+          description: 是否启用 AI 提取兜底
+        telegramEnabled:
+          type: boolean
+          description: 是否启用 Telegram 通知功能
+        outboundEnabled:
+          type: boolean
+          description: 是否允许外发邮件
+        mailboxCreationEnabled:
+          type: boolean
+          description: 是否允许创建邮箱
+
+    HealthResponse:
+      type: object
+      required: [ok, environment, appName, featureToggles]
+      properties:
+        ok:
+          type: boolean
+          const: true
+        environment:
+          type: string
+          description: 运行环境标识，如 `local`、`staging`、`production`
+        appName:
+          type: string
+          description: 应用名
+        featureToggles:
+          $ref: "#/components/schemas/FeatureToggles"
+
+    UserSummary:
+      type: object
+      required: [id, email, role, createdAt]
+      properties:
+        id:
+          type: string
+        email:
+          type: string
+          format: email
+        role:
+          type: string
+          enum: [admin, member]
+        createdAt:
+          type: string
+          format: date-time
+
+    SessionSummary:
+      type: object
+      required: [user, featureToggles]
+      properties:
+        user:
+          $ref: "#/components/schemas/UserSummary"
+        featureToggles:
+          $ref: "#/components/schemas/FeatureToggles"
+
+    RegisterRequest:
+      type: object
+      required: [email, password, inviteCode]
+      properties:
+        email:
+          type: string
+          format: email
+          description: 注册邮箱
+        password:
+          type: string
+          description: 登录密码
+        inviteCode:
+          type: string
+          description: 邀请码
+
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+
+    MailboxSummary:
+      type: object
+      required: [id, address, label, createdAt]
+      properties:
+        id:
+          type: string
+        address:
+          type: string
+          description: 完整邮箱地址
+        label:
+          type: string
+          description: 用户自定义标签
+        createdAt:
+          type: string
+          format: date-time
+
+    MailboxListResponse:
+      type: object
+      required: [mailboxes]
+      properties:
+        mailboxes:
+          type: array
+          items:
+            $ref: "#/components/schemas/MailboxSummary"
+
+    MailboxCreateRequest:
+      type: object
+      properties:
+        label:
+          type: string
+          description: 邮箱标签；缺省时默认使用 `Temporary inbox`
+      additionalProperties: false
+
+    MailboxCreateResponse:
+      type: object
+      required: [mailbox]
+      properties:
+        mailbox:
+          $ref: "#/components/schemas/MailboxSummary"
+
+    ExtractionResult:
+      type: object
+      required: [method, type, value, label]
+      properties:
+        method:
+          type: string
+          enum: [regex, ai, none]
+        type:
+          type: string
+          enum: [auth_code, auth_link, service_link, subscription_link, other_link, none]
+        value:
+          type: string
+        label:
+          type: string
+
+    MessageAttachmentSummary:
+      type: object
+      required: [id, filename, contentType, size, key]
+      properties:
+        id:
+          type: string
+        filename:
+          type: string
+        contentType:
+          type: string
+        size:
+          type: integer
+        key:
+          type: string
+          description: 附件在对象存储中的 key
+
+    MessageSummary:
+      type: object
+      required:
+        - id
+        - mailboxId
+        - fromAddress
+        - subject
+        - previewText
+        - bodyText
+        - extraction
+        - oversizeStatus
+        - attachmentCount
+        - attachments
+        - receivedAt
+      properties:
+        id:
+          type: string
+        mailboxId:
+          type: string
+        fromAddress:
+          type: string
+        subject:
+          type: string
+        previewText:
+          type: string
+        bodyText:
+          type: string
+        extraction:
+          $ref: "#/components/schemas/ExtractionResult"
+        oversizeStatus:
+          type: string
+          nullable: true
+          description: 超限附件处理状态；未超限时为 null
+        attachmentCount:
+          type: integer
+        attachments:
+          type: array
+          items:
+            $ref: "#/components/schemas/MessageAttachmentSummary"
+        receivedAt:
+          type: string
+          format: date-time
+
+    MessageListResponse:
+      type: object
+      required: [messages]
+      properties:
+        messages:
+          type: array
+          items:
+            $ref: "#/components/schemas/MessageSummary"
+
+    MessageDetailResponse:
+      type: object
+      required: [message]
+      properties:
+        message:
+          $ref: "#/components/schemas/MessageSummary"
+
+    AttachmentMetadataResponse:
+      type: object
+      required: [attachment]
+      properties:
+        attachment:
+          $ref: "#/components/schemas/MessageAttachmentSummary"
+
+    OutboundMessageSummary:
+      type: object
+      required: [id, toAddress, subject, status, errorText, createdAt]
+      properties:
+        id:
+          type: string
+        toAddress:
+          type: string
+        subject:
+          type: string
+        status:
+          type: string
+          enum: [sent, failed]
+        errorText:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+
+    OutboundListResponse:
+      type: object
+      required: [messages]
+      properties:
+        messages:
+          type: array
+          items:
+            $ref: "#/components/schemas/OutboundMessageSummary"
+
+    OutboundSendRequest:
+      type: object
+      required: [mailboxId, toAddress, subject, bodyText]
+      properties:
+        mailboxId:
+          type: string
+        toAddress:
+          type: string
+          format: email
+        subject:
+          type: string
+        bodyText:
+          type: string
+
+    QuotaSummary:
+      type: object
+      required: [userId, dailyLimit, sendsToday, disabled, updatedAt]
+      properties:
+        userId:
+          type: string
+        dailyLimit:
+          type: integer
+        sendsToday:
+          type: integer
+        disabled:
+          type: boolean
+        updatedAt:
+          type: string
+          format: date-time
+
+    QuotaResponse:
+      type: object
+      required: [ok, quota]
+      properties:
+        ok:
+          type: boolean
+          const: true
+        quota:
+          type: object
+          required: [dailyLimit, sendsToday, disabled]
+          properties:
+            dailyLimit:
+              type: integer
+            sendsToday:
+              type: integer
+            disabled:
+              type: boolean
+
+    TelegramSubscription:
+      type: object
+      required: [chatId, enabled]
+      properties:
+        chatId:
+          type: string
+        enabled:
+          type: boolean
+
+    TelegramSubscriptionResponse:
+      type: object
+      required: [subscription]
+      properties:
+        subscription:
+          anyOf:
+            - $ref: "#/components/schemas/TelegramSubscription"
+            - type: "null"
+
+    TelegramUpdateRequest:
+      type: object
+      required: [chatId, enabled]
+      properties:
+        chatId:
+          type: string
+        enabled:
+          type: boolean
+
+    ApiKeySummary:
+      type: object
+      required: [id, label, prefix, createdAt, lastUsedAt, revokedAt]
+      properties:
+        id:
+          type: string
+        label:
+          type: string
+        prefix:
+          type: string
+          description: 用于展示的前缀，不是完整密钥
+        createdAt:
+          type: string
+          format: date-time
+        lastUsedAt:
+          type: string
+          format: date-time
+          nullable: true
+        revokedAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    ApiKeyListResponse:
+      type: object
+      required: [keys]
+      properties:
+        keys:
+          type: array
+          items:
+            $ref: "#/components/schemas/ApiKeySummary"
+
+    ApiKeyCreateRequest:
+      type: object
+      properties:
+        label:
+          type: string
+          description: Key 标签；缺省时默认使用 `Default key`
+      additionalProperties: false
+
+    ApiKeyCreateResponse:
+      type: object
+      required: [key]
+      properties:
+        key:
+          type: object
+          required: [secret, prefix]
+          properties:
+            secret:
+              type: string
+              description: 完整 API Key，仅创建时返回一次
+            prefix:
+              type: string
+              description: 用于展示和审计的前缀
+
+    FeatureToggleResponse:
+      type: object
+      required: [featureToggles]
+      properties:
+        featureToggles:
+          $ref: "#/components/schemas/FeatureToggles"
+
+    FeatureTogglePatchRequest:
+      type: object
+      properties:
+        aiEnabled:
+          type: boolean
+        telegramEnabled:
+          type: boolean
+        outboundEnabled:
+          type: boolean
+        mailboxCreationEnabled:
+          type: boolean
+      additionalProperties: false
+
+    InviteListItem:
+      type: object
+      required: [id, code, createdAt, redeemedAt, disabledAt, status]
+      properties:
+        id:
+          type: string
+        code:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        redeemedAt:
+          type: string
+          format: date-time
+          nullable: true
+        disabledAt:
+          type: string
+          format: date-time
+          nullable: true
+        status:
+          type: string
+          enum: [ready, redeemed, disabled]
+
+    InviteRecord:
+      type: object
+      required:
+        - id
+        - code
+        - createdByUserId
+        - redeemedByUserId
+        - redeemedAt
+        - disabledAt
+        - createdAt
+      properties:
+        id:
+          type: string
+        code:
+          type: string
+        createdByUserId:
+          type: string
+          nullable: true
+        redeemedByUserId:
+          type: string
+          nullable: true
+        redeemedAt:
+          type: string
+          format: date-time
+          nullable: true
+        disabledAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+
+    InviteListResponse:
+      type: object
+      required: [invites]
+      properties:
+        invites:
+          type: array
+          items:
+            $ref: "#/components/schemas/InviteListItem"
+
+    CreateInviteResponse:
+      type: object
+      required: [invite]
+      properties:
+        invite:
+          $ref: "#/components/schemas/InviteRecord"
+
+    AdminMailboxRecord:
+      type: object
+      required: [id, userId, address, label, createdAt]
+      properties:
+        id:
+          type: string
+        userId:
+          type: string
+        address:
+          type: string
+        label:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    AdminMailboxListResponse:
+      type: object
+      required: [mailboxes]
+      properties:
+        mailboxes:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminMailboxRecord"
+
+    AdminUserListResponse:
+      type: object
+      required: [users]
+      properties:
+        users:
+          type: array
+          items:
+            $ref: "#/components/schemas/UserSummary"
+
+    AdminQuotaResponse:
+      type: object
+      required: [quota]
+      properties:
+        quota:
+          $ref: "#/components/schemas/QuotaSummary"
+
+    QuotaUpdateRequest:
+      type: object
+      properties:
+        dailyLimit:
+          type: number
+        disabled:
+          type: boolean
+      additionalProperties: false

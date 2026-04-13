@@ -28,7 +28,7 @@ export function useSettingsData({ session, onNotice }: UseSettingsDataOptions) {
   const createApiKey = useCallback(
     async (label: string) => {
       const payload = await createApiKeyAction(label);
-      onNotice(`API key created. Copy it now: ${payload.key.secret}`);
+      onNotice(`API Key 已创建，请立即复制：${payload.key.secret}`);
       await refreshSettingsData();
     },
     [onNotice, refreshSettingsData]
@@ -37,7 +37,7 @@ export function useSettingsData({ session, onNotice }: UseSettingsDataOptions) {
   const revokeApiKey = useCallback(
     async (keyId: string) => {
       await revokeApiKeyAction(keyId);
-      onNotice("API key revoked.");
+      onNotice("API Key 已吊销。");
       await refreshSettingsData();
     },
     [onNotice, refreshSettingsData]
@@ -51,7 +51,7 @@ export function useSettingsData({ session, onNotice }: UseSettingsDataOptions) {
         chatId: form.get("chatId"),
         enabled: form.get("enabled") === "on"
       });
-      onNotice("Telegram settings saved.");
+      onNotice("Telegram 设置已保存。");
       await refreshSettingsData();
     },
     [onNotice, refreshSettingsData]

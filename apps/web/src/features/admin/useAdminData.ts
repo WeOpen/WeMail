@@ -35,14 +35,14 @@ export function useAdminData({ session, onNotice }: UseAdminDataOptions) {
 
   const createInvite = useCallback(async () => {
     await createInviteAction();
-    onNotice("Invite created.");
+    onNotice("邀请码已创建。");
     await refreshAdminData();
   }, [onNotice, refreshAdminData]);
 
   const disableInvite = useCallback(
     async (inviteId: string) => {
       await disableInviteAction(inviteId);
-      onNotice("Invite disabled.");
+      onNotice("邀请码已停用。");
       await refreshAdminData();
     },
     [onNotice, refreshAdminData]
@@ -60,7 +60,7 @@ export function useAdminData({ session, onNotice }: UseAdminDataOptions) {
         dailyLimit: Number(form.get("dailyLimit")),
         disabled: form.get("disabled") === "on"
       });
-      onNotice("Quota updated.");
+      onNotice("用户配额已更新。");
       await refreshAdminData();
     },
     [onNotice, refreshAdminData]
@@ -70,7 +70,7 @@ export function useAdminData({ session, onNotice }: UseAdminDataOptions) {
     async (nextFeatureToggles: FeatureToggles) => {
       await updateFeatureTogglesAction(nextFeatureToggles);
       setAdminFeatures(nextFeatureToggles);
-      onNotice("Feature toggles updated.");
+      onNotice("功能开关已更新。");
     },
     [onNotice]
   );

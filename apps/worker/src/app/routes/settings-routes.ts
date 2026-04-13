@@ -64,16 +64,27 @@ export function registerSettingsRoutes(app: Hono<AppContext>) {
     return c.json(await revokeApiKeyUseCase(getAppServices(c), { userId: user.id, keyId: c.req.param("id") }));
   });
 
-  app.get("/admin/features", async (c) => c.json({ featureToggles: c.get("featureToggles") }));
+  app.get("/admin/features", async (c) => {
+    const user = requireUser(c);
+    if (!user || user.role !== "admin" || !requireSessionAuth(c)) {
+      return jsonError("Admin session required", 403);
+    }
+    return c.json({ featureToggles: c.get("featureToggles") });
+  });
 
   app.patch("/admin/features", async (c) => {
+    const user = requireUser(c);
+    if (!user || user.role !== "admin" || !requireSessionAuth(c)) {
+      return jsonError("Admin session required", 403);
+    }
+
     const next = await updateFeatureTogglesUseCase(
       {
         ...getAppServices(c),
         currentFeatureToggles: c.get("featureToggles")
       },
       (await c.req.json()) as Partial<FeatureToggles>,
-      requireUser(c)!.id
+      user.id
     );
     return c.json({ featureToggles: next });
   });

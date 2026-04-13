@@ -1,5 +1,20 @@
+function resolveApiUrl(path: string) {
+  if (/^https?:\/\//.test(path)) return path;
+
+  const configuredBase = import.meta.env.VITE_API_BASE_URL;
+  if (configuredBase) {
+    return `${configuredBase}${path}`;
+  }
+
+  if (import.meta.env.DEV) {
+    return `http://127.0.0.1:8787${path}`;
+  }
+
+  return path;
+}
+
 export async function apiFetch<T>(path: string, init?: RequestInit) {
-  const response = await fetch(path, {
+  const response = await fetch(resolveApiUrl(path), {
     credentials: "include",
     ...init,
     headers: {

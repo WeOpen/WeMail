@@ -1,6 +1,7 @@
 import type { FeatureToggles } from "@wemail/shared";
 
 import type { AppBindings, AppStore } from "../../core/bindings";
+import { resolveAppConfig } from "../../core/config";
 import { buildResendClient } from "../../shared/mail";
 import { jsonError, recordAudit } from "../services/audit-service";
 import { getOwnedMailbox } from "../services/mailbox-access-service";
@@ -37,11 +38,12 @@ export async function sendOutboundMessageUseCase(
     return jsonError("Outbound quota exhausted", 403);
   }
 
-  const resend = buildResendClient(context.env.RESEND_API_KEY);
+  const config = resolveAppConfig(context.env);
+  const resend = buildResendClient(config.integrations.resendApiKey);
   if (!resend) return jsonError("Resend not configured", 503);
 
   const result = await resend.sendEmail({
-    from: context.env.RESEND_FROM ?? `${context.env.APP_NAME} <no-reply@${context.env.DEFAULT_MAIL_DOMAIN}>`,
+    from: config.outbound.resendFrom ?? `${config.appName} <no-reply@${config.mailbox.domain}>`,
     to: payload.toAddress,
     subject: payload.subject,
     text: payload.bodyText

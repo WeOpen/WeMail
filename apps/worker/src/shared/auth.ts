@@ -1,6 +1,8 @@
 import type { Context } from "hono";
 import { deleteCookie, getCookie, setCookie } from "hono/cookie";
 
+import { resolveAppConfig } from "../core/config";
+
 const textEncoder = new TextEncoder();
 const passwordIterations = 120_000;
 
@@ -55,21 +57,23 @@ export async function createApiKeySecret() {
 }
 
 export function setSessionCookie(c: Context<any>, token: string) {
-  const ttlHours = Number(c.env.SESSION_TTL_HOURS ?? "72");
-  const secure = c.env.COOKIE_SECURE === "true" || new URL(c.req.url).protocol === "https:";
-  setCookie(c, c.env.COOKIE_NAME, token, {
+  const config = resolveAppConfig(c.env);
+  const secure = config.cookie.secure || new URL(c.req.url).protocol === "https:";
+  setCookie(c, config.cookie.name, token, {
     httpOnly: true,
     sameSite: "Lax",
     secure,
     path: "/",
-    maxAge: ttlHours * 60 * 60
+    maxAge: config.session.ttlHours * 60 * 60
   });
 }
 
 export function clearSessionCookie(c: Context<any>) {
-  deleteCookie(c, c.env.COOKIE_NAME, { path: "/" });
+  const config = resolveAppConfig(c.env);
+  deleteCookie(c, config.cookie.name, { path: "/" });
 }
 
 export function readSessionCookie(c: Context<any>) {
-  return getCookie(c, c.env.COOKIE_NAME) ?? null;
+  const config = resolveAppConfig(c.env);
+  return getCookie(c, config.cookie.name) ?? null;
 }

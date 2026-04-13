@@ -65,7 +65,7 @@ export function useInboxWorkspace({ enabled, onNotice }: UseInboxWorkspaceOption
     async (label: string) => {
       const payload = await createMailboxAction(label);
       await refreshMailboxes(payload.mailbox.id);
-      onNotice(`Mailbox ${payload.mailbox.address} created.`);
+      onNotice(`邮箱 ${payload.mailbox.address} 已创建。`);
     },
     [onNotice, refreshMailboxes]
   );
@@ -82,7 +82,7 @@ export function useInboxWorkspace({ enabled, onNotice }: UseInboxWorkspaceOption
         bodyText: form.get("bodyText")
       });
       event.currentTarget.reset();
-      onNotice("Outbound email sent.");
+      onNotice("邮件已发送。");
       await refreshOutbound(selectedMailboxId);
     },
     [onNotice, refreshOutbound, selectedMailboxId]
