@@ -91,14 +91,14 @@ describe("admin dashboard integration", () => {
 
       render(<App />);
 
-      expect(await screen.findByRole("navigation", { name: /workspace navigation/i })).toBeInTheDocument();
-      expect(screen.getByRole("heading", { name: /control access, quotas, every switch/i })).toBeInTheDocument();
-      expect(screen.getByRole("heading", { name: /invite control/i })).toBeInTheDocument();
-      expect(screen.getByRole("heading", { name: /quota control/i })).toBeInTheDocument();
-      expect(screen.getByRole("heading", { name: /mailbox oversight/i })).toBeInTheDocument();
+      expect(await screen.findByRole("navigation", { name: /工作台导航/i })).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: /访问、配额与系统开关/i })).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: /邀请码控制/i })).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: /配额控制/i })).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: /邮箱总览/i })).toBeInTheDocument();
       expect(await screen.findByText(/ops@example.com/i)).toBeInTheDocument();
 
-      fireEvent.click(await screen.findByRole("button", { name: /member@example.com member/i }));
+      fireEvent.click(await screen.findByRole("button", { name: /member@example.com.*成员/i }));
       expect(await screen.findByDisplayValue("20")).toBeInTheDocument();
     },
     10000

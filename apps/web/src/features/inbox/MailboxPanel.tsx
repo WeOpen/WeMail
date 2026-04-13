@@ -17,11 +17,11 @@ export function MailboxPanel({
     <section className="panel workspace-card mailbox-panel">
       <div className="panel-header workspace-card-header">
         <div>
-          <p className="panel-kicker">Mailbox index</p>
-          <h2>Active mailboxes</h2>
+          <p className="panel-kicker">邮箱索引</p>
+          <h2>当前邮箱</h2>
         </div>
         <button className="workspace-action-button secondary" onClick={onOpenMailboxComposer} type="button">
-          New mailbox
+          新建邮箱
         </button>
       </div>
       <div className="mailbox-list workspace-stack-list">
@@ -37,7 +37,7 @@ export function MailboxPanel({
           </button>
         ))}
         {mailboxes.length === 0 ? (
-          <p className="empty-state">No mailbox is live yet. Create one to start routing inbound traffic.</p>
+          <p className="empty-state">当前还没有激活邮箱，先创建一个开始接收邮件。</p>
         ) : null}
       </div>
     </section>

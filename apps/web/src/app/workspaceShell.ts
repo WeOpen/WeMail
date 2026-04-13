@@ -94,9 +94,9 @@ type WorkspaceShellInput = {
 
 function formatToggleState(featureToggles: FeatureToggles) {
   return [
-    featureToggles.aiEnabled ? "AI live" : "AI muted",
-    featureToggles.telegramEnabled ? "Telegram live" : "Telegram muted",
-    featureToggles.outboundEnabled ? "Outbound live" : "Outbound paused"
+    featureToggles.aiEnabled ? "AI 已启用" : "AI 已关闭",
+    featureToggles.telegramEnabled ? "Telegram 已启用" : "Telegram 已关闭",
+    featureToggles.outboundEnabled ? "外发已启用" : "外发已暂停"
   ];
 }
 
@@ -108,12 +108,12 @@ function determineRouteKey(pathname: string): RouteKey {
 
 function buildPrimaryNav(session: SessionSummary): WorkspacePrimaryNavItem[] {
   const nav: WorkspacePrimaryNavItem[] = [
-    { to: "/", label: "Inbox" },
-    { to: "/settings", label: "Access" }
+    { to: "/", label: "收件箱" },
+    { to: "/settings", label: "设置" }
   ];
 
   if (session.user.role === "admin") {
-    nav.push({ to: "/admin", label: "Control" });
+    nav.push({ to: "/admin", label: "管理后台" });
   }
 
   return nav;
@@ -133,53 +133,53 @@ export function buildWorkspaceShellState({
   const selectedMailbox = inbox.mailboxes.find((mailbox) => mailbox.id === inbox.selectedMailboxId) ?? null;
 
   const workspaceLinks: WorkspaceRailSection = {
-    title: "Workspace",
+    title: "工作台",
     items: primaryNav.map((item) => ({
       kind: "link" as const,
       label: item.label,
       to: item.to,
       badge: item.to === "/admin" ? String(admin.adminUsers.length || 0) : undefined,
-      hint: item.to === pathname ? "Active" : undefined
+      hint: item.to === pathname ? "当前页" : undefined
     }))
   };
 
   const runtimeSection: WorkspaceRailSection = {
-    title: "Runtime",
+    title: "运行状态",
     items: runtimeSignals.map((signal) => ({
       kind: "stat" as const,
       label: signal,
-      value: session.user.role === "admin" ? "System" : "Session",
-      hint: `Signed in as ${session.user.email}`
+      value: session.user.role === "admin" ? "系统" : "当前会话",
+      hint: `当前账号：${session.user.email}`
     }))
   };
 
   if (routeKey === "settings") {
     return {
       routeKey,
-      routeLabel: "Access",
-      searchPlaceholder: 'Search "keys"',
+      routeLabel: "设置",
+      searchPlaceholder: '搜索“密钥”',
       primaryNav,
       railSections: [
         workspaceLinks,
         {
-          title: "Access",
+          title: "设置",
           items: [
             {
               kind: "stat",
-              label: "API keys",
+              label: "API 密钥",
               value: String(settings.apiKeys.length),
-              hint: settings.apiKeys.length > 0 ? "Automation tokens live" : "No automation tokens yet"
+              hint: settings.apiKeys.length > 0 ? "已有自动化凭证" : "当前还没有自动化密钥"
             },
             {
               kind: "stat",
               label: "Telegram",
-              value: settings.telegram?.enabled ? "Live" : "Muted",
-              hint: settings.telegram?.chatId ? `Chat ${settings.telegram.chatId}` : "No chat bound"
+              value: settings.telegram?.enabled ? "已启用" : "未启用",
+              hint: settings.telegram?.chatId ? `Chat ${settings.telegram.chatId}` : "尚未绑定 Chat ID"
             },
             {
               kind: "stat",
-              label: "Role",
-              value: session.user.role === "admin" ? "Admin" : "Member",
+              label: "角色",
+              value: session.user.role === "admin" ? "管理员" : "成员",
               hint: session.user.email
             }
           ]
@@ -187,32 +187,31 @@ export function buildWorkspaceShellState({
         runtimeSection
       ],
       hero: {
-        eyebrow: "Access layer",
-        title: "Keys, alerts, every integration",
-        description:
-          "Manage automation credentials, notification routing, and operator-level access from the same rounded control surface.",
+        eyebrow: "设置中心",
+        title: "密钥、通知与接入控制",
+        description: "在统一的圆角工作台中管理自动化凭证、通知路由和账号接入设置。",
         stats: [
           {
-            label: "API keys",
+            label: "API 密钥",
             value: String(settings.apiKeys.length),
-            detail: settings.apiKeys.length > 0 ? "Active automation credentials" : "Generate the first key"
+            detail: settings.apiKeys.length > 0 ? "自动化凭证已就绪" : "创建第一把 API 密钥"
           },
           {
             label: "Telegram",
-            value: settings.telegram?.enabled ? "Live" : "Muted",
-            detail: settings.telegram?.chatId ? `Chat ${settings.telegram.chatId}` : "No chat connected"
+            value: settings.telegram?.enabled ? "已启用" : "未启用",
+            detail: settings.telegram?.chatId ? `Chat ${settings.telegram.chatId}` : "当前未连接任何 Chat"
           },
           {
-            label: "Role",
-            value: session.user.role === "admin" ? "Admin" : "Member",
-            detail: "Permissions inherited from the current session"
+            label: "角色",
+            value: session.user.role === "admin" ? "管理员" : "成员",
+            detail: "权限继承自当前登录账号"
           }
         ],
         actions: [
-          { kind: "link", label: "Review inbox", to: "/", tone: "secondary" },
+          { kind: "link", label: "查看收件箱", to: "/", tone: "secondary" },
           session.user.role === "admin"
-            ? { kind: "link", label: "Open control", to: "/admin", tone: "ghost" }
-            : { kind: "button", label: "Session locked", tone: "ghost" }
+            ? { kind: "link", label: "打开管理后台", to: "/admin", tone: "ghost" }
+            : { kind: "button", label: "当前会话", tone: "ghost" }
         ]
       }
     };
@@ -223,81 +222,81 @@ export function buildWorkspaceShellState({
 
     return {
       routeKey,
-      routeLabel: "Control",
-      searchPlaceholder: 'Search "quota"',
+      routeLabel: "管理后台",
+      searchPlaceholder: '搜索“配额”',
       primaryNav,
       railSections: [
         workspaceLinks,
         {
-          title: "Control",
+          title: "管理后台",
           items: adminDisabled
             ? [
                 {
                   kind: "stat",
-                  label: "Access",
-                  value: "Restricted",
-                  hint: "Admin role required"
+                  label: "访问权限",
+                  value: "受限",
+                  hint: "需要管理员权限"
                 }
               ]
             : [
                 {
                   kind: "stat",
-                  label: "Users",
+                  label: "用户数",
                   value: String(admin.adminUsers.length),
-                  hint: "Managed identities"
+                  hint: "受管理账号"
                 },
                 {
                   kind: "stat",
-                  label: "Invites",
+                  label: "邀请码",
                   value: String(admin.adminInvites.length),
-                  hint: "Open and redeemed access codes"
+                  hint: "可用与已兑换的邀请码"
                 },
                 {
                   kind: "stat",
-                  label: "Mailboxes",
+                  label: "邮箱数",
                   value: String(admin.adminMailboxes.length),
-                  hint: "Tracked workspace endpoints"
+                  hint: "已追踪的邮箱入口"
                 }
               ]
         },
         runtimeSection
       ],
       hero: {
-        eyebrow: adminDisabled ? "Restricted zone" : "Control room",
-        title: adminDisabled ? "Control surface is restricted" : "Control access, quotas, every switch",
+        eyebrow: adminDisabled ? "受限区域" : "控制中心",
+        title: adminDisabled ? "当前无法访问控制台" : "访问、配额与系统开关",
         description: adminDisabled
-          ? "The workspace shell remains visible, but this route only unlocks for administrative operators."
-          : "High-fidelity control cards keep invites, quotas, feature toggles, and mailbox oversight within one operator dashboard.",
+          ? "当前仍会展示统一工作台外壳，但只有管理员才能使用这里的控制能力。"
+          : "在同一张控制台视图中集中管理邀请码、配额、功能开关和邮箱总览。",
         stats: adminDisabled
           ? [
               {
-                label: "Role",
-                value: "Member",
-                detail: "Promote the session to unlock admin controls"
+                label: "角色",
+                value: "成员",
+                detail: "需要提升权限后才能操作管理员能力"
               }
             ]
           : [
               {
-                label: "Users",
+                label: "用户数",
                 value: String(admin.adminUsers.length),
-                detail: "Visible identities in the control room"
+                detail: "当前控制台可见的账号数量"
               },
               {
-                label: "Daily limit",
+                label: "每日上限",
                 value: admin.adminQuota ? String(admin.adminQuota.dailyLimit) : "—",
-                detail: admin.adminQuota ? `Current sends today ${admin.adminQuota.sendsToday}` : "Quota loads per selected user"
+                detail: admin.adminQuota ? `今日已发送 ${admin.adminQuota.sendsToday}` : "选择用户后显示对应配额"
               },
               {
-                label: "Feature live",
-                value: session.featureToggles.aiEnabled ? "AI on" : "AI off",
-                detail: session.featureToggles.outboundEnabled ? "Outbound enabled" : "Outbound paused"
+                label: "功能状态",
+                value: session.featureToggles.aiEnabled ? "AI 已开启" : "AI 已关闭",
+                detail: session.featureToggles.outboundEnabled ? "邮件外发能力已启用" : "邮件外发能力已暂停"
               }
             ],
         actions: adminDisabled
-          ? [{ kind: "link", label: "Back to inbox", to: "/", tone: "secondary" }]
+          ? [{ kind: "link", label: "返回收件箱", to: "/", tone: "secondary" }]
           : [
-              { kind: "link", label: "Review inbox", to: "/", tone: "secondary" },
-              { kind: "link", label: "Adjust access", to: "/settings", tone: "ghost" }
+              { kind: "link", label: "查看收件箱", to: "/", tone: "secondary" },
+              { kind: "link", label: "调整设置", to: "/settings", tone: "ghost" }
             ]
       }
     };
@@ -305,64 +304,63 @@ export function buildWorkspaceShellState({
 
   return {
     routeKey,
-    routeLabel: "Inbox",
-    searchPlaceholder: 'Search "messages"',
+    routeLabel: "收件箱",
+    searchPlaceholder: '搜索“消息”',
     primaryNav,
     railSections: [
       workspaceLinks,
       {
-        title: "Inbox",
+        title: "收件箱",
         items: [
           {
             kind: "stat",
-            label: "Mailboxes",
+            label: "邮箱数",
             value: String(inbox.mailboxes.length),
-            hint: selectedMailbox ? `${selectedMailbox.label} active` : "Select a mailbox to focus traffic"
+            hint: selectedMailbox ? `${selectedMailbox.label} 已选中` : "选择一个邮箱以聚焦消息流"
           },
           {
             kind: "stat",
-            label: "Messages",
+            label: "消息数",
             value: String(inbox.messages.length),
-            hint: inbox.messages.length > 0 ? "Recent message stream loaded" : "No messages in the stream"
+            hint: inbox.messages.length > 0 ? "最新消息已加载" : "当前没有任何消息"
           },
           {
             kind: "stat",
-            label: "Outbound",
+            label: "外发数",
             value: String(inbox.outboundHistory.length),
-            hint: inbox.outboundHistory.length > 0 ? "Recent sent history visible" : "No outbound activity yet"
+            hint: inbox.outboundHistory.length > 0 ? "最近外发记录可见" : "当前还没有外发记录"
           }
         ]
       },
       runtimeSection
     ],
     hero: {
-      eyebrow: "Inbox workspace",
-      title: "One workspace, every mailbox",
-      description:
-        "Route inbound traffic, inspect message detail, and send outbound follow-ups from a thesvg-style shell tuned for dense operator workflows.",
+      eyebrow: "收件工作台",
+      title: "一个工作台，管理所有邮箱",
+      description: "在统一工作台中处理收件、查看消息详情，并完成邮件外发。",
       stats: [
         {
-          label: "Mailboxes",
+          label: "邮箱数",
           value: String(inbox.mailboxes.length),
-          detail: selectedMailbox ? `${selectedMailbox.label} is active` : "Create the first mailbox to start routing"
+          detail: selectedMailbox ? `${selectedMailbox.label} 当前已激活` : "创建第一个邮箱开始接收邮件"
         },
         {
-          label: "Messages",
+          label: "消息数",
           value: String(inbox.messages.length),
-          detail: inbox.messages.length > 0 ? "Live stream attached to the selected mailbox" : "The stream is ready for new mail"
+          detail: inbox.messages.length > 0 ? "当前邮箱的消息流已连接" : "消息流已准备好接收新邮件"
         },
         {
-          label: "Outbound",
+          label: "外发数",
           value: String(inbox.outboundHistory.length),
-          detail: session.featureToggles.outboundEnabled ? "Outbound follow-ups are enabled" : "Outbound capability is paused"
+          detail: session.featureToggles.outboundEnabled ? "邮件外发能力已启用" : "邮件外发能力已暂停"
         }
       ],
       actions: [
-        { kind: "button", label: "Create mailbox", tone: "primary", onClick: onOpenMailboxComposer },
-        { kind: "link", label: "Open access", to: "/settings", tone: "secondary" },
+        { kind: "button", label: "创建邮箱", tone: "primary", onClick: onOpenMailboxComposer },
+        { kind: "link", label: "打开设置", to: "/settings", tone: "secondary" },
         session.user.role === "admin"
-          ? { kind: "link", label: "View control", to: "/admin", tone: "ghost" }
-          : { kind: "button", label: "Member session", tone: "ghost" }
+          ? { kind: "link", label: "查看管理后台", to: "/admin", tone: "ghost" }
+          : { kind: "button", label: "当前成员会话", tone: "ghost" }
       ]
     }
   };

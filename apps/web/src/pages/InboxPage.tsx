@@ -92,34 +92,34 @@ export function InboxPage({
           <section aria-labelledby="create-mailbox-title" aria-modal="true" className="workspace-dialog panel" role="dialog">
             <div className="workspace-dialog-header">
               <div>
-                <p className="panel-kicker">Create mailbox</p>
-                <h2 id="create-mailbox-title">Launch a new inbox surface</h2>
+                <p className="panel-kicker">创建邮箱</p>
+                <h2 id="create-mailbox-title">创建新的收件入口</h2>
               </div>
-              <button className="workspace-theme-toggle" onClick={onCloseMailboxComposer} type="button" aria-label="Close mailbox creator">
+              <button className="workspace-theme-toggle" onClick={onCloseMailboxComposer} type="button" aria-label="关闭邮箱创建对话框">
                 ✕
               </button>
             </div>
             <p className="section-copy">
-              Give the mailbox a short operator label. The address will be created through the existing backend flow.
+              给邮箱填写一个简短标签，地址仍会通过现有后端流程创建。
             </p>
             <form className="composer-form workspace-dialog-form" onSubmit={(event) => void handleCreateMailbox(event)}>
               <label>
-                Mailbox label
+                邮箱标签
                 <input
                   autoFocus
                   name="mailboxLabel"
                   onChange={(event) => setLabel(event.target.value)}
-                  placeholder="Ops inbox"
+                  placeholder="运营邮箱"
                   required
                   value={label}
                 />
               </label>
               <div className="workspace-dialog-actions">
                 <button className="workspace-action-button secondary" onClick={onCloseMailboxComposer} type="button">
-                  Cancel
+                  取消
                 </button>
                 <button className="workspace-action-button primary" disabled={isSubmitting} type="submit">
-                  {isSubmitting ? "Creating…" : "Create mailbox"}
+                  {isSubmitting ? "创建中…" : "创建邮箱"}
                 </button>
               </div>
             </form>

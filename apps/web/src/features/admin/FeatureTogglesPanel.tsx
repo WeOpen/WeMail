@@ -1,10 +1,10 @@
 import type { FeatureToggles } from "@wemail/shared";
 
 const featureLabels: Record<string, string> = {
-  aiEnabled: "AI extraction",
-  telegramEnabled: "Telegram relay",
-  outboundEnabled: "Outbound mail",
-  mailboxCreationEnabled: "Mailbox creation"
+  aiEnabled: "AI 提取",
+  telegramEnabled: "Telegram 通知",
+  outboundEnabled: "邮件外发",
+  mailboxCreationEnabled: "邮箱创建"
 };
 
 type FeatureTogglesPanelProps = {
@@ -18,9 +18,9 @@ export function FeatureTogglesPanel({
 }: FeatureTogglesPanelProps) {
   return (
     <section className="panel workspace-card page-panel">
-      <p className="panel-kicker">Feature switches</p>
-      <h2>System flags</h2>
-      <p className="section-copy">Flip runtime switches for AI, Telegram, outbound delivery, and mailbox creation with immediate feedback.</p>
+      <p className="panel-kicker">功能开关</p>
+      <h2>系统开关</h2>
+      <p className="section-copy">统一管理 AI、Telegram、外发与邮箱创建能力的启停状态。</p>
       {adminFeatures ? (
         <div className="toggle-grid workspace-toggle-grid">
           {Object.entries(adminFeatures).map(([key, value]) => (
@@ -40,7 +40,7 @@ export function FeatureTogglesPanel({
           ))}
         </div>
       ) : (
-        <p className="empty-state">No runtime flags are available in this environment.</p>
+        <p className="empty-state">当前环境没有可用的运行时开关。</p>
       )}
     </section>
   );

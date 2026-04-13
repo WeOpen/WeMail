@@ -128,8 +128,8 @@ describe("App", () => {
 
       render(<App />);
 
-      expect(await screen.findByRole("heading", { name: /control access, quotas, every switch/i })).toBeInTheDocument();
-      expect(screen.getByRole("heading", { name: /mailbox oversight/i })).toBeInTheDocument();
+      expect(await screen.findByRole("heading", { name: /访问、配额与系统开关/i })).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: /邮箱总览/i })).toBeInTheDocument();
       expect(await screen.findByText(/ops@example.com/i)).toBeInTheDocument();
     },
     10000
@@ -197,7 +197,7 @@ describe("App", () => {
       });
 
       render(<App />);
-      expect(await screen.findByRole("heading", { name: /control access, quotas, every switch/i })).toBeInTheDocument();
+      expect(await screen.findByRole("heading", { name: /访问、配额与系统开关/i })).toBeInTheDocument();
 
       await waitFor(() => {
         expect(calls.get("http://127.0.0.1:8787/auth/session") ?? 0).toBe(1);

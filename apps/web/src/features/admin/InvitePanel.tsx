@@ -10,11 +10,11 @@ type InvitePanelProps = {
 export function InvitePanel({ adminInvites, onCreateInvite, onDisableInvite }: InvitePanelProps) {
   return (
     <section className="panel workspace-card page-panel">
-      <p className="panel-kicker">Access flow</p>
-      <h2>Invite control</h2>
-      <p className="section-copy">Launch, revoke, and review invitation codes without leaving the operator dashboard.</p>
+      <p className="panel-kicker">邀请流程</p>
+      <h2>邀请码控制</h2>
+      <p className="section-copy">创建、停用并查看邀请码状态，无需离开当前控制台。</p>
       <button className="workspace-action-button primary" onClick={() => void onCreateInvite()} type="button">
-        Create invite
+        创建邀请码
       </button>
       <div className="stack-list workspace-stack-list">
         {adminInvites.map((invite) => (
@@ -24,11 +24,11 @@ export function InvitePanel({ adminInvites, onCreateInvite, onDisableInvite }: I
               <span>{formatInviteStatus(invite)}</span>
             </div>
             <button className="workspace-action-button ghost" onClick={() => void onDisableInvite(invite.id)} type="button">
-              Disable
+              停用
             </button>
           </div>
         ))}
-        {adminInvites.length === 0 ? <p className="empty-state">No invites are active. Create one to onboard the next operator.</p> : null}
+        {adminInvites.length === 0 ? <p className="empty-state">当前没有可用邀请码，创建一个以邀请新成员。</p> : null}
       </div>
     </section>
   );

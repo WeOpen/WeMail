@@ -62,10 +62,10 @@ test("shows the shared access shell for an authenticated member", async ({ page 
   await page.route("**/api/telegram", async (route) => route.fulfill({ json: { subscription: null } }));
 
   await page.goto("/settings");
-  await expect(page.getByRole("navigation", { name: /workspace navigation/i })).toBeVisible();
-  await expect(page.getByRole("heading", { name: /keys, alerts, every integration/i })).toBeVisible();
-  await expect(page.getByRole("heading", { name: /api keys/i })).toBeVisible();
-  await expect(page.getByRole("heading", { name: /telegram relay/i })).toBeVisible();
+  await expect(page.getByRole("navigation", { name: /工作台导航/i })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /密钥、通知与接入控制/i })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /API 密钥/i })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /Telegram 通知/i })).toBeVisible();
 
   const themeToggle = page.locator(".workspace-theme-toggle");
   await expect(themeToggle).toBeVisible();
@@ -77,10 +77,10 @@ test("shows the shared access shell for an authenticated member", async ({ page 
   await page.reload();
   await expect.poll(async () => page.evaluate(() => document.documentElement.dataset.theme), { timeout: 10000 }).toBe("light");
 
-  await page.getByRole("navigation", { name: /workspace navigation/i }).getByRole("link", { name: /^Inbox$/i }).click();
-  await expect(page.getByRole("heading", { name: /one workspace, every mailbox/i })).toBeVisible();
-  await expect(page.getByRole("heading", { name: /active mailboxes/i })).toBeVisible();
-  await expect(page.getByRole("heading", { name: /recent messages/i })).toBeVisible();
+  await page.getByRole("navigation", { name: /工作台导航/i }).getByRole("link", { name: /^收件箱$/i }).click();
+  await expect(page.getByRole("heading", { name: /一个工作台，管理所有邮箱/i })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /当前邮箱/i })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /最新消息/i })).toBeVisible();
   await expect.poll(async () => page.evaluate(() => document.documentElement.dataset.theme), { timeout: 10000 }).toBe("light");
 });
 
@@ -159,10 +159,10 @@ test("shows the control workspace for an authenticated admin", async ({ page }) 
   );
 
   await page.goto("/admin");
-  await expect(page.getByRole("navigation", { name: /workspace navigation/i })).toBeVisible();
-  await expect(page.getByRole("heading", { name: /control access, quotas, every switch/i })).toBeVisible();
-  await expect(page.getByRole("heading", { name: /invite control/i })).toBeVisible();
-  await expect(page.getByRole("heading", { name: /quota control/i })).toBeVisible();
-  await expect(page.getByRole("heading", { name: /mailbox oversight/i })).toBeVisible();
+  await expect(page.getByRole("navigation", { name: /工作台导航/i })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /访问、配额与系统开关/i })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /邀请码控制/i })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /配额控制/i })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /邮箱总览/i })).toBeVisible();
   await expect(page.getByText(/ops@example.com/i)).toBeVisible();
 });

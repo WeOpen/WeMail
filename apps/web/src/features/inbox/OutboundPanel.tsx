@@ -16,25 +16,25 @@ export function OutboundPanel({
     <section className="panel workspace-card composer-panel">
       <div className="panel-header workspace-card-header">
         <div>
-          <p className="panel-kicker">Outbound lane</p>
-          <h2>Send follow-ups</h2>
+          <p className="panel-kicker">外发通道</p>
+          <h2>发送邮件</h2>
         </div>
       </div>
       <form className="composer-form outbound-form" onSubmit={onSendMail}>
         <label>
-          Recipient
+          收件人
           <input name="toAddress" type="email" required />
         </label>
         <label>
-          Subject
+          主题
           <input name="subject" required />
         </label>
         <label>
-          Body
+          正文
           <textarea name="bodyText" rows={6} required />
         </label>
         <button className="workspace-action-button primary" type="submit" disabled={!selectedMailboxId}>
-          Send message
+          发送邮件
         </button>
       </form>
       <div className="history-list workspace-stack-list">
@@ -45,7 +45,7 @@ export function OutboundPanel({
             <small>{item.status}</small>
           </div>
         ))}
-        {outboundHistory.length === 0 ? <p className="empty-state">Outbound history will land here after the first send.</p> : null}
+        {outboundHistory.length === 0 ? <p className="empty-state">首次外发后，记录会显示在这里。</p> : null}
       </div>
     </section>
   );

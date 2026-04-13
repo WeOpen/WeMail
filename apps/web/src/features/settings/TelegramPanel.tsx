@@ -10,9 +10,9 @@ type TelegramPanelProps = {
 export function TelegramPanel({ telegram, onSaveTelegram }: TelegramPanelProps) {
   return (
     <section className="panel workspace-card page-panel">
-      <p className="panel-kicker">Alert routing</p>
-      <h2>Telegram relay</h2>
-      <p className="section-copy">Bind a chat ID so new mailbox activity can mirror into Telegram without leaving the control surface.</p>
+      <p className="panel-kicker">通知路由</p>
+      <h2>Telegram 通知</h2>
+      <p className="section-copy">绑定 Chat ID 后，可将新邮件提醒同步到 Telegram。</p>
       <form className="composer-form" onSubmit={onSaveTelegram}>
         <label>
           Chat ID
@@ -20,10 +20,10 @@ export function TelegramPanel({ telegram, onSaveTelegram }: TelegramPanelProps) 
         </label>
         <label className="checkbox-row">
           <input name="enabled" type="checkbox" defaultChecked={telegram?.enabled ?? false} />
-          Keep Telegram notifications live
+          启用 Telegram 通知
         </label>
         <button className="workspace-action-button primary" type="submit">
-          Save Telegram relay
+          保存 Telegram 设置
         </button>
       </form>
     </section>

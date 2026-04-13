@@ -19,11 +19,11 @@ export function MessageStreamPanel({
     <section className="panel workspace-card inbox-panel">
       <div className="panel-header workspace-card-header">
         <div>
-          <p className="panel-kicker">Live stream</p>
-          <h2>Recent messages</h2>
+          <p className="panel-kicker">消息流</p>
+          <h2>最新消息</h2>
         </div>
         <button className="workspace-action-button ghost" onClick={onRefreshMessages} type="button">
-          Refresh
+          刷新
         </button>
       </div>
       <div className="message-list workspace-stack-list">
@@ -39,7 +39,7 @@ export function MessageStreamPanel({
             <small>{formatReceivedAt(message.receivedAt)}</small>
           </button>
         ))}
-        {messages.length === 0 ? <p className="empty-state">The stream is quiet. Incoming mail will appear here.</p> : null}
+        {messages.length === 0 ? <p className="empty-state">当前消息流为空，新邮件到达后会显示在这里。</p> : null}
       </div>
     </section>
   );

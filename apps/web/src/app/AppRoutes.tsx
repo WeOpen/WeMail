@@ -102,11 +102,10 @@ export function AppRoutes({ session, inbox, selectedMessage, settings, admin, wo
           session.user.role !== "admin" ? (
             <main className="workspace-grid restricted-grid">
               <section className="panel workspace-card restricted-card">
-                <p className="panel-kicker">Restricted</p>
-                <h2>Admin controls are locked</h2>
+                <p className="panel-kicker">受限区域</p>
+                <h2>当前账号无法访问管理员控制台</h2>
                 <p className="section-copy">
-                  This route keeps the control shell visible, but only administrative operators can adjust invites,
-                  quotas, feature switches, or mailbox oversight.
+                  当前仍会展示统一工作台外壳，但只有管理员才能调整邀请码、用户配额、功能开关和邮箱总览。
                 </p>
               </section>
             </main>

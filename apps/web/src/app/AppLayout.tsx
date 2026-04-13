@@ -28,17 +28,17 @@ export function AppLayout({
   return (
     <div className="app-layout workspace-shell">
       <header className="workspace-topbar panel">
-        <div className="workspace-brand" aria-label="wemail workspace brand">
+        <div className="workspace-brand" aria-label="wemail 工作台品牌">
           <span className="workspace-brand-mark" aria-hidden="true">
             ✦
           </span>
           <div>
             <strong>wemail</strong>
-            <span>operator workspace</span>
+            <span>运营工作台</span>
           </div>
         </div>
 
-        <nav className="workspace-pill-nav" aria-label="Workspace navigation">
+        <nav className="workspace-pill-nav" aria-label="工作台导航">
           {shell.primaryNav.map((item) => (
             <NavLink key={item.to} className="workspace-pill-link" to={item.to} end={item.to === "/"}>
               <span>{item.label}</span>
@@ -47,7 +47,7 @@ export function AppLayout({
           ))}
         </nav>
 
-        <div className="workspace-search" aria-label="Workspace quick search">
+        <div className="workspace-search" aria-label="工作台快速搜索">
           <span aria-hidden="true">⌘K</span>
           <strong>{shell.searchPlaceholder}</strong>
         </div>
@@ -55,24 +55,24 @@ export function AppLayout({
         <div className="workspace-topbar-actions">
           <div className="workspace-identity-pill">
             <strong>{session.user.email}</strong>
-            <span>{session.user.role === "admin" ? "Admin" : "Member"}</span>
+            <span>{session.user.role === "admin" ? "管理员" : "成员"}</span>
           </div>
           <button
             className="workspace-theme-toggle"
             onClick={onToggleTheme}
-            aria-label={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}
+            aria-label={theme === "dark" ? "切换到浅色主题" : "切换到深色主题"}
             type="button"
           >
             {theme === "dark" ? "☼" : "☾"}
           </button>
           <button className="ghost-button workspace-logout-button" onClick={onLogout} type="button">
-            Sign out
+            退出登录
           </button>
         </div>
       </header>
 
       <div className="workspace-frame">
-        <aside className="workspace-rail panel" aria-label="Workspace rail">
+        <aside className="workspace-rail panel" aria-label="工作台侧栏">
           {shell.railSections.map((section) => (
             <section className="workspace-rail-section" key={section.title}>
               <p className="panel-kicker">{section.title}</p>

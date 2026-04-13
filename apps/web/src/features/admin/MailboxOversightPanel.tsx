@@ -7,9 +7,9 @@ type MailboxOversightPanelProps = {
 export function MailboxOversightPanel({ adminMailboxes }: MailboxOversightPanelProps) {
   return (
     <section className="panel workspace-card page-panel">
-      <p className="panel-kicker">Address map</p>
-      <h2>Mailbox oversight</h2>
-      <p className="section-copy">Inspect every created mailbox label and address from the unified operator surface.</p>
+      <p className="panel-kicker">地址概览</p>
+      <h2>邮箱总览</h2>
+      <p className="section-copy">查看当前系统中所有邮箱的标签与地址信息。</p>
       <div className="stack-list workspace-stack-list">
         {adminMailboxes.map((mailbox) => (
           <div key={mailbox.id} className="stack-item admin-stack-item">
@@ -20,7 +20,7 @@ export function MailboxOversightPanel({ adminMailboxes }: MailboxOversightPanelP
             <small>{mailbox.createdAt.slice(0, 10)}</small>
           </div>
         ))}
-        {adminMailboxes.length === 0 ? <p className="empty-state">No mailbox records are visible yet.</p> : null}
+        {adminMailboxes.length === 0 ? <p className="empty-state">当前还没有可见的邮箱记录。</p> : null}
       </div>
     </section>
   );

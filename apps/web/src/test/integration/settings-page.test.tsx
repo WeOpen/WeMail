@@ -75,17 +75,17 @@ describe("settings integration", () => {
 
       render(<App />);
 
-      expect(await screen.findByRole("navigation", { name: /workspace navigation/i })).toBeInTheDocument();
-      expect(screen.getByRole("heading", { name: /keys, alerts, every integration/i })).toBeInTheDocument();
-      expect(screen.getByRole("heading", { name: /api keys/i })).toBeInTheDocument();
-      expect(screen.getByRole("heading", { name: /telegram relay/i })).toBeInTheDocument();
+      expect(await screen.findByRole("navigation", { name: /工作台导航/i })).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: /密钥、通知与接入控制/i })).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: /API 密钥/i })).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: /Telegram 通知/i })).toBeInTheDocument();
 
-      fireEvent.click(screen.getByRole("button", { name: /switch to light theme/i }));
+      fireEvent.click(screen.getByRole("button", { name: /切换到浅色主题/i }));
       expect(document.documentElement.dataset.theme).toBe("light");
       expect(window.localStorage.getItem("wemail-workspace-theme")).toBe("light");
 
-      fireEvent.click(within(screen.getByRole("navigation", { name: /workspace navigation/i })).getByRole("link", { name: /^Inbox$/i }));
-      expect(await screen.findByRole("heading", { name: /one workspace, every mailbox/i })).toBeInTheDocument();
+      fireEvent.click(within(screen.getByRole("navigation", { name: /工作台导航/i })).getByRole("link", { name: /^收件箱$/i }));
+      expect(await screen.findByRole("heading", { name: /一个工作台，管理所有邮箱/i })).toBeInTheDocument();
       expect(document.documentElement.dataset.theme).toBe("light");
     },
     10000
