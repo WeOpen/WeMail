@@ -46,10 +46,10 @@ describe("buildWorkspaceShellState", () => {
 
     expect(activeInboxLink).toEqual({
       kind: "link",
+      icon: "inbox",
       label: "收件箱",
       to: "/",
-      badge: undefined,
-      hint: undefined
+      badge: undefined
     });
   });
 });

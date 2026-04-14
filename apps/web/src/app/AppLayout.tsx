@@ -1,11 +1,27 @@
 import { ReactNode, useEffect, useRef, useState } from "react";
 import { NavLink } from "react-router-dom";
-import { ChevronDown, LogOut, MoonStar, SunMedium } from "lucide-react";
+import {
+  Bell,
+  ChevronDown,
+  Inbox,
+  KeyRound,
+  LogOut,
+  Mailbox,
+  MoonStar,
+  Send,
+  Settings2,
+  Shield,
+  ShieldAlert,
+  Sparkles,
+  SunMedium,
+  UserRound,
+  Users
+} from "lucide-react";
 
 import type { SessionSummary } from "@wemail/shared";
 
 import { WemailLogo } from "../shared/WemailLogo";
-import type { WorkspaceShellState } from "./workspaceShell";
+import type { WorkspaceRailIcon, WorkspaceShellState } from "./workspaceShell";
 import type { WorkspaceTheme } from "./useWorkspaceTheme";
 
 type AppLayoutProps = {
@@ -24,6 +40,50 @@ function ThemeIcon({ theme }: { theme: WorkspaceTheme }) {
   ) : (
     <MoonStar absoluteStrokeWidth aria-hidden="true" className="workspace-theme-icon workspace-icon" strokeWidth={1.8} />
   );
+}
+
+function RailIcon({ icon }: { icon: WorkspaceRailIcon }) {
+  const props = {
+    absoluteStrokeWidth: true,
+    "aria-hidden": true as const,
+    className: "workspace-rail-icon workspace-icon",
+    strokeWidth: 1.9
+  };
+
+  switch (icon) {
+    case "inbox":
+      return <Inbox {...props} />;
+    case "settings":
+      return <Settings2 {...props} />;
+    case "admin":
+      return <Shield {...props} />;
+    case "keys":
+      return <KeyRound {...props} />;
+    case "telegram":
+      return <Bell {...props} />;
+    case "role":
+      return <UserRound {...props} />;
+    case "access":
+      return <ShieldAlert {...props} />;
+    case "users":
+      return <Users {...props} />;
+    case "invites":
+      return <Sparkles {...props} />;
+    case "mailboxes":
+      return <Mailbox {...props} />;
+    case "messages":
+      return <Inbox {...props} />;
+    case "outbound":
+      return <Send {...props} />;
+    case "runtime-ai":
+      return <Sparkles {...props} />;
+    case "runtime-telegram":
+      return <Bell {...props} />;
+    case "runtime-outbound":
+      return <Send {...props} />;
+    default:
+      return <Inbox {...props} />;
+  }
 }
 
 export function AppLayout({
@@ -178,30 +238,38 @@ export function AppLayout({
               <section className="workspace-rail-section" key={section.title}>
                 <p className="panel-kicker">{section.title}</p>
                 <div className="workspace-rail-list">
-                  {section.items.map((item) =>
-                    item.kind === "link" ? (
-                      <NavLink
-                        key={`${section.title}-${item.label}`}
-                        className="workspace-rail-link"
-                        to={item.to}
-                        end={item.to === "/"}
-                      >
+                {section.items.map((item) =>
+                  item.kind === "link" ? (
+                    <NavLink
+                      key={`${section.title}-${item.label}`}
+                      className="workspace-rail-link"
+                      to={item.to}
+                      end={item.to === "/"}
+                    >
+                      <span className="workspace-rail-icon-chip">
+                        <RailIcon icon={item.icon} />
+                      </span>
+                      <div className="workspace-rail-copy">
                         <span>{item.label}</span>
-                        <div>
-                          {item.badge ? <small>{item.badge}</small> : null}
-                          {item.hint ? <em>{item.hint}</em> : null}
-                        </div>
-                      </NavLink>
-                    ) : (
-                      <div className="workspace-rail-stat" key={`${section.title}-${item.label}`}>
-                        <div>
-                          <strong>{item.label}</strong>
-                          {item.hint ? <span>{item.hint}</span> : null}
-                        </div>
-                        <small>{item.value}</small>
+                        {item.hint ? <em>{item.hint}</em> : null}
                       </div>
-                    )
-                  )}
+                      <div className="workspace-rail-meta">
+                        {item.badge ? <small>{item.badge}</small> : null}
+                      </div>
+                    </NavLink>
+                  ) : (
+                    <div className="workspace-rail-stat" key={`${section.title}-${item.label}`}>
+                      <span className="workspace-rail-icon-chip">
+                        <RailIcon icon={item.icon} />
+                      </span>
+                      <div className="workspace-rail-copy">
+                        <strong>{item.label}</strong>
+                        {item.hint ? <span>{item.hint}</span> : null}
+                      </div>
+                      <small className="workspace-rail-value">{item.value}</small>
+                    </div>
+                  )
+                )}
                 </div>
               </section>
             ))}

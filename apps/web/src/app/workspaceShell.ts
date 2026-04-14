@@ -41,9 +41,27 @@ type WorkspacePrimaryNavItem = {
   badge?: string;
 };
 
+export type WorkspaceRailIcon =
+  | "inbox"
+  | "settings"
+  | "admin"
+  | "keys"
+  | "telegram"
+  | "role"
+  | "access"
+  | "users"
+  | "invites"
+  | "mailboxes"
+  | "messages"
+  | "outbound"
+  | "runtime-ai"
+  | "runtime-telegram"
+  | "runtime-outbound";
+
 type WorkspaceRailItem =
   | {
       kind: "link";
+      icon: WorkspaceRailIcon;
       label: string;
       to: string;
       badge?: string;
@@ -51,6 +69,7 @@ type WorkspaceRailItem =
     }
   | {
       kind: "stat";
+      icon: WorkspaceRailIcon;
       label: string;
       value: string;
       hint?: string;
@@ -136,6 +155,12 @@ export function buildWorkspaceShellState({
     title: "工作台",
     items: primaryNav.map((item) => ({
       kind: "link" as const,
+      icon:
+        item.to === "/"
+          ? "inbox"
+          : item.to === "/settings"
+            ? "settings"
+            : "admin",
       label: item.label,
       to: item.to,
       badge: item.to === "/admin" ? String(admin.adminUsers.length || 0) : undefined
@@ -146,6 +171,7 @@ export function buildWorkspaceShellState({
     title: "运行状态",
     items: runtimeSignals.map((signal) => ({
       kind: "stat" as const,
+      icon: signal.startsWith("AI") ? "runtime-ai" : signal.startsWith("Telegram") ? "runtime-telegram" : "runtime-outbound",
       label: signal,
       value: session.user.role === "admin" ? "系统" : "当前会话",
       hint: `当前账号：${session.user.email}`
@@ -165,18 +191,21 @@ export function buildWorkspaceShellState({
           items: [
             {
               kind: "stat",
+              icon: "keys",
               label: "API 密钥",
               value: String(settings.apiKeys.length),
               hint: settings.apiKeys.length > 0 ? "已有自动化凭证" : "当前还没有自动化密钥"
             },
             {
               kind: "stat",
+              icon: "telegram",
               label: "Telegram",
               value: settings.telegram?.enabled ? "已启用" : "未启用",
               hint: settings.telegram?.chatId ? `Chat ${settings.telegram.chatId}` : "尚未绑定 Chat ID"
             },
             {
               kind: "stat",
+              icon: "role",
               label: "角色",
               value: session.user.role === "admin" ? "管理员" : "成员",
               hint: session.user.email
@@ -232,6 +261,7 @@ export function buildWorkspaceShellState({
             ? [
                 {
                   kind: "stat",
+                  icon: "access",
                   label: "访问权限",
                   value: "受限",
                   hint: "需要管理员权限"
@@ -240,18 +270,21 @@ export function buildWorkspaceShellState({
             : [
                 {
                   kind: "stat",
+                  icon: "users",
                   label: "用户数",
                   value: String(admin.adminUsers.length),
                   hint: "受管理账号"
                 },
                 {
                   kind: "stat",
+                  icon: "invites",
                   label: "邀请码",
                   value: String(admin.adminInvites.length),
                   hint: "可用与已兑换的邀请码"
                 },
                 {
                   kind: "stat",
+                  icon: "mailboxes",
                   label: "邮箱数",
                   value: String(admin.adminMailboxes.length),
                   hint: "已追踪的邮箱入口"
@@ -313,18 +346,21 @@ export function buildWorkspaceShellState({
         items: [
           {
             kind: "stat",
+            icon: "mailboxes",
             label: "邮箱数",
             value: String(inbox.mailboxes.length),
             hint: selectedMailbox ? `${selectedMailbox.label} 已选中` : "选择一个邮箱以聚焦消息流"
           },
           {
             kind: "stat",
+            icon: "messages",
             label: "消息数",
             value: String(inbox.messages.length),
             hint: inbox.messages.length > 0 ? "最新消息已加载" : "当前没有任何消息"
           },
           {
             kind: "stat",
+            icon: "outbound",
             label: "外发数",
             value: String(inbox.outboundHistory.length),
             hint: inbox.outboundHistory.length > 0 ? "最近外发记录可见" : "当前还没有外发记录"
