@@ -138,8 +138,7 @@ export function buildWorkspaceShellState({
       kind: "link" as const,
       label: item.label,
       to: item.to,
-      badge: item.to === "/admin" ? String(admin.adminUsers.length || 0) : undefined,
-      hint: item.to === pathname ? "当前页" : undefined
+      badge: item.to === "/admin" ? String(admin.adminUsers.length || 0) : undefined
     }))
   };
 

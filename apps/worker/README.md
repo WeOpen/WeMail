@@ -61,7 +61,38 @@ pnpm --dir apps/worker exec wrangler dev
 - 本地 D1 绑定 `DB`
 - 本地默认 vars
 
-### 4. 运行后端验证
+### 4. 初始化本地 D1 表结构与邀请码
+
+如果本地启动后端时提示“没有表”或数据库为空，先执行初始化脚本：
+
+在仓库根目录执行：
+
+```bash
+pnpm db:init:worker
+```
+
+脚本会自动完成两件事：
+
+- 执行 `apps/worker/src/infrastructure/db/schema.sql`
+- 在本地 D1 的 `invites` 表里初始化一个邀请码
+
+如果你想指定邀请码，可以执行：
+
+```bash
+pnpm db:init:worker -- --invite-code LOCAL-INVITE
+```
+
+如果你只想在后端目录单独执行，也可以：
+
+```bash
+cd apps/worker
+pnpm run db:init:local
+pnpm run db:init:local -- --invite-code LOCAL-INVITE
+```
+
+执行成功后，终端会输出本次初始化的邀请码。
+
+### 5. 运行后端验证
 
 在仓库根目录执行：
 
@@ -73,7 +104,7 @@ pnpm typecheck
 pnpm build
 ```
 
-### 5. 调整本地配置
+### 6. 调整本地配置
 
 本地开发时，优先修改或检查：
 

@@ -48,6 +48,45 @@ describe("App", () => {
   );
 
   it(
+    "renders a single auth card and keeps login/register tabs synced with the URL",
+    async () => {
+      window.history.pushState({}, "", "/login");
+      vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("not authenticated"));
+      const { container } = render(<App />);
+
+      expect(await screen.findByRole("tablist", { name: /认证方式切换/i })).toBeInTheDocument();
+      expect(container.querySelectorAll(".auth-card")).toHaveLength(1);
+      expect(screen.getByRole("tab", { name: /^登录$/i })).toHaveAttribute("aria-selected", "true");
+      expect(screen.getByRole("button", { name: /^立即登录$/i })).toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole("tab", { name: /^注册$/i }));
+
+      await waitFor(() => {
+        expect(window.location.pathname).toBe("/register");
+      });
+      expect(await screen.findByRole("button", { name: /^立即注册$/i })).toBeInTheDocument();
+      expect(screen.getByLabelText(/邀请码/i)).toBeInTheDocument();
+      expect(screen.getByRole("tab", { name: /^注册$/i })).toHaveAttribute("aria-selected", "true");
+      expect(container.querySelectorAll(".auth-card")).toHaveLength(1);
+    },
+    10000
+  );
+
+  it(
+    "uses the register tab as the default state for the register route",
+    async () => {
+      window.history.pushState({}, "", "/register");
+      vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("not authenticated"));
+      render(<App />);
+
+      expect(await screen.findByRole("tab", { name: /^注册$/i })).toHaveAttribute("aria-selected", "true");
+      expect(screen.getByRole("button", { name: /^立即注册$/i })).toBeInTheDocument();
+      expect(screen.getByLabelText(/邀请码/i)).toBeInTheDocument();
+    },
+    10000
+  );
+
+  it(
     "shows mailbox oversight inside the redesigned admin shell for admins",
     async () => {
       window.history.pushState({}, "", "/admin");

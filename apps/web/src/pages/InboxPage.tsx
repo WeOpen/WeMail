@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { X } from "lucide-react";
 
 import type { MailboxSummary, MessageSummary } from "@wemail/shared";
 
@@ -96,12 +97,10 @@ export function InboxPage({
                 <h2 id="create-mailbox-title">创建新的收件入口</h2>
               </div>
               <button className="workspace-theme-toggle" onClick={onCloseMailboxComposer} type="button" aria-label="关闭邮箱创建对话框">
-                ✕
+                <X absoluteStrokeWidth aria-hidden="true" className="workspace-icon" strokeWidth={1.9} />
               </button>
             </div>
-            <p className="section-copy">
-              给邮箱填写一个简短标签，地址仍会通过现有后端流程创建。
-            </p>
+            <p className="section-copy">给邮箱填写一个简短标签，地址仍会通过现有后端流程创建。</p>
             <form className="composer-form workspace-dialog-form" onSubmit={(event) => void handleCreateMailbox(event)}>
               <label>
                 邮箱标签

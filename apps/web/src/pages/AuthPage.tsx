@@ -1,5 +1,5 @@
-import { useMemo, useState, type FormEvent } from "react";
-import { Link, useLocation } from "react-router-dom";
+import type { FormEvent, KeyboardEvent } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 
 import { AuthForms } from "../features/auth/AuthForms";
 
@@ -9,24 +9,38 @@ type AuthPageProps = {
   onLogin: (event: FormEvent<HTMLFormElement>) => Promise<void>;
 };
 
+const AUTH_MODES = ["login", "register"] as const;
+
 export function AuthPage({ authError, onRegister, onLogin }: AuthPageProps) {
   const location = useLocation();
-  const initialMode = location.pathname === "/register" ? "register" : "login";
-  const [mode, setMode] = useState<"login" | "register">(initialMode);
+  const navigate = useNavigate();
+  const mode = location.pathname === "/register" ? "register" : "login";
 
-  const heroActions = useMemo(
-    () => (
-      <div className="hero-actions">
-        <Link className="hero-action primary" to="/login" onClick={() => setMode("login")}>
-          登录
-        </Link>
-        <Link className="hero-action secondary" to="/register" onClick={() => setMode("register")}>
-          注册
-        </Link>
-      </div>
-    ),
-    []
-  );
+  function switchMode(nextMode: (typeof AUTH_MODES)[number]) {
+    if (nextMode === mode) return;
+    void navigate(nextMode === "login" ? "/login" : "/register");
+  }
+
+  function handleTabsKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+    if (!["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Home", "End"].includes(event.key)) return;
+
+    event.preventDefault();
+    const currentIndex = AUTH_MODES.indexOf(mode);
+
+    if (event.key === "Home") {
+      switchMode(AUTH_MODES[0]);
+      return;
+    }
+
+    if (event.key === "End") {
+      switchMode(AUTH_MODES[AUTH_MODES.length - 1]);
+      return;
+    }
+
+    const direction = event.key === "ArrowLeft" || event.key === "ArrowUp" ? -1 : 1;
+    const nextIndex = (currentIndex + direction + AUTH_MODES.length) % AUTH_MODES.length;
+    switchMode(AUTH_MODES[nextIndex]);
+  }
 
   if (location.pathname !== "/login" && location.pathname !== "/register") {
     return (
@@ -36,7 +50,14 @@ export function AuthPage({ authError, onRegister, onLogin }: AuthPageProps) {
             <p className="eyebrow">wemail</p>
             <p className="landing-subtitle">团队临时邮箱与管理控制台</p>
           </div>
-          {heroActions}
+          <div className="hero-actions">
+            <Link className="hero-action primary" to="/login">
+              登录
+            </Link>
+            <Link className="hero-action secondary" to="/register">
+              注册
+            </Link>
+          </div>
         </header>
         <main className="landing-main">
           <section className="landing-hero">
@@ -82,32 +103,44 @@ export function AuthPage({ authError, onRegister, onLogin }: AuthPageProps) {
 
   return (
     <div className="auth-shell">
-      <section className="auth-hero-card">
-        <p className="eyebrow">欢迎回来</p>
-        <h1>{mode === "login" ? "登录到 wemail" : "注册 wemail 账号"}</h1>
-        <p className="hero-copy">
-          {mode === "login"
-            ? "使用你的团队账号进入邮箱工作台与后台。"
-            : "通过邀请码注册新账号，创建属于你的临时邮箱工作区。"}
-        </p>
-        <div className="hero-actions" role="tablist" aria-label="认证方式切换">
-          <Link
-            className={mode === "login" ? "hero-action primary" : "hero-action secondary"}
-            to="/login"
-            onClick={() => setMode("login")}
+      <section className="auth-card">
+        <div className="auth-card-header">
+          <p className="eyebrow">{mode === "login" ? "账号登录" : "邀请码注册"}</p>
+          <h1>{mode === "login" ? "登录到 wemail" : "创建你的 wemail 账号"}</h1>
+          <p className="hero-copy">
+            {mode === "login"
+              ? "在同一个认证入口里切换登录与注册，进入你的邮箱工作台与后台。"
+              : "通过邀请码完成注册，认证成功后直接进入你的团队邮箱工作区。"}
+          </p>
+        </div>
+        <div className="auth-tabs" role="tablist" aria-label="认证方式切换" onKeyDown={handleTabsKeyDown}>
+          <button
+            aria-controls="auth-panel-login"
+            aria-selected={mode === "login"}
+            className={mode === "login" ? "auth-tab active" : "auth-tab"}
+            id="auth-tab-login"
+            onClick={() => switchMode("login")}
+            role="tab"
+            tabIndex={mode === "login" ? 0 : -1}
+            type="button"
           >
             登录
-          </Link>
-          <Link
-            className={mode === "register" ? "hero-action primary" : "hero-action secondary"}
-            to="/register"
-            onClick={() => setMode("register")}
+          </button>
+          <button
+            aria-controls="auth-panel-register"
+            aria-selected={mode === "register"}
+            className={mode === "register" ? "auth-tab active" : "auth-tab"}
+            id="auth-tab-register"
+            onClick={() => switchMode("register")}
+            role="tab"
+            tabIndex={mode === "register" ? 0 : -1}
+            type="button"
           >
             注册
-          </Link>
+          </button>
         </div>
+        <AuthForms authError={authError} onRegister={onRegister} onLogin={onLogin} mode={mode} />
       </section>
-      <AuthForms authError={authError} onRegister={onRegister} onLogin={onLogin} mode={mode} />
     </div>
   );
 }

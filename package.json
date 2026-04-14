@@ -9,6 +9,7 @@
     "typecheck": "node scripts/run-task.mjs typecheck",
     "test": "node scripts/run-task.mjs test",
     "build": "node scripts/run-task.mjs build",
+    "db:init:worker": "pnpm --dir apps/worker run db:init:local",
     "test:worker": "node scripts/run-task.mjs test --filter worker",
     "test:web": "node scripts/run-task.mjs test --filter web",
     "test:shared": "node scripts/run-task.mjs test --filter shared",
