@@ -38,6 +38,7 @@ type WorkspaceHeroStat = {
 };
 
 type WorkspaceHero = {
+  variant?: "default" | "dashboard";
   eyebrow: string;
   title: string;
   description: string;
@@ -325,26 +326,16 @@ function buildHero({
   switch (activePrimary.id) {
     case "dashboard":
       return {
+        variant: "dashboard",
         eyebrow: "仪表盘",
-        title: "左侧已切换为一级菜单，顶部切换为二级菜单",
-        description:
-          "工作台与设置分组固定在左侧；当前选中带二级菜单的栏目时，顶部标题栏会展示对应二级菜单，未接入的栏目先用占位页承接。",
-        stats: [
-          createMailboxStat(inbox.mailboxes, selectedMailbox),
-          createApiKeyStat(settings.apiKeys),
-          isAdmin
-            ? {
-                label: "用户数",
-                value: String(admin.adminUsers.length),
-                detail: "管理员可见的账号数量"
-              }
-            : createRoleStat(session)
-        ],
+        title: "平台总览仪表盘",
+        description: "先用 mock 数据验证管理后台首页的 KPI、趋势图和结构图布局，后续再逐步替换成真实平台指标。",
+        stats: [],
         actions: [
-          { kind: "link", label: "打开邮件列表", to: "/mail/list", tone: "primary" },
-          { kind: "link", label: "打开 API 密钥", to: "/api-keys", tone: "secondary" },
+          { kind: "link", label: "查看用户列表", to: "/users/list", tone: "primary" },
+          { kind: "link", label: "打开邮件列表", to: "/mail/list", tone: "secondary" },
           isAdmin
-            ? { kind: "link", label: "查看用户列表", to: "/users/list", tone: "ghost" }
+            ? { kind: "link", label: "打开 API 密钥", to: "/api-keys", tone: "ghost" }
             : { kind: "link", label: "系统设置", to: "/system/appearance", tone: "ghost" }
         ]
       };

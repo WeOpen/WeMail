@@ -224,3 +224,95 @@ test("shows the admin users workspace for an authenticated admin", async ({ page
   await expect(page.getByLabel(/工作台品牌/i)).toContainText("WeMail");
   await expect(page.getByText(/ops@example.com/i)).toBeVisible();
 });
+
+test("shows the admin dashboard mock board for an authenticated admin", async ({ page }) => {
+  test.setTimeout(60000);
+  await page.route("**/auth/session", async (route) => {
+    await route.fulfill({
+      json: {
+        user: {
+          id: "admin-1",
+          email: "admin@example.com",
+          role: "admin",
+          createdAt: "2026-04-08T00:00:00.000Z"
+        },
+        featureToggles: {
+          aiEnabled: true,
+          telegramEnabled: true,
+          outboundEnabled: true,
+          mailboxCreationEnabled: false
+        }
+      }
+    });
+  });
+
+  await page.route("**/api/mailboxes", async (route) =>
+    route.fulfill({
+      json: {
+        mailboxes: [{ id: "box-1", address: "ops@example.com", label: "Ops", createdAt: "2026-04-08T00:00:00.000Z" }]
+      }
+    })
+  );
+  await page.route("**/api/messages?mailboxId=box-1", async (route) => route.fulfill({ json: { messages: [] } }));
+  await page.route("**/api/outbound?mailboxId=box-1", async (route) => route.fulfill({ json: { messages: [] } }));
+  await page.route("**/api/keys", async (route) => route.fulfill({ json: { keys: [] } }));
+  await page.route("**/api/telegram", async (route) => route.fulfill({ json: { subscription: null } }));
+  await page.route("**/admin/users", async (route) =>
+    route.fulfill({
+      json: {
+        users: [
+          { id: "admin-1", email: "admin@example.com", role: "admin", createdAt: "2026-04-08T00:00:00.000Z" },
+          { id: "member-1", email: "member@example.com", role: "member", createdAt: "2026-04-10T00:00:00.000Z" }
+        ]
+      }
+    })
+  );
+  await page.route("**/admin/invites", async (route) =>
+    route.fulfill({
+      json: {
+        invites: [{ id: "invite-1", code: "ALPHA-2026", createdAt: "2026-04-08T00:00:00.000Z", redeemedAt: null, disabledAt: null }]
+      }
+    })
+  );
+  await page.route("**/admin/features", async (route) =>
+    route.fulfill({
+      json: {
+        featureToggles: {
+          aiEnabled: true,
+          telegramEnabled: true,
+          outboundEnabled: true,
+          mailboxCreationEnabled: false
+        }
+      }
+    })
+  );
+  await page.route("**/admin/quotas/**", async (route) =>
+    route.fulfill({
+      json: {
+        quota: {
+          userId: "admin-1",
+          dailyLimit: 20,
+          sendsToday: 8,
+          disabled: false,
+          updatedAt: "2026-04-08T00:00:00.000Z"
+        }
+      }
+    })
+  );
+  await page.route("**/admin/mailboxes", async (route) =>
+    route.fulfill({
+      json: {
+        mailboxes: [
+          { id: "box-1", address: "ops@example.com", label: "Ops", createdAt: "2026-04-08T00:00:00.000Z" },
+          { id: "box-2", address: "growth@example.com", label: "Growth", createdAt: "2026-04-09T00:00:00.000Z" }
+        ]
+      }
+    })
+  );
+
+  await page.goto("/dashboard");
+  await expect(page.getByRole("heading", { name: /今日收件/i })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /近 7 天收发趋势/i })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /邮箱状态分布/i })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /重点资源概览/i })).toBeVisible();
+});

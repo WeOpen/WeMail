@@ -17,6 +17,7 @@ import type { OutboundHistoryItem } from "../features/inbox/types";
 import { ApiKeysPanel } from "../features/settings/ApiKeysPanel";
 import { TelegramPanel } from "../features/settings/TelegramPanel";
 import { AdminPage } from "../pages/AdminPage";
+import { DashboardPage } from "../pages/DashboardPage";
 import { InboxPage } from "../pages/InboxPage";
 import { WorkspacePlaceholderPage } from "../pages/WorkspacePlaceholderPage";
 
@@ -150,51 +151,7 @@ export function AppRoutes({ session, inbox, selectedMessage, settings, admin, wo
       />
     );
 
-  const dashboardPage = (
-    <WorkspacePlaceholderPage
-      kicker="工作台"
-      title="仪表盘先承担总览与导航入口"
-      description="这次先把管理后台左侧改成图片里的一级菜单结构，顶部在需要时显示二级菜单；未接入的栏目先用占位页承接。"
-      cards={[
-        {
-          title: "邮件列表",
-          description: "现有收件、消息流与外发能力仍然保留在邮件列表页面。",
-          actionLabel: "打开邮件列表",
-          to: "/mail/list"
-        },
-        {
-          title: "账号",
-          description: `账号栏目已预留列表、创建与设置入口，当前邮箱账号数 ${inbox.mailboxes.length}。`,
-          actionLabel: "打开账号栏目",
-          to: "/accounts/list"
-        },
-        session.user.role === "admin"
-          ? {
-              title: "用户管理",
-              description: `管理员可见，当前有 ${admin.adminUsers.length} 个用户账号。`,
-              actionLabel: "打开用户列表",
-              to: "/users/list"
-            }
-          : {
-              title: "系统设置",
-              description: "外观设置与个人设置已被挂到系统设置的顶部二级菜单。",
-              actionLabel: "打开系统设置",
-              to: "/system/appearance"
-            },
-        {
-          title: "开放配置",
-          description: "API 密钥、Webhook、Telegram、文档与公告都已移动到左侧设置分组。",
-          actionLabel: "打开 API 密钥",
-          to: "/api-keys"
-        }
-      ]}
-      notePoints={[
-        "仪表盘先做占位，方便后续接统计、告警和快捷操作",
-        "左侧一级菜单已分成“工作台 / 设置”两组",
-        "带子菜单的栏目会在顶部标题栏展示二级菜单"
-      ]}
-    />
-  );
+  const dashboardPage = <DashboardPage />;
 
   const accountsListPage = (
     <WorkspacePlaceholderPage
