@@ -3,19 +3,18 @@ import { NavLink } from "react-router-dom";
 import {
   Bell,
   ChevronDown,
+  FileText,
   Inbox,
   KeyRound,
+  LayoutDashboard,
   LogOut,
   Mailbox,
+  Megaphone,
   MoonStar,
-  Send,
   Settings2,
-  Shield,
-  ShieldAlert,
-  Sparkles,
   SunMedium,
-  UserRound,
-  Users
+  Users,
+  Webhook
 } from "lucide-react";
 
 import type { SessionSummary } from "@wemail/shared";
@@ -51,36 +50,26 @@ function RailIcon({ icon }: { icon: WorkspaceRailIcon }) {
   };
 
   switch (icon) {
-    case "inbox":
+    case "dashboard":
+      return <LayoutDashboard {...props} />;
+    case "accounts":
+      return <Mailbox {...props} />;
+    case "mail":
       return <Inbox {...props} />;
-    case "settings":
-      return <Settings2 {...props} />;
-    case "admin":
-      return <Shield {...props} />;
-    case "keys":
-      return <KeyRound {...props} />;
-    case "telegram":
-      return <Bell {...props} />;
-    case "role":
-      return <UserRound {...props} />;
-    case "access":
-      return <ShieldAlert {...props} />;
     case "users":
       return <Users {...props} />;
-    case "invites":
-      return <Sparkles {...props} />;
-    case "mailboxes":
-      return <Mailbox {...props} />;
-    case "messages":
-      return <Inbox {...props} />;
-    case "outbound":
-      return <Send {...props} />;
-    case "runtime-ai":
-      return <Sparkles {...props} />;
-    case "runtime-telegram":
+    case "keys":
+      return <KeyRound {...props} />;
+    case "webhook":
+      return <Webhook {...props} />;
+    case "telegram":
       return <Bell {...props} />;
-    case "runtime-outbound":
-      return <Send {...props} />;
+    case "docs":
+      return <FileText {...props} />;
+    case "announcements":
+      return <Megaphone {...props} />;
+    case "system":
+      return <Settings2 {...props} />;
     default:
       return <Inbox {...props} />;
   }
@@ -97,7 +86,7 @@ export function AppLayout({
 }: AppLayoutProps) {
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const userMenuRef = useRef<HTMLDivElement | null>(null);
-  const railScrollRef = useRef<HTMLDivElement | null>(null);
+  const railScrollRef = useRef<HTMLElement | null>(null);
   const mainScrollRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -123,7 +112,7 @@ export function AppLayout({
   }, []);
 
   useEffect(() => {
-    const areas = [railScrollRef.current, mainScrollRef.current].filter(Boolean) as HTMLDivElement[];
+    const areas = [railScrollRef.current, mainScrollRef.current].filter(Boolean) as Array<HTMLElement>;
     if (areas.length === 0) return;
 
     const cleanups = areas.map((area) => {
@@ -174,14 +163,23 @@ export function AppLayout({
           <WemailBrandLockup compact className="workspace-brand-lockup" label="Wemail logo" />
         </div>
 
-        <nav className="workspace-pill-nav" aria-label="工作台导航">
-          {shell.primaryNav.map((item) => (
-            <NavLink key={item.to} className="workspace-pill-link" to={item.to} end={item.to === "/"}>
-              <span>{item.label}</span>
-              {item.badge ? <small>{item.badge}</small> : null}
-            </NavLink>
-          ))}
-        </nav>
+        <div className="workspace-topbar-center">
+          {shell.secondaryNav.length > 0 ? (
+            <nav className="workspace-pill-nav workspace-secondary-nav" aria-label={`${shell.activePrimaryLabel} 二级菜单`}>
+              {shell.secondaryNav.map((item) => (
+                <NavLink key={item.to} className="workspace-pill-link" to={item.to} end>
+                  <span>{item.label}</span>
+                </NavLink>
+              ))}
+            </nav>
+          ) : (
+            <div aria-label="当前左侧菜单" className="workspace-pill-nav workspace-secondary-nav workspace-secondary-nav-single">
+              <span className="workspace-pill-link workspace-pill-link-static active" aria-current="page">
+                <span>{shell.activePrimaryLabel}</span>
+              </span>
+            </div>
+          )}
+        </div>
 
         <div className="workspace-topbar-actions">
           <button
@@ -228,47 +226,31 @@ export function AppLayout({
 
       <div className="workspace-frame">
         <aside className="workspace-rail-shell panel" aria-label="workspace sidebar">
-          <div className="workspace-rail workspace-scroll-area" ref={railScrollRef}>
+          <nav className="workspace-rail workspace-scroll-area" ref={railScrollRef} aria-label="工作台导航">
             {shell.railSections.map((section) => (
               <section className="workspace-rail-section" key={section.title}>
                 <p className="panel-kicker">{section.title}</p>
                 <div className="workspace-rail-list">
-                {section.items.map((item) =>
-                  item.kind === "link" ? (
+                  {section.items.map((item) => (
                     <NavLink
                       key={`${section.title}-${item.label}`}
-                      className="workspace-rail-link"
+                      className={({ isActive }) =>
+                        `workspace-rail-link${isActive || item.id === shell.activePrimaryId ? " active" : ""}`
+                      }
                       to={item.to}
-                      end={item.to === "/"}
                     >
                       <span className="workspace-rail-icon-chip">
                         <RailIcon icon={item.icon} />
                       </span>
                       <div className="workspace-rail-copy">
                         <span>{item.label}</span>
-                        {item.hint ? <em>{item.hint}</em> : null}
-                      </div>
-                      <div className="workspace-rail-meta">
-                        {item.badge ? <small>{item.badge}</small> : null}
                       </div>
                     </NavLink>
-                  ) : (
-                    <div className="workspace-rail-stat" key={`${section.title}-${item.label}`}>
-                      <span className="workspace-rail-icon-chip">
-                        <RailIcon icon={item.icon} />
-                      </span>
-                      <div className="workspace-rail-copy">
-                        <strong>{item.label}</strong>
-                        {item.hint ? <span>{item.hint}</span> : null}
-                      </div>
-                      <small className="workspace-rail-value">{item.value}</small>
-                    </div>
-                  )
-                )}
+                  ))}
                 </div>
               </section>
             ))}
-          </div>
+          </nav>
         </aside>
 
         <div className="workspace-main-column workspace-scroll-area" ref={mainScrollRef}>

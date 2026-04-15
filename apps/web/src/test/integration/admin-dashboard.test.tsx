@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { App } from "../../app/App";
@@ -17,7 +17,7 @@ describe("admin dashboard integration", () => {
   });
 
   it(
-    "renders the control workspace and keeps quota/invite/mailbox controls reachable",
+    "renders the control workspace and surfaces the users secondary navigation",
     async () => {
       window.history.pushState({}, "", "/admin");
       vi.spyOn(globalThis, "fetch").mockImplementation((input) => {
@@ -91,7 +91,10 @@ describe("admin dashboard integration", () => {
 
       render(<App />);
 
-      expect(await screen.findByRole("navigation", { name: /工作台导航/i })).toBeInTheDocument();
+      const sidebar = await screen.findByRole("navigation", { name: /工作台导航/i });
+      expect(sidebar).toBeInTheDocument();
+      expect(within(sidebar).getByRole("link", { name: /^用户(?:\s|$)/i })).toBeInTheDocument();
+      expect(await screen.findByRole("navigation", { name: /用户 二级菜单/i })).toBeInTheDocument();
       expect(screen.getByRole("heading", { name: /访问、配额与系统开关/i })).toBeInTheDocument();
       expect(screen.getByRole("heading", { name: /邀请码控制/i })).toBeInTheDocument();
       expect(screen.getByRole("heading", { name: /配额控制/i })).toBeInTheDocument();

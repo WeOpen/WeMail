@@ -13,7 +13,7 @@ describe("settings integration", () => {
   });
 
   it(
-    "renders the shared access shell and persists theme selection across navigation",
+    "renders the reworked sidebar and keeps theme selection across navigation",
     async () => {
       window.history.pushState({}, "", "/settings");
       vi.spyOn(globalThis, "fetch").mockImplementation((input) => {
@@ -75,10 +75,14 @@ describe("settings integration", () => {
 
       render(<App />);
 
-      expect(await screen.findByRole("navigation", { name: /工作台导航/i })).toBeInTheDocument();
+      const sidebar = await screen.findByRole("navigation", { name: /工作台导航/i });
+      expect(sidebar).toBeInTheDocument();
+      expect(within(sidebar).getByRole("link", { name: /^仪表盘$/i })).toBeInTheDocument();
+      expect(within(sidebar).getByRole("link", { name: /^邮件(?:\s|$)/i })).toBeInTheDocument();
       expect(screen.getByRole("heading", { name: /密钥、通知与接入控制/i })).toBeInTheDocument();
       expect(screen.getByRole("heading", { name: /API 密钥/i })).toBeInTheDocument();
-      expect(screen.getByRole("heading", { name: /Telegram 通知/i })).toBeInTheDocument();
+      expect(screen.queryByLabelText(/API 密钥 二级菜单/i)).not.toBeInTheDocument();
+      expect(screen.getByLabelText(/当前左侧菜单/i)).toHaveTextContent("API 密钥");
       expect(screen.queryByLabelText(/工作台快速搜索/i)).not.toBeInTheDocument();
       fireEvent.click(screen.getByRole("button", { name: /用户菜单/i }));
       expect(screen.getByRole("menuitem", { name: /退出登录/i })).toBeInTheDocument();
@@ -87,7 +91,8 @@ describe("settings integration", () => {
       expect(document.documentElement.dataset.theme).toBe("light");
       expect(window.localStorage.getItem("wemail-workspace-theme")).toBe("light");
 
-      fireEvent.click(within(screen.getByRole("navigation", { name: /工作台导航/i })).getByRole("link", { name: /^收件箱$/i }));
+      fireEvent.click(within(sidebar).getByRole("link", { name: /^邮件(?:\s|$)/i }));
+      expect(await screen.findByRole("navigation", { name: /邮件 二级菜单/i })).toBeInTheDocument();
       expect(await screen.findByRole("heading", { name: /一个工作台，管理所有邮箱/i })).toBeInTheDocument();
       expect(document.documentElement.dataset.theme).toBe("light");
     },

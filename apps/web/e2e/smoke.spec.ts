@@ -13,16 +13,16 @@ test("redirects signed-out deep links into login with a return target", async ({
   test.setTimeout(60000);
   await page.goto("/settings");
   await expect(page.getByRole("button", { name: /^立即登录$/i })).toBeVisible();
-  await expect.poll(() => page.url(), { timeout: 10000 }).toContain('/login?next=%2Fsettings');
+  await expect.poll(() => page.url(), { timeout: 10000 }).toContain("/login?next=%2Fsettings");
 });
 
 test("keeps the next target when switching auth tabs", async ({ page }) => {
   test.setTimeout(60000);
-  await page.goto('/login?next=%2Fsettings');
-  await page.getByRole('tab', { name: /^注册$/i }).click();
-  await expect.poll(() => page.url(), { timeout: 10000 }).toContain('/register?next=%2Fsettings');
-  await page.getByRole('tab', { name: /^登录$/i }).click();
-  await expect.poll(() => page.url(), { timeout: 10000 }).toContain('/login?next=%2Fsettings');
+  await page.goto("/login?next=%2Fsettings");
+  await page.getByRole("tab", { name: /^注册$/i }).click();
+  await expect.poll(() => page.url(), { timeout: 10000 }).toContain("/register?next=%2Fsettings");
+  await page.getByRole("tab", { name: /^登录$/i }).click();
+  await expect.poll(() => page.url(), { timeout: 10000 }).toContain("/login?next=%2Fsettings");
 });
 
 test("restores the intended route after auth when next is present", async ({ page }) => {
@@ -49,12 +49,12 @@ test("restores the intended route after auth when next is present", async ({ pag
   await page.route("**/api/keys", async (route) => route.fulfill({ json: { keys: [] } }));
   await page.route("**/api/telegram", async (route) => route.fulfill({ json: { subscription: null } }));
 
-  await page.goto('/login?next=%2Fsettings');
-  await expect(page.getByRole('heading', { name: /密钥、通知与接入控制/i })).toBeVisible();
-  await expect.poll(() => page.url(), { timeout: 10000 }).toContain('/settings');
+  await page.goto("/login?next=%2Fsettings");
+  await expect(page.getByRole("heading", { name: /密钥、通知与接入控制/i })).toBeVisible();
+  await expect.poll(() => page.url(), { timeout: 10000 }).toContain("/settings");
 });
 
-test("shows the shared access shell for an authenticated member", async ({ page }) => {
+test("shows the reworked shared access shell for an authenticated member", async ({ page }) => {
   test.setTimeout(60000);
   await page.route("**/auth/session", async (route) => {
     await route.fulfill({
@@ -108,11 +108,14 @@ test("shows the shared access shell for an authenticated member", async ({ page 
   await page.route("**/api/telegram", async (route) => route.fulfill({ json: { subscription: null } }));
 
   await page.goto("/settings");
-  await expect(page.getByRole("navigation", { name: /工作台导航/i })).toBeVisible();
+  const sidebar = page.getByRole("navigation", { name: /工作台导航/i });
+  await expect(sidebar).toBeVisible();
+  await expect(sidebar.getByRole("link", { name: /^仪表盘$/i })).toBeVisible();
+  await expect(sidebar.getByRole("link", { name: /^邮件(?:\s|$)/i })).toBeVisible();
   await expect(page.getByRole("heading", { name: /密钥、通知与接入控制/i })).toBeVisible();
   await expect(page.getByRole("heading", { name: /API 密钥/i })).toBeVisible();
-  await expect(page.getByRole("heading", { name: /Telegram 通知/i })).toBeVisible();
   await expect(page.getByLabel(/工作台品牌/i)).toContainText("WeMail");
+  await expect(page.getByLabel(/API 密钥 二级菜单/i)).toHaveCount(0);
   await expect(page.getByLabel(/工作台快速搜索/i)).toHaveCount(0);
   await page.getByRole("button", { name: /用户菜单/i }).click();
   await expect(page.getByRole("menuitem", { name: /退出登录/i })).toBeVisible();
@@ -127,14 +130,15 @@ test("shows the shared access shell for an authenticated member", async ({ page 
   await page.reload();
   await expect.poll(async () => page.evaluate(() => document.documentElement.dataset.theme), { timeout: 10000 }).toBe("light");
 
-  await page.getByRole("navigation", { name: /工作台导航/i }).getByRole("link", { name: /^收件箱$/i }).click();
+  await sidebar.getByRole("link", { name: /^邮件(?:\s|$)/i }).click();
+  await expect(page.getByRole("navigation", { name: /邮件 二级菜单/i })).toBeVisible();
   await expect(page.getByRole("heading", { name: /一个工作台，管理所有邮箱/i })).toBeVisible();
   await expect(page.getByRole("heading", { name: /当前邮箱/i })).toBeVisible();
   await expect(page.getByRole("heading", { name: /最新消息/i })).toBeVisible();
   await expect.poll(async () => page.evaluate(() => document.documentElement.dataset.theme), { timeout: 10000 }).toBe("light");
 });
 
-test("shows the control workspace for an authenticated admin", async ({ page }) => {
+test("shows the admin users workspace for an authenticated admin", async ({ page }) => {
   test.setTimeout(60000);
   await page.route("**/auth/session", async (route) => {
     await route.fulfill({
@@ -209,7 +213,10 @@ test("shows the control workspace for an authenticated admin", async ({ page }) 
   );
 
   await page.goto("/admin");
-  await expect(page.getByRole("navigation", { name: /工作台导航/i })).toBeVisible();
+  const sidebar = page.getByRole("navigation", { name: /工作台导航/i });
+  await expect(sidebar).toBeVisible();
+  await expect(sidebar.getByRole("link", { name: /^用户(?:\s|$)/i })).toBeVisible();
+  await expect(page.getByRole("navigation", { name: /用户 二级菜单/i })).toBeVisible();
   await expect(page.getByRole("heading", { name: /访问、配额与系统开关/i })).toBeVisible();
   await expect(page.getByRole("heading", { name: /邀请码控制/i })).toBeVisible();
   await expect(page.getByRole("heading", { name: /配额控制/i })).toBeVisible();
