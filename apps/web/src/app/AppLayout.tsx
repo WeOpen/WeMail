@@ -254,51 +254,53 @@ export function AppLayout({
         </aside>
 
         <div className="workspace-main-column workspace-scroll-area" ref={mainScrollRef}>
-          <section className={`workspace-hero panel${shell.hero.variant === "dashboard" ? " workspace-hero-dashboard" : ""}`}>
-            <div className="workspace-hero-copy">
-              <p className="panel-kicker">{shell.hero.eyebrow}</p>
-              <h1>{shell.hero.title}</h1>
-              <p className="hero-copy workspace-hero-description">{shell.hero.description}</p>
-            </div>
-
-            {shell.hero.actions.length > 0 ? (
-              <div className="workspace-hero-actions">
-                {shell.hero.actions.map((action) =>
-                  action.kind === "link" && action.to ? (
-                    <NavLink
-                      key={`${action.label}-${action.to}`}
-                      className={`workspace-action-button ${action.tone}`}
-                      to={action.to}
-                    >
-                      {action.label}
-                    </NavLink>
-                  ) : (
-                    <button
-                      key={action.label}
-                      className={`workspace-action-button ${action.tone}`}
-                      disabled={!action.onClick}
-                      onClick={action.onClick}
-                      type="button"
-                    >
-                      {action.label}
-                    </button>
-                  )
-                )}
+          {shell.hero.variant !== "dashboard" ? (
+            <section className={`workspace-hero panel${shell.hero.variant === "dashboard" ? " workspace-hero-dashboard" : ""}`}>
+              <div className="workspace-hero-copy">
+                <p className="panel-kicker">{shell.hero.eyebrow}</p>
+                <h1>{shell.hero.title}</h1>
+                <p className="hero-copy workspace-hero-description">{shell.hero.description}</p>
               </div>
-            ) : null}
 
-            {shell.hero.stats.length > 0 ? (
-              <div className="workspace-hero-stats" aria-label={`${shell.routeLabel} highlights`}>
-                {shell.hero.stats.map((stat) => (
-                  <article className="workspace-stat-card" key={stat.label}>
-                    <p>{stat.label}</p>
-                    <strong>{stat.value}</strong>
-                    <span>{stat.detail}</span>
-                  </article>
-                ))}
-              </div>
-            ) : null}
-          </section>
+              {shell.hero.actions.length > 0 ? (
+                <div className="workspace-hero-actions">
+                  {shell.hero.actions.map((action) =>
+                    action.kind === "link" && action.to ? (
+                      <NavLink
+                        key={`${action.label}-${action.to}`}
+                        className={`workspace-action-button ${action.tone}`}
+                        to={action.to}
+                      >
+                        {action.label}
+                      </NavLink>
+                    ) : (
+                      <button
+                        key={action.label}
+                        className={`workspace-action-button ${action.tone}`}
+                        disabled={!action.onClick}
+                        onClick={action.onClick}
+                        type="button"
+                      >
+                        {action.label}
+                      </button>
+                    )
+                  )}
+                </div>
+              ) : null}
+
+              {shell.hero.stats.length > 0 ? (
+                <div className="workspace-hero-stats" aria-label={`${shell.routeLabel} highlights`}>
+                  {shell.hero.stats.map((stat) => (
+                    <article className="workspace-stat-card" key={stat.label}>
+                      <p>{stat.label}</p>
+                      <strong>{stat.value}</strong>
+                      <span>{stat.detail}</span>
+                    </article>
+                  ))}
+                </div>
+              ) : null}
+            </section>
+          ) : null}
 
           {notice ? <div className="notice-banner workspace-notice-banner">{notice}</div> : null}
 

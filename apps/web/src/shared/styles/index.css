@@ -1098,6 +1098,7 @@ button:disabled {
 .dashboard-kpi-card {
   gap: 10px;
   align-content: start;
+  background: var(--hero-gradient);
 }
 
 .dashboard-kpi-card h2,
@@ -1138,6 +1139,7 @@ button:disabled {
 
 .dashboard-panel {
   gap: 18px;
+  background: var(--hero-gradient);
 }
 
 .dashboard-panel-head {
@@ -1190,12 +1192,8 @@ button:disabled {
   padding: 16px 16px 42px;
   border-radius: 26px;
   border: 1px solid rgba(255, 122, 0, 0.12);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(255, 245, 232, 0.82));
+  background: var(--hero-gradient);
   overflow: hidden;
-}
-
-:root[data-theme="dark"] .dashboard-trend-chart {
-  background: linear-gradient(180deg, rgba(27, 32, 38, 0.92), rgba(43, 34, 21, 0.82));
 }
 
 .dashboard-trend-grid {
@@ -1301,7 +1299,7 @@ button:disabled {
   gap: 8px;
   padding: 12px 14px;
   border-radius: 18px;
-  background: var(--surface-muted);
+  background: var(--hero-gradient);
   border: 1px solid rgba(15, 23, 42, 0.05);
 }
 
