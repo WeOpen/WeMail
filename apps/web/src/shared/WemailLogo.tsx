@@ -15,58 +15,61 @@ export function WemailLogo({ title = "WeMail logo", ...props }: WemailLogoProps)
       xmlns="http://www.w3.org/2000/svg"
       {...props}
     >
-      <path
+      <rect
         className="wemail-logo-envelope"
-        d="M7 14H57V50H7V14Z"
+        x="3.5"
+        y="10.5"
+        width="57"
+        height="41"
+        rx="14.5"
         stroke="currentColor"
-        strokeLinejoin="miter"
         strokeWidth="4"
       />
       <path
         className="wemail-logo-envelope"
-        d="M10 19L23.5 31.5L32 24.5L40.5 31.5L54 19"
+        d="M9.5 18.5L23 30.75L32 24.25L41 30.75L54.5 18.5"
         stroke="currentColor"
-        strokeLinecap="square"
-        strokeLinejoin="miter"
+        strokeLinecap="round"
+        strokeLinejoin="round"
         strokeWidth="4"
       />
       <path
         className="wemail-logo-fold"
-        d="M23.5 31.5L32 24.5L40.5 31.5"
+        d="M23 30.75L32 24.25L41 30.75"
         stroke="var(--accent, currentColor)"
-        strokeLinecap="square"
-        strokeLinejoin="miter"
+        strokeLinecap="round"
+        strokeLinejoin="round"
         strokeWidth="4"
       />
       <path
         className="wemail-logo-envelope"
-        d="M10 45L25 32"
+        d="M10 46.5L24.5 32.75"
         stroke="currentColor"
-        strokeLinecap="square"
-        strokeLinejoin="miter"
+        strokeLinecap="round"
+        strokeLinejoin="round"
         strokeWidth="4"
       />
       <path
         className="wemail-logo-envelope"
-        d="M54 45L39 32"
+        d="M54 46.5L39.5 32.75"
         stroke="currentColor"
-        strokeLinecap="square"
-        strokeLinejoin="miter"
+        strokeLinecap="round"
+        strokeLinejoin="round"
         strokeWidth="4"
       />
       <g className="wemail-logo-seal-group">
         <circle
           className="wemail-logo-seal"
           cx="32"
-          cy="40"
+          cy="40.5"
           fill="var(--accent, currentColor)"
-          r="8.75"
+          r="9"
           stroke="currentColor"
           strokeWidth="3"
         />
         <path
           className="wemail-logo-monogram"
-          d="M26.75 43.5V35.5L32 42L37.25 35.5V43.5"
+          d="M26.6 43.6V34.4L32 41L37.4 34.4V43.6"
           stroke="currentColor"
           strokeLinecap="round"
           strokeLinejoin="round"

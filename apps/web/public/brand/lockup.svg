@@ -1,13 +1,13 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 80" fill="none">
   <rect width="360" height="80" fill="transparent"/>
   <g transform="translate(0 4)">
-    <rect x="6" y="14" width="52" height="36" rx="9" fill="#fffaf6" stroke="#111111" stroke-width="3.5"/>
-    <path d="M10 19L23.5 31.5L32 24.5L40.5 31.5L54 19" stroke="#111111" stroke-width="3.5" stroke-linecap="square" stroke-linejoin="miter"/>
-    <path d="M23.5 31.5L32 24.5L40.5 31.5" stroke="#ff7a00" stroke-width="3.5" stroke-linecap="square" stroke-linejoin="miter"/>
-    <path d="M10 45L25 32" stroke="#111111" stroke-width="3.5" stroke-linecap="square" stroke-linejoin="miter"/>
-    <path d="M54 45L39 32" stroke="#111111" stroke-width="3.5" stroke-linecap="square" stroke-linejoin="miter"/>
-    <circle cx="32" cy="40" r="8.75" fill="#ff7a00" stroke="#111111" stroke-width="3"/>
-    <path d="M26.75 43.5V35.5L32 42L37.25 35.5V43.5" stroke="#111111" stroke-width="2.35" stroke-linecap="round" stroke-linejoin="round"/>
+    <rect x="3.5" y="10.5" width="57" height="41" rx="14.5" fill="#fffaf6" stroke="#111111" stroke-width="3.5"/>
+    <path d="M9.5 18.5L23 30.75L32 24.25L41 30.75L54.5 18.5" stroke="#111111" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M23 30.75L32 24.25L41 30.75" stroke="#ff7a00" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M10 46.5L24.5 32.75" stroke="#111111" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M54 46.5L39.5 32.75" stroke="#111111" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="32" cy="40.5" r="9" fill="#ff7a00" stroke="#111111" stroke-width="3"/>
+    <path d="M26.6 43.6V34.4L32 41L37.4 34.4V43.6" stroke="#111111" stroke-width="2.35" stroke-linecap="round" stroke-linejoin="round"/>
   </g>
   <text x="84" y="44" fill="#111111" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="34" font-weight="700" letter-spacing="-1.8">We</text>
   <text x="133" y="44" fill="#ff7a00" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="34" font-weight="700" letter-spacing="-1.8">Mail</text>

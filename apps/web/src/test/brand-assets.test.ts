@@ -11,34 +11,37 @@ describe("brand assets", () => {
   it("adds a centered wax seal to the React logo mark", () => {
     const markup = renderToStaticMarkup(createElement(WemailLogo));
 
-    expect(markup).toContain('d="M7 14H57V50H7V14Z"');
-    expect(markup).toContain('cx="32" cy="40" fill="var(--accent, currentColor)" r="8.75"');
-    expect(markup).toContain('d="M26.75 43.5V35.5L32 42L37.25 35.5V43.5"');
+    expect(markup).toContain('x="3.5" y="10.5" width="57" height="41" rx="14.5"');
+    expect(markup).toContain('stroke-linecap="round"');
+    expect(markup).toContain('cx="32" cy="40.5" fill="var(--accent, currentColor)" r="9"');
+    expect(markup).toContain('d="M26.6 43.6V34.4L32 41L37.4 34.4V43.6"');
   });
 
   it("uses a tighter favicon composition with a centered wax seal for better small-size legibility", () => {
     const faviconPath = resolve(process.cwd(), "public", "brand", "favicon.svg");
     const svg = readFileSync(faviconPath, "utf8");
 
-    expect(svg).toContain('rect x="6" y="14" width="52" height="36"');
-    expect(svg).toContain('path d="M10 19L23.5 31.5L32 24.5L40.5 31.5L54 19"');
-    expect(svg).toContain('circle cx="32" cy="40" r="8.75"');
+    expect(svg).toContain('rect x="2" y="8.5" width="60" height="44" rx="16"');
+    expect(svg).toContain('stroke-linecap="round"');
+    expect(svg).toContain('circle cx="32" cy="41" r="10"');
   });
 
   it("keeps the shared icon asset in sync with the sealed-envelope mark", () => {
     const iconPath = resolve(process.cwd(), "public", "brand", "icon.svg");
     const svg = readFileSync(iconPath, "utf8");
 
-    expect(svg).toContain('path d="M18 38L45 63L64 49L83 63L110 38"');
-    expect(svg).toContain('circle cx="64" cy="80" r="17.5"');
-    expect(svg).toContain('d="M53.5 87V71L64 84L74.5 71V87"');
+    expect(svg).toContain('rect x="8" y="22" width="112" height="80" rx="28"');
+    expect(svg).toContain('stroke-linecap="round"');
+    expect(svg).toContain('circle cx="64" cy="80.5" r="18"');
+    expect(svg).toContain('d="M53.2 88V69L64 82.5L74.8 69V88"');
   });
 
   it("keeps the mono icon seal as a line-drawn M", () => {
     const iconPath = resolve(process.cwd(), "public", "brand", "icon-mono.svg");
     const svg = readFileSync(iconPath, "utf8");
 
-    expect(svg).toContain('circle cx="32" cy="40" r="8.75" fill="none"');
-    expect(svg).toContain('d="M26.75 43.5V35.5L32 42L37.25 35.5V43.5"');
+    expect(svg).toContain('rect x="3.5" y="10.5" width="57" height="41" rx="14.5"');
+    expect(svg).toContain('circle cx="32" cy="40.5" r="9" fill="none"');
+    expect(svg).toContain('d="M26.6 43.6V34.4L32 41L37.4 34.4V43.6"');
   });
 });

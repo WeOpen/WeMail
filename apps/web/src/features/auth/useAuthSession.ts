@@ -2,20 +2,17 @@ import { FormEvent, useCallback, useState } from "react";
 
 import type { SessionSummary } from "@wemail/shared";
 
-import {
-  loginWithPasswordAction,
-  logoutSessionAction,
-  registerWithInviteAction
-} from "./actions";
+import type { WemailToastInput } from "../../shared/toast";
+import { loginWithPasswordAction, logoutSessionAction, registerWithInviteAction } from "./actions";
 import { queryCurrentSession } from "./queries";
 
 type UseAuthSessionOptions = {
   onSignedIn: (session: SessionSummary) => void;
   onSignedOut: () => void;
-  onNotice: (message: string | null) => void;
+  onToast: (toast: WemailToastInput) => void;
 };
 
-export function useAuthSession({ onSignedIn, onSignedOut, onNotice }: UseAuthSessionOptions) {
+export function useAuthSession({ onSignedIn, onSignedOut, onToast }: UseAuthSessionOptions) {
   const [authError, setAuthError] = useState<string | null>(null);
   const [loadingSession, setLoadingSession] = useState(true);
 
@@ -43,13 +40,13 @@ export function useAuthSession({ onSignedIn, onSignedOut, onNotice }: UseAuthSes
           inviteCode: form.get("inviteCode")
         });
         onSignedIn(nextSession);
-        onNotice("注册成功，欢迎进入你的邮箱工作台。");
+        onToast({ message: "注册成功，欢迎进入你的邮箱工作台。", tone: "success" });
         setAuthError(null);
       } catch (error) {
         setAuthError((error as Error).message);
       }
     },
-    [onNotice, onSignedIn]
+    [onSignedIn, onToast]
   );
 
   const handleLogin = useCallback(
@@ -62,20 +59,20 @@ export function useAuthSession({ onSignedIn, onSignedOut, onNotice }: UseAuthSes
           password: form.get("password")
         });
         onSignedIn(nextSession);
-        onNotice("登录成功。");
+        onToast({ message: "登录成功。", tone: "success" });
         setAuthError(null);
       } catch (error) {
         setAuthError((error as Error).message);
       }
     },
-    [onNotice, onSignedIn]
+    [onSignedIn, onToast]
   );
 
   const handleLogout = useCallback(async () => {
     await logoutSessionAction();
     onSignedOut();
-    onNotice("已退出登录。");
-  }, [onNotice, onSignedOut]);
+    onToast({ message: "已退出登录。", tone: "info" });
+  }, [onSignedOut, onToast]);
 
   return {
     authError,

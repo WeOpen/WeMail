@@ -2,6 +2,7 @@ import { FormEvent, useCallback, useMemo, useState } from "react";
 
 import type { MailboxSummary, MessageSummary } from "@wemail/shared";
 
+import type { WemailToastInput } from "../../shared/toast";
 import { createMailboxAction, sendOutboundAction } from "./actions";
 import { pickNextMailboxId, queryMailboxes, queryMessages, queryOutboundHistory } from "./queries";
 import { selectMessage } from "./selectors";
@@ -9,20 +10,17 @@ import type { OutboundHistoryItem } from "./types";
 
 type UseInboxWorkspaceOptions = {
   enabled: boolean;
-  onNotice: (message: string | null) => void;
+  onToast: (toast: WemailToastInput) => void;
 };
 
-export function useInboxWorkspace({ enabled, onNotice }: UseInboxWorkspaceOptions) {
+export function useInboxWorkspace({ enabled, onToast }: UseInboxWorkspaceOptions) {
   const [mailboxes, setMailboxes] = useState<MailboxSummary[]>([]);
   const [selectedMailboxId, setSelectedMailboxId] = useState<string | null>(null);
   const [messages, setMessages] = useState<MessageSummary[]>([]);
   const [selectedMessageId, setSelectedMessageId] = useState<string | null>(null);
   const [outboundHistory, setOutboundHistory] = useState<OutboundHistoryItem[]>([]);
 
-  const selectedMessage = useMemo(
-    () => selectMessage(messages, selectedMessageId),
-    [messages, selectedMessageId]
-  );
+  const selectedMessage = useMemo(() => selectMessage(messages, selectedMessageId), [messages, selectedMessageId]);
 
   const refreshMailboxes = useCallback(
     async (nextSelectedMailboxId?: string | null) => {
@@ -65,9 +63,9 @@ export function useInboxWorkspace({ enabled, onNotice }: UseInboxWorkspaceOption
     async (label: string) => {
       const payload = await createMailboxAction(label);
       await refreshMailboxes(payload.mailbox.id);
-      onNotice(`邮箱 ${payload.mailbox.address} 已创建。`);
+      onToast({ message: `邮箱 ${payload.mailbox.address} 已创建。`, tone: "success" });
     },
-    [onNotice, refreshMailboxes]
+    [onToast, refreshMailboxes]
   );
 
   const sendMail = useCallback(
@@ -82,10 +80,10 @@ export function useInboxWorkspace({ enabled, onNotice }: UseInboxWorkspaceOption
         bodyText: form.get("bodyText")
       });
       event.currentTarget.reset();
-      onNotice("邮件已发送。");
+      onToast({ message: "邮件已发送。", tone: "success" });
       await refreshOutbound(selectedMailboxId);
     },
-    [onNotice, refreshOutbound, selectedMailboxId]
+    [onToast, refreshOutbound, selectedMailboxId]
   );
 
   return {

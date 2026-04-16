@@ -2,19 +2,16 @@ import { FormEvent, useCallback, useState } from "react";
 
 import type { ApiKeySummary, SessionSummary, TelegramSubscriptionSummary } from "@wemail/shared";
 
-import {
-  createApiKeyAction,
-  revokeApiKeyAction,
-  saveTelegramAction
-} from "./actions";
+import type { WemailToastInput } from "../../shared/toast";
+import { createApiKeyAction, revokeApiKeyAction, saveTelegramAction } from "./actions";
 import { querySettingsData } from "./queries";
 
 type UseSettingsDataOptions = {
   session: SessionSummary | null;
-  onNotice: (message: string | null) => void;
+  onToast: (toast: WemailToastInput) => void;
 };
 
-export function useSettingsData({ session, onNotice }: UseSettingsDataOptions) {
+export function useSettingsData({ session, onToast }: UseSettingsDataOptions) {
   const [apiKeys, setApiKeys] = useState<ApiKeySummary[]>([]);
   const [telegram, setTelegram] = useState<TelegramSubscriptionSummary | null>(null);
 
@@ -28,19 +25,24 @@ export function useSettingsData({ session, onNotice }: UseSettingsDataOptions) {
   const createApiKey = useCallback(
     async (label: string) => {
       const payload = await createApiKeyAction(label);
-      onNotice(`API Key 已创建，请立即复制：${payload.key.secret}`);
+      onToast({
+        message: `API Key 已创建，请立即复制：${payload.key.secret}`,
+        tone: "info",
+        dismissible: true,
+        durationMs: 6000
+      });
       await refreshSettingsData();
     },
-    [onNotice, refreshSettingsData]
+    [onToast, refreshSettingsData]
   );
 
   const revokeApiKey = useCallback(
     async (keyId: string) => {
       await revokeApiKeyAction(keyId);
-      onNotice("API Key 已吊销。");
+      onToast({ message: "API Key 已吊销。", tone: "success" });
       await refreshSettingsData();
     },
-    [onNotice, refreshSettingsData]
+    [onToast, refreshSettingsData]
   );
 
   const saveTelegram = useCallback(
@@ -51,10 +53,10 @@ export function useSettingsData({ session, onNotice }: UseSettingsDataOptions) {
         chatId: form.get("chatId"),
         enabled: form.get("enabled") === "on"
       });
-      onNotice("Telegram 设置已保存。");
+      onToast({ message: "Telegram 设置已保存。", tone: "success" });
       await refreshSettingsData();
     },
-    [onNotice, refreshSettingsData]
+    [onToast, refreshSettingsData]
   );
 
   return {

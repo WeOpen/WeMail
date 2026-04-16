@@ -1,9 +1,9 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
-  <rect x="6" y="14" width="52" height="36" rx="9" fill="#ffffff" stroke="#111111" stroke-width="4"/>
-  <path d="M10 19L23.5 31.5L32 24.5L40.5 31.5L54 19" stroke="#111111" stroke-width="4" stroke-linecap="square" stroke-linejoin="miter"/>
-  <path d="M23.5 31.5L32 24.5L40.5 31.5" stroke="#ff7a00" stroke-width="4" stroke-linecap="square" stroke-linejoin="miter"/>
-  <path d="M10 45L25 32" stroke="#111111" stroke-width="4" stroke-linecap="square" stroke-linejoin="miter"/>
-  <path d="M54 45L39 32" stroke="#111111" stroke-width="4" stroke-linecap="square" stroke-linejoin="miter"/>
-  <circle cx="32" cy="40" r="8.75" fill="#ff7a00" stroke="#111111" stroke-width="3"/>
-  <path d="M26.75 43.5V35.5L32 42L37.25 35.5V43.5" stroke="#111111" stroke-width="2.35" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="2" y="8.5" width="60" height="44" rx="16" fill="#ffffff" stroke="#111111" stroke-width="4"/>
+  <path d="M8 17.5L22.5 30.5L32 23.5L41.5 30.5L56 17.5" stroke="#111111" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M22.5 30.5L32 23.5L41.5 30.5" stroke="#ff7a00" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M8.5 47.5L24.5 32.5" stroke="#111111" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M55.5 47.5L39.5 32.5" stroke="#111111" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="32" cy="41" r="10" fill="#ff7a00" stroke="#111111" stroke-width="3"/>
+  <path d="M26 44.5V34L32 41.5L38 34V44.5" stroke="#111111" stroke-width="2.35" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>

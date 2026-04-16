@@ -25,7 +25,6 @@ import type { WorkspaceTheme } from "./useWorkspaceTheme";
 
 type AppLayoutProps = {
   session: SessionSummary;
-  notice: string | null;
   onLogout: () => void;
   onToggleTheme: () => void;
   theme: WorkspaceTheme;
@@ -77,7 +76,6 @@ function RailIcon({ icon }: { icon: WorkspaceRailIcon }) {
 
 export function AppLayout({
   session,
-  notice,
   onLogout,
   onToggleTheme,
   theme,
@@ -255,7 +253,7 @@ export function AppLayout({
 
         <div className="workspace-main-column workspace-scroll-area" ref={mainScrollRef}>
           {shell.hero.variant !== "dashboard" ? (
-            <section className={`workspace-hero panel${shell.hero.variant === "dashboard" ? " workspace-hero-dashboard" : ""}`}>
+            <section className="workspace-hero panel">
               <div className="workspace-hero-copy">
                 <p className="panel-kicker">{shell.hero.eyebrow}</p>
                 <h1>{shell.hero.title}</h1>
@@ -301,8 +299,6 @@ export function AppLayout({
               ) : null}
             </section>
           ) : null}
-
-          {notice ? <div className="notice-banner workspace-notice-banner">{notice}</div> : null}
 
           <div className={`workspace-route workspace-route-${shell.routeKey}`}>{children}</div>
         </div>

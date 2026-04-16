@@ -2,21 +2,17 @@ import { FormEvent, useCallback, useState } from "react";
 
 import type { FeatureToggles, MailboxSummary, QuotaSummary, SessionSummary, UserSummary } from "@wemail/shared";
 
-import {
-  createInviteAction,
-  disableInviteAction,
-  updateFeatureTogglesAction,
-  updateQuotaAction
-} from "./actions";
+import type { WemailToastInput } from "../../shared/toast";
+import { createInviteAction, disableInviteAction, updateFeatureTogglesAction, updateQuotaAction } from "./actions";
 import { queryAdminDashboard, queryQuota } from "./queries";
 import type { InviteSummary } from "./types";
 
 type UseAdminDataOptions = {
   session: SessionSummary | null;
-  onNotice: (message: string | null) => void;
+  onToast: (toast: WemailToastInput) => void;
 };
 
-export function useAdminData({ session, onNotice }: UseAdminDataOptions) {
+export function useAdminData({ session, onToast }: UseAdminDataOptions) {
   const [adminUsers, setAdminUsers] = useState<UserSummary[]>([]);
   const [adminInvites, setAdminInvites] = useState<InviteSummary[]>([]);
   const [adminFeatures, setAdminFeatures] = useState<FeatureToggles | null>(null);
@@ -35,17 +31,17 @@ export function useAdminData({ session, onNotice }: UseAdminDataOptions) {
 
   const createInvite = useCallback(async () => {
     await createInviteAction();
-    onNotice("邀请码已创建。");
+    onToast({ message: "邀请码已创建。", tone: "success" });
     await refreshAdminData();
-  }, [onNotice, refreshAdminData]);
+  }, [onToast, refreshAdminData]);
 
   const disableInvite = useCallback(
     async (inviteId: string) => {
       await disableInviteAction(inviteId);
-      onNotice("邀请码已停用。");
+      onToast({ message: "邀请码已停用。", tone: "info" });
       await refreshAdminData();
     },
-    [onNotice, refreshAdminData]
+    [onToast, refreshAdminData]
   );
 
   const selectQuotaUser = useCallback(async (userId: string) => {
@@ -60,19 +56,19 @@ export function useAdminData({ session, onNotice }: UseAdminDataOptions) {
         dailyLimit: Number(form.get("dailyLimit")),
         disabled: form.get("disabled") === "on"
       });
-      onNotice("用户配额已更新。");
+      onToast({ message: "用户配额已更新。", tone: "success" });
       await refreshAdminData();
     },
-    [onNotice, refreshAdminData]
+    [onToast, refreshAdminData]
   );
 
   const toggleFeatures = useCallback(
     async (nextFeatureToggles: FeatureToggles) => {
       await updateFeatureTogglesAction(nextFeatureToggles);
       setAdminFeatures(nextFeatureToggles);
-      onNotice("功能开关已更新。");
+      onToast({ message: "功能开关已更新。", tone: "success" });
     },
-    [onNotice]
+    [onToast]
   );
 
   return {

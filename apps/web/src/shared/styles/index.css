@@ -222,7 +222,6 @@ em {
 }
 
 .panel,
-.notice-banner,
 .error-banner,
 .warning-card,
 .auth-hero-card,
@@ -243,7 +242,6 @@ em {
 .auth-hero-card,
 .auth-panel,
 .auth-card,
-.notice-banner,
 .workspace-topbar,
 .workspace-rail,
 .workspace-hero,
@@ -372,7 +370,6 @@ button:disabled {
 .auth-hero-card,
 .auth-panel,
 .auth-card,
-.notice-banner,
 .workspace-topbar,
 .workspace-rail,
 .workspace-hero,
@@ -440,11 +437,11 @@ button:disabled {
 }
 
 .auth-brand-mark {
-  width: 72px;
-  height: 72px;
+  width: 80px;
+  height: 80px;
   display: inline-grid;
   place-items: center;
-  border-radius: 20px;
+  border-radius: 24px;
   background: linear-gradient(135deg, rgba(255, 122, 0, 0.14), rgba(255, 255, 255, 0.52));
   border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--border));
   color: var(--text);
@@ -452,8 +449,8 @@ button:disabled {
 }
 
 .auth-brand-logo {
-  width: 40px;
-  height: 40px;
+  width: 48px;
+  height: 48px;
   display: block;
 }
 
@@ -480,11 +477,11 @@ button:disabled {
 }
 
 .wemail-brand-lockup-mark {
-  width: 48px;
-  height: 48px;
+  width: 54px;
+  height: 54px;
   display: inline-grid;
   place-items: center;
-  border-radius: 14px;
+  border-radius: 16px;
   background: linear-gradient(135deg, rgba(255, 122, 0, 0.16), rgba(255, 255, 255, 0.04));
   border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--border));
   color: var(--text);
@@ -492,20 +489,20 @@ button:disabled {
 }
 
 .wemail-brand-lockup.compact .wemail-brand-lockup-mark {
-  width: 40px;
-  height: 40px;
-  border-radius: 12px;
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
 }
 
 .wemail-brand-lockup-logo {
-  width: 28px;
-  height: 28px;
+  width: 34px;
+  height: 34px;
   display: block;
 }
 
 .wemail-brand-lockup.compact .wemail-brand-lockup-logo {
-  width: 25px;
-  height: 25px;
+  width: 30px;
+  height: 30px;
 }
 
 .wemail-brand-lockup-copy {
@@ -628,8 +625,8 @@ button:disabled {
 }
 
 .workspace-brand .workspace-brand-lockup.compact .wemail-brand-lockup-logo {
-  width: 20px;
-  height: 20px;
+  width: 24px;
+  height: 24px;
 }
 
 .workspace-brand .workspace-brand-lockup.compact .wemail-brand-lockup-copy {
@@ -668,8 +665,8 @@ button:disabled {
 
 .landing-nav-bar .landing-brand-lockup.compact .wemail-brand-lockup-logo,
 .workspace-brand-lockup.compact .wemail-brand-lockup-logo {
-  width: 22px;
-  height: 22px;
+  width: 26px;
+  height: 26px;
 }
 
 .landing-nav-bar .landing-brand-lockup .wemail-brand-lockup-copy,
@@ -876,7 +873,7 @@ button:disabled {
 
 .workspace-rail-section {
   display: grid;
-  gap: 12px;
+  gap: 10px;
 }
 
 .workspace-rail-list,
@@ -887,6 +884,10 @@ button:disabled {
 .composer-form {
   display: grid;
   gap: 12px;
+}
+
+.workspace-rail-list {
+  gap: 10px;
 }
 
 .workspace-rail-link,
@@ -909,6 +910,9 @@ button:disabled {
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
   column-gap: 12px;
+  gap: 6px;
+  padding: 12px 16px;
+  border-radius: 20px;
 }
 
 .workspace-rail-link.active,
@@ -933,15 +937,18 @@ button:disabled {
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
   column-gap: 12px;
+  gap: 6px;
+  padding: 12px 16px;
+  border-radius: 20px;
 }
 
 .workspace-rail-icon-chip {
-  width: 34px;
-  height: 34px;
+  width: 30px;
+  height: 30px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: 12px;
+  border-radius: 11px;
   background: rgba(255, 122, 0, 0.08);
   color: var(--accent);
   border: 1px solid rgba(255, 122, 0, 0.12);
@@ -950,7 +957,7 @@ button:disabled {
 
 .workspace-rail-copy {
   display: grid;
-  gap: 2px;
+  gap: 1px;
   min-width: 0;
 }
 
@@ -1048,9 +1055,175 @@ button:disabled {
   font-size: clamp(1.5rem, 2vw, 2.1rem);
 }
 
-.workspace-notice-banner,
-.notice-banner {
-  padding: 16px 18px;
+.wemail-toast-viewport {
+  position: fixed;
+  top: 88px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 70;
+  width: min(280px, calc(100vw - 32px));
+  display: grid;
+  gap: 10px;
+  pointer-events: none;
+}
+
+.wemail-toast {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface-strong) 78%, transparent);
+  box-shadow:
+    0 18px 44px rgba(17, 17, 17, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.32);
+  backdrop-filter: blur(24px) saturate(160%);
+  overflow: hidden;
+  pointer-events: auto;
+  animation: wemail-toast-enter 220ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.wemail-toast::before {
+  content: "";
+  position: absolute;
+  inset: 1px;
+  border-radius: inherit;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.62), rgba(255, 255, 255, 0.1));
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+.wemail-toast::after {
+  content: "";
+  position: absolute;
+  top: -34%;
+  left: 10%;
+  width: 38%;
+  height: 160%;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.34), transparent 70%);
+  pointer-events: none;
+}
+
+.wemail-toast.success {
+  border-color: color-mix(in srgb, var(--accent) 26%, var(--border));
+  box-shadow:
+    0 20px 48px rgba(255, 122, 0, 0.14),
+    inset 0 1px 0 rgba(255, 255, 255, 0.34);
+}
+
+.wemail-toast.info {
+  border-color: color-mix(in srgb, rgba(99, 124, 255, 0.32) 60%, var(--border));
+}
+
+.wemail-toast.error {
+  border-color: rgba(239, 68, 68, 0.22);
+  background: color-mix(in srgb, rgba(255, 241, 242, 0.94) 86%, transparent);
+}
+
+.wemail-toast.leaving {
+  animation: wemail-toast-exit 220ms ease forwards;
+}
+
+.wemail-toast-icon {
+  position: relative;
+  z-index: 1;
+  width: 32px;
+  min-height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  align-self: center;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  color: var(--accent);
+  border: 1px solid color-mix(in srgb, var(--accent) 24%, transparent);
+  flex: none;
+}
+
+.wemail-toast.info .wemail-toast-icon {
+  background: rgba(99, 124, 255, 0.12);
+  color: #637cff;
+  border-color: rgba(99, 124, 255, 0.18);
+}
+
+.wemail-toast.error .wemail-toast-icon {
+  background: rgba(239, 68, 68, 0.12);
+  color: #dc2626;
+  border-color: rgba(239, 68, 68, 0.2);
+}
+
+.wemail-toast-icon-svg,
+.wemail-toast-close-icon {
+  width: 16px;
+  height: 16px;
+  display: block;
+}
+
+.wemail-toast-copy {
+  position: relative;
+  z-index: 1;
+  min-width: 0;
+  align-self: center;
+}
+
+.wemail-toast-message {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  line-height: 1.4;
+  letter-spacing: -0.03em;
+  color: var(--text);
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.wemail-toast-close {
+  position: relative;
+  z-index: 1;
+  width: 34px;
+  min-height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  align-self: center;
+  padding: 0;
+  border-radius: 999px;
+  background: rgba(17, 17, 17, 0.04);
+  border: 1px solid rgba(17, 17, 17, 0.06);
+  color: var(--text-muted);
+  box-shadow: none;
+}
+
+.wemail-toast-close:hover {
+  background: rgba(17, 17, 17, 0.08);
+  border-color: rgba(17, 17, 17, 0.1);
+}
+
+@keyframes wemail-toast-enter {
+  0% {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.96);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes wemail-toast-exit {
+  0% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.96);
+  }
 }
 
 .workspace-route {
@@ -1572,26 +1745,25 @@ button:disabled {
 }
 
 .wemail-loading-panel {
-  width: min(520px, 100%);
+  width: auto;
   display: grid;
   justify-items: center;
-  gap: 16px;
-  padding: clamp(28px, 4vw, 38px);
-  border-radius: var(--radius-card);
-  border: 1px solid var(--border);
-  background: var(--hero-gradient);
-  box-shadow: var(--shadow-card), var(--shadow-border);
-  backdrop-filter: blur(24px);
+  gap: 18px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
   text-align: center;
 }
 
 .wemail-loading-mark {
   position: relative;
-  width: 138px;
-  height: 138px;
+  width: 150px;
+  height: 150px;
   display: grid;
   place-items: center;
-  border-radius: 42px;
+  border-radius: 46px;
   background: linear-gradient(
     135deg,
     color-mix(in srgb, var(--accent) 18%, transparent),
@@ -1626,8 +1798,8 @@ button:disabled {
 .wemail-loading-logo {
   position: relative;
   z-index: 1;
-  width: 98px;
-  height: 98px;
+  width: 112px;
+  height: 112px;
   display: block;
 }
 
@@ -1746,6 +1918,10 @@ button:disabled {
     grid-template-columns: auto minmax(0, 1fr) auto;
   }
 
+  .wemail-toast-viewport {
+    top: 82px;
+  }
+
   .workspace-pill-nav,
   .workspace-secondary-nav {
     justify-self: start;
@@ -1839,6 +2015,20 @@ button:disabled {
     padding: 16px;
   }
 
+  .wemail-toast-viewport {
+    top: 76px;
+    width: min(92vw, 280px);
+  }
+
+  .wemail-toast {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .wemail-toast-close {
+    justify-self: end;
+    grid-column: 1 / -1;
+  }
+
   .workspace-topbar,
   .workspace-card-header,
   .panel-header,
@@ -1898,7 +2088,7 @@ button:disabled {
   }
 
   .auth-brand-mark {
-    width: 58px;
-    height: 58px;
+    width: 66px;
+    height: 66px;
   }
 }

@@ -5,6 +5,7 @@ import { AppLayout } from "./AppLayout";
 import { AppRoutes } from "./AppRoutes";
 import { AuthPage } from "../pages/AuthPage";
 import { WemailLoadingShell } from "../shared/WemailLoadingShell";
+import { WemailToastViewport } from "../shared/WemailToastViewport";
 import { buildWorkspaceShellState } from "./workspaceShell";
 import { useAppShell } from "./useAppShell";
 import { useWorkspaceTheme } from "./useWorkspaceTheme";
@@ -18,7 +19,7 @@ function resolvePostAuthPath(search: string) {
 
 function AppContent() {
   const location = useLocation();
-  const { session, notice, auth, inbox, settings, admin } = useAppShell();
+  const { session, toasts, dismissToast, auth, inbox, settings, admin } = useAppShell();
   const { theme, toggleTheme } = useWorkspaceTheme();
   const [mailboxComposerOpen, setMailboxComposerOpen] = useState(false);
 
@@ -86,10 +87,24 @@ function AppContent() {
     settings.telegram
   ]);
 
-  if (auth.loadingSession) return <WemailLoadingShell />;
+  const toastViewport = <WemailToastViewport onDismissToast={dismissToast} toasts={toasts} />;
+
+  if (auth.loadingSession) {
+    return (
+      <>
+        {toastViewport}
+        <WemailLoadingShell />
+      </>
+    );
+  }
 
   if (!session) {
-    return <AuthPage authError={auth.authError} onRegister={auth.handleRegister} onLogin={auth.handleLogin} />;
+    return (
+      <>
+        {toastViewport}
+        <AuthPage authError={auth.authError} onRegister={auth.handleRegister} onLogin={auth.handleLogin} />
+      </>
+    );
   }
 
   if (location.pathname === "/login" || location.pathname === "/register") {
@@ -99,28 +114,30 @@ function AppContent() {
   if (!shell) return null;
 
   return (
-    <AppLayout
-      session={session}
-      notice={notice}
-      onLogout={() => void auth.handleLogout()}
-      onToggleTheme={toggleTheme}
-      theme={theme}
-      shell={shell}
-    >
-      <AppRoutes
+    <>
+      {toastViewport}
+      <AppLayout
         session={session}
-        inbox={inbox}
-        selectedMessage={selectedMessage}
-        settings={settings}
-        admin={admin}
-        workspace={{
-          mailboxComposerOpen,
-          onOpenMailboxComposer: openMailboxComposer,
-          onCloseMailboxComposer: closeMailboxComposer,
-          onCreateMailbox: handleCreateMailbox
-        }}
-      />
-    </AppLayout>
+        onLogout={() => void auth.handleLogout()}
+        onToggleTheme={toggleTheme}
+        theme={theme}
+        shell={shell}
+      >
+        <AppRoutes
+          session={session}
+          inbox={inbox}
+          selectedMessage={selectedMessage}
+          settings={settings}
+          admin={admin}
+          workspace={{
+            mailboxComposerOpen,
+            onOpenMailboxComposer: openMailboxComposer,
+            onCloseMailboxComposer: closeMailboxComposer,
+            onCreateMailbox: handleCreateMailbox
+          }}
+        />
+      </AppLayout>
+    </>
   );
 }
 

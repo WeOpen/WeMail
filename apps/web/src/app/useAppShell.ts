@@ -6,10 +6,11 @@ import { useAdminData } from "../features/admin/useAdminData";
 import { useAuthSession } from "../features/auth/useAuthSession";
 import { useInboxWorkspace } from "../features/inbox/useInboxWorkspace";
 import { useSettingsData } from "../features/settings/useSettingsData";
+import { createToast, type WemailToastInput, type WemailToastRecord } from "../shared/toast";
 
 export function useAppShell() {
   const [session, setSession] = useState<SessionSummary | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
+  const [toasts, setToasts] = useState<WemailToastRecord[]>([]);
 
   const handleSignedIn = useCallback((nextSession: SessionSummary) => {
     setSession(nextSession);
@@ -19,37 +20,36 @@ export function useAppShell() {
     setSession(null);
   }, []);
 
-  const handleNotice = useCallback((message: string | null) => {
-    setNotice(message);
+  const dismissToast = useCallback((id: string) => {
+    setToasts((currentToasts) => currentToasts.filter((toast) => toast.id !== id));
+  }, []);
+
+  const pushToast = useCallback((input: WemailToastInput) => {
+    setToasts((currentToasts) => [createToast(input), ...currentToasts]);
   }, []);
 
   const auth = useAuthSession({
     onSignedIn: handleSignedIn,
     onSignedOut: handleSignedOut,
-    onNotice: handleNotice
+    onToast: pushToast
   });
   const { refreshSession } = auth;
 
   const inbox = useInboxWorkspace({
     enabled: Boolean(session),
-    onNotice: setNotice
+    onToast: pushToast
   });
-  const {
-    selectedMailboxId,
-    refreshMailboxes,
-    refreshMessages,
-    refreshOutbound
-  } = inbox;
+  const { selectedMailboxId, refreshMailboxes, refreshMessages, refreshOutbound } = inbox;
 
   const settings = useSettingsData({
     session,
-    onNotice: setNotice
+    onToast: pushToast
   });
   const { refreshSettingsData } = settings;
 
   const admin = useAdminData({
     session,
-    onNotice: setNotice
+    onToast: pushToast
   });
   const { refreshAdminData } = admin;
 
@@ -72,7 +72,9 @@ export function useAppShell() {
 
   return {
     session,
-    notice,
+    toasts,
+    pushToast,
+    dismissToast,
     auth,
     inbox,
     settings,
