@@ -1549,6 +1549,7 @@ button:disabled {
 
 .announcements-control-bar,
 .announcements-hero-card,
+.announcements-overview-panel,
 .announcements-panel,
 .announcements-overview-card,
 .announcements-item,
@@ -1823,8 +1824,21 @@ button:disabled {
   gap: 18px;
 }
 
+.announcements-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
 .announcements-section-kicker {
   margin: 0;
+}
+
+.announcements-publish-button {
+  min-height: 38px;
+  padding: 0 14px;
+  white-space: nowrap;
 }
 
 .announcements-panel-head {

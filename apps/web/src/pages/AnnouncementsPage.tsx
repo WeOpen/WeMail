@@ -6,6 +6,10 @@ import {
   type AnnouncementItem
 } from "../features/announcements/announcementsMockData";
 
+type AnnouncementsPageProps = {
+  canPublish?: boolean;
+};
+
 function buildOverviewDonut() {
   let offset = 0;
   const segments = announcementStatusSummary.map((item) => {
@@ -48,7 +52,7 @@ function statusClassName(status: AnnouncementItem["status"]) {
   }
 }
 
-export function AnnouncementsPage() {
+export function AnnouncementsPage({ canPublish = false }: AnnouncementsPageProps) {
   return (
     <main className="workspace-grid announcements-grid">
       <div className="announcements-top-grid">
@@ -102,7 +106,14 @@ export function AnnouncementsPage() {
 
       <div className="announcements-main-grid announcements-main-grid-single">
         <section className="panel workspace-card announcements-panel">
-          <p className="panel-kicker announcements-section-kicker">最近公告</p>
+          <div className="announcements-section-head">
+            <p className="panel-kicker announcements-section-kicker">最近公告</p>
+            {canPublish ? (
+              <button className="workspace-action-button secondary announcements-publish-button" type="button">
+                发布公告
+              </button>
+            ) : null}
+          </div>
 
           <div className="announcements-control-bar announcements-control-bar-inline" aria-label="最近公告筛选">
             <label className="announcements-search-field">

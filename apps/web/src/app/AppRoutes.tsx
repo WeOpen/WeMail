@@ -345,7 +345,7 @@ export function AppRoutes({ session, inbox, selectedMessage, settings, admin, ap
     />
   );
 
-  const announcementsPage = <AnnouncementsPage />;
+  const announcementsPage = <AnnouncementsPage canPublish={session.user.role === "admin"} />;
 
   const systemAppearancePage = (
     <SystemAppearancePage

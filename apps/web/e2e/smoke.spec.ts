@@ -352,6 +352,7 @@ test("shows the announcements board for an authenticated member", async ({ page 
 
   await page.goto("/announcements");
   await expect(page.getByRole("searchbox", { name: /公告搜索/i })).toBeVisible();
+  await expect(page.getByRole("button", { name: /发布公告/i })).toHaveCount(0);
   await expect(page.getByLabel("最近公告筛选")).toBeVisible();
   await expect(page.getByLabel("公告控制条")).toHaveCount(0);
   await expect(page.getByRole("heading", { name: /^进行中$/i })).toBeVisible();
@@ -366,4 +367,41 @@ test("shows the announcements board for an authenticated member", async ({ page 
   await expect(page.getByText(/^时间线$/i)).toHaveCount(0);
   await expect(page.getByRole("heading", { name: /状态概览/i })).toHaveCount(0);
   await expect(page.getByRole("heading", { name: /近期维护窗口/i })).toHaveCount(0);
+});
+
+test("shows the publish announcement button for an authenticated admin", async ({ page }) => {
+  test.setTimeout(60000);
+  await page.route("**/auth/session", async (route) => {
+    await route.fulfill({
+      json: {
+        user: {
+          id: "admin-1",
+          email: "admin@example.com",
+          role: "admin",
+          createdAt: "2026-04-08T00:00:00.000Z"
+        },
+        featureToggles: {
+          aiEnabled: true,
+          telegramEnabled: true,
+          outboundEnabled: true,
+          mailboxCreationEnabled: true
+        }
+      }
+    });
+  });
+
+  await page.route("**/api/mailboxes", async (route) =>
+    route.fulfill({
+      json: {
+        mailboxes: [{ id: "box-1", address: "ops@example.com", label: "Ops", createdAt: "2026-04-08T00:00:00.000Z" }]
+      }
+    })
+  );
+  await page.route("**/api/messages?mailboxId=box-1", async (route) => route.fulfill({ json: { messages: [] } }));
+  await page.route("**/api/outbound?mailboxId=box-1", async (route) => route.fulfill({ json: { messages: [] } }));
+  await page.route("**/api/keys", async (route) => route.fulfill({ json: { keys: [] } }));
+  await page.route("**/api/telegram", async (route) => route.fulfill({ json: { subscription: null } }));
+
+  await page.goto("/announcements");
+  await expect(page.getByRole("button", { name: /发布公告/i })).toBeVisible();
 });
