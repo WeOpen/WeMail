@@ -19,7 +19,9 @@ import { TelegramPanel } from "../features/settings/TelegramPanel";
 import { AdminPage } from "../pages/AdminPage";
 import { DashboardPage } from "../pages/DashboardPage";
 import { InboxPage } from "../pages/InboxPage";
+import { SystemAppearancePage } from "../pages/SystemAppearancePage";
 import { WorkspacePlaceholderPage } from "../pages/WorkspacePlaceholderPage";
+import type { WorkspaceTheme, WorkspaceThemePreference } from "./useWorkspaceTheme";
 
 type AppRoutesProps = {
   session: SessionSummary;
@@ -55,6 +57,11 @@ type AppRoutesProps = {
     submitQuota: (event: FormEvent<HTMLFormElement>, userId: string) => Promise<void>;
     toggleFeatures: (nextFeatureToggles: FeatureToggles) => Promise<void>;
   };
+  appearance: {
+    theme: WorkspaceTheme;
+    themePreference: WorkspaceThemePreference;
+    setThemePreference: (preference: WorkspaceThemePreference) => void;
+  };
   workspace: {
     mailboxComposerOpen: boolean;
     onOpenMailboxComposer: () => void;
@@ -63,7 +70,7 @@ type AppRoutesProps = {
   };
 };
 
-export function AppRoutes({ session, inbox, selectedMessage, settings, admin, workspace }: AppRoutesProps) {
+export function AppRoutes({ session, inbox, selectedMessage, settings, admin, appearance, workspace }: AppRoutesProps) {
   const inboxPage = (
     <InboxPage
       mailboxes={inbox.mailboxes}
@@ -360,24 +367,10 @@ export function AppRoutes({ session, inbox, selectedMessage, settings, admin, wo
   );
 
   const systemAppearancePage = (
-    <WorkspacePlaceholderPage
-      kicker="系统设置"
-      title="外观设置入口已预留"
-      description="顶部二级菜单中的“外观设置”已生效；当前主题切换仍可直接使用右上角按钮，后续可把更多视觉偏好接到这里。"
-      cards={[
-        {
-          title: "个人设置",
-          description: "系统设置的另一项二级菜单也已接好。",
-          actionLabel: "打开个人设置",
-          to: "/system/profile"
-        },
-        {
-          title: "Telegram",
-          description: "通知配置仍在 Telegram 页面维护。",
-          actionLabel: "打开 Telegram",
-          to: "/telegram"
-        }
-      ]}
+    <SystemAppearancePage
+      resolvedTheme={appearance.theme}
+      themePreference={appearance.themePreference}
+      onSelectThemePreference={appearance.setThemePreference}
     />
   );
 

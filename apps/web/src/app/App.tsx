@@ -20,7 +20,7 @@ function resolvePostAuthPath(search: string) {
 function AppContent() {
   const location = useLocation();
   const { session, toasts, dismissToast, auth, inbox, settings, admin } = useAppShell();
-  const { theme, toggleTheme } = useWorkspaceTheme();
+  const { theme, themePreference, setThemePreference, toggleTheme } = useWorkspaceTheme();
   const [mailboxComposerOpen, setMailboxComposerOpen] = useState(false);
 
   const selectedMessage = useMemo(() => inbox.selectedMessage, [inbox.selectedMessage]);
@@ -126,12 +126,17 @@ function AppContent() {
         <AppRoutes
           session={session}
           inbox={inbox}
-          selectedMessage={selectedMessage}
-          settings={settings}
-          admin={admin}
-          workspace={{
-            mailboxComposerOpen,
-            onOpenMailboxComposer: openMailboxComposer,
+        selectedMessage={selectedMessage}
+        settings={settings}
+        admin={admin}
+        appearance={{
+          theme,
+          themePreference,
+          setThemePreference
+        }}
+        workspace={{
+          mailboxComposerOpen,
+          onOpenMailboxComposer: openMailboxComposer,
             onCloseMailboxComposer: closeMailboxComposer,
             onCreateMailbox: handleCreateMailbox
           }}
