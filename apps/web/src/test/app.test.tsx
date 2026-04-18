@@ -246,6 +246,9 @@ describe("App", () => {
 
       expect(await screen.findByRole("heading", { name: /^API 密钥$/i })).toBeInTheDocument();
       expect(screen.getByText("总密钥")).toBeInTheDocument();
+      expect(screen.getByText("活跃密钥")).toBeInTheDocument();
+      expect(screen.getByText("从未使用")).toBeInTheDocument();
+      expect(screen.getByText("已吊销")).toBeInTheDocument();
       expect(screen.queryByRole("heading", { name: /安全建议/i })).not.toBeInTheDocument();
       expect(screen.queryByText(/如何选择这三种接入/i)).not.toBeInTheDocument();
     },
