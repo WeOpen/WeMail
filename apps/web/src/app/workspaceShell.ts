@@ -8,9 +8,9 @@ type RouteKey =
   | "api-keys"
   | "webhook"
   | "telegram"
-  | "docs"
   | "announcements"
-  | "system";
+  | "system"
+  | "about";
 
 export type WorkspaceRailIcon =
   | "dashboard"
@@ -20,7 +20,6 @@ export type WorkspaceRailIcon =
   | "keys"
   | "webhook"
   | "telegram"
-  | "docs"
   | "announcements"
   | "system";
 
@@ -131,13 +130,6 @@ const workspacePrimaryNav: WorkspacePrimaryNavConfig[] = [
     icon: "telegram"
   },
   {
-    id: "docs",
-    section: "设置",
-    label: "文档",
-    to: "/docs",
-    icon: "docs"
-  },
-  {
     id: "announcements",
     section: "设置",
     label: "公告",
@@ -152,7 +144,8 @@ const workspacePrimaryNav: WorkspacePrimaryNavConfig[] = [
     icon: "system",
     children: [
       { label: "系统设置", to: "/system/settings" },
-      { label: "个人设置", to: "/system/profile" }
+      { label: "个人设置", to: "/system/profile" },
+      { label: "关于我们", to: "/system/about" }
     ]
   }
 ];

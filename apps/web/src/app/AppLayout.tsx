@@ -3,7 +3,6 @@ import { NavLink } from "react-router-dom";
 import {
   Bell,
   ChevronDown,
-  FileText,
   Inbox,
   KeyRound,
   LayoutDashboard,
@@ -63,8 +62,6 @@ function RailIcon({ icon }: { icon: WorkspaceRailIcon }) {
       return <Webhook {...props} />;
     case "telegram":
       return <Bell {...props} />;
-    case "docs":
-      return <FileText {...props} />;
     case "announcements":
       return <Megaphone {...props} />;
     case "system":

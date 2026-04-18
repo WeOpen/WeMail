@@ -27,6 +27,7 @@ import { DashboardPage } from "../pages/DashboardPage";
 import { InboxPage } from "../pages/InboxPage";
 import { SystemSettingsPage } from "../pages/SystemSettingsPage";
 import { SystemProfilePage } from "../pages/SystemProfilePage";
+import { AboutPage } from "../pages/AboutPage";
 import { WorkspacePlaceholderPage } from "../pages/WorkspacePlaceholderPage";
 import type { WorkspaceTheme, WorkspaceThemePreference } from "./useWorkspaceTheme";
 
@@ -246,6 +247,7 @@ export function AppRoutes({ session, inbox, selectedMessage, settings, admin, ap
       <Route path="/system" element={<Navigate replace to="/system/settings" />} />
       <Route path="/system/settings" element={systemSettingsPage} />
       <Route path="/system/profile" element={systemProfilePage} />
+      <Route path="/system/about" element={<AboutPage />} />
     </Routes>
   );
 }
