@@ -7,6 +7,7 @@ import { InboxSummaryBar } from "../features/inbox/InboxSummaryBar";
 import { MailboxPanel } from "../features/inbox/MailboxPanel";
 import { MessageDetailPanel } from "../features/inbox/MessageDetailPanel";
 import { MessageStreamPanel } from "../features/inbox/MessageStreamPanel";
+import { OutboundPanel } from "../features/inbox/OutboundPanel";
 import type { OutboundHistoryItem } from "../features/inbox/types";
 
 type InboxPageProps = {
@@ -32,16 +33,19 @@ export function InboxPage({
   messages,
   selectedMessageId,
   selectedMessage,
+  outboundHistory,
   mailboxComposerOpen,
   onCloseMailboxComposer,
   onCreateMailbox,
   onOpenMailboxComposer,
   onSelectMailbox,
   onSelectMessage,
-  onRefreshMessages
+  onRefreshMessages,
+  onSendMail
 }: InboxPageProps) {
   const [label, setLabel] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [outboundDrawerOpen, setOutboundDrawerOpen] = useState(false);
 
   const suggestedLabel = useMemo(() => `Mailbox ${mailboxes.length + 1}`, [mailboxes.length]);
   const selectedMailbox = useMemo(
@@ -80,6 +84,7 @@ export function InboxPage({
           extractionCount={extractionCount}
           messageCount={messages.length}
           onOpenMailboxComposer={onOpenMailboxComposer}
+          onOpenOutboundDrawer={() => setOutboundDrawerOpen(true)}
           selectedMailbox={selectedMailbox}
         />
         <div className="workspace-grid inbox-grid">
@@ -98,6 +103,13 @@ export function InboxPage({
           <MessageDetailPanel selectedMessage={selectedMessage} />
         </div>
       </main>
+      <OutboundPanel
+        open={outboundDrawerOpen}
+        outboundHistory={outboundHistory}
+        selectedMailboxId={selectedMailboxId}
+        onClose={() => setOutboundDrawerOpen(false)}
+        onSendMail={onSendMail}
+      />
 
       {mailboxComposerOpen ? (
         <div className="workspace-dialog-backdrop" role="presentation">

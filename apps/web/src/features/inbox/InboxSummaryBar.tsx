@@ -6,6 +6,7 @@ type InboxSummaryBarProps = {
   messageCount: number;
   attachmentCount: number;
   onOpenMailboxComposer: () => void;
+  onOpenOutboundDrawer: () => void;
 };
 
 export function InboxSummaryBar({
@@ -13,7 +14,8 @@ export function InboxSummaryBar({
   extractionCount,
   messageCount,
   attachmentCount,
-  onOpenMailboxComposer
+  onOpenMailboxComposer,
+  onOpenOutboundDrawer
 }: InboxSummaryBarProps) {
   return (
     <section aria-label="邮件摘要工具条" className="panel workspace-card inbox-summary-bar">
@@ -42,7 +44,7 @@ export function InboxSummaryBar({
         <button className="workspace-action-button secondary" onClick={onOpenMailboxComposer} type="button">
           新建邮箱
         </button>
-        <button className="workspace-action-button primary" type="button">
+        <button className="workspace-action-button primary" onClick={onOpenOutboundDrawer} type="button">
           发送测试邮件
         </button>
       </div>

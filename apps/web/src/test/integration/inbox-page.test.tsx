@@ -150,4 +150,19 @@ describe("mail list integration", () => {
     expect(screen.queryByText(/^未提取$/i)).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: /^复制验证码$/i })).toBeInTheDocument();
   });
+
+  it("keeps outbound actions tucked behind a send-mail drawer until requested", async () => {
+    const user = userEvent.setup();
+
+    render(<App />);
+
+    expect(await screen.findByRole("button", { name: /^发送测试邮件$/i })).toBeInTheDocument();
+    expect(screen.queryByRole("dialog", { name: /^发送测试邮件$/i })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /^发送测试邮件$/i }));
+
+    const dialog = await screen.findByRole("dialog", { name: /^发送测试邮件$/i });
+    expect(within(dialog).getByLabelText(/收件人/i)).toBeInTheDocument();
+    expect(within(dialog).getByText(/首次外发后，记录会显示在这里/i)).toBeInTheDocument();
+  });
 });
