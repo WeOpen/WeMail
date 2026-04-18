@@ -166,7 +166,13 @@ export function AppRoutes({ session, inbox, selectedMessage, settings, admin, ap
 
   const accountsSettingsPage = <AccountsSettingsPage />;
 
-  const mailOutboundPage = <OutboundPage outboundHistory={inbox.outboundHistory} />;
+  const mailOutboundPage = (
+    <OutboundPage
+      hasActiveMailbox={Boolean(inbox.selectedMailboxId)}
+      onSendMail={inbox.sendMail}
+      outboundHistory={inbox.outboundHistory}
+    />
+  );
 
   const mailSettingsPage = (
     <WorkspacePlaceholderPage

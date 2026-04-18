@@ -3755,6 +3755,57 @@ button:disabled {
   gap: 0.75rem;
 }
 
+.outbound-compose-drawer {
+  display: grid;
+  gap: 1rem;
+}
+
+.outbound-compose-form {
+  display: grid;
+  gap: 1rem;
+}
+
+.outbound-compose-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+}
+
+.outbound-compose-note,
+.outbound-compose-error,
+.outbound-exception-guidance-copy {
+  color: var(--text-secondary);
+}
+
+.outbound-compose-error {
+  color: #e16259;
+}
+
+.outbound-exception-guidance {
+  display: grid;
+  gap: 0.8rem;
+  padding: 1rem 1.1rem;
+  border-radius: 22px;
+  border: 1px solid color-mix(in srgb, #f2a93b 38%, var(--border-subtle));
+  background: color-mix(in srgb, #f2a93b 12%, var(--surface-elevated));
+}
+
+.outbound-exception-guidance-header {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.outbound-exception-guidance-header h3 {
+  margin: 0;
+}
+
+.outbound-exception-guidance ol {
+  margin: 0;
+  padding-left: 1.2rem;
+  display: grid;
+  gap: 0.5rem;
+}
+
 @media (max-width: 1080px) {
   .outbound-main-grid {
     grid-template-columns: 1fr;
