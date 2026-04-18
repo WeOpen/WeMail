@@ -2020,6 +2020,76 @@ button:disabled {
   align-items: start;
 }
 
+.api-keys-layout-grid {
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+  gap: 22px;
+}
+
+.api-keys-top-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+  align-items: stretch;
+}
+
+.api-keys-stat-card,
+.api-keys-top-stats > .workspace-card {
+  align-content: start;
+  gap: 16px;
+  min-height: 100%;
+}
+
+.api-keys-top-stats .integration-card-copy {
+  gap: 10px;
+}
+
+.api-keys-top-stats .integration-stat-list {
+  gap: 0;
+}
+
+.api-keys-top-stats .integration-stat-row {
+  padding: 16px 18px;
+  border-radius: 22px;
+  border: 1px solid color-mix(in srgb, var(--accent) 18%, var(--border));
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--accent-soft) 56%, var(--surface)),
+    color-mix(in srgb, var(--surface-muted) 90%, white)
+  );
+}
+
+.api-keys-top-stats .integration-stat-row strong {
+  color: var(--text-soft);
+  font-size: 0.8rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.api-keys-top-stats .integration-stat-row span {
+  font-size: clamp(1.75rem, 3vw, 2.2rem);
+  font-weight: 800;
+  letter-spacing: -0.05em;
+}
+
+.api-keys-content-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.32fr) minmax(320px, 0.68fr);
+  gap: 20px;
+  align-items: start;
+}
+
+.api-keys-primary-card,
+.api-keys-quickstart-card,
+.api-keys-content-grid > .integration-surface-card {
+  align-content: start;
+}
+
+.api-keys-content-grid > .integration-surface-card {
+  min-width: 0;
+  min-height: 100%;
+}
+
 .integration-primary-column,
 .integration-secondary-column,
 .integration-card-copy,
@@ -3338,6 +3408,16 @@ button:disabled {
   }
 }
 
+@media (max-width: 1100px) {
+  .api-keys-top-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .api-keys-content-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 @media (max-width: 760px) {
   .shell,
   .auth-shell,
@@ -3434,5 +3514,11 @@ button:disabled {
   .auth-brand-mark {
     width: 66px;
     height: 66px;
+  }
+}
+
+@media (max-width: 720px) {
+  .api-keys-top-stats {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
