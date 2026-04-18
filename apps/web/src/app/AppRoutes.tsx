@@ -16,6 +16,7 @@ import type { InviteSummary } from "../features/admin/types";
 import type { OutboundHistoryItem } from "../features/inbox/types";
 import { AccountsListPage } from "../features/accounts/AccountsListPage";
 import { AccountsSettingsPage } from "../features/accounts/AccountsSettingsPage";
+import { OutboundPage } from "../features/outbound/OutboundPage";
 import { ApiKeysPage } from "../features/settings/ApiKeysPage";
 import { TelegramSettingsPage } from "../features/settings/TelegramSettingsPage";
 import { WebhookPage } from "../features/settings/WebhookPage";
@@ -165,28 +166,7 @@ export function AppRoutes({ session, inbox, selectedMessage, settings, admin, ap
 
   const accountsSettingsPage = <AccountsSettingsPage />;
 
-  const mailOutboundPage = (
-    <WorkspacePlaceholderPage
-      kicker="邮件中心"
-      title="发件箱入口已占位"
-      description="当前发件记录、失败状态与异常 / 无匹配视图将统一收敛到这里，后续会替代邮件列表中的外发面板。"
-      cards={[
-        {
-          title: "邮件列表",
-          description: "当前收件与提取工作台仍在邮件列表页可用。",
-          actionLabel: "回到邮件列表",
-          to: "/mail/list"
-        },
-        {
-          title: "邮件设置",
-          description: "如需调整发件规则、通知与路由，可继续进入邮件设置。",
-          actionLabel: "打开邮件设置",
-          to: "/mail/settings"
-        }
-      ]}
-      notePoints={["旧的无收件人邮件入口已合并到异常 / 无匹配视图", "后续将在这里承接发件记录中心"]}
-    />
-  );
+  const mailOutboundPage = <OutboundPage outboundHistory={inbox.outboundHistory} />;
 
   const mailSettingsPage = (
     <WorkspacePlaceholderPage
