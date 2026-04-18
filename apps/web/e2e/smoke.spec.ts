@@ -169,7 +169,8 @@ test("redirects legacy /mail/unassigned deep links into the outbound exceptions 
   await page.goto("/mail/unassigned");
 
   await expect.poll(() => page.url(), { timeout: 10000 }).toContain("/mail/outbound?view=exceptions");
-  await expect(page.getByRole("heading", { name: /^发件箱入口已占位$/i })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /^发件箱$/i })).toBeVisible();
+  await expect(page.getByRole("button", { name: /^异常 \/ 无匹配$/i })).toHaveAttribute("aria-pressed", "true");
 
   const secondaryNav = page.getByRole("navigation", { name: /邮件 二级菜单/i });
   await expect(secondaryNav).toBeVisible();
@@ -178,7 +179,20 @@ test("redirects legacy /mail/unassigned deep links into the outbound exceptions 
   await expect(secondaryNav.getByRole("link", { name: /^邮件设置$/i })).toBeVisible();
   await expect(secondaryNav.getByRole("link")).toHaveCount(3);
   await expect(secondaryNav.getByText(/无收件人邮件/i)).toHaveCount(0);
-  await expect(page.getByText(/当前发件记录、失败状态与异常 \/ 无匹配视图将统一收敛到这里/i)).toBeVisible();
+  await expect(page.getByRole("button", { name: /^新建发送$/i })).toBeVisible();
+});
+
+test("shows the mail settings rule center on its direct route for an authenticated member", async ({ page }) => {
+  test.setTimeout(60000);
+  await mockAuthenticatedMember(page);
+
+  await page.goto("/mail/settings");
+  await expect(page.getByRole("heading", { name: /^邮件设置$/i })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /^发件规则$/i })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /^通知与路由$/i })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /^工作台行为偏好$/i })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /^当前策略摘要$/i })).toBeVisible();
+  await expect(page.getByRole("button", { name: /^保存发件规则$/i })).toBeVisible();
 });
 
 test("shows the account settings policy center on its direct route for an authenticated member", async ({ page }) => {

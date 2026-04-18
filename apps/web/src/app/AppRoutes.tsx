@@ -18,6 +18,7 @@ import { AccountsListPage } from "../features/accounts/AccountsListPage";
 import { AccountsSettingsPage } from "../features/accounts/AccountsSettingsPage";
 import { OutboundPage } from "../features/outbound/OutboundPage";
 import { ApiKeysPage } from "../features/settings/ApiKeysPage";
+import { MailSettingsPage } from "../features/settings/MailSettingsPage";
 import { TelegramSettingsPage } from "../features/settings/TelegramSettingsPage";
 import { WebhookPage } from "../features/settings/WebhookPage";
 import { AdminPage } from "../pages/AdminPage";
@@ -174,27 +175,7 @@ export function AppRoutes({ session, inbox, selectedMessage, settings, admin, ap
     />
   );
 
-  const mailSettingsPage = (
-    <WorkspacePlaceholderPage
-      kicker="邮件中心"
-      title="邮件设置先做占位"
-      description="邮件设置入口已经挂好，后续可在这里接通知、路由和默认行为配置。"
-      cards={[
-        {
-          title: "Telegram",
-          description: "通知能力暂时仍在 Telegram 页面维护。",
-          actionLabel: "打开 Telegram",
-          to: "/telegram"
-        },
-        {
-          title: "Webhook",
-          description: "事件回调能力已在左侧设置组中占位。",
-          actionLabel: "打开 Webhook",
-          to: "/webhook"
-        }
-      ]}
-    />
-  );
+  const mailSettingsPage = <MailSettingsPage />;
 
   const webhookPage = <WebhookPage />;
 

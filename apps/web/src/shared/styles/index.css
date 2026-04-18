@@ -3815,3 +3815,88 @@ button:disabled {
     grid-template-columns: 1fr;
   }
 }
+
+.mail-settings-page {
+  gap: 22px;
+}
+
+.mail-settings-intro-card,
+.mail-settings-section,
+.mail-settings-summary-card {
+  align-content: start;
+  gap: 18px;
+}
+
+.mail-settings-highlight-card {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.mail-settings-field-grid {
+  display: grid;
+  gap: 16px;
+}
+
+.mail-settings-inline-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.mail-settings-section label {
+  display: grid;
+  gap: 8px;
+}
+
+.mail-settings-save-notice {
+  margin: 0;
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.mail-settings-summary-list {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+}
+
+.mail-settings-summary-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  margin: 0;
+  padding: 14px 16px;
+  border-radius: 18px;
+  border: 1px solid var(--border);
+  background: var(--surface-muted);
+}
+
+.mail-settings-summary-row dt,
+.mail-settings-summary-row dd {
+  margin: 0;
+}
+
+.mail-settings-summary-row dt {
+  font-weight: 700;
+}
+
+.mail-settings-summary-row dd {
+  color: var(--text-muted);
+  text-align: right;
+}
+
+@media (max-width: 960px) {
+  .mail-settings-inline-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 760px) {
+  .mail-settings-summary-row {
+    grid-template-columns: 1fr;
+  }
+
+  .mail-settings-summary-row dd {
+    text-align: left;
+  }
+}
