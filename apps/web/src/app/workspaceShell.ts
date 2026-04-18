@@ -93,7 +93,6 @@ const workspacePrimaryNav: WorkspacePrimaryNavConfig[] = [
     icon: "mail",
     children: [
       { label: "邮件列表", to: "/mail/list" },
-      { label: "无收件人邮件", to: "/mail/unassigned" },
       { label: "发件箱", to: "/mail/outbound" },
       { label: "邮件设置", to: "/mail/settings" }
     ]
@@ -164,6 +163,7 @@ function normalizeWorkspacePath(pathname: string) {
   if (pathname === "/admin") return "/users/list";
   if (pathname === "/accounts") return "/accounts/list";
   if (pathname === "/mail") return "/mail/list";
+  if (pathname === "/mail/unassigned") return "/mail/outbound";
   if (pathname === "/users") return "/users/list";
   if (pathname === "/system") return "/system/appearance";
   return pathname;

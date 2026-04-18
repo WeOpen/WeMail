@@ -24,7 +24,7 @@ describe("buildWorkspaceShellState", () => {
 
     expect(shell.activePrimaryId).toBe("mail");
     expect(shell.routeLabel).toBe("邮件列表");
-    expect(shell.secondaryNav.map((item) => item.label)).toEqual(["邮件列表", "无收件人邮件", "发件箱", "邮件设置"]);
+    expect(shell.secondaryNav.map((item) => item.label)).toEqual(["邮件列表", "发件箱", "邮件设置"]);
 
     expect(shell.railSections).toEqual([
       {
@@ -43,7 +43,7 @@ describe("buildWorkspaceShellState", () => {
             icon: "mail",
             label: "邮件",
             to: "/mail/list",
-            hint: "邮件列表 · 无收件人邮件 · 发件箱 · 邮件设置"
+            hint: "邮件列表 · 发件箱 · 邮件设置"
           }
         ]
       },
@@ -87,6 +87,30 @@ describe("buildWorkspaceShellState", () => {
     });
 
     expect(shell.railSections[0]?.items.some((item) => item.label === "用户")).toBe(false);
+  });
+
+  it("normalizes /mail/unassigned to the outbound shell so legacy deep links stay in the mail workspace", () => {
+    const shell = buildWorkspaceShellState({
+      pathname: "/mail/unassigned",
+      session: {
+        user: {
+          id: "member-1",
+          email: "member@example.com",
+          role: "member",
+          createdAt: "2026-04-14T00:00:00.000Z"
+        },
+        featureToggles: {
+          aiEnabled: true,
+          telegramEnabled: true,
+          outboundEnabled: true,
+          mailboxCreationEnabled: true
+        }
+      }
+    });
+
+    expect(shell.activePrimaryId).toBe("mail");
+    expect(shell.routeLabel).toBe("发件箱");
+    expect(shell.secondaryNav.map((item) => item.to)).toEqual(["/mail/list", "/mail/outbound", "/mail/settings"]);
   });
 
   it("normalizes /settings to the api key route and preserves the settings rail", () => {

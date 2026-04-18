@@ -1,5 +1,5 @@
 import type { FormEvent } from "react";
-import { Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes } from "react-router-dom";
 
 import type {
   ApiKeySummary,
@@ -165,47 +165,26 @@ export function AppRoutes({ session, inbox, selectedMessage, settings, admin, ap
 
   const accountsSettingsPage = <AccountsSettingsPage />;
 
-  const mailUnassignedPage = (
-    <WorkspacePlaceholderPage
-      kicker="邮件中心"
-      title="无收件人邮件页面已占位"
-      description="顶部二级菜单已预留“无收件人邮件”入口，后续可以把异常邮件处理流接到这里。"
-      cards={[
-        {
-          title: "邮件列表",
-          description: "当前收件与外发功能仍在邮件列表页可用。",
-          actionLabel: "返回邮件列表",
-          to: "/mail/list"
-        },
-        {
-          title: "发件箱",
-          description: "二级菜单也已预留发件箱入口。",
-          actionLabel: "打开发件箱占位",
-          to: "/mail/outbound"
-        }
-      ]}
-    />
-  );
-
   const mailOutboundPage = (
     <WorkspacePlaceholderPage
       kicker="邮件中心"
       title="发件箱入口已占位"
-      description="当前外发面板仍保留在邮件列表页，后续可将其抽离到独立发件箱页面。"
+      description="当前发件记录、失败状态与异常 / 无匹配视图将统一收敛到这里，后续会替代邮件列表中的外发面板。"
       cards={[
         {
           title: "邮件列表",
-          description: "现有外发记录和发送表单仍在邮件列表页中。",
+          description: "当前收件与提取工作台仍在邮件列表页可用。",
           actionLabel: "回到邮件列表",
           to: "/mail/list"
         },
         {
           title: "邮件设置",
-          description: "如后续需要拆分更多邮件能力，可继续接到邮件设置页面。",
+          description: "如需调整发件规则、通知与路由，可继续进入邮件设置。",
           actionLabel: "打开邮件设置",
           to: "/mail/settings"
         }
       ]}
+      notePoints={["旧的无收件人邮件入口已合并到异常 / 无匹配视图", "后续将在这里承接发件记录中心"]}
     />
   );
 
@@ -284,7 +263,7 @@ export function AppRoutes({ session, inbox, selectedMessage, settings, admin, ap
       <Route path="/accounts/settings" element={accountsSettingsPage} />
       <Route path="/mail" element={inboxPage} />
       <Route path="/mail/list" element={inboxPage} />
-      <Route path="/mail/unassigned" element={mailUnassignedPage} />
+      <Route path="/mail/unassigned" element={<Navigate replace to={{ pathname: "/mail/outbound", search: "?view=exceptions" }} />} />
       <Route path="/mail/outbound" element={mailOutboundPage} />
       <Route path="/mail/settings" element={mailSettingsPage} />
       <Route path="/users" element={usersListPage} />
