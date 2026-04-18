@@ -2072,6 +2072,24 @@ button:disabled {
   letter-spacing: -0.05em;
 }
 
+.api-keys-stat-kicker {
+  font-size: 0.86rem;
+  letter-spacing: 0.12em;
+}
+
+.api-keys-primary-head,
+.api-keys-quickstart-head {
+  gap: 0;
+}
+
+.api-keys-create-button {
+  align-self: flex-start;
+  min-height: 52px;
+  min-width: 108px;
+  padding: 0 20px;
+  white-space: nowrap;
+}
+
 .api-keys-content-grid {
   display: grid;
   grid-template-columns: minmax(0, 1.32fr) minmax(320px, 0.68fr);

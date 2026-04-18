@@ -105,12 +105,8 @@ export function ApiKeysPage({ apiKeys, onCreateApiKey, onRevokeApiKey }: ApiKeys
   return (
     <main className="workspace-grid api-keys-layout-grid">
       <section className="api-keys-top-stats" aria-label="API 密钥状态概览">
-        <article className="panel workspace-card page-panel integration-side-card">
-          <div className="integration-card-copy">
-            <p className="panel-kicker">凭证概览</p>
-            <h3>总密钥</h3>
-            <p className="section-copy">当前已创建的全部 API 凭证数量。</p>
-          </div>
+        <article className="panel workspace-card page-panel integration-side-card api-keys-stat-card">
+          <p className="panel-kicker api-keys-stat-kicker">总密钥</p>
           <div className="integration-stat-list">
             <article className="integration-stat-row">
               <strong>总数</strong>
@@ -119,12 +115,8 @@ export function ApiKeysPage({ apiKeys, onCreateApiKey, onRevokeApiKey }: ApiKeys
           </div>
         </article>
 
-        <article className="panel workspace-card page-panel integration-side-card">
-          <div className="integration-card-copy">
-            <p className="panel-kicker">可用状态</p>
-            <h3>活跃密钥</h3>
-            <p className="section-copy">当前仍可用于发起 API 请求的凭证。</p>
-          </div>
+        <article className="panel workspace-card page-panel integration-side-card api-keys-stat-card">
+          <p className="panel-kicker api-keys-stat-kicker">活跃密钥</p>
           <div className="integration-stat-list">
             <article className="integration-stat-row">
               <strong>可用</strong>
@@ -133,12 +125,8 @@ export function ApiKeysPage({ apiKeys, onCreateApiKey, onRevokeApiKey }: ApiKeys
           </div>
         </article>
 
-        <article className="panel workspace-card page-panel integration-side-card">
-          <div className="integration-card-copy">
-            <p className="panel-kicker">接入进度</p>
-            <h3>从未使用</h3>
-            <p className="section-copy">已创建但尚未进入真实调用的密钥。</p>
-          </div>
+        <article className="panel workspace-card page-panel integration-side-card api-keys-stat-card">
+          <p className="panel-kicker api-keys-stat-kicker">从未使用</p>
           <div className="integration-stat-list">
             <article className="integration-stat-row">
               <strong>未使用</strong>
@@ -147,12 +135,8 @@ export function ApiKeysPage({ apiKeys, onCreateApiKey, onRevokeApiKey }: ApiKeys
           </div>
         </article>
 
-        <article className="panel workspace-card page-panel integration-side-card">
-          <div className="integration-card-copy">
-            <p className="panel-kicker">风险控制</p>
-            <h3>已吊销</h3>
-            <p className="section-copy">已经失效、不会再继续放行请求的密钥。</p>
-          </div>
+        <article className="panel workspace-card page-panel integration-side-card api-keys-stat-card">
+          <p className="panel-kicker api-keys-stat-kicker">已吊销</p>
           <div className="integration-stat-list">
             <article className="integration-stat-row">
               <strong>失效</strong>
@@ -165,14 +149,14 @@ export function ApiKeysPage({ apiKeys, onCreateApiKey, onRevokeApiKey }: ApiKeys
       <div className="api-keys-content-grid">
         <section className="panel workspace-card page-panel integration-surface-card">
           <div className="workspace-card-header">
-            <div className="integration-card-copy">
+            <div className="integration-card-copy api-keys-primary-head">
               <p className="panel-kicker">个人凭证</p>
-              <h2>API 密钥</h2>
-              <p className="section-copy">
+              <h2 className="sr-only">API 密钥</h2>
+              <p className="section-copy sr-only">
                 创建并管理用于访问 WeMail API 的个人凭证。适用于脚本、CLI、自动化任务和外部系统接入。
               </p>
             </div>
-            <button className="workspace-action-button primary" onClick={() => setIsCreateOpen(true)} type="button">
+            <button className="workspace-action-button primary api-keys-create-button" onClick={() => setIsCreateOpen(true)} type="button">
               创建密钥
             </button>
           </div>
@@ -277,9 +261,9 @@ export function ApiKeysPage({ apiKeys, onCreateApiKey, onRevokeApiKey }: ApiKeys
         </section>
 
         <section className="panel workspace-card page-panel integration-surface-card">
-          <div className="integration-card-copy">
+          <div className="integration-card-copy api-keys-quickstart-head">
             <p className="panel-kicker">快速开始</p>
-            <h3>快速开始</h3>
+            <h3 className="sr-only">快速开始</h3>
             <p className="section-copy">把 API 密钥放到 Authorization Header 中，即可用最熟悉的 HTTP 方式访问受保护接口。</p>
           </div>
           <div className="integration-code-block">
