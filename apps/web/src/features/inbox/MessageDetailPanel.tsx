@@ -32,9 +32,19 @@ export function MessageDetailPanel({ selectedMessage }: MessageDetailPanelProps)
         </div>
         <span className={`message-extraction-chip ${viewModel.extractionChip.tone}`}>{viewModel.extractionChip.primary}</span>
         <div className="detail-panel-actions">
-          <button className="workspace-action-button primary" type="button">
+          <button
+            className="workspace-action-button primary"
+            onClick={() => void navigator.clipboard?.writeText(viewModel.extraction.value)}
+            type="button"
+          >
             复制验证码
           </button>
+          <a className="workspace-action-button secondary" href={`/api/messages/${viewModel.id}`} rel="noreferrer" target="_blank">
+            打开原始邮件
+          </a>
+          <a className="workspace-action-button ghost" href={`/api/messages/${viewModel.id}`} rel="noreferrer" target="_blank">
+            查看提取 JSON
+          </a>
         </div>
       </div>
       <div className="detail-meta workspace-meta-row">

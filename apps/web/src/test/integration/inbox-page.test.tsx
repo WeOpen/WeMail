@@ -165,4 +165,23 @@ describe("mail list integration", () => {
     expect(within(dialog).getByLabelText(/收件人/i)).toBeInTheDocument();
     expect(within(dialog).getByText(/首次外发后，记录会显示在这里/i)).toBeInTheDocument();
   });
+
+  it("keeps the detail actions task-first for copying and inspecting the selected message", async () => {
+    const user = userEvent.setup();
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", {
+      value: { writeText },
+      configurable: true
+    });
+
+    render(<App />);
+
+    expect(await screen.findByRole("button", { name: /^复制验证码$/i })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /^打开原始邮件$/i })).toHaveAttribute("href", "/api/messages/msg-1");
+    expect(screen.getByRole("link", { name: /^查看提取 JSON$/i })).toHaveAttribute("href", "/api/messages/msg-1");
+
+    await user.click(screen.getByRole("button", { name: /^复制验证码$/i }));
+
+    expect(writeText).toHaveBeenCalledWith("482913");
+  });
 });
