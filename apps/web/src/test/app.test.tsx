@@ -212,6 +212,47 @@ describe("App", () => {
   );
 
   it(
+    "routes authenticated members into the redesigned api key workspace on /api-keys",
+    async () => {
+      window.history.pushState({}, "", "/api-keys");
+      vi.restoreAllMocks();
+      vi.spyOn(globalThis, "fetch").mockImplementation((input) => {
+        const url = typeof input === "string" ? input : input instanceof Request ? input.url : String(input);
+
+        if (url.endsWith("/auth/session")) {
+          return jsonResponse({
+            user: {
+              id: "member-1",
+              email: "member@example.com",
+              role: "member",
+              createdAt: "2026-04-08T00:00:00.000Z"
+            },
+            featureToggles: {
+              aiEnabled: true,
+              telegramEnabled: true,
+              outboundEnabled: true,
+              mailboxCreationEnabled: true
+            }
+          });
+        }
+
+        if (url.endsWith("/api/mailboxes")) return jsonResponse({ mailboxes: [] });
+        if (url.endsWith("/api/keys")) return jsonResponse({ keys: [] });
+        if (url.endsWith("/api/telegram")) return jsonResponse({ subscription: null });
+        return jsonResponse({});
+      });
+
+      render(<App />);
+
+      expect(await screen.findByRole("heading", { name: /^API 密钥$/i })).toBeInTheDocument();
+      expect(screen.getByText("总密钥")).toBeInTheDocument();
+      expect(screen.queryByRole("heading", { name: /安全建议/i })).not.toBeInTheDocument();
+      expect(screen.queryByText(/如何选择这三种接入/i)).not.toBeInTheDocument();
+    },
+    10000
+  );
+
+  it(
     "routes authenticated members into the account list workspace instead of the old placeholder",
     async () => {
       window.history.pushState({}, "", "/accounts/list");

@@ -117,7 +117,13 @@ test("shows the reworked shared access shell for an authenticated member", async
   await expect(sidebar.getByRole("link", { name: /^仪表盘$/i })).toBeVisible();
   await expect(sidebar.getByRole("link", { name: /^邮件(?:\s|$)/i })).toBeVisible();
   await expect(page.getByRole("heading", { name: /^API 密钥$/i })).toBeVisible();
-  await expect(page.getByRole("heading", { name: /API 密钥/i })).toBeVisible();
+  await expect(page.getByText("总密钥")).toBeVisible();
+  await expect(page.getByText("活跃密钥")).toBeVisible();
+  await expect(page.getByText("从未使用")).toBeVisible();
+  await expect(page.getByText("已吊销")).toBeVisible();
+  await expect(page.getByRole("heading", { name: /^快速开始$/i })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /安全建议/i })).toHaveCount(0);
+  await expect(page.getByText(/如何选择这三种接入/i)).toHaveCount(0);
   await expect(page.getByLabel(/工作台品牌/i)).toContainText("WeMail");
   await expect(page.getByLabel(/API 密钥 二级菜单/i)).toHaveCount(0);
   await expect(page.getByLabel(/工作台快速搜索/i)).toHaveCount(0);
