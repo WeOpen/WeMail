@@ -120,17 +120,11 @@ export function AppRoutes({ session, inbox, selectedMessage, settings, admin, ap
     session.user.role !== "admin" ? (
       restrictedUsersPage
     ) : (
-      <AdminPage
+      <UsersListRoutePage
         adminUsers={admin.adminUsers}
-        adminInvites={admin.adminInvites}
         adminQuota={admin.adminQuota}
-        adminFeatures={admin.adminFeatures}
-        adminMailboxes={admin.adminMailboxes}
-        onCreateInvite={admin.createInvite}
-        onDisableInvite={admin.disableInvite}
         onSelectQuotaUser={admin.selectQuotaUser}
         onSubmitQuota={admin.submitQuota}
-        onToggleFeatures={admin.toggleFeatures}
       />
     );
 
@@ -138,27 +132,17 @@ export function AppRoutes({ session, inbox, selectedMessage, settings, admin, ap
     session.user.role !== "admin" ? (
       restrictedUsersPage
     ) : (
-      <WorkspacePlaceholderPage
-        kicker="用户设置"
-        title="用户设置先以占位页承接"
-        description="左侧一级菜单与顶部二级菜单已经切换完成，后续可在这里接入角色策略、个人偏好和审计配置。"
-        cards={[
-          {
-            title: "用户列表",
-            description: `当前管理员可见 ${admin.adminUsers.length} 个账号，可继续从这里回到完整用户列表。`,
-            actionLabel: "打开用户列表",
-            to: "/users/list"
-          },
-          {
-            title: "邀请码",
-            description: `现有邀请码 ${admin.adminInvites.length} 个，后续可拆分到独立设置模块。`
-          },
-          {
-            title: "邮箱总览",
-            description: `当前系统追踪 ${admin.adminMailboxes.length} 个邮箱入口，后续可继续细化。`
-          }
-        ]}
-        notePoints={["权限控制已保留", "二级菜单已切换到顶部", "后续可按模块逐步拆分真实功能"]}
+      <UsersGlobalSettingsPage
+        adminFeatures={admin.adminFeatures}
+        adminInvites={admin.adminInvites}
+        adminMailboxes={admin.adminMailboxes}
+        adminQuota={admin.adminQuota}
+        adminUsers={admin.adminUsers}
+        onCreateInvite={admin.createInvite}
+        onDisableInvite={admin.disableInvite}
+        onSelectQuotaUser={admin.selectQuotaUser}
+        onSubmitQuota={admin.submitQuota}
+        onToggleFeatures={admin.toggleFeatures}
       />
     );
 
