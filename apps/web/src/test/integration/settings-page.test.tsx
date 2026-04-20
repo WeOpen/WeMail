@@ -17,7 +17,7 @@ describe("settings pages", () => {
     cleanup();
   });
 
-  it("reveals a newly created api key and shows quickstart guidance", async () => {
+  it("reveals a newly created api key inside the new top-stats layout", async () => {
     const user = userEvent.setup();
     const onCreateApiKey = vi.fn().mockResolvedValue({
       key: { secret: "wk_live_secret_123456", prefix: "wk_live_abcd" }
@@ -40,8 +40,16 @@ describe("settings pages", () => {
       />
     );
 
+    expect(screen.getByRole("heading", { name: /^API 密钥$/i })).toBeInTheDocument();
+    expect(screen.getByText("总密钥")).toBeInTheDocument();
+    expect(screen.getByText("活跃密钥")).toBeInTheDocument();
+    expect(screen.getByText("从未使用")).toBeInTheDocument();
+    expect(screen.getByText("已吊销")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /快速开始/i })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: /安全建议/i })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: /安全建议/i })).not.toBeInTheDocument();
+    expect(screen.queryByText(/如何选择这三种接入/i)).not.toBeInTheDocument();
+    expect(document.querySelector(".api-keys-top-stats")).not.toBeNull();
+    expect(document.querySelector(".api-keys-content-grid")).not.toBeNull();
 
     await user.click(screen.getByRole("button", { name: /创建密钥/i }));
     await user.type(screen.getByLabelText(/密钥名称/i), "个人 CLI");

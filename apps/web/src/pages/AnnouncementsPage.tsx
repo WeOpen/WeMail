@@ -5,6 +5,7 @@ import {
   featuredAnnouncement,
   type AnnouncementItem
 } from "../features/announcements/announcementsMockData";
+import { FormField, SelectInput, TextInput } from "../shared/form";
 
 type AnnouncementsPageProps = {
   canPublish?: boolean;
@@ -116,43 +117,39 @@ export function AnnouncementsPage({ canPublish = false }: AnnouncementsPageProps
           </div>
 
           <div className="announcements-control-bar announcements-control-bar-inline" aria-label="最近公告筛选">
-            <label className="announcements-search-field">
-              <span className="sr-only">公告搜索</span>
-              <input aria-label="公告搜索" placeholder="搜索标题 / 内容 / 标签" readOnly type="search" />
-            </label>
+            <FormField className="announcements-search-field" label={<span className="sr-only">公告搜索</span>}>
+              <TextInput aria-label="公告搜索" placeholder="搜索标题 / 内容 / 标签" readOnly type="search" />
+            </FormField>
 
-            <label className="announcements-filter-field">
-              <span className="sr-only">按类型筛选公告</span>
-              <select aria-label="按类型筛选公告" defaultValue="all">
+            <FormField className="announcements-filter-field" label={<span className="sr-only">按类型筛选公告</span>}>
+              <SelectInput aria-label="按类型筛选公告" defaultValue="all">
                 {announcementFilters.type.map((option) => (
                   <option key={option.value} value={option.value}>
                     {option.label}
                   </option>
                 ))}
-              </select>
-            </label>
+              </SelectInput>
+            </FormField>
 
-            <label className="announcements-filter-field">
-              <span className="sr-only">按状态筛选公告</span>
-              <select aria-label="按状态筛选公告" defaultValue="all">
+            <FormField className="announcements-filter-field" label={<span className="sr-only">按状态筛选公告</span>}>
+              <SelectInput aria-label="按状态筛选公告" defaultValue="all">
                 {announcementFilters.status.map((option) => (
                   <option key={option.value} value={option.value}>
                     {option.label}
                   </option>
                 ))}
-              </select>
-            </label>
+              </SelectInput>
+            </FormField>
 
-            <label className="announcements-filter-field">
-              <span className="sr-only">按时间筛选公告</span>
-              <select aria-label="按时间筛选公告" defaultValue="all">
+            <FormField className="announcements-filter-field" label={<span className="sr-only">按时间筛选公告</span>}>
+              <SelectInput aria-label="按时间筛选公告" defaultValue="all">
                 {announcementFilters.time.map((option) => (
                   <option key={option.value} value={option.value}>
                     {option.label}
                   </option>
                 ))}
-              </select>
-            </label>
+              </SelectInput>
+            </FormField>
           </div>
 
           <div className="announcements-timeline">

@@ -3,10 +3,6 @@ import { defineConfig } from "vite";
 
 export default defineConfig({
   plugins: [react()],
-  resolve: {
-    dedupe: ["react", "react-dom"],
-    preserveSymlinks: true
-  },
   test: {
     exclude: ["e2e/**", "node_modules/**", "dist/**"],
     environment: "jsdom",

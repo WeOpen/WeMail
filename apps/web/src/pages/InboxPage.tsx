@@ -3,11 +3,13 @@ import { X } from "lucide-react";
 
 import type { MailboxSummary, MessageSummary } from "@wemail/shared";
 
+import { InboxSummaryBar } from "../features/inbox/InboxSummaryBar";
 import { MailboxPanel } from "../features/inbox/MailboxPanel";
 import { MessageDetailPanel } from "../features/inbox/MessageDetailPanel";
 import { MessageStreamPanel } from "../features/inbox/MessageStreamPanel";
 import { OutboundPanel } from "../features/inbox/OutboundPanel";
 import type { OutboundHistoryItem } from "../features/inbox/types";
+import { FormField, TextInput } from "../shared/form";
 
 type InboxPageProps = {
   mailboxes: MailboxSummary[];
@@ -44,8 +46,18 @@ export function InboxPage({
 }: InboxPageProps) {
   const [label, setLabel] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [outboundDrawerOpen, setOutboundDrawerOpen] = useState(false);
 
   const suggestedLabel = useMemo(() => `Mailbox ${mailboxes.length + 1}`, [mailboxes.length]);
+  const selectedMailbox = useMemo(
+    () => mailboxes.find((mailbox) => mailbox.id === selectedMailboxId) ?? null,
+    [mailboxes, selectedMailboxId]
+  );
+  const extractionCount = useMemo(
+    () => messages.filter((message) => message.extraction.type !== "none" && message.extraction.value.trim().length > 0).length,
+    [messages]
+  );
+  const attachmentCount = useMemo(() => messages.reduce((sum, message) => sum + message.attachmentCount, 0), [messages]);
 
   useEffect(() => {
     if (mailboxComposerOpen) {
@@ -67,26 +79,38 @@ export function InboxPage({
 
   return (
     <>
-      <main className="workspace-grid inbox-grid">
-        <MailboxPanel
-          mailboxes={mailboxes}
-          selectedMailboxId={selectedMailboxId}
+      <main className="workspace-grid inbox-page-grid">
+        <InboxSummaryBar
+          attachmentCount={attachmentCount}
+          extractionCount={extractionCount}
+          messageCount={messages.length}
           onOpenMailboxComposer={onOpenMailboxComposer}
-          onSelectMailbox={onSelectMailbox}
+          onOpenOutboundDrawer={() => setOutboundDrawerOpen(true)}
+          selectedMailbox={selectedMailbox}
         />
-        <MessageStreamPanel
-          messages={messages}
-          selectedMessageId={selectedMessageId}
-          onRefreshMessages={onRefreshMessages}
-          onSelectMessage={onSelectMessage}
-        />
-        <MessageDetailPanel selectedMessage={selectedMessage} />
-        <OutboundPanel
-          outboundHistory={outboundHistory}
-          selectedMailboxId={selectedMailboxId}
-          onSendMail={onSendMail}
-        />
+        <div className="workspace-grid inbox-grid">
+          <MailboxPanel
+            mailboxes={mailboxes}
+            selectedMailboxId={selectedMailboxId}
+            onOpenMailboxComposer={onOpenMailboxComposer}
+            onSelectMailbox={onSelectMailbox}
+          />
+          <MessageStreamPanel
+            messages={messages}
+            selectedMessageId={selectedMessageId}
+            onRefreshMessages={onRefreshMessages}
+            onSelectMessage={onSelectMessage}
+          />
+          <MessageDetailPanel selectedMessage={selectedMessage} />
+        </div>
       </main>
+      <OutboundPanel
+        open={outboundDrawerOpen}
+        outboundHistory={outboundHistory}
+        selectedMailboxId={selectedMailboxId}
+        onClose={() => setOutboundDrawerOpen(false)}
+        onSendMail={onSendMail}
+      />
 
       {mailboxComposerOpen ? (
         <div className="workspace-dialog-backdrop" role="presentation">
@@ -102,9 +126,8 @@ export function InboxPage({
             </div>
             <p className="section-copy">给邮箱填写一个简短标签，地址仍会通过现有后端流程创建。</p>
             <form className="composer-form workspace-dialog-form" onSubmit={(event) => void handleCreateMailbox(event)}>
-              <label>
-                邮箱标签
-                <input
+              <FormField label="邮箱标签" required>
+                <TextInput
                   autoFocus
                   name="mailboxLabel"
                   onChange={(event) => setLabel(event.target.value)}
@@ -112,7 +135,7 @@ export function InboxPage({
                   required
                   value={label}
                 />
-              </label>
+              </FormField>
               <div className="workspace-dialog-actions">
                 <button className="workspace-action-button secondary" onClick={onCloseMailboxComposer} type="button">
                   取消

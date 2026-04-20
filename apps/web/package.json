@@ -5,13 +5,9 @@
   "type": "module",
   "dependencies": {
     "@wemail/shared": "workspace:*",
-    "cookie": "1.0.1",
     "lucide-react": "^1.8.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
-    "react-router": "7.14.0",
-    "react-router-dom": "^7.9.4",
-    "scheduler": "0.27.0",
-    "set-cookie-parser": "2.6.0"
+    "react-router-dom": "^7.9.4"
   }
 }

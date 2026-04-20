@@ -3,7 +3,6 @@ import { NavLink } from "react-router-dom";
 import {
   Bell,
   ChevronDown,
-  FileText,
   Inbox,
   KeyRound,
   LayoutDashboard,
@@ -63,8 +62,6 @@ function RailIcon({ icon }: { icon: WorkspaceRailIcon }) {
       return <Webhook {...props} />;
     case "telegram":
       return <Bell {...props} />;
-    case "docs":
-      return <FileText {...props} />;
     case "announcements":
       return <Megaphone {...props} />;
     case "system":
@@ -252,54 +249,6 @@ export function AppLayout({
         </aside>
 
         <div className="workspace-main-column workspace-scroll-area" ref={mainScrollRef}>
-          {shell.hero.variant !== "board" && shell.routeKey !== "system" && shell.routeKey !== "users" ? (
-            <section className="workspace-hero panel">
-              <div className="workspace-hero-copy">
-                <p className="panel-kicker">{shell.hero.eyebrow}</p>
-                <h1>{shell.hero.title}</h1>
-                <p className="hero-copy workspace-hero-description">{shell.hero.description}</p>
-              </div>
-
-              {shell.hero.actions.length > 0 ? (
-                <div className="workspace-hero-actions">
-                  {shell.hero.actions.map((action) =>
-                    action.kind === "link" && action.to ? (
-                      <NavLink
-                        key={`${action.label}-${action.to}`}
-                        className={`workspace-action-button ${action.tone}`}
-                        to={action.to}
-                      >
-                        {action.label}
-                      </NavLink>
-                    ) : (
-                      <button
-                        key={action.label}
-                        className={`workspace-action-button ${action.tone}`}
-                        disabled={!action.onClick}
-                        onClick={action.onClick}
-                        type="button"
-                      >
-                        {action.label}
-                      </button>
-                    )
-                  )}
-                </div>
-              ) : null}
-
-              {shell.hero.stats.length > 0 ? (
-                <div className="workspace-hero-stats" aria-label={`${shell.routeLabel} highlights`}>
-                  {shell.hero.stats.map((stat) => (
-                    <article className="workspace-stat-card" key={stat.label}>
-                      <p>{stat.label}</p>
-                      <strong>{stat.value}</strong>
-                      <span>{stat.detail}</span>
-                    </article>
-                  ))}
-                </div>
-              ) : null}
-            </section>
-          ) : null}
-
           <div className={`workspace-route workspace-route-${shell.routeKey}`}>{children}</div>
         </div>
       </div>

@@ -52,40 +52,9 @@ function AppContent() {
 
     return buildWorkspaceShellState({
       pathname: location.pathname,
-      session,
-      inbox: {
-        mailboxes: inbox.mailboxes,
-        messages: inbox.messages,
-        outboundHistory: inbox.outboundHistory,
-        selectedMailboxId: inbox.selectedMailboxId
-      },
-      settings: {
-        apiKeys: settings.apiKeys,
-        telegram: settings.telegram
-      },
-      admin: {
-        adminUsers: admin.adminUsers,
-        adminInvites: admin.adminInvites,
-        adminQuota: admin.adminQuota,
-        adminMailboxes: admin.adminMailboxes
-      },
-      onOpenMailboxComposer: openMailboxComposer
+      session
     });
-  }, [
-    admin.adminInvites,
-    admin.adminMailboxes,
-    admin.adminQuota,
-    admin.adminUsers,
-    inbox.mailboxes,
-    inbox.messages,
-    inbox.outboundHistory,
-    inbox.selectedMailboxId,
-    location.pathname,
-    openMailboxComposer,
-    session,
-    settings.apiKeys,
-    settings.telegram
-  ]);
+  }, [location.pathname, session]);
 
   const toastViewport = <WemailToastViewport onDismissToast={dismissToast} toasts={toasts} />;
 

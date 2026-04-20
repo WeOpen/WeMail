@@ -1,6 +1,7 @@
 ﻿import { useEffect, useState } from "react";
 
 import type { TelegramSubscriptionSummary } from "@wemail/shared";
+import { CheckboxField, FormField, TextInput } from "../../shared/form";
 
 import { IntegrationChoiceCard, SettingsSupportCard } from "./SettingsSupport";
 
@@ -91,14 +92,10 @@ export function TelegramSettingsPage({ telegram, onSaveTelegram }: TelegramSetti
             </article>
           </div>
 
-          <div className="integration-form-grid">
-            <label htmlFor="telegram-chat-id">Chat ID</label>
-            <input id="telegram-chat-id" name="chatId" onChange={(event) => setChatId(event.target.value)} value={chatId} />
-            <label className="checkbox-row">
-              <input checked={enabled} name="enabled" onChange={(event) => setEnabled(event.target.checked)} type="checkbox" />
-              启用 Telegram 通知
-            </label>
-          </div>
+          <FormField className="integration-form-grid" htmlFor="telegram-chat-id" label="Chat ID">
+            <TextInput id="telegram-chat-id" name="chatId" onChange={(event) => setChatId(event.target.value)} value={chatId} />
+          </FormField>
+          <CheckboxField checked={enabled} label="启用 Telegram 通知" name="enabled" onChange={(event) => setEnabled(event.target.checked)} />
 
           <div className="integration-inline-actions">
             <button className="workspace-action-button primary" disabled={isSaving || chatId.trim().length === 0} onClick={() => void handleSubmit()} type="button">
@@ -119,10 +116,7 @@ export function TelegramSettingsPage({ telegram, onSaveTelegram }: TelegramSetti
                 <strong>{group.title}</strong>
                 <div className="integration-event-pill-list">
                   {group.items.map((item, index) => (
-                    <label className="integration-event-pill" key={item}>
-                      <input defaultChecked={index < 2} disabled type="checkbox" />
-                      <span>{item}</span>
-                    </label>
+                    <CheckboxField className="integration-event-pill" defaultChecked={index < 2} disabled key={item} label={item} />
                   ))}
                 </div>
               </article>
@@ -137,16 +131,10 @@ export function TelegramSettingsPage({ telegram, onSaveTelegram }: TelegramSetti
             <p className="section-copy">静默时段、仅高优先级通知和每日摘要都值得预留在这一页，不要把 Telegram 页面做成只有一个 Chat ID 的表单。</p>
           </div>
           <div className="integration-two-up-grid compact">
-            <div className="integration-detail-card">
-              <label htmlFor="quiet-hours">静默时段</label>
-              <input disabled id="quiet-hours" value="23:00 - 08:00" />
-            </div>
-            <div className="integration-detail-card">
-              <label className="checkbox-row">
-                <input defaultChecked disabled type="checkbox" />
-                静默时段仅保留高优先级通知
-              </label>
-            </div>
+            <FormField className="integration-detail-card" htmlFor="quiet-hours" label="静默时段">
+              <TextInput disabled id="quiet-hours" value="23:00 - 08:00" />
+            </FormField>
+            <CheckboxField className="integration-detail-card" defaultChecked disabled label="静默时段仅保留高优先级通知" variant="card" />
           </div>
         </section>
 

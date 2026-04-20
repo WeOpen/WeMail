@@ -1,3 +1,5 @@
+import { FormField, RadioGroupField, SelectInput, TextInput, TextareaInput } from "../shared/form";
+
 type SystemProfilePageProps = {
   sessionSummary: {
     email: string;
@@ -28,18 +30,15 @@ export function SystemProfilePage({ sessionSummary }: SystemProfilePageProps) {
         </div>
 
         <div className="profile-form-grid">
-          <label className="profile-field">
-            <span>显示名</span>
-            <input aria-label="显示名" defaultValue="WeMail Admin" />
-          </label>
-          <label className="profile-field">
-            <span>个人简介</span>
-            <textarea aria-label="个人简介" defaultValue="Edge mail operations owner" rows={3} />
-          </label>
-          <label className="profile-field">
-            <span>邮箱</span>
-            <input aria-label="邮箱" disabled value={sessionSummary.email} />
-          </label>
+          <FormField className="profile-field" label="显示名">
+            <TextInput aria-label="显示名" defaultValue="WeMail Admin" />
+          </FormField>
+          <FormField className="profile-field" label="个人简介">
+            <TextareaInput aria-label="个人简介" defaultValue="Edge mail operations owner" rows={3} />
+          </FormField>
+          <FormField className="profile-field" label="邮箱">
+            <TextInput aria-label="邮箱" disabled value={sessionSummary.email} />
+          </FormField>
           <div className="profile-meta-grid">
             <div className="profile-meta-card">
               <small>角色</small>
@@ -70,67 +69,65 @@ export function SystemProfilePage({ sessionSummary }: SystemProfilePageProps) {
         </div>
 
         <div className="profile-preference-list">
-          <label className="profile-setting-row">
-            <span className="profile-setting-copy">
-              <strong>语言</strong>
-              <small>决定界面文案与系统提示的主要语言。</small>
-            </span>
-            <select aria-label="语言" defaultValue="zh-CN">
+          <FormField
+            className="profile-setting-row"
+            description="决定界面文案与系统提示的主要语言。"
+            label="语言"
+          >
+            <SelectInput aria-label="语言" defaultValue="zh-CN">
               <option value="zh-CN">简体中文</option>
               <option value="en-US">English</option>
-            </select>
-          </label>
+            </SelectInput>
+          </FormField>
 
-          <label className="profile-setting-row">
-            <span className="profile-setting-copy">
-              <strong>时区</strong>
-              <small>控制时间戳、计划发送与审计记录的显示时区。</small>
-            </span>
-            <select aria-label="时区" defaultValue="Asia/Shanghai">
+          <FormField
+            className="profile-setting-row"
+            description="控制时间戳、计划发送与审计记录的显示时区。"
+            label="时区"
+          >
+            <SelectInput aria-label="时区" defaultValue="Asia/Shanghai">
               <option value="Asia/Shanghai">Asia/Shanghai</option>
               <option value="Asia/Tokyo">Asia/Tokyo</option>
               <option value="America/New_York">America/New_York</option>
-            </select>
-          </label>
+            </SelectInput>
+          </FormField>
 
-          <label className="profile-setting-row">
-            <span className="profile-setting-copy">
-              <strong>日期格式</strong>
-              <small>决定列表、详情和日志中的日期展示方式。</small>
-            </span>
-            <select aria-label="日期格式" defaultValue="yyyy-mm-dd">
+          <FormField
+            className="profile-setting-row"
+            description="决定列表、详情和日志中的日期展示方式。"
+            label="日期格式"
+          >
+            <SelectInput aria-label="日期格式" defaultValue="yyyy-mm-dd">
               <option value="yyyy-mm-dd">YYYY-MM-DD</option>
               <option value="mm-dd-yyyy">MM-DD-YYYY</option>
               <option value="dd-mm-yyyy">DD-MM-YYYY</option>
-            </select>
-          </label>
+            </SelectInput>
+          </FormField>
 
-          <label className="profile-setting-row">
-            <span className="profile-setting-copy">
-              <strong>默认进入页</strong>
-              <small>登录后优先进入你最常使用的工作区页面。</small>
-            </span>
-            <select aria-label="默认进入页" defaultValue="/dashboard">
+          <FormField
+            className="profile-setting-row"
+            description="登录后优先进入你最常使用的工作区页面。"
+            label="默认进入页"
+          >
+            <SelectInput aria-label="默认进入页" defaultValue="/dashboard">
               <option value="/dashboard">仪表盘</option>
               <option value="/mail/list">邮件列表</option>
               <option value="/api-keys">API 密钥</option>
-            </select>
-          </label>
+            </SelectInput>
+          </FormField>
         </div>
 
-        <fieldset className="profile-density-group">
-          <legend>邮件阅读密度</legend>
-          <div className="profile-density-options">
-            <label className="profile-density-option">
-              <input defaultChecked name="density" type="radio" value="comfortable" />
-              <span>舒展</span>
-            </label>
-            <label className="profile-density-option">
-              <input name="density" type="radio" value="compact" />
-              <span>紧凑</span>
-            </label>
-          </div>
-        </fieldset>
+        <RadioGroupField
+          className="profile-density-group"
+          legend="邮件阅读密度"
+          name="density"
+          options={[
+            { label: "舒展", value: "comfortable" },
+            { label: "紧凑", value: "compact" }
+          ]}
+          defaultValue="comfortable"
+          variant="inline"
+        />
 
         <div className="profile-settings-actions">
           <button className="workspace-action-button primary" type="button">

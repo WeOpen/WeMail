@@ -1,4 +1,5 @@
 ﻿import { IntegrationChoiceCard, SettingsSupportCard } from "./SettingsSupport";
+import { CheckboxField, FormField, TextInput } from "../../shared/form";
 
 const eventGroups = [
   {
@@ -60,12 +61,12 @@ export function WebhookPage() {
           <div className="integration-two-up-grid">
             <section className="integration-detail-card">
               <h3>端点配置</h3>
-              <div className="integration-field-grid">
-                <label htmlFor="webhook-name">端点名称</label>
-                <input disabled id="webhook-name" value="Production Sync" />
-                <label htmlFor="webhook-url">Callback URL</label>
-                <input disabled id="webhook-url" value="https://example.com/hooks/wemail" />
-              </div>
+              <FormField className="integration-field-grid" htmlFor="webhook-name" label="端点名称">
+                <TextInput disabled id="webhook-name" value="Production Sync" />
+              </FormField>
+              <FormField className="integration-field-grid" htmlFor="webhook-url" label="Callback URL">
+                <TextInput disabled id="webhook-url" value="https://example.com/hooks/wemail" />
+              </FormField>
             </section>
 
             <section className="integration-detail-card">
@@ -76,10 +77,13 @@ export function WebhookPage() {
                     <strong>{group.title}</strong>
                     <div className="integration-event-pill-list">
                       {group.items.map((item, index) => (
-                        <label className="integration-event-pill" key={item}>
-                          <input defaultChecked={index < 2} disabled type="checkbox" />
-                          <span>{item}</span>
-                        </label>
+                        <CheckboxField
+                          className="integration-event-pill"
+                          defaultChecked={index < 2}
+                          disabled
+                          key={item}
+                          label={item}
+                        />
                       ))}
                     </div>
                   </article>

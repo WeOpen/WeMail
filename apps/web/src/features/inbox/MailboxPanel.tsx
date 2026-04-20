@@ -17,11 +17,11 @@ export function MailboxPanel({
     <section className="panel workspace-card mailbox-panel">
       <div className="panel-header workspace-card-header">
         <div>
-          <p className="panel-kicker">邮箱索引</p>
-          <h2>当前邮箱</h2>
+          <p className="panel-kicker">邮箱导航</p>
+          <h2>邮箱</h2>
         </div>
-        <button className="workspace-action-button secondary" onClick={onOpenMailboxComposer} type="button">
-          新建邮箱
+        <button className="workspace-action-button ghost" onClick={onOpenMailboxComposer} type="button">
+          新建
         </button>
       </div>
       <div className="mailbox-list workspace-stack-list">
@@ -32,7 +32,10 @@ export function MailboxPanel({
             onClick={() => onSelectMailbox(mailbox.id)}
             type="button"
           >
-            <strong>{mailbox.label}</strong>
+            <div className="mailbox-item-top">
+              <strong>{mailbox.label}</strong>
+              <small>{mailbox.createdAt.slice(0, 10)}</small>
+            </div>
             <span>{mailbox.address}</span>
           </button>
         ))}

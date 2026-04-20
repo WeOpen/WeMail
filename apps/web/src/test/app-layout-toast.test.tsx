@@ -33,14 +33,7 @@ const shell: WorkspaceShellState = {
       title: "工作台",
       items: [{ id: "dashboard", icon: "dashboard", label: "仪表盘", to: "/dashboard" }]
     }
-  ],
-  hero: {
-    eyebrow: "仪表盘",
-    title: "平台总览",
-    description: "dashboard hero",
-    stats: [],
-    actions: []
-  }
+  ]
 };
 
 describe("AppLayout notice removal", () => {

@@ -22,7 +22,7 @@ export function SettingsSupportCard({ kicker = "辅助说明", title, descriptio
 }
 
 type IntegrationChoiceCardProps = {
-  current: "api-keys" | "webhook" | "telegram";
+  current: "webhook" | "telegram";
 };
 
 const integrationChoices = [

@@ -1,6 +1,7 @@
 import type { FormEvent } from "react";
 
 import type { QuotaSummary, UserSummary } from "@wemail/shared";
+import { CheckboxField, FormField, TextInput } from "../../shared/form";
 
 type QuotaPanelProps = {
   adminUsers: UserSummary[];
@@ -33,14 +34,10 @@ export function QuotaPanel({
       </div>
       {adminQuota ? (
         <form className="composer-form" onSubmit={(event) => void onSubmitQuota(event, adminQuota.userId)}>
-          <label>
-            每日发送上限
-            <input name="dailyLimit" type="number" defaultValue={adminQuota.dailyLimit} />
-          </label>
-          <label className="checkbox-row">
-            <input name="disabled" type="checkbox" defaultChecked={adminQuota.disabled} />
-            暂停该用户的外发能力
-          </label>
+          <FormField label="每日发送上限">
+            <TextInput defaultValue={adminQuota.dailyLimit} name="dailyLimit" type="number" />
+          </FormField>
+          <CheckboxField defaultChecked={adminQuota.disabled} label="暂停该用户的外发能力" name="disabled" />
           <button className="workspace-action-button primary" type="submit">
             保存配额
           </button>

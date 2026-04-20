@@ -37,6 +37,7 @@ describe("SystemProfilePage", () => {
     );
 
     const displayName = screen.getByLabelText("显示名");
+    const bio = screen.getByLabelText("个人简介");
     const locale = screen.getByLabelText("语言");
     const timezone = screen.getByLabelText("时区");
     const landingPage = screen.getByLabelText("默认进入页");
@@ -48,6 +49,12 @@ describe("SystemProfilePage", () => {
     fireEvent.change(landingPage, { target: { value: "/mail/list" } });
     fireEvent.click(densityCompact);
 
+    expect(displayName).toHaveClass("form-control");
+    expect(bio).toHaveClass("form-control");
+    expect(locale).toHaveClass("form-control");
+    expect(timezone).toHaveClass("form-control");
+    expect(landingPage).toHaveClass("form-control");
+    expect(densityCompact).toHaveClass("form-check-input");
     expect(displayName).toHaveValue("WeMail Admin");
     expect(locale).toHaveValue("en-US");
     expect(timezone).toHaveValue("Asia/Tokyo");

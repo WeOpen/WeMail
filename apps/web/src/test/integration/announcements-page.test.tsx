@@ -84,7 +84,12 @@ describe("announcements integration", () => {
 
       render(<App />);
 
-      expect(await screen.findByRole("searchbox", { name: /公告搜索/i })).toBeInTheDocument();
+      const searchbox = await screen.findByRole("searchbox", { name: /公告搜索/i });
+      expect(searchbox).toBeInTheDocument();
+      expect(searchbox).toHaveClass("form-control");
+      screen.getAllByRole("combobox").forEach((select) => {
+        expect(select).toHaveClass("form-control", "form-select");
+      });
       expect(screen.queryByRole("button", { name: /发布公告/i })).not.toBeInTheDocument();
       expect(screen.getByLabelText(/最近公告筛选/i)).toBeInTheDocument();
       expect(screen.queryByLabelText(/公告控制条/i)).not.toBeInTheDocument();

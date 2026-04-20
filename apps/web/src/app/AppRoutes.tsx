@@ -1,5 +1,5 @@
 import type { FormEvent } from "react";
-import { Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes } from "react-router-dom";
 
 import type {
   ApiKeySummary,
@@ -14,17 +14,20 @@ import type {
 
 import type { InviteSummary } from "../features/admin/types";
 import type { OutboundHistoryItem } from "../features/inbox/types";
+import { AccountsListPage } from "../features/accounts/AccountsListPage";
+import { AccountsSettingsPage } from "../features/accounts/AccountsSettingsPage";
+import { OutboundPage } from "../features/outbound/OutboundPage";
 import { ApiKeysPage } from "../features/settings/ApiKeysPage";
+import { MailSettingsPage } from "../features/settings/MailSettingsPage";
 import { TelegramSettingsPage } from "../features/settings/TelegramSettingsPage";
 import { WebhookPage } from "../features/settings/WebhookPage";
 import { AdminPage } from "../pages/AdminPage";
 import { AnnouncementsPage } from "../pages/AnnouncementsPage";
 import { DashboardPage } from "../pages/DashboardPage";
 import { InboxPage } from "../pages/InboxPage";
-import { SystemAppearancePage } from "../pages/SystemAppearancePage";
+import { SystemSettingsPage } from "../pages/SystemSettingsPage";
 import { SystemProfilePage } from "../pages/SystemProfilePage";
-import { UsersGlobalSettingsPage } from "../pages/UsersGlobalSettingsPage";
-import { UsersListRoutePage } from "../pages/UsersListRoutePage";
+import { AboutPage } from "../pages/AboutPage";
 import { WorkspacePlaceholderPage } from "../pages/WorkspacePlaceholderPage";
 import type { WorkspaceTheme, WorkspaceThemePreference } from "./useWorkspaceTheme";
 
@@ -145,145 +148,19 @@ export function AppRoutes({ session, inbox, selectedMessage, settings, admin, ap
 
   const dashboardPage = <DashboardPage />;
 
-  const accountsListPage = (
-    <WorkspacePlaceholderPage
-      kicker="账号中心"
-      title="账号列表先以占位页承接"
-      description="已按目标信息结构预留账号列表入口，后续可把邮箱 / 账号实体映射到这里。"
-      cards={[
-        {
-          title: "邮件列表",
-          description: "现有邮箱列表与消息流仍在邮件列表页面可用。",
-          actionLabel: "打开邮件列表",
-          to: "/mail/list"
-        },
-        {
-          title: "创建账号",
-          description: "导航已预留创建账号入口，后续可接入独立表单或对话框。",
-          actionLabel: "查看创建账号入口",
-          to: "/accounts/create"
-        },
-        {
-          title: "账号设置",
-          description: "账号设置位已经预留，后续可拆出偏好与接入规则。",
-          actionLabel: "打开账号设置",
-          to: "/accounts/settings"
-        }
-      ]}
-      notePoints={["当前先以占位为主", "后续可复用现有邮箱创建逻辑", "不会影响现有邮件能力"]}
-    />
-  );
+  const accountsListPage = <AccountsListPage />;
 
-  const accountsCreatePage = (
-    <WorkspacePlaceholderPage
-      kicker="账号中心"
-      title="创建账号入口已挂到顶部二级菜单"
-      description="先把信息架构与导航切换完成，后续可以把创建账号表单接到这里。"
-      cards={[
-        {
-          title: "邮件列表",
-          description: "当前邮箱创建能力仍保留在邮件列表页的创建邮箱对话框中。",
-          actionLabel: "去邮件列表",
-          to: "/mail/list"
-        },
-        {
-          title: "账号列表",
-          description: "返回账号列表占位页查看后续承接位置。",
-          actionLabel: "打开账号列表",
-          to: "/accounts/list"
-        }
-      ]}
-      notePoints={["后续可把当前创建邮箱流程映射为账号创建", "保留为独立二级菜单入口"]}
-    />
-  );
-
-  const accountsSettingsPage = (
-    <WorkspacePlaceholderPage
-      kicker="账号中心"
-      title="账号设置先保留结构位置"
-      description="账号设置已经移动到账号栏目顶部的二级菜单，后续可在这里接入默认行为与接入规则。"
-      cards={[
-        {
-          title: "账号列表",
-          description: "回到账号列表查看预留入口。",
-          actionLabel: "打开账号列表",
-          to: "/accounts/list"
-        },
-        {
-          title: "API 密钥",
-          description: "接入类配置仍然在设置组的 API 密钥页面中维护。",
-          actionLabel: "打开 API 密钥",
-          to: "/api-keys"
-        }
-      ]}
-    />
-  );
-
-  const mailUnassignedPage = (
-    <WorkspacePlaceholderPage
-      kicker="邮件中心"
-      title="无收件人邮件页面已占位"
-      description="顶部二级菜单已预留“无收件人邮件”入口，后续可以把异常邮件处理流接到这里。"
-      cards={[
-        {
-          title: "邮件列表",
-          description: "当前收件与外发功能仍在邮件列表页可用。",
-          actionLabel: "返回邮件列表",
-          to: "/mail/list"
-        },
-        {
-          title: "发件箱",
-          description: "二级菜单也已预留发件箱入口。",
-          actionLabel: "打开发件箱占位",
-          to: "/mail/outbound"
-        }
-      ]}
-    />
-  );
+  const accountsSettingsPage = <AccountsSettingsPage />;
 
   const mailOutboundPage = (
-    <WorkspacePlaceholderPage
-      kicker="邮件中心"
-      title="发件箱入口已占位"
-      description="当前外发面板仍保留在邮件列表页，后续可将其抽离到独立发件箱页面。"
-      cards={[
-        {
-          title: "邮件列表",
-          description: "现有外发记录和发送表单仍在邮件列表页中。",
-          actionLabel: "回到邮件列表",
-          to: "/mail/list"
-        },
-        {
-          title: "邮件设置",
-          description: "如后续需要拆分更多邮件能力，可继续接到邮件设置页面。",
-          actionLabel: "打开邮件设置",
-          to: "/mail/settings"
-        }
-      ]}
+    <OutboundPage
+      hasActiveMailbox={Boolean(inbox.selectedMailboxId)}
+      onSendMail={inbox.sendMail}
+      outboundHistory={inbox.outboundHistory}
     />
   );
 
-  const mailSettingsPage = (
-    <WorkspacePlaceholderPage
-      kicker="邮件中心"
-      title="邮件设置先做占位"
-      description="邮件设置入口已经挂好，后续可在这里接通知、路由和默认行为配置。"
-      cards={[
-        {
-          title: "Telegram",
-          description: "通知能力暂时仍在 Telegram 页面维护。",
-          actionLabel: "打开 Telegram",
-          to: "/telegram"
-        },
-        {
-          title: "Webhook",
-          description: "事件回调能力已在左侧设置组中占位。",
-          actionLabel: "打开 Webhook",
-          to: "/webhook"
-        }
-      ]}
-    />
-  );
+  const mailSettingsPage = <MailSettingsPage />;
 
   const webhookPage = <WebhookPage />;
 
@@ -311,8 +188,8 @@ export function AppRoutes({ session, inbox, selectedMessage, settings, admin, ap
 
   const announcementsPage = <AnnouncementsPage canPublish={session.user.role === "admin"} />;
 
-  const systemAppearancePage = (
-    <SystemAppearancePage
+  const systemSettingsPage = (
+    <SystemSettingsPage
       resolvedTheme={appearance.theme}
       themePreference={appearance.themePreference}
       onSelectThemePreference={appearance.setThemePreference}
@@ -335,11 +212,10 @@ export function AppRoutes({ session, inbox, selectedMessage, settings, admin, ap
       <Route path="/dashboard" element={dashboardPage} />
       <Route path="/accounts" element={accountsListPage} />
       <Route path="/accounts/list" element={accountsListPage} />
-      <Route path="/accounts/create" element={accountsCreatePage} />
       <Route path="/accounts/settings" element={accountsSettingsPage} />
       <Route path="/mail" element={inboxPage} />
       <Route path="/mail/list" element={inboxPage} />
-      <Route path="/mail/unassigned" element={mailUnassignedPage} />
+      <Route path="/mail/unassigned" element={<Navigate replace to={{ pathname: "/mail/outbound", search: "?view=exceptions" }} />} />
       <Route path="/mail/outbound" element={mailOutboundPage} />
       <Route path="/mail/settings" element={mailSettingsPage} />
       <Route path="/users" element={usersListPage} />
@@ -352,9 +228,10 @@ export function AppRoutes({ session, inbox, selectedMessage, settings, admin, ap
       <Route path="/telegram" element={telegramPage} />
       <Route path="/docs" element={docsPage} />
       <Route path="/announcements" element={announcementsPage} />
-      <Route path="/system" element={systemAppearancePage} />
-      <Route path="/system/appearance" element={systemAppearancePage} />
+      <Route path="/system" element={<Navigate replace to="/system/settings" />} />
+      <Route path="/system/settings" element={systemSettingsPage} />
       <Route path="/system/profile" element={systemProfilePage} />
+      <Route path="/system/about" element={<AboutPage />} />
     </Routes>
   );
 }

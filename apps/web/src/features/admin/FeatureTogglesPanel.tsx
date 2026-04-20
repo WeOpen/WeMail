@@ -1,4 +1,5 @@
 import type { FeatureToggles } from "@wemail/shared";
+import { CheckboxField } from "../../shared/form";
 
 const featureLabels: Record<string, string> = {
   aiEnabled: "AI 提取",
@@ -24,19 +25,19 @@ export function FeatureTogglesPanel({
       {adminFeatures ? (
         <div className="toggle-grid workspace-toggle-grid">
           {Object.entries(adminFeatures).map(([key, value]) => (
-            <label key={key} className="toggle-card">
-              <input
-                type="checkbox"
-                checked={value}
-                onChange={(event) =>
-                  void onToggleFeatures({
-                    ...adminFeatures,
-                    [key]: event.target.checked
-                  })
-                }
-              />
-              <span>{featureLabels[key] ?? key}</span>
-            </label>
+            <CheckboxField
+              checked={value}
+              className="toggle-card"
+              key={key}
+              label={featureLabels[key] ?? key}
+              onChange={(event) =>
+                void onToggleFeatures({
+                  ...adminFeatures,
+                  [key]: event.target.checked
+                })
+              }
+              variant="card"
+            />
           ))}
         </div>
       ) : (

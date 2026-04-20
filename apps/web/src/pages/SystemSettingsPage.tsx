@@ -1,6 +1,6 @@
 import type { WorkspaceTheme, WorkspaceThemePreference } from "../app/useWorkspaceTheme";
 
-type SystemAppearancePageProps = {
+type SystemSettingsPageProps = {
   resolvedTheme: WorkspaceTheme;
   themePreference: WorkspaceThemePreference;
   onSelectThemePreference: (preference: WorkspaceThemePreference) => void;
@@ -32,13 +32,18 @@ const themeOptions: Array<{
   }
 ];
 
-export function SystemAppearancePage({
+export function SystemSettingsPage({
   themePreference,
   onSelectThemePreference
-}: SystemAppearancePageProps) {
+}: SystemSettingsPageProps) {
   return (
-    <main className="workspace-grid appearance-settings-grid">
-      <section className="panel workspace-card page-panel appearance-settings-panel">
+    <main className="workspace-grid system-settings-grid">
+      <section className="panel workspace-card page-panel system-settings-panel">
+        <div className="system-settings-copy">
+          <p className="panel-kicker">系统设置</p>
+          <h2>系统设置</h2>
+        </div>
+
         <p className="panel-kicker">主题模式</p>
 
         <div className="appearance-option-grid" role="list" aria-label="主题模式选项">
