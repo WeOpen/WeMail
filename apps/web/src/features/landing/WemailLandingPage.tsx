@@ -1,28 +1,30 @@
-import { type CSSProperties, type ReactNode, useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { type CSSProperties, type ReactNode, useEffect, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import {
+  Activity,
   ArrowRight,
-  ArrowUpRight,
+  BookOpen,
   Check,
   Copy,
   Eye,
   FileCheck,
   Lock,
   Menu,
+  Send,
   Shield,
   X
-} from 'lucide-react';
+} from "lucide-react";
 
-import { WemailBrandLockup } from '../../shared/WemailBrandLockup';
-import { AnimatedSphere } from './AnimatedSphere';
-import { AnimatedTetrahedron } from './AnimatedTetrahedron';
-import { AnimatedWave } from './AnimatedWave';
+import { WemailBrandLockup } from "../../shared/WemailBrandLockup";
+import { AnimatedSphere } from "./AnimatedSphere";
+import { AnimatedTetrahedron } from "./AnimatedTetrahedron";
+import { AnimatedWave } from "./AnimatedWave";
 import {
   certifications,
   developerFeatures,
   developerTabs,
   featureCards,
-  footerColumns,
+  footerQuickLinks,
   heroStats,
   heroWords,
   infrastructureLocations,
@@ -31,23 +33,22 @@ import {
   metrics,
   pricingPlans,
   securityCards,
-  socialLinks,
   testimonials,
   trustedCompanies,
   workflowSteps
-} from './landing-content';
-import './landing.css';
+} from "./landing-content";
+import "./landing.css";
 
 function useReducedMotion() {
   const [reducedMotion, setReducedMotion] = useState(false);
 
   useEffect(() => {
-    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return;
-    const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function") return;
+    const mediaQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
     const update = () => setReducedMotion(mediaQuery.matches);
     update();
-    mediaQuery.addEventListener('change', update);
-    return () => mediaQuery.removeEventListener('change', update);
+    mediaQuery.addEventListener("change", update);
+    return () => mediaQuery.removeEventListener("change", update);
   }, []);
 
   return reducedMotion;
@@ -74,7 +75,7 @@ function useReveal<T extends HTMLElement>() {
   useEffect(() => {
     const node = ref.current;
     if (!node) return;
-    if (typeof IntersectionObserver !== 'function') {
+    if (typeof IntersectionObserver !== "function") {
       setIsVisible(true);
       return;
     }
@@ -105,7 +106,7 @@ function RevealSection({ className, id, children }: { className?: string; id?: s
 
 function SectionEyebrow({ children, centered = false }: { children: ReactNode; centered?: boolean }) {
   return (
-    <span className={centered ? 'landing-section-eyebrow centered' : 'landing-section-eyebrow'}>
+    <span className={centered ? "landing-section-eyebrow centered" : "landing-section-eyebrow"}>
       <span className="landing-section-eyebrow-line" aria-hidden="true" />
       {children}
       {centered ? <span className="landing-section-eyebrow-line" aria-hidden="true" /> : null}
@@ -113,8 +114,65 @@ function SectionEyebrow({ children, centered = false }: { children: ReactNode; c
   );
 }
 
-function FeatureVisual({ type }: { type: (typeof featureCards)[number]['visual'] }) {
-  if (type === 'deploy') {
+function AnimatedCodeBlock({
+  code,
+  fileLabel,
+  statusLabel,
+  dark = false
+}: {
+  code: string;
+  fileLabel: string;
+  statusLabel: string;
+  dark?: boolean;
+}) {
+  return (
+    <div className={dark ? "landing-process-code is-animated-code" : "landing-code-card is-animated-code"}>
+      <header>
+        <div className="landing-window-controls" aria-hidden="true">
+          <span />
+          <span />
+          <span />
+        </div>
+        <small>{fileLabel}</small>
+      </header>
+      <pre>
+        <code>
+          {code.split("\n").map((line, lineIndex) => (
+            <span
+              key={`${fileLabel}-${lineIndex}`}
+              className="landing-code-line"
+              style={{ ["--code-line-delay" as string]: `${lineIndex * 80}ms` } as CSSProperties}
+            >
+              <span className="landing-code-line-number">{String(lineIndex + 1).padStart(2, "0")}</span>
+              <span className="landing-code-line-content">
+                {line.split("").map((character, charIndex) => (
+                  <span
+                    key={`${fileLabel}-${lineIndex}-${charIndex}`}
+                    className="landing-code-char"
+                    style={
+                      {
+                        ["--code-char-delay" as string]: `${lineIndex * 80 + charIndex * 15}ms`
+                      } as CSSProperties
+                    }
+                  >
+                    {character === " " ? "\u00A0" : character}
+                  </span>
+                ))}
+              </span>
+            </span>
+          ))}
+        </code>
+      </pre>
+      <footer>
+        <span className="landing-ready-dot" aria-hidden="true" />
+        <small>{statusLabel}</small>
+      </footer>
+    </div>
+  );
+}
+
+function FeatureVisual({ type }: { type: (typeof featureCards)[number]["visual"] }) {
+  if (type === "deploy") {
     return (
       <svg viewBox="0 0 200 160" className="landing-feature-visual-svg" aria-hidden="true">
         <rect x="30" y="20" width="140" height="120" rx="14" className="landing-svg-stroke" />
@@ -127,7 +185,7 @@ function FeatureVisual({ type }: { type: (typeof featureCards)[number]['visual']
             height="10"
             rx="4"
             className="landing-svg-fill landing-svg-bar"
-            style={{ ['--bar-delay' as string]: `${index * 120}ms` } as CSSProperties}
+            style={{ ["--bar-delay" as string]: `${index * 120}ms` } as CSSProperties}
           />
         ))}
         <circle cx="100" cy="132" r="5" className="landing-svg-fill landing-svg-pulse" />
@@ -135,7 +193,7 @@ function FeatureVisual({ type }: { type: (typeof featureCards)[number]['visual']
     );
   }
 
-  if (type === 'ai') {
+  if (type === "ai") {
     return (
       <svg viewBox="0 0 200 160" className="landing-feature-visual-svg" aria-hidden="true">
         <circle cx="100" cy="80" r="44" className="landing-svg-stroke" />
@@ -155,7 +213,7 @@ function FeatureVisual({ type }: { type: (typeof featureCards)[number]['visual']
     );
   }
 
-  if (type === 'collab') {
+  if (type === "collab") {
     return (
       <svg viewBox="0 0 200 160" className="landing-feature-visual-svg" aria-hidden="true">
         <rect x="26" y="24" width="148" height="108" rx="18" className="landing-svg-stroke" />
@@ -177,16 +235,48 @@ function FeatureVisual({ type }: { type: (typeof featureCards)[number]['visual']
   );
 }
 
-function SecurityIcon({ icon }: { icon: (typeof securityCards)[number]['icon'] }) {
+function SecurityIcon({ icon }: { icon: (typeof securityCards)[number]["icon"] }) {
   switch (icon) {
-    case 'shield':
+    case "shield":
       return <Shield aria-hidden="true" />;
-    case 'lock':
+    case "lock":
       return <Lock aria-hidden="true" />;
-    case 'eye':
+    case "eye":
       return <Eye aria-hidden="true" />;
     default:
       return <FileCheck aria-hidden="true" />;
+  }
+}
+
+function GitHubMarkIcon() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24">
+      <path
+        d="M12 .297C5.373.297 0 5.67 0 12.297c0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577
+        0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61-.546-1.385-1.333-1.755-1.333-1.755
+        -1.089-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998
+        .108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22
+        -.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405
+        1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176
+        .765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22
+        0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297
+        24 5.67 18.627.297 12 .297Z"
+        fill="currentColor"
+      />
+    </svg>
+  );
+}
+
+function FooterQuickIcon({ icon }: { icon: (typeof footerQuickLinks)[number]["icon"] }) {
+  switch (icon) {
+    case "github":
+      return <GitHubMarkIcon />;
+    case "telegram":
+      return <Send aria-hidden="true" />;
+    case "status":
+      return <Activity aria-hidden="true" />;
+    default:
+      return <BookOpen aria-hidden="true" />;
   }
 }
 
@@ -222,7 +312,7 @@ function AnimatedCounter({ value, prefix, suffix }: { value: number; prefix: str
 
 function DesktopNavLinks() {
   return (
-    <div className="landing-nav-links" aria-label="Primary section links">
+    <div className="landing-nav-links" aria-label="首页分区导航">
       {landingNavLinks.map((link) => (
         <a key={link.href} href={link.href} className="landing-nav-link">
           {link.label}
@@ -240,14 +330,14 @@ function Navigation() {
   useEffect(() => {
     const onScroll = () => setIsScrolled(window.scrollY > 20);
     onScroll();
-    window.addEventListener('scroll', onScroll, { passive: true });
-    return () => window.removeEventListener('scroll', onScroll);
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
   useEffect(() => {
     const body = document.body;
     if (isMobileMenuOpen) {
-      body.dataset.mobileMenu = 'open';
+      body.dataset.mobileMenu = "open";
     } else {
       delete body.dataset.mobileMenu;
     }
@@ -257,10 +347,10 @@ function Navigation() {
   }, [isMobileMenuOpen]);
 
   return (
-    <header className={isScrolled ? 'landing-nav-shell is-scrolled' : 'landing-nav-shell'}>
-      <nav className={isScrolled || isMobileMenuOpen ? 'landing-nav is-floating' : 'landing-nav'} aria-label="landing page navigation">
-        <div className={isScrolled ? 'landing-nav-bar compact' : 'landing-nav-bar'}>
-          <Link aria-label="WeMail home" className="landing-brand" to="/">
+    <header className={isScrolled ? "landing-nav-shell is-scrolled" : "landing-nav-shell"}>
+      <nav className={isScrolled || isMobileMenuOpen ? "landing-nav is-floating" : "landing-nav"} aria-label="首页导航">
+        <div className={isScrolled ? "landing-nav-bar compact" : "landing-nav-bar"}>
+          <Link aria-label="WeMail 首页" className="landing-brand" to="/">
             <WemailBrandLockup className="landing-brand-lockup" compact label="WeMail brand lockup" />
           </Link>
 
@@ -278,7 +368,7 @@ function Navigation() {
           <button
             aria-controls="landing-mobile-menu"
             aria-expanded={isMobileMenuOpen}
-            aria-label="Toggle menu"
+            aria-label="切换菜单"
             className="landing-mobile-toggle"
             onClick={() => setIsMobileMenuOpen((current) => !current)}
             type="button"
@@ -289,7 +379,7 @@ function Navigation() {
       </nav>
 
       {isMobileMenuOpen ? (
-        <div className="landing-mobile-menu-backdrop" role="dialog" aria-label="landing mobile menu" aria-modal="true" id="landing-mobile-menu">
+        <div className="landing-mobile-menu-backdrop" role="dialog" aria-label="首页移动菜单" aria-modal="true" id="landing-mobile-menu">
           <div className="landing-mobile-menu">
             <div className="landing-mobile-links">
               {landingNavLinks.map((link, index) => (
@@ -298,7 +388,7 @@ function Navigation() {
                   className="landing-mobile-link"
                   href={link.href}
                   onClick={() => setIsMobileMenuOpen(false)}
-                  style={{ ['--menu-delay' as string]: reducedMotion ? '0ms' : `${index * 70}ms` } as CSSProperties}
+                  style={{ ["--menu-delay" as string]: reducedMotion ? "0ms" : `${index * 70}ms` } as CSSProperties}
                 >
                   {link.label}
                 </a>
@@ -321,11 +411,17 @@ function Navigation() {
 
 function HeroSection() {
   const reducedMotion = useReducedMotion();
+  const [isVisible, setIsVisible] = useState(false);
   const [wordIndex] = useAutoIndex(heroWords.length, 2500, reducedMotion);
   const currentWord = heroWords[wordIndex];
 
+  useEffect(() => {
+    const timer = window.setTimeout(() => setIsVisible(true), 40);
+    return () => window.clearTimeout(timer);
+  }, []);
+
   return (
-    <section className="landing-hero-section">
+    <section className="landing-hero-section" data-visible={isVisible}>
       <div className="landing-hero-orb" aria-hidden="true">
         <AnimatedSphere />
       </div>
@@ -339,14 +435,16 @@ function HeroSection() {
       </div>
 
       <div className="landing-hero-copy-shell">
-        <SectionEyebrow>The platform for modern teams</SectionEyebrow>
+        <div className="landing-hero-eyebrow-row">
+          <SectionEyebrow>给现代团队的临时邮箱工作台</SectionEyebrow>
+        </div>
         <h1 className="landing-hero-title">
-          <span>The platform</span>
+          <span>把临时邮箱</span>
           <span>
-            to{' '}
+            做成能
             <span className="landing-hero-word-wrap">
               <span className="landing-hero-word" key={currentWord}>
-                {currentWord.split('').map((character, index) => (
+                {currentWord.split("").map((character, index) => (
                   <span key={`${currentWord}-${index}`} className="landing-hero-char" style={{ animationDelay: `${index * 55}ms` }}>
                     {character}
                   </span>
@@ -354,26 +452,25 @@ function HeroSection() {
               </span>
               <span className="landing-hero-word-underline" aria-hidden="true" />
             </span>
+            的系统
           </span>
         </h1>
 
         <div className="landing-hero-bottom">
-          <p className="landing-hero-description">
-            Run temporary mail for QA, support, growth, and internal tooling from one surface — with clearer inbox review, extraction, and operational control.
-          </p>
+          <p className="landing-hero-description">为 QA、运营、客服和内部自动化提供统一工作台，在同一界面完成收件、解析、外发与权限治理。</p>
           <div className="landing-cta-row">
             <Link className="landing-cta primary" to="/register">
-              开始注册
+              立即开始
               <ArrowRight aria-hidden="true" />
             </Link>
             <Link className="landing-cta secondary" to="/login">
-              前往登录
+              进入登录
             </Link>
           </div>
         </div>
       </div>
 
-      <div className="landing-stats-marquee" aria-label="Platform proof points">
+      <div className="landing-stats-marquee" aria-label="平台能力摘要">
         <div className="landing-marquee-track">
           {Array.from({ length: 2 }).flatMap((_, loopIndex) =>
             heroStats.map((stat) => (
@@ -388,6 +485,11 @@ function HeroSection() {
           )}
         </div>
       </div>
+
+      <div className="landing-scroll-cue" aria-hidden="true">
+        <span className="landing-scroll-line" />
+        <span className="landing-scroll-label">SCROLL</span>
+      </div>
     </section>
   );
 }
@@ -396,10 +498,10 @@ function FeaturesSection() {
   return (
     <RevealSection id="features" className="landing-section landing-section-border-top">
       <div className="landing-section-header left">
-        <SectionEyebrow>Capabilities</SectionEyebrow>
-        <h2 className="landing-display-title">Everything you need. Nothing you don't.</h2>
+        <SectionEyebrow>核心能力</SectionEyebrow>
+        <h2 className="landing-display-title">收件、提取、外发、治理，一页打通。</h2>
         <p className="landing-section-copy">
-          WeMail keeps inbox creation, message review, outbound sends, and governance in one product surface instead of scattered scripts and browser tabs.
+          WeMail 把收件箱创建、消息审阅、外发记录与运营控制放进同一个产品界面，而不是散落在脚本、浏览器标签页和人工流程里。
         </p>
       </div>
       <div className="landing-features-grid">
@@ -427,11 +529,11 @@ function HowItWorksSection() {
   return (
     <RevealSection id="how-it-works" className="landing-section landing-section-dark">
       <div className="landing-section-header left on-dark">
-        <SectionEyebrow>Process</SectionEyebrow>
+        <SectionEyebrow>使用流程</SectionEyebrow>
         <h2 className="landing-display-title">
-          Three steps.
+          三步上线。
           <br />
-          <span className="landing-display-subtle">Infinite possibilities.</span>
+          <span className="landing-display-subtle">把临时邮箱纳入你的工作流。</span>
         </h2>
       </div>
       <div className="landing-process-layout">
@@ -439,7 +541,7 @@ function HowItWorksSection() {
           {workflowSteps.map((step, index) => (
             <button
               key={step.number}
-              className={activeStep === index ? 'landing-process-step active' : 'landing-process-step'}
+              className={activeStep === index ? "landing-process-step active" : "landing-process-step"}
               onClick={() => setActiveStep(index)}
               type="button"
             >
@@ -452,23 +554,7 @@ function HowItWorksSection() {
             </button>
           ))}
         </div>
-        <div className="landing-process-code">
-          <header>
-            <div className="landing-window-controls" aria-hidden="true">
-              <span />
-              <span />
-              <span />
-            </div>
-            <small>workflow.ts</small>
-          </header>
-          <pre>
-            <code>{workflowSteps[activeStep]?.code}</code>
-          </pre>
-          <footer>
-            <span className="landing-ready-dot" aria-hidden="true" />
-            <small>Ready</small>
-          </footer>
-        </div>
+        <AnimatedCodeBlock code={workflowSteps[activeStep]?.code ?? ""} fileLabel="workflow.ts" statusLabel="已就绪" dark />
       </div>
     </RevealSection>
   );
@@ -482,29 +568,29 @@ function InfrastructureSection() {
     <RevealSection id="infrastructure" className="landing-section">
       <div className="landing-two-column">
         <div>
-          <SectionEyebrow>Infrastructure</SectionEyebrow>
-          <h2 className="landing-display-title">Global by default.</h2>
+          <SectionEyebrow>基础设施</SectionEyebrow>
+          <h2 className="landing-display-title">部署一次，边缘运行。</h2>
           <p className="landing-section-copy">
-            Deploy once, run everywhere. Our edge network spans 17 data centers across 6 continents, delivering sub-50ms latency to 99% of the world.
+            基于 Workers、Pages、D1 与 R2 的组合，把收件、附件、控制台和治理逻辑放在同一套可演进的基础设施语义里。
           </p>
           <div className="landing-kpi-row">
             <article>
-              <strong>17</strong>
-              <span>Data centers</span>
+              <strong>1 套</strong>
+              <span>统一控制面</span>
             </article>
             <article>
-              <strong>99.99%</strong>
-              <span>Uptime SLA</span>
+              <strong>4 层</strong>
+              <span>核心基础设施</span>
             </article>
             <article>
-              <strong>&lt;50ms</strong>
-              <span>Global latency</span>
+              <strong>全天候</strong>
+              <span>面向自动化工作流</span>
             </article>
           </div>
         </div>
         <div className="landing-location-board">
           {infrastructureLocations.map((location, index) => (
-            <article className={index === activeLocation ? 'landing-location-card active' : 'landing-location-card'} key={location.city}>
+            <article className={index === activeLocation ? "landing-location-card active" : "landing-location-card"} key={location.city}>
               <div>
                 <strong>{location.city}</strong>
                 <span>{location.region}</span>
@@ -519,12 +605,13 @@ function InfrastructureSection() {
 }
 
 function MetricsSection() {
-  const time = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  const time = new Date().toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+
   return (
     <RevealSection id="metrics" className="landing-section landing-section-border-top">
       <div className="landing-section-header centered">
-        <SectionEyebrow centered>Metrics</SectionEyebrow>
-        <h2 className="landing-display-title">Numbers that move with your team.</h2>
+        <SectionEyebrow centered>关键指标</SectionEyebrow>
+        <h2 className="landing-display-title">和团队节奏一起运转的数字。</h2>
       </div>
       <div className="landing-metrics-grid">
         {metrics.map((metric) => (
@@ -534,7 +621,7 @@ function MetricsSection() {
           </article>
         ))}
       </div>
-      <p className="landing-clock">Live snapshot · {time}</p>
+      <p className="landing-clock">实时快照 · {time}</p>
     </RevealSection>
   );
 }
@@ -543,9 +630,9 @@ function IntegrationsSection() {
   return (
     <RevealSection id="integrations" className="landing-section">
       <div className="landing-section-header centered">
-        <SectionEyebrow centered>Integrations</SectionEyebrow>
-        <h2 className="landing-display-title">Works with everything you already use.</h2>
-        <p className="landing-section-copy">Connect the temp-mail workflow to the systems your team already uses for alerts, automation, and rollout control.</p>
+        <SectionEyebrow centered>系统协同</SectionEyebrow>
+        <h2 className="landing-display-title">和你已经在用的系统自然接上。</h2>
+        <p className="landing-section-copy">把临时邮箱流程接到团队现有的通知、自动化和发布控制链路里，而不是额外再维护一套孤岛工具。</p>
       </div>
       <div className="landing-marquee-list">
         <div className="landing-marquee-track">
@@ -580,10 +667,10 @@ function SecuritySection() {
     <RevealSection id="security" className="landing-section landing-section-muted">
       <div className="landing-two-column security">
         <div>
-          <SectionEyebrow>Security</SectionEyebrow>
-          <h2 className="landing-display-title">Trust is non-negotiable.</h2>
+          <SectionEyebrow>治理与安全</SectionEyebrow>
+          <h2 className="landing-display-title">不是能跑就够，必须可控。</h2>
           <p className="landing-section-copy">
-            Invite gating, quota control, and mailbox oversight keep the service usable for real teams instead of turning it into an unmanaged public inbox pool.
+            邀请注册、额度策略和收件箱监管让这套系统适合真实团队长期使用，而不是很快演变成无人治理的公共邮箱池。
           </p>
           <div className="landing-pill-list">
             {certifications.map((certification) => (
@@ -632,27 +719,27 @@ function DevelopersSection() {
     <RevealSection id="developers" className="landing-section landing-section-border-top">
       <div className="landing-two-column developers">
         <div>
-          <SectionEyebrow>Developers</SectionEyebrow>
-          <h2 className="landing-display-title">Made for fast-moving engineering teams.</h2>
+          <SectionEyebrow>开发接入</SectionEyebrow>
+          <h2 className="landing-display-title">给动作快的工程团队准备。</h2>
           <p className="landing-section-copy">
-            Everything you need to ship faster — from onboarding to deploy — wrapped in an experience that still feels lightweight.
+            从接入到上线都尽量直接，不把能力藏进厚重平台里；你既能快速写脚本，也能让运营同学看懂同一套数据。
           </p>
           <div className="landing-developer-features">
             {developerFeatures.map((feature) => (
-              <article key={feature.title}>
+              <article className="landing-developer-feature" key={feature.title}>
                 <h3>{feature.title}</h3>
                 <p>{feature.description}</p>
               </article>
             ))}
           </div>
         </div>
-        <div className="landing-code-card">
-          <div className="landing-code-tabs" role="tablist" aria-label="Developer snippets">
+        <div className="landing-developer-panel">
+          <div className="landing-code-tabs" role="tablist" aria-label="开发示例">
             {developerTabs.map((tab, index) => (
               <button
                 key={tab.label}
                 aria-selected={index === activeTab}
-                className={index === activeTab ? 'active' : ''}
+                className={index === activeTab ? "active" : ""}
                 onClick={() => setActiveTab(index)}
                 role="tab"
                 type="button"
@@ -662,12 +749,15 @@ function DevelopersSection() {
             ))}
             <button className="landing-code-copy" onClick={() => void copyActiveSnippet()} type="button">
               {copiedTab === activeTab ? <Check aria-hidden="true" /> : <Copy aria-hidden="true" />}
-              <span>{copiedTab === activeTab ? 'Copied' : 'Copy'}</span>
+              <span>{copiedTab === activeTab ? "已复制" : "复制"}</span>
             </button>
           </div>
-          <pre>
-            <code>{developerTabs[activeTab]?.code}</code>
-          </pre>
+          <AnimatedCodeBlock code={developerTabs[activeTab]?.code ?? ""} fileLabel="api-snippet.ts" statusLabel="可直接接入" />
+          <div className="landing-code-links">
+            <a href="#pricing">查看可用方案</a>
+            <span aria-hidden="true">|</span>
+            <a href="#features">回到能力概览</a>
+          </div>
         </div>
       </div>
     </RevealSection>
@@ -682,9 +772,9 @@ function TestimonialsSection() {
   return (
     <RevealSection id="testimonials" className="landing-section landing-section-border-top landing-testimonials-section">
       <div className="landing-testimonial-header">
-        <SectionEyebrow>What people say</SectionEyebrow>
+        <SectionEyebrow>团队反馈</SectionEyebrow>
         <span>
-          {String(activeIndex + 1).padStart(2, '0')} / {String(testimonials.length).padStart(2, '0')}
+          {String(activeIndex + 1).padStart(2, "0")} / {String(testimonials.length).padStart(2, "0")}
         </span>
       </div>
       <div className="landing-testimonial-grid">
@@ -695,22 +785,22 @@ function TestimonialsSection() {
             <div>
               <strong>{activeTestimonial.author}</strong>
               <span>
-                {activeTestimonial.role}, {activeTestimonial.company}
+                {activeTestimonial.role}，{activeTestimonial.company}
               </span>
             </div>
           </div>
         </blockquote>
         <aside>
           <div className="landing-testimonial-metric">
-            <span>Key Result</span>
+            <span>关键结果</span>
             <p>{activeTestimonial.metric}</p>
           </div>
           <div className="landing-testimonial-pills">
             {testimonials.map((testimonial, index) => (
               <button
                 key={testimonial.author}
-                aria-label={`Show testimonial ${index + 1}`}
-                className={index === activeIndex ? 'active' : ''}
+                aria-label={`切换到第 ${index + 1} 条评价`}
+                className={index === activeIndex ? "active" : ""}
                 onClick={() => setActiveIndex(index)}
                 type="button"
               />
@@ -719,7 +809,7 @@ function TestimonialsSection() {
         </aside>
       </div>
       <div className="landing-trusted-band">
-        <p>Trusted by forward-thinking teams</p>
+        <p>被高频协作团队持续使用</p>
       </div>
       <div className="landing-trusted-marquee">
         <div className="landing-marquee-track">
@@ -740,43 +830,47 @@ function PricingSection() {
   const [isAnnual, setIsAnnual] = useState(true);
 
   return (
-    <RevealSection id="pricing" className="landing-section landing-section-border-top">
-      <div className="landing-section-header left">
-        <SectionEyebrow>Pricing</SectionEyebrow>
-        <h2 className="landing-display-title">
-          Simple, transparent
+    <RevealSection id="pricing" className="landing-section landing-section-border-top landing-pricing-section">
+      <div className="landing-pricing-header">
+        <span className="landing-pricing-kicker">方案价格</span>
+        <h2 className="landing-pricing-title">
+          简单、透明
           <br />
-          <span className="landing-display-subtle stroke">pricing</span>
+          <span className="landing-display-subtle stroke">按需扩展</span>
         </h2>
-        <p className="landing-section-copy">Start free and scale as you grow. No hidden fees, no surprises.</p>
+        <p className="landing-pricing-copy">先把流程跑通，再随着团队协作深度逐步升级。不做藏起来的费用，也不把复杂度前置给你。</p>
       </div>
-      <div className="landing-billing-toggle pricing">
-        <span className={!isAnnual ? 'active' : ''}>Monthly</span>
-        <button
-          aria-pressed={isAnnual}
-          className={isAnnual ? 'active' : ''}
-          onClick={() => setIsAnnual((current) => !current)}
-          type="button"
-        >
-          <span />
-        </button>
-        <span className={isAnnual ? 'active' : ''}>Annual</span>
-        {isAnnual ? <small>Save 17%</small> : null}
+      <div className="landing-pricing-toggle-row">
+        <div className="landing-billing-toggle pricing optimus">
+          <span className={!isAnnual ? "active" : ""}>按月</span>
+          <button
+            aria-pressed={isAnnual}
+            className={isAnnual ? "active" : ""}
+            onClick={() => setIsAnnual((current) => !current)}
+            type="button"
+          >
+            <span />
+          </button>
+          <span className={isAnnual ? "active" : ""}>按年</span>
+          {isAnnual ? <small>年付省 17%</small> : null}
+        </div>
       </div>
-      <div className="landing-pricing-grid lines">
+      <div className="landing-pricing-grid lines optimus">
         {pricingPlans.map((plan, index) => (
-          <article className={plan.popular ? 'landing-pricing-card popular' : 'landing-pricing-card'} key={plan.name}>
-            {plan.popular ? <p className="landing-pricing-badge">Most Popular</p> : null}
-            <span className="landing-pricing-index">{String(index + 1).padStart(2, '0')}</span>
-            <h3>{plan.name}</h3>
-            <p>{plan.description}</p>
+          <article className={plan.popular ? "landing-pricing-card popular" : "landing-pricing-card"} key={plan.name}>
+            {plan.popular ? <p className="landing-pricing-badge">推荐方案</p> : null}
+            <span className="landing-pricing-index">{String(index + 1).padStart(2, "0")}</span>
+            <div className="landing-pricing-card-head">
+              <h3>{plan.name}</h3>
+              <p>{plan.description}</p>
+            </div>
             <div className="landing-pricing-value">
               {plan.price.monthly === null ? (
-                <span>Custom</span>
+                <span>定制</span>
               ) : (
                 <>
                   <strong>${isAnnual ? plan.price.annual : plan.price.monthly}</strong>
-                  <small>/month</small>
+                  <small>/月</small>
                 </>
               )}
             </div>
@@ -788,7 +882,7 @@ function PricingSection() {
                 </li>
               ))}
             </ul>
-            <Link className={plan.popular ? 'landing-cta primary' : 'landing-cta secondary'} to={plan.popular ? '/register' : '/login'}>
+            <Link className={plan.popular ? "landing-pricing-cta primary" : "landing-pricing-cta secondary"} to={plan.popular ? "/register" : "/login"}>
               {plan.cta}
               <ArrowRight aria-hidden="true" />
             </Link>
@@ -796,7 +890,7 @@ function PricingSection() {
         ))}
       </div>
       <p className="landing-pricing-note">
-        All plans include automatic updates, HTTPS, and DDoS protection. <a href="#developers">Compare all features</a>
+        所有方案都包含自动更新、HTTPS 与基础防护能力。<a href="#developers">查看全部能力</a>
       </p>
     </RevealSection>
   );
@@ -807,15 +901,15 @@ function CtaSection() {
     <RevealSection className="landing-section landing-section-cta">
       <div className="landing-cta-panel">
         <div>
-          <h2 className="landing-display-title">Ready to build something great?</h2>
-          <p className="landing-section-copy">Stand up a clearer temp-mail workflow for testing, launches, and operations — then grow into the controls your team actually needs.</p>
+          <h2 className="landing-display-title">准备把临时邮箱接入你的系统？</h2>
+          <p className="landing-section-copy">先从测试、活动上线或运营协作开始，再逐步打开团队真正需要的治理能力，不必一开始就背上沉重平台成本。</p>
           <div className="landing-cta-row">
             <Link className="landing-cta primary" to="/register">
-              Start building free
+              受邀注册
               <ArrowRight aria-hidden="true" />
             </Link>
             <Link className="landing-cta secondary" to="/login">
-              Talk to ops
+              进入登录
             </Link>
           </div>
         </div>
@@ -835,38 +929,33 @@ function FooterSection() {
       </div>
       <div className="landing-footer-grid">
         <div className="landing-footer-brand">
-          <Link aria-label="WeMail home" className="landing-brand footer" to="/">
+          <Link aria-label="WeMail 首页" className="landing-brand footer" to="/">
             <WemailBrandLockup className="landing-brand-lockup footer" label="WeMail footer brand lockup" />
           </Link>
-          <p>Temporary mail, extraction, outbound, and admin oversight in one operator-friendly surface.</p>
-          <div className="landing-footer-socials">
-            {socialLinks.map((link) => (
-              <a href={link.href} key={link.name}>
-                {link.name}
-                <ArrowUpRight aria-hidden="true" />
-              </a>
-            ))}
-          </div>
         </div>
-        {Object.entries(footerColumns).map(([title, links]) => (
-          <div className="landing-footer-column" key={title}>
-            <h3>{title}</h3>
-            <ul>
-              {links.map((link) => (
-                <li key={link.name}>
-                  <a href={link.href}>{link.name}</a>
-                  {(link as { badge?: string }).badge ? <span>{(link as { badge?: string }).badge}</span> : null}
-                </li>
-              ))}
-            </ul>
-          </div>
-        ))}
+        <div className="landing-footer-quick-grid">
+          {footerQuickLinks.map((link) => (
+            <a
+              className="landing-footer-quick-card"
+              href={link.href}
+              key={link.name}
+              data-icon={link.icon}
+              aria-label={link.name}
+              title={link.name}
+              target={link.href.startsWith("http") ? "_blank" : undefined}
+              rel={link.href.startsWith("http") ? "noreferrer" : undefined}
+            >
+              <FooterQuickIcon icon={link.icon} />
+              <span className="landing-visually-hidden">{link.name}</span>
+            </a>
+          ))}
+        </div>
       </div>
       <div className="landing-footer-bottom">
-        <p>2026 WeMail. All rights reserved.</p>
+        <p>2026 WeMail. 版权所有。</p>
         <span>
           <i aria-hidden="true" />
-          All systems operational
+          系统运行正常
         </span>
       </div>
     </footer>

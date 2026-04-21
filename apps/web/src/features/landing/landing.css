@@ -1,6 +1,7 @@
 :root,
 :root[data-theme='light'] {
   --landing-canvas-rgb: 17 17 17;
+  --landing-display-font: "Songti SC", "Noto Serif SC", "Source Han Serif SC", "STSong", "SimSun", "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif;
 }
 
 :root[data-theme='dark'] {
@@ -43,10 +44,11 @@
 
 .landing-display-title {
   margin: 0;
-  font-family: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif;
+  font-family: var(--landing-display-font);
   font-size: clamp(2.7rem, 6vw, 5.8rem);
   line-height: 0.95;
   letter-spacing: -0.06em;
+  text-wrap: balance;
 }
 
 .landing-section {
@@ -71,6 +73,22 @@
   padding-inline: max(24px, calc((100vw - 1400px) / 2));
   background: var(--surface-contrast);
   color: var(--bg-elevated);
+  overflow: hidden;
+}
+
+.landing-section-dark::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  opacity: 0.06;
+  pointer-events: none;
+  background-image: repeating-linear-gradient(
+    -45deg,
+    transparent,
+    transparent 40px,
+    rgba(255, 255, 255, 0.95) 40px,
+    rgba(255, 255, 255, 0.95) 41px
+  );
 }
 
 .landing-section-dark .landing-section-copy,
@@ -110,6 +128,7 @@
   font-size: 1.08rem;
   line-height: 1.8;
   max-width: 64ch;
+  text-wrap: balance;
 }
 
 .landing-section-eyebrow {
@@ -157,7 +176,7 @@
   align-items: center;
   gap: 24px;
   min-height: 88px;
-  transition: min-height 220ms ease, padding 220ms ease, border-color 220ms ease, background 220ms ease, box-shadow 220ms ease;
+  transition: min-height 420ms ease, padding 420ms ease, border-color 420ms ease, background 420ms ease, box-shadow 420ms ease, transform 420ms ease;
 }
 
 .landing-nav.is-floating .landing-nav-bar {
@@ -337,7 +356,7 @@
 }
 
 .landing-mobile-link {
-  font-family: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif;
+  font-family: var(--landing-display-font);
   font-size: clamp(2rem, 10vw, 3.3rem);
   line-height: 1;
   letter-spacing: -0.05em;
@@ -358,6 +377,45 @@
   justify-content: center;
   padding: 120px 24px 48px;
   overflow: hidden;
+}
+
+.landing-hero-eyebrow-row,
+.landing-hero-title,
+.landing-hero-bottom,
+.landing-stats-marquee,
+.landing-scroll-cue {
+  opacity: 0;
+  transform: translateY(24px);
+  transition: opacity 700ms cubic-bezier(0.22, 1, 0.36, 1), transform 700ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.landing-hero-section[data-visible="true"] .landing-hero-eyebrow-row {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.landing-hero-section[data-visible="true"] .landing-hero-title {
+  opacity: 1;
+  transform: translateY(0);
+  transition-delay: 90ms;
+}
+
+.landing-hero-section[data-visible="true"] .landing-hero-bottom {
+  opacity: 1;
+  transform: translateY(0);
+  transition-delay: 180ms;
+}
+
+.landing-hero-section[data-visible="true"] .landing-stats-marquee {
+  opacity: 1;
+  transform: translateY(0);
+  transition-delay: 260ms;
+}
+
+.landing-hero-section[data-visible="true"] .landing-scroll-cue {
+  opacity: 1;
+  transform: translateY(0);
+  transition-delay: 360ms;
 }
 
 .landing-hero-orb {
@@ -415,10 +473,11 @@
   margin: 0;
   display: grid;
   gap: 6px;
-  font-family: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif;
+  font-family: var(--landing-display-font);
   font-size: clamp(3.4rem, 11vw, 9.2rem);
-  line-height: 0.9;
+  line-height: 0.96;
   letter-spacing: -0.07em;
+  text-wrap: balance;
 }
 
 .landing-hero-word-wrap {
@@ -429,7 +488,7 @@
 
 .landing-hero-word {
   display: inline-flex;
-  gap: 0.01em;
+  gap: 0.03em;
 }
 
 .landing-hero-char {
@@ -462,6 +521,31 @@
   color: var(--text-muted);
   font-size: clamp(1.08rem, 2vw, 1.48rem);
   line-height: 1.8;
+  text-wrap: balance;
+}
+
+.landing-scroll-cue {
+  position: absolute;
+  right: max(24px, calc((100vw - 1400px) / 2));
+  bottom: 36px;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--text-muted);
+}
+
+.landing-scroll-line {
+  width: 56px;
+  height: 1px;
+  background: currentColor;
+  transform-origin: left;
+  animation: landing-scroll-line 2.8s ease-in-out infinite;
+}
+
+.landing-scroll-label {
+  font-size: 0.72rem;
+  letter-spacing: 0.3em;
 }
 
 .landing-stats-marquee {
@@ -497,7 +581,7 @@
 
 .landing-stat-chip strong {
   font-size: clamp(1.6rem, 2vw, 2.6rem);
-  font-family: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif;
+  font-family: var(--landing-display-font);
   font-weight: 600;
 }
 
@@ -554,6 +638,15 @@
   padding: 24px;
   display: grid;
   gap: 18px;
+  transition: transform 420ms cubic-bezier(0.22, 1, 0.36, 1), border-color 320ms ease, background 320ms ease, box-shadow 320ms ease;
+}
+
+.landing-feature-card-next:hover,
+.landing-feature-card-next:focus-within {
+  transform: translateY(-6px);
+  border-color: color-mix(in srgb, var(--accent) 42%, var(--border));
+  background: color-mix(in srgb, var(--surface) 90%, transparent);
+  box-shadow: 0 28px 60px color-mix(in srgb, var(--surface-contrast) 10%, transparent), var(--shadow-border);
 }
 
 .landing-feature-card-next h3,
@@ -565,7 +658,9 @@
 .landing-developer-features h3 {
   margin: 0;
   font-size: 1.2rem;
-  letter-spacing: -0.03em;
+  line-height: 1.24;
+  letter-spacing: -0.015em;
+  text-wrap: balance;
 }
 
 .landing-feature-card-next p,
@@ -577,7 +672,8 @@
 .landing-pricing-card p,
 .landing-footer-brand p {
   margin: 0;
-  line-height: 1.7;
+  line-height: 1.74;
+  letter-spacing: 0.01em;
 }
 
 .landing-feature-meta {
@@ -680,7 +776,8 @@
 .landing-footer-column h3,
 .landing-testimonial-grid aside strong {
   font-size: 1.26rem;
-  letter-spacing: -0.04em;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
 }
 
 .landing-location-board {
@@ -695,6 +792,22 @@
   gap: 16px;
   padding: 18px 22px;
   transition: transform 220ms ease, border-color 220ms ease, background 220ms ease;
+}
+
+.landing-location-card > div {
+  display: grid;
+  gap: 6px;
+}
+
+.landing-location-card strong {
+  display: block;
+  word-spacing: 0.08em;
+}
+
+.landing-location-card span {
+  display: block;
+  font-size: 0.98rem;
+  letter-spacing: 0.01em;
 }
 
 .landing-location-card.active {
@@ -721,8 +834,12 @@
   gap: 10px;
 }
 
+.landing-metric-card p {
+  letter-spacing: 0.01em;
+}
+
 .landing-metric-value {
-  font-family: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif;
+  font-family: var(--landing-display-font);
   font-size: clamp(2.4rem, 4vw, 4.8rem);
   letter-spacing: -0.06em;
 }
@@ -789,14 +906,39 @@
 
 .landing-developer-features {
   display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 18px;
   margin-top: 28px;
 }
 
+.landing-developer-feature {
+  display: grid;
+  gap: 8px;
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity 520ms cubic-bezier(0.22, 1, 0.36, 1), transform 520ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.landing-section[data-visible="true"] .landing-developer-feature {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.landing-section[data-visible="true"] .landing-developer-feature:nth-child(1) { transition-delay: 80ms; }
+.landing-section[data-visible="true"] .landing-developer-feature:nth-child(2) { transition-delay: 140ms; }
+.landing-section[data-visible="true"] .landing-developer-feature:nth-child(3) { transition-delay: 200ms; }
+.landing-section[data-visible="true"] .landing-developer-feature:nth-child(4) { transition-delay: 260ms; }
+
+.landing-developer-panel {
+  display: grid;
+  gap: 0;
+}
+
 .landing-code-card {
   display: grid;
-  gap: 18px;
-  padding: 20px;
+  gap: 0;
+  overflow: hidden;
+  border-radius: 0 0 30px 30px;
 }
 
 .landing-code-tabs {
@@ -804,6 +946,13 @@
   flex-wrap: wrap;
   gap: 10px;
   align-items: center;
+  padding: 0 18px;
+  border: 1px solid var(--border);
+  border-bottom: 0;
+  border-radius: 30px 30px 0 0;
+  background: color-mix(in srgb, var(--surface) 84%, transparent);
+  box-shadow: var(--shadow-card), var(--shadow-border);
+  backdrop-filter: blur(20px);
 }
 
 .landing-code-tabs > button,
@@ -835,6 +984,26 @@
   line-height: 1.75;
 }
 
+.landing-code-links {
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+  padding: 18px 0 0;
+  color: var(--text-muted);
+  font-size: 0.92rem;
+}
+
+.landing-code-links a {
+  color: inherit;
+  text-decoration: none;
+  transition: color 220ms ease;
+}
+
+.landing-code-links a:hover,
+.landing-code-links a:focus-visible {
+  color: var(--text);
+}
+
 .landing-testimonial-header {
   display: flex;
   align-items: center;
@@ -855,10 +1024,11 @@
 
 .landing-testimonial-grid blockquote p {
   margin: 0;
-  font-family: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif;
+  font-family: var(--landing-display-font);
   font-size: clamp(2.4rem, 5vw, 4.8rem);
   line-height: 1.05;
   letter-spacing: -0.05em;
+  text-wrap: balance;
 }
 
 .landing-testimonial-grid aside {
@@ -928,34 +1098,197 @@
   background: var(--bg-elevated);
 }
 
+.landing-pricing-section {
+  gap: 0;
+  padding-top: 128px;
+  padding-bottom: 128px;
+}
+
+.landing-pricing-header {
+  max-width: 860px;
+  margin-bottom: 72px;
+  opacity: 0;
+  transform: translateY(18px);
+  transition: opacity 620ms cubic-bezier(0.22, 1, 0.36, 1), transform 620ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.landing-pricing-kicker {
+  display: inline-block;
+  margin-bottom: 24px;
+  font-size: 0.8rem;
+  letter-spacing: 0.28em;
+  color: var(--text-muted);
+  text-transform: uppercase;
+}
+
+.landing-pricing-title {
+  margin: 0 0 20px;
+  font-family: var(--landing-display-font);
+  font-size: clamp(3.4rem, 7vw, 6.8rem);
+  line-height: 0.94;
+  letter-spacing: -0.055em;
+  text-wrap: balance;
+}
+
+.landing-pricing-copy {
+  margin: 0;
+  max-width: 38ch;
+  color: var(--text-muted);
+  font-size: 1.08rem;
+  line-height: 1.8;
+  letter-spacing: 0.01em;
+}
+
+.landing-pricing-toggle-row {
+  display: flex;
+  align-items: center;
+  margin-bottom: 64px;
+  opacity: 0;
+  transform: translateY(18px);
+  transition: opacity 620ms cubic-bezier(0.22, 1, 0.36, 1), transform 620ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.landing-pricing-note {
+  opacity: 0;
+  transform: translateY(18px);
+  transition: opacity 620ms cubic-bezier(0.22, 1, 0.36, 1), transform 620ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.landing-section[data-visible="true"] .landing-pricing-header,
+.landing-section[data-visible="true"] .landing-pricing-toggle-row,
+.landing-section[data-visible="true"] .landing-pricing-note {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.landing-section[data-visible="true"] .landing-pricing-toggle-row {
+  transition-delay: 90ms;
+}
+
+.landing-section[data-visible="true"] .landing-pricing-note {
+  transition-delay: 300ms;
+}
+
+.landing-billing-toggle.pricing.optimus {
+  gap: 14px;
+  margin-bottom: 0;
+}
+
+.landing-billing-toggle.pricing.optimus button {
+  width: 56px;
+  height: 30px;
+  padding: 3px;
+  background: color-mix(in srgb, var(--text) 10%, transparent);
+  border-radius: 999px;
+}
+
+.landing-billing-toggle.pricing.optimus button span {
+  width: 22px;
+  height: 22px;
+  background: var(--surface-contrast);
+}
+
+.landing-billing-toggle.pricing.optimus button.active span {
+  transform: translateX(28px);
+}
+
+.landing-pricing-grid.optimus {
+  position: relative;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1px;
+  background: color-mix(in srgb, var(--text) 10%, transparent);
+  overflow: visible;
+}
+
 .landing-pricing-grid {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .landing-pricing-card {
-  padding: 28px;
+  padding: 38px 34px 34px;
   display: grid;
-  gap: 14px;
+  gap: 0;
+  align-content: start;
+  border-radius: 0;
+  border: 0;
+  box-shadow: none;
+  background: var(--bg);
+  min-height: 100%;
+  transition: transform 520ms cubic-bezier(0.22, 1, 0.36, 1), background 320ms ease, border-color 320ms ease, opacity 520ms cubic-bezier(0.22, 1, 0.36, 1);
+  opacity: 0;
+  transform: translateY(24px);
+}
+
+.landing-section[data-visible="true"] .landing-pricing-card {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.landing-section[data-visible="true"] .landing-pricing-card:nth-child(1) {
+  transition-delay: 80ms;
+}
+
+.landing-section[data-visible="true"] .landing-pricing-card:nth-child(2) {
+  transition-delay: 150ms;
+}
+
+.landing-section[data-visible="true"] .landing-pricing-card:nth-child(3) {
+  transition-delay: 220ms;
+}
+
+.landing-pricing-card:hover,
+.landing-pricing-card:focus-within {
+  transform: translateY(-8px);
 }
 
 .landing-pricing-card.popular {
-  border-color: color-mix(in srgb, var(--accent) 42%, var(--border));
-  transform: translateY(-8px);
+  margin-block: -18px;
+  padding-top: 52px;
+  padding-bottom: 42px;
+  border: 2px solid var(--surface-contrast);
+  box-shadow: var(--shadow-card);
+  z-index: 1;
 }
 
 .landing-pricing-badge {
   width: fit-content;
-  color: var(--accent);
+  position: absolute;
+  top: -14px;
+  left: 34px;
+  min-height: 28px;
+  padding: 0 12px;
+  align-items: center;
+  background: var(--surface-contrast);
+  color: var(--bg-elevated);
+  border: 0;
+  border-radius: 0;
+  font-size: 0.72rem;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
 }
 
 .landing-pricing-value {
   display: flex;
   align-items: baseline;
   gap: 6px;
+  padding-bottom: 28px;
+  margin-bottom: 28px;
+  border-bottom: 1px solid color-mix(in srgb, var(--text) 10%, transparent);
 }
 
 .landing-pricing-value strong {
-  font-size: 2.8rem;
+  font-family: var(--landing-display-font);
+  font-size: clamp(3.1rem, 4vw, 4.4rem);
+  line-height: 1;
+  letter-spacing: -0.04em;
+}
+
+.landing-pricing-card li span {
+  letter-spacing: 0.01em;
+}
+
+.landing-pricing-card .landing-cta {
+  margin-top: auto;
 }
 
 .landing-pricing-card ul {
@@ -963,7 +1296,8 @@
   padding: 0;
   margin: 0;
   display: grid;
-  gap: 10px;
+  gap: 14px;
+  margin-bottom: 36px;
 }
 
 .landing-pricing-card li {
@@ -979,6 +1313,74 @@
   color: var(--accent);
   margin-top: 2px;
   flex: 0 0 auto;
+}
+
+.landing-pricing-card-head {
+  margin-bottom: 26px;
+}
+
+.landing-pricing-card-head h3 {
+  margin: 8px 0 10px;
+  font-family: var(--landing-display-font);
+  font-size: clamp(2rem, 2.4vw, 2.7rem);
+  line-height: 1.02;
+  letter-spacing: -0.035em;
+}
+
+.landing-pricing-card-head p {
+  margin: 0;
+  max-width: 22ch;
+  font-size: 0.96rem;
+  line-height: 1.7;
+  letter-spacing: 0.01em;
+}
+
+.landing-pricing-cta {
+  width: 100%;
+  min-height: 52px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  border: 1px solid color-mix(in srgb, var(--text) 18%, transparent);
+  border-radius: 0;
+  text-decoration: none;
+  font-size: 0.96rem;
+  font-weight: 600;
+  transition: transform 220ms ease, border-color 220ms ease, background 220ms ease, color 220ms ease;
+}
+
+.landing-pricing-cta.primary {
+  background: var(--surface-contrast);
+  color: var(--bg-elevated);
+  border-color: var(--surface-contrast);
+}
+
+.landing-pricing-cta.secondary {
+  background: transparent;
+  color: var(--text);
+}
+
+.landing-pricing-cta:hover,
+.landing-pricing-cta:focus-visible {
+  transform: translateY(-2px);
+}
+
+.landing-pricing-cta.secondary:hover,
+.landing-pricing-cta.secondary:focus-visible {
+  border-color: var(--text);
+  background: color-mix(in srgb, var(--text) 4%, transparent);
+}
+
+.landing-pricing-cta svg {
+  width: 16px;
+  height: 16px;
+  transition: transform 220ms ease;
+}
+
+.landing-pricing-cta:hover svg,
+.landing-pricing-cta:focus-visible svg {
+  transform: translateX(2px);
 }
 
 .landing-cta-panel {
@@ -1021,43 +1423,108 @@
   z-index: 1;
   width: min(1400px, 100%);
   margin: 0 auto;
-  grid-template-columns: minmax(240px, 1.4fr) repeat(4, minmax(0, 1fr));
+  grid-template-columns: minmax(240px, 1.05fr) minmax(0, 1.65fr);
 }
 
 .landing-footer-brand {
   display: grid;
-  gap: 18px;
+  gap: 10px;
+  align-content: start;
 }
 
-.landing-footer-socials a {
+.landing-footer-quick-grid {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 16px;
+  justify-content: flex-end;
+  align-self: start;
+}
+
+.landing-footer-quick-card {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  color: var(--text-muted);
-}
-
-.landing-footer-socials svg {
-  width: 14px;
-  height: 14px;
-}
-
-.landing-footer-column ul {
-  list-style: none;
+  justify-content: center;
+  width: 68px;
+  height: 68px;
   padding: 0;
-  margin: 0;
-  display: grid;
-  gap: 12px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--surface) 84%, transparent);
+  box-shadow: var(--shadow-card), var(--shadow-border);
+  text-decoration: none;
+  transition: transform 320ms cubic-bezier(0.22, 1, 0.36, 1), border-color 220ms ease, background 220ms ease, box-shadow 220ms ease;
 }
 
-.landing-footer-column li {
-  display: flex;
-  align-items: center;
-  gap: 10px;
+.landing-footer-quick-card:hover,
+.landing-footer-quick-card:focus-visible {
+  transform: translateY(-4px);
+  box-shadow: 0 16px 30px color-mix(in srgb, var(--surface-contrast) 10%, transparent), var(--shadow-border);
 }
 
-.landing-footer-column li span {
-  font-size: 0.72rem;
-  color: var(--accent);
+.landing-footer-quick-card svg {
+  width: 24px;
+  height: 24px;
+  color: currentColor;
+}
+
+.landing-footer-quick-card[data-icon="github"] {
+  color: #1f2328;
+  background: color-mix(in srgb, #1f2328 7%, white);
+  border-color: color-mix(in srgb, #1f2328 16%, var(--border));
+}
+
+.landing-footer-quick-card[data-icon="github"]:hover,
+.landing-footer-quick-card[data-icon="github"]:focus-visible {
+  background: color-mix(in srgb, #1f2328 10%, white);
+  border-color: color-mix(in srgb, #1f2328 34%, var(--border));
+}
+
+.landing-footer-quick-card[data-icon="telegram"] {
+  color: #229ed9;
+  background: color-mix(in srgb, #229ed9 9%, white);
+  border-color: color-mix(in srgb, #229ed9 22%, var(--border));
+}
+
+.landing-footer-quick-card[data-icon="telegram"]:hover,
+.landing-footer-quick-card[data-icon="telegram"]:focus-visible {
+  background: color-mix(in srgb, #229ed9 12%, white);
+  border-color: color-mix(in srgb, #229ed9 38%, var(--border));
+}
+
+.landing-footer-quick-card[data-icon="status"] {
+  color: #d9712b;
+  background: color-mix(in srgb, #d9712b 9%, white);
+  border-color: color-mix(in srgb, #d9712b 22%, var(--border));
+}
+
+.landing-footer-quick-card[data-icon="status"]:hover,
+.landing-footer-quick-card[data-icon="status"]:focus-visible {
+  background: color-mix(in srgb, #d9712b 12%, white);
+  border-color: color-mix(in srgb, #d9712b 38%, var(--border));
+}
+
+.landing-footer-quick-card[data-icon="docs"] {
+  color: #7a5af8;
+  background: color-mix(in srgb, #7a5af8 9%, white);
+  border-color: color-mix(in srgb, #7a5af8 22%, var(--border));
+}
+
+.landing-footer-quick-card[data-icon="docs"]:hover,
+.landing-footer-quick-card[data-icon="docs"]:focus-visible {
+  background: color-mix(in srgb, #7a5af8 12%, white);
+  border-color: color-mix(in srgb, #7a5af8 38%, var(--border));
+}
+
+.landing-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 @keyframes landing-marquee {
@@ -1193,7 +1660,8 @@
   .landing-security-grid,
   .landing-pricing-grid,
   .landing-kpi-row,
-  .landing-metrics-grid {
+  .landing-metrics-grid,
+  .landing-developer-features {
     grid-template-columns: 1fr;
   }
 
@@ -1203,6 +1671,10 @@
 
   .landing-two-column {
     gap: 22px;
+  }
+
+  .landing-scroll-cue {
+    right: 24px;
   }
 }
 
@@ -1247,10 +1719,23 @@
   .landing-feature-card-next,
   .landing-workflow-card,
   .landing-security-card,
-  .landing-pricing-card,
   .landing-code-card,
   .landing-cta-panel {
     border-radius: 24px;
+  }
+
+  .landing-pricing-grid.optimus .landing-pricing-card {
+    border-radius: 0;
+  }
+
+  .landing-code-tabs {
+    padding-inline: 14px;
+    border-radius: 24px 24px 0 0;
+  }
+
+  .landing-code-links,
+  .landing-scroll-cue {
+    display: none;
   }
 }
 
@@ -1293,14 +1778,14 @@
 }
 
 .landing-process-step span {
-  font-family: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif;
+  font-family: var(--landing-display-font);
   font-size: 2rem;
   color: rgba(255, 255, 255, 0.28);
 }
 
 .landing-process-step h3 {
   margin: 0 0 10px;
-  font-family: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif;
+  font-family: var(--landing-display-font);
   font-size: clamp(1.7rem, 3vw, 2.5rem);
   font-weight: 500;
   letter-spacing: -0.04em;
@@ -1374,6 +1859,68 @@
   color: rgba(255, 255, 255, 0.72);
 }
 
+.is-animated-code header,
+.is-animated-code footer {
+  justify-content: space-between;
+}
+
+.landing-code-card header,
+.landing-code-card footer {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 18px 24px;
+  border-bottom: 1px solid var(--border);
+}
+
+.landing-code-card footer {
+  border-bottom: 0;
+  border-top: 1px solid var(--border);
+}
+
+.landing-code-card small {
+  color: var(--text-muted);
+  font-family: var(--font-sans);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.landing-code-card pre {
+  min-height: 220px;
+  padding: 28px 24px;
+  border-radius: 0;
+  background: color-mix(in srgb, var(--bg-elevated) 92%, transparent);
+}
+
+.landing-code-line {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: 12px;
+  opacity: 0;
+  transform: translateX(-8px);
+  animation: landing-code-line-reveal 0.4s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  animation-delay: var(--code-line-delay, 0ms);
+}
+
+.landing-code-line-number {
+  color: currentColor;
+  opacity: 0.28;
+  user-select: none;
+}
+
+.landing-code-line-content {
+  display: inline-flex;
+  flex-wrap: wrap;
+}
+
+.landing-code-char {
+  opacity: 0;
+  filter: blur(8px);
+  animation: landing-code-char-reveal 0.3s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  animation-delay: var(--code-char-delay, 0ms);
+}
+
 .landing-ready-dot {
   width: 8px;
   height: 8px;
@@ -1401,7 +1948,7 @@
   border-radius: 999px;
   border: 1px solid var(--border);
   background: color-mix(in srgb, var(--surface) 80%, transparent);
-  font-family: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif;
+  font-family: var(--landing-display-font);
   font-size: 1.9rem;
 }
 
@@ -1422,10 +1969,10 @@
 
 .landing-testimonial-metric p {
   margin: 0;
-  font-family: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif;
+  font-family: var(--landing-display-font);
   font-size: clamp(2rem, 4vw, 3rem);
   line-height: 1.08;
-  letter-spacing: -0.04em;
+  letter-spacing: -0.02em;
 }
 
 .landing-trusted-band {
@@ -1449,7 +1996,7 @@
 }
 
 .landing-trusted-company {
-  font-family: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif;
+  font-family: var(--landing-display-font);
   font-size: clamp(1.25rem, 2vw, 1.8rem);
   color: color-mix(in srgb, var(--text) 34%, transparent);
   white-space: nowrap;
@@ -1474,6 +2021,16 @@
   text-transform: uppercase;
 }
 
+.landing-cta-panel .landing-display-title {
+  line-height: 1.02;
+  letter-spacing: -0.04em;
+}
+
+.landing-cta-panel .landing-section-copy {
+  max-width: 35ch;
+  letter-spacing: 0.01em;
+}
+
 .landing-pricing-grid.lines {
   gap: 1px;
   background: color-mix(in srgb, var(--text) 10%, transparent);
@@ -1487,15 +2044,18 @@
 }
 
 .landing-pricing-card.popular {
-  margin-block: -16px;
-  padding-top: 46px;
-  padding-bottom: 46px;
+  margin-block: -18px;
+  padding-top: 52px;
+  padding-bottom: 42px;
   border: 2px solid var(--surface-contrast);
   box-shadow: var(--shadow-card);
   z-index: 1;
 }
 
 .landing-pricing-index {
+  display: inline-block;
+  margin-bottom: 10px;
+  font-family: "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
   font-size: 0.78rem;
   letter-spacing: 0.22em;
   color: var(--text-muted);
@@ -1550,6 +2110,33 @@
   to { transform: scaleX(1); }
 }
 
+@keyframes landing-code-line-reveal {
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes landing-code-char-reveal {
+  to {
+    opacity: 1;
+    filter: blur(0);
+  }
+}
+
+@keyframes landing-scroll-line {
+  0%,
+  100% {
+    transform: scaleX(0.45);
+    opacity: 0.35;
+  }
+
+  50% {
+    transform: scaleX(1);
+    opacity: 1;
+  }
+}
+
 @media (max-width: 1200px) {
   .landing-process-layout,
   .landing-footer-bottom {
@@ -1571,6 +2158,10 @@
 
   .landing-pricing-card.popular {
     margin: 0;
+  }
+
+  .landing-footer-quick-grid {
+    justify-content: flex-start;
   }
 }
 

@@ -56,10 +56,10 @@ async function mockAuthenticatedMember(page: Page) {
 test("shows the optimus-style landing page for signed-out users", async ({ page }) => {
   test.setTimeout(60000);
   await page.goto("/");
-  const navigation = page.getByRole("navigation", { name: /landing page navigation/i });
+  const navigation = page.getByRole("navigation", { name: /首页导航/i });
   await expect(navigation).toBeVisible();
-  await expect(page.getByRole("heading", { name: /The platform/i })).toBeVisible();
-  await expect(navigation.getByRole("link", { name: /^Features$/i })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /把临时邮箱/i })).toBeVisible();
+  await expect(navigation.getByRole("link", { name: /^产品能力$/i })).toBeVisible();
 });
 
 test("redirects signed-out deep links into login with a return target", async ({ page }) => {

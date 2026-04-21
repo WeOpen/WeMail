@@ -42,12 +42,12 @@ describe("App", () => {
       vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("not authenticated"));
       render(<App />);
 
-      const navigation = await screen.findByRole("navigation", { name: /landing page navigation/i });
+      const navigation = await screen.findByRole("navigation", { name: /首页导航/i });
       expect(navigation).toBeInTheDocument();
       expect(within(navigation).getByLabelText(/WeMail brand lockup/i)).toBeInTheDocument();
-      expect(within(navigation).getByRole("link", { name: /^Features$/i })).toHaveAttribute("href", "#features");
-      expect(within(navigation).getByRole("link", { name: /^How it works$/i })).toHaveAttribute("href", "#how-it-works");
-      expect(screen.getByRole("heading", { name: /The platform/i })).toBeInTheDocument();
+      expect(within(navigation).getByRole("link", { name: /^产品能力$/i })).toHaveAttribute("href", "#features");
+      expect(within(navigation).getByRole("link", { name: /^使用流程$/i })).toHaveAttribute("href", "#how-it-works");
+      expect(screen.getByRole("heading", { name: /把临时邮箱/i })).toBeInTheDocument();
       expect(within(navigation).getByRole("link", { name: /登录/i })).toBeInTheDocument();
       expect(within(navigation).getByRole("link", { name: /注册/i })).toBeInTheDocument();
     },
@@ -60,7 +60,7 @@ describe("App", () => {
       vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("not authenticated"));
       render(<App />);
 
-      const navigation = await screen.findByRole("navigation", { name: /landing page navigation/i });
+      const navigation = await screen.findByRole("navigation", { name: /首页导航/i });
       fireEvent.click(within(navigation).getByRole("link", { name: /登录/i }));
 
       expect(await screen.findByRole("button", { name: /^立即登录$/i })).toBeInTheDocument();
@@ -86,7 +86,7 @@ describe("App", () => {
         expect(window.location.pathname).toBe("/");
       });
       expect(window.location.search).toBe("");
-      expect(await screen.findByRole("navigation", { name: /landing page navigation/i })).toBeInTheDocument();
+      expect(await screen.findByRole("navigation", { name: /首页导航/i })).toBeInTheDocument();
     },
     10000
   );
@@ -98,11 +98,11 @@ describe("App", () => {
       vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("not authenticated"));
       render(<App />);
 
-      fireEvent.click(await screen.findByRole("button", { name: /toggle menu/i }));
+      fireEvent.click(await screen.findByRole("button", { name: /切换菜单/i }));
 
-      const dialog = screen.getByRole("dialog", { name: /landing mobile menu/i });
+      const dialog = screen.getByRole("dialog", { name: /首页移动菜单/i });
       expect(dialog).toBeInTheDocument();
-      expect(within(dialog).getByRole("link", { name: /^Pricing$/i })).toHaveAttribute("href", "#pricing");
+      expect(within(dialog).getByRole("link", { name: /^方案价格$/i })).toHaveAttribute("href", "#pricing");
       expect(within(dialog).getByRole("link", { name: /登录/i })).toBeInTheDocument();
     },
     10000
