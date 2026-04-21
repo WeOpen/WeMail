@@ -1,11 +1,11 @@
-import { FormEvent, useCallback, useState } from "react";
+import { FormEvent, useCallback } from "react";
 
-import type { FeatureToggles, MailboxSummary, QuotaSummary, SessionSummary, UserSummary } from "@wemail/shared";
+import type { FeatureToggles, SessionSummary } from "@wemail/shared";
 
+import { useAppStore } from "../../app/appStore";
 import type { WemailToastInput } from "../../shared/toast";
 import { createInviteAction, disableInviteAction, updateFeatureTogglesAction, updateQuotaAction } from "./actions";
 import { queryAdminDashboard, queryQuota } from "./queries";
-import type { InviteSummary } from "./types";
 
 type UseAdminDataOptions = {
   session: SessionSummary | null;
@@ -13,21 +13,20 @@ type UseAdminDataOptions = {
 };
 
 export function useAdminData({ session, onToast }: UseAdminDataOptions) {
-  const [adminUsers, setAdminUsers] = useState<UserSummary[]>([]);
-  const [adminInvites, setAdminInvites] = useState<InviteSummary[]>([]);
-  const [adminFeatures, setAdminFeatures] = useState<FeatureToggles | null>(null);
-  const [adminQuota, setAdminQuota] = useState<QuotaSummary | null>(null);
-  const [adminMailboxes, setAdminMailboxes] = useState<MailboxSummary[]>([]);
+  const adminUsers = useAppStore((state) => state.adminUsers);
+  const adminInvites = useAppStore((state) => state.adminInvites);
+  const adminFeatures = useAppStore((state) => state.adminFeatures);
+  const adminQuota = useAppStore((state) => state.adminQuota);
+  const adminMailboxes = useAppStore((state) => state.adminMailboxes);
+  const setAdminDashboard = useAppStore((state) => state.setAdminDashboard);
+  const setAdminQuota = useAppStore((state) => state.setAdminQuota);
+  const setAdminFeatures = useAppStore((state) => state.setAdminFeatures);
 
   const refreshAdminData = useCallback(async () => {
     if (session?.user.role !== "admin") return;
     const dashboard = await queryAdminDashboard();
-    setAdminUsers(dashboard.users);
-    setAdminInvites(dashboard.invites);
-    setAdminFeatures(dashboard.features);
-    setAdminMailboxes(dashboard.mailboxes);
-    setAdminQuota(dashboard.quota);
-  }, [session]);
+    setAdminDashboard(dashboard);
+  }, [session, setAdminDashboard]);
 
   const createInvite = useCallback(async () => {
     await createInviteAction();
@@ -46,7 +45,7 @@ export function useAdminData({ session, onToast }: UseAdminDataOptions) {
 
   const selectQuotaUser = useCallback(async (userId: string) => {
     setAdminQuota(await queryQuota(userId));
-  }, []);
+  }, [setAdminQuota]);
 
   const submitQuota = useCallback(
     async (event: FormEvent<HTMLFormElement>, userId: string) => {
@@ -68,7 +67,7 @@ export function useAdminData({ session, onToast }: UseAdminDataOptions) {
       setAdminFeatures(nextFeatureToggles);
       onToast({ message: "功能开关已更新。", tone: "success" });
     },
-    [onToast]
+    [onToast, setAdminFeatures]
   );
 
   return {

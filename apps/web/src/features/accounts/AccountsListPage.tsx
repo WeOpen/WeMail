@@ -1,5 +1,16 @@
 import { useEffect, useMemo, useState } from "react";
+import { Button } from "../../shared/button";
 import { CheckboxField, FormField, SelectInput, TextInput } from "../../shared/form";
+import { OverlayDialog } from "../../shared/overlay";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableHeaderCell,
+  TableRow
+} from "../../shared/table";
 import { mailboxAccountsMockData, type MailboxAccountRecord, type MailboxAccountStatus } from "./accountsMockData";
 
 const statusLabelMap: Record<MailboxAccountStatus, string> = {
@@ -133,23 +144,16 @@ export function AccountsListPage() {
           <div className="workspace-card-header">
             <div>
               <p className="panel-kicker">账号中心</p>
-              <h2>账号列表</h2>
             </div>
             <div className="workspace-topbar-actions">
-              <button className="workspace-action-button secondary" type="button">
-                导出
-              </button>
-              <button className="workspace-action-button ghost" type="button">
-                刷新
-              </button>
+              <Button variant="primary">导出</Button>
+              <Button variant="secondary">刷新</Button>
             </div>
           </div>
 
-          <p className="section-copy">第一版先把邮箱账号的列表骨架替换成真实表格壳层，便于后续接入批量管理与生命周期操作。</p>
-
           <div className="workspace-grid accounts-list-filter-grid">
             <FormField label={<span className="sr-only">搜索账号</span>}>
-              <TextInput aria-label="搜索账号" placeholder="搜索 ID / 地址 / 标签 / 创建人" type="search" />
+              <TextInput aria-label="搜索账号" placeholder="搜索 ID / 地址 / 创建人" type="search" />
             </FormField>
             <FormField label={<span className="sr-only">状态筛选</span>}>
               <SelectInput aria-label="状态筛选" defaultValue="all">
@@ -158,14 +162,6 @@ export function AccountsListPage() {
                 <option value="disabled">停用</option>
                 <option value="archived">已归档</option>
                 <option value="soft_deleted">已软删除</option>
-              </SelectInput>
-            </FormField>
-            <FormField label={<span className="sr-only">标签筛选</span>}>
-              <SelectInput aria-label="标签筛选" defaultValue="all">
-                <option value="all">全部标签</option>
-                <option value="运营">运营</option>
-                <option value="增长">增长</option>
-                <option value="历史">历史</option>
               </SelectInput>
             </FormField>
             <FormField label={<span className="sr-only">创建人筛选</span>}>
@@ -187,22 +183,16 @@ export function AccountsListPage() {
           </div>
 
           <div className="workspace-topbar-actions accounts-list-quick-filters">
-            <button className="workspace-action-button ghost" type="button">
-              仅看异常
-            </button>
-            <button className="workspace-action-button ghost" type="button">
-              仅看长期不活跃
-            </button>
+            <Button variant="ghost">仅看异常</Button>
+            <Button variant="ghost">仅看长期不活跃</Button>
           </div>
         </section>
 
         <section className="panel workspace-card page-panel accounts-list-table-card">
           <div className="workspace-card-header">
             <div>
-              <p className="panel-kicker">邮箱账号</p>
-              <h3>批量管理表格壳层</h3>
+              <p className="panel-kicker">账号列表</p>
             </div>
-            <span className="section-copy">共 {accounts.length} 个账号</span>
           </div>
 
           {selectedCount > 0 ? (
@@ -213,33 +203,32 @@ export function AccountsListPage() {
                   <h4>已选择 {selectedCount} 个账号</h4>
                 </div>
                 <div className="workspace-topbar-actions">
-                  <button className="workspace-action-button secondary" onClick={() => runStatusBulkAction("enabled")} type="button">
+                  <Button onClick={() => runStatusBulkAction("enabled")} variant="primary">
                     批量启用
-                  </button>
-                  <button className="workspace-action-button secondary" onClick={() => runStatusBulkAction("disabled")} type="button">
+                  </Button>
+                  <Button onClick={() => runStatusBulkAction("disabled")} variant="secondary">
                     批量停用
-                  </button>
-                  <button className="workspace-action-button secondary" onClick={() => runStatusBulkAction("archived")} type="button">
+                  </Button>
+                  <Button onClick={() => runStatusBulkAction("archived")} variant="secondary">
                     批量归档
-                  </button>
+                  </Button>
                   <div>
-                    <button
+                    <Button
                       aria-expanded={isMoreActionsOpen}
-                      className="workspace-action-button ghost"
                       onClick={() => setIsMoreActionsOpen((current) => !current)}
-                      type="button"
+                      variant="secondary"
                     >
                       更多操作
-                    </button>
+                    </Button>
                     {isMoreActionsOpen ? (
                       <div aria-label="危险批量操作" className="panel workspace-card accounts-list-more-actions" role="group">
                         <p className="panel-kicker">危险操作</p>
-                        <button className="workspace-action-button ghost" onClick={runSoftDelete} type="button">
+                        <Button onClick={runSoftDelete} variant="ghost">
                           批量软删除
-                        </button>
-                        <button className="workspace-action-button danger" onClick={openHardDeleteDialog} type="button">
+                        </Button>
+                        <Button onClick={openHardDeleteDialog} variant="danger">
                           批量彻底删除
-                        </button>
+                        </Button>
                       </div>
                     ) : null}
                   </div>
@@ -248,11 +237,11 @@ export function AccountsListPage() {
             </section>
           ) : null}
 
-          <div className="accounts-list-table-shell">
-            <table className="accounts-list-table">
-              <thead>
-                <tr>
-                  <th className="accounts-list-checkbox-cell" scope="col">
+          <TableContainer density="compact" variant="liquid">
+            <Table className="accounts-list-table">
+              <TableHead>
+                <TableRow>
+                  <TableHeaderCell align="center" className="ui-table-sticky-start" width={56}>
                     <CheckboxField
                       aria-label="选择全部账号"
                       checked={allVisibleSelected}
@@ -260,32 +249,27 @@ export function AccountsListPage() {
                       label={<span className="sr-only">选择全部账号</span>}
                       onChange={toggleSelectAll}
                     />
-                  </th>
-                  <th scope="col">ID</th>
-                  <th scope="col">地址</th>
-                  <th scope="col">创建时间</th>
-                  <th scope="col">标签</th>
-                  <th scope="col">状态</th>
-                  <th scope="col">创建人</th>
-                  <th scope="col">最近活跃</th>
-                  <th className="accounts-list-number-cell" scope="col">
-                    邮件数量
-                  </th>
-                  <th className="accounts-list-number-cell" scope="col">
-                    发件数量
-                  </th>
-                  <th className="accounts-list-actions-cell" scope="col">
+                  </TableHeaderCell>
+                  <TableHeaderCell>ID</TableHeaderCell>
+                  <TableHeaderCell>地址</TableHeaderCell>
+                  <TableHeaderCell>创建时间</TableHeaderCell>
+                  <TableHeaderCell>状态</TableHeaderCell>
+                  <TableHeaderCell>创建人</TableHeaderCell>
+                  <TableHeaderCell>最近活跃</TableHeaderCell>
+                  <TableHeaderCell nowrap>邮件数量</TableHeaderCell>
+                  <TableHeaderCell nowrap>发件数量</TableHeaderCell>
+                  <TableHeaderCell className="ui-table-sticky-end" nowrap width={92}>
                     操作
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
+                  </TableHeaderCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
                 {accounts.map((account) => {
                   const isSelected = selectedIds.includes(account.id);
 
                   return (
-                    <tr key={account.id}>
-                      <td className="accounts-list-checkbox-cell">
+                    <TableRow isSelected={isSelected} key={account.id}>
+                      <TableCell align="center" className="ui-table-sticky-start" width={56}>
                         <CheckboxField
                           aria-label={`选择账号 ${account.address}`}
                           checked={isSelected}
@@ -293,55 +277,37 @@ export function AccountsListPage() {
                           label={<span className="sr-only">选择账号 {account.address}</span>}
                           onChange={() => toggleSelection(account.id)}
                         />
-                      </td>
-                      <td>{account.id}</td>
-                      <td>{account.address}</td>
-                      <td>{formatDate(account.createdAt)}</td>
-                      <td>
-                        <div className="accounts-list-tag-list">
-                          {account.tags.map((tag) => (
-                            <span className="accounts-list-tag" key={tag}>
-                              {tag}
-                            </span>
-                          ))}
-                        </div>
-                      </td>
-                      <td>
+                      </TableCell>
+                      <TableCell>{account.id}</TableCell>
+                      <TableCell>{account.address}</TableCell>
+                      <TableCell>{formatDate(account.createdAt)}</TableCell>
+                      <TableCell>
                         <div className="accounts-list-status-cell">
                           <span className={`accounts-status-pill accounts-status-pill--${account.status}`}>{statusLabelMap[account.status]}</span>
                           {account.deletedAt ? <div className="section-copy">软删于 {formatDate(account.deletedAt)}</div> : null}
                         </div>
-                      </td>
-                      <td>{account.createdBy}</td>
-                      <td>{formatLastActive(account.lastActiveAt)}</td>
-                      <td className="accounts-list-number-cell">{account.messageCount}</td>
-                      <td className="accounts-list-number-cell">{account.outboundCount}</td>
-                      <td className="accounts-list-actions-cell">
-                        <button className="workspace-action-button ghost accounts-list-row-action" type="button">
+                      </TableCell>
+                      <TableCell>{account.createdBy}</TableCell>
+                      <TableCell>{formatLastActive(account.lastActiveAt)}</TableCell>
+                      <TableCell nowrap>{account.messageCount}</TableCell>
+                      <TableCell nowrap>{account.outboundCount}</TableCell>
+                      <TableCell className="ui-table-sticky-end" nowrap width={92}>
+                        <Button className="accounts-list-row-action" size="sm" variant="ghost">
                           查看
-                        </button>
-                      </td>
-                    </tr>
+                        </Button>
+                      </TableCell>
+                    </TableRow>
                   );
                 })}
-              </tbody>
-            </table>
-          </div>
+              </TableBody>
+            </Table>
+          </TableContainer>
         </section>
       </main>
 
       {isHardDeleteDialogOpen ? (
-        <div className="workspace-dialog-backdrop" role="presentation">
-          <section aria-labelledby="hard-delete-dialog-title" aria-modal="true" className="workspace-dialog panel" role="dialog">
-            <div className="workspace-dialog-header">
-              <div>
-                <p className="panel-kicker">危险操作</p>
-                <h2 id="hard-delete-dialog-title">确认彻底删除</h2>
-              </div>
-              <button className="workspace-action-button ghost" onClick={closeHardDeleteDialog} type="button">
-                取消
-              </button>
-            </div>
+        <OverlayDialog closeLabel="关闭彻底删除确认" eyebrow="危险操作" onClose={closeHardDeleteDialog} title="确认彻底删除">
+          <>
             <p className="section-copy">此操作会永久移除 {selectedCount} 个账号，且无法恢复。</p>
             <p className="section-copy">其中 {selectedAccountsWithMailHistory} 个账号仍保留邮件或发件记录，请谨慎操作。</p>
             <p className="section-copy">请输入确认词后继续：</p>
@@ -352,20 +318,19 @@ export function AccountsListPage() {
               <TextInput aria-label="确认词" onChange={(event) => setConfirmationPhrase(event.target.value)} type="text" value={confirmationPhrase} />
             </FormField>
             <div className="workspace-dialog-actions">
-              <button className="workspace-action-button secondary" onClick={closeHardDeleteDialog} type="button">
+              <Button onClick={closeHardDeleteDialog} variant="secondary">
                 关闭
-              </button>
-              <button
-                className="workspace-action-button danger"
+              </Button>
+              <Button
                 disabled={confirmationPhrase !== hardDeletePhrase}
                 onClick={runHardDelete}
-                type="button"
+                variant="danger"
               >
                 确认彻底删除
-              </button>
+              </Button>
             </div>
-          </section>
-        </div>
+          </>
+        </OverlayDialog>
       ) : null}
     </>
   );

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { CheckCircle2, Info, X } from "lucide-react";
 
+import { Button } from "./button";
 import type { WemailToastRecord } from "./toast";
 
 const EXIT_DURATION_MS = 220;
@@ -74,14 +75,16 @@ export function WemailToast({ toast, onDismiss }: WemailToastProps) {
       </div>
 
       {toast.dismissible ? (
-        <button
+        <Button
           aria-label="Dismiss toast"
           className="wemail-toast-close"
+          iconOnly
           onClick={requestDismiss}
-          type="button"
+          size="xs"
+          variant="icon"
         >
           <X absoluteStrokeWidth aria-hidden="true" className="wemail-toast-close-icon" strokeWidth={1.8} />
-        </button>
+        </Button>
       ) : null}
     </article>
   );

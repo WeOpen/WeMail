@@ -1,3 +1,4 @@
+import { Button } from "../shared/button";
 import { FormField, RadioGroupField, SelectInput, TextInput, TextareaInput } from "../shared/form";
 
 type SystemProfilePageProps = {
@@ -52,12 +53,8 @@ export function SystemProfilePage({ sessionSummary }: SystemProfilePageProps) {
         </div>
 
         <div className="profile-settings-actions">
-          <button className="workspace-action-button secondary" type="button">
-            上传头像
-          </button>
-          <button className="workspace-action-button primary" type="button">
-            保存资料
-          </button>
+          <Button variant="secondary">上传头像</Button>
+          <Button variant="primary">保存资料</Button>
         </div>
       </section>
 
@@ -130,9 +127,7 @@ export function SystemProfilePage({ sessionSummary }: SystemProfilePageProps) {
         />
 
         <div className="profile-settings-actions">
-          <button className="workspace-action-button primary" type="button">
-            保存偏好
-          </button>
+          <Button variant="primary">保存偏好</Button>
         </div>
       </section>
 
@@ -156,15 +151,9 @@ export function SystemProfilePage({ sessionSummary }: SystemProfilePageProps) {
         </div>
 
         <div className="profile-settings-actions">
-          <button className="workspace-action-button secondary" type="button">
-            修改密码
-          </button>
-          <button className="workspace-action-button ghost" type="button">
-            退出当前设备
-          </button>
-          <button className="workspace-action-button ghost" type="button">
-            退出其他设备
-          </button>
+          <Button variant="primary">修改密码</Button>
+          <Button variant="secondary">退出当前设备</Button>
+          <Button variant="secondary">退出其他设备</Button>
         </div>
       </section>
     </main>

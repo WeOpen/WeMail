@@ -1,6 +1,7 @@
 import type { FormEvent } from "react";
 
 import type { QuotaSummary, UserSummary } from "@wemail/shared";
+import { Button } from "../../shared/button";
 import { CheckboxField, FormField, TextInput } from "../../shared/form";
 
 type QuotaPanelProps = {
@@ -23,13 +24,19 @@ export function QuotaPanel({
       <p className="section-copy">选择成员后，可调整每日外发额度，并暂停异常用户的外发能力。</p>
       <div className="stack-list workspace-stack-list workspace-stack-compact">
         {adminUsers.map((user) => (
-          <button key={user.id} className="stack-item selectable admin-stack-item" onClick={() => void onSelectQuotaUser(user.id)} type="button">
+          <Button
+            className="stack-item selectable admin-stack-item"
+            contentLayout="plain"
+            key={user.id}
+            onClick={() => void onSelectQuotaUser(user.id)}
+            variant="text"
+          >
             <div>
               <strong>{user.email}</strong>
               <span>{user.role === "admin" ? "管理员" : "成员"}</span>
             </div>
             <small>{user.createdAt.slice(0, 10)}</small>
-          </button>
+          </Button>
         ))}
       </div>
       {adminQuota ? (
@@ -38,9 +45,9 @@ export function QuotaPanel({
             <TextInput defaultValue={adminQuota.dailyLimit} name="dailyLimit" type="number" />
           </FormField>
           <CheckboxField defaultChecked={adminQuota.disabled} label="暂停该用户的外发能力" name="disabled" />
-          <button className="workspace-action-button primary" type="submit">
+          <Button type="submit" variant="primary">
             保存配额
-          </button>
+          </Button>
         </form>
       ) : (
         <p className="empty-state">请选择一个用户查看配额状态。</p>

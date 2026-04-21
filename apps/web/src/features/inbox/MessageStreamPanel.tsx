@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 
 import type { MessageSummary } from "@wemail/shared";
 
+import { Button } from "../../shared/button";
 import { toMessageListItemViewModel } from "./view-models";
 
 type MessageStreamPanelProps = {
@@ -41,46 +42,51 @@ export function MessageStreamPanel({
           <p className="panel-kicker">消息流</p>
           <h2>消息列表</h2>
         </div>
-        <button className="workspace-action-button ghost" onClick={onRefreshMessages} type="button">
+        <Button onClick={onRefreshMessages} size="sm" variant="primary">
           刷新
-        </button>
+        </Button>
       </div>
       <div aria-label="消息快速筛选" className="message-filter-row" role="toolbar">
-        <button
+        <Button
           aria-pressed={filter === "all"}
-          className="workspace-action-button ghost"
+          isActive={filter === "all"}
           onClick={() => setFilter("all")}
-          type="button"
+          size="xs"
+          variant="ghost"
         >
           全部
-        </button>
-        <button
+        </Button>
+        <Button
           aria-pressed={filter === "code"}
-          className="workspace-action-button ghost"
+          isActive={filter === "code"}
           onClick={() => setFilter("code")}
-          type="button"
+          size="xs"
+          variant="ghost"
         >
           仅看验证码
-        </button>
-        <button
+        </Button>
+        <Button
           aria-pressed={filter === "link"}
-          className="workspace-action-button ghost"
+          isActive={filter === "link"}
           onClick={() => setFilter("link")}
-          type="button"
+          size="xs"
+          variant="ghost"
         >
           仅看链接
-        </button>
+        </Button>
       </div>
       <div className="message-list workspace-stack-list">
         {visibleMessages.map((message) => {
           const viewModel = toMessageListItemViewModel(message);
 
           return (
-            <button
+            <Button
               key={message.id}
               className={message.id === selectedMessageId ? "message-item active" : "message-item"}
+              contentLayout="plain"
+              isActive={message.id === selectedMessageId}
               onClick={() => onSelectMessage(message.id)}
-              type="button"
+              variant="text"
             >
               <div className="message-item-top">
                 <span className={`message-extraction-chip ${viewModel.extractionChip.tone}`}>{viewModel.extractionChip.primary}</span>
@@ -92,7 +98,7 @@ export function MessageStreamPanel({
                 <small>{viewModel.extractionChip.secondary}</small>
                 {viewModel.attachmentCount > 0 ? <small>附件 {viewModel.attachmentCount}</small> : null}
               </div>
-            </button>
+            </Button>
           );
         })}
         {visibleMessages.length === 0 ? <p className="empty-state">当前筛选下没有消息，切换筛选或等待新邮件到达。</p> : null}

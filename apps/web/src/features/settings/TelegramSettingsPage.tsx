@@ -1,6 +1,7 @@
 ﻿import { useEffect, useState } from "react";
 
 import type { TelegramSubscriptionSummary } from "@wemail/shared";
+import { Button } from "../../shared/button";
 import { CheckboxField, FormField, TextInput } from "../../shared/form";
 
 import { IntegrationChoiceCard, SettingsSupportCard } from "./SettingsSupport";
@@ -61,9 +62,9 @@ export function TelegramSettingsPage({ telegram, onSaveTelegram }: TelegramSetti
               <h2>Telegram 绑定</h2>
               <p className="section-copy">把 WeMail 的关键动态直接送到你的 Telegram。适合个人即时提醒，不适合系统对系统集成。</p>
             </div>
-            <button className="workspace-action-button secondary" disabled type="button">
+            <Button disabled variant="primary">
               发送测试通知（即将开放）
-            </button>
+            </Button>
           </div>
 
           <div className="integration-binding-state">
@@ -98,9 +99,13 @@ export function TelegramSettingsPage({ telegram, onSaveTelegram }: TelegramSetti
           <CheckboxField checked={enabled} label="启用 Telegram 通知" name="enabled" onChange={(event) => setEnabled(event.target.checked)} />
 
           <div className="integration-inline-actions">
-            <button className="workspace-action-button primary" disabled={isSaving || chatId.trim().length === 0} onClick={() => void handleSubmit()} type="button">
+            <Button
+              disabled={isSaving || chatId.trim().length === 0}
+              onClick={() => void handleSubmit()}
+              variant="primary"
+            >
               {isSaving ? "保存中..." : "保存 Telegram 设置"}
-            </button>
+            </Button>
           </div>
         </section>
 
@@ -145,9 +150,9 @@ export function TelegramSettingsPage({ telegram, onSaveTelegram }: TelegramSetti
             <p className="section-copy">测试接口接入后，这里会给你一条真实消息发送结果，用来确认 Chat ID、机器人权限和网络状态都正常。</p>
           </div>
           <div className="integration-inline-actions">
-            <button className="workspace-action-button secondary" disabled type="button">
+            <Button disabled variant="primary">
               测试接口即将开放
-            </button>
+            </Button>
           </div>
         </section>
 

@@ -1,6 +1,7 @@
 import type { FormEvent } from "react";
 
 import type { TelegramSubscriptionSummary } from "@wemail/shared";
+import { Button } from "../../shared/button";
 import { CheckboxField, FormField, TextInput } from "../../shared/form";
 
 type TelegramPanelProps = {
@@ -19,9 +20,9 @@ export function TelegramPanel({ telegram, onSaveTelegram }: TelegramPanelProps) 
           <TextInput defaultValue={telegram?.chatId ?? ""} name="chatId" />
         </FormField>
         <CheckboxField defaultChecked={telegram?.enabled ?? false} label="启用 Telegram 通知" name="enabled" />
-        <button className="workspace-action-button primary" type="submit">
+        <Button type="submit" variant="primary">
           保存 Telegram 设置
-        </button>
+        </Button>
       </form>
     </section>
   );

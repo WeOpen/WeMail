@@ -1,4 +1,5 @@
 import type { MessageSummary } from "@wemail/shared";
+import { Button, ButtonAnchor } from "../../shared/button";
 import { toMessageDetailViewModel } from "./view-models";
 
 type MessageDetailPanelProps = {
@@ -32,19 +33,18 @@ export function MessageDetailPanel({ selectedMessage }: MessageDetailPanelProps)
         </div>
         <span className={`message-extraction-chip ${viewModel.extractionChip.tone}`}>{viewModel.extractionChip.primary}</span>
         <div className="detail-panel-actions">
-          <button
-            className="workspace-action-button primary"
+          <Button
             onClick={() => void navigator.clipboard?.writeText(viewModel.extraction.value)}
-            type="button"
+            variant="primary"
           >
             复制验证码
-          </button>
-          <a className="workspace-action-button secondary" href={`/api/messages/${viewModel.id}`} rel="noreferrer" target="_blank">
+          </Button>
+          <ButtonAnchor href={`/api/messages/${viewModel.id}`} rel="noreferrer" size="sm" target="_blank" variant="secondary">
             打开原始邮件
-          </a>
-          <a className="workspace-action-button ghost" href={`/api/messages/${viewModel.id}`} rel="noreferrer" target="_blank">
+          </ButtonAnchor>
+          <ButtonAnchor href={`/api/messages/${viewModel.id}`} rel="noreferrer" size="sm" target="_blank" variant="ghost">
             查看提取 JSON
-          </a>
+          </ButtonAnchor>
         </div>
       </div>
       <div className="detail-meta workspace-meta-row">

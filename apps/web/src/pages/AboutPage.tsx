@@ -1,3 +1,5 @@
+import { ButtonAnchor } from "../shared/button";
+
 export function AboutPage() {
   return (
     <main className="workspace-grid profile-settings-grid">
@@ -42,15 +44,16 @@ export function AboutPage() {
           <div className="profile-security-row">
             <strong>产品文档</strong>
             <span>包含快速上手、API 密钥配置、Webhook 接入和 Telegram 通知等完整指南。</span>
-            <a
-              className="workspace-action-button secondary"
+            <ButtonAnchor
               href="https://doc.wemail.willxue.com"
               rel="noopener noreferrer"
+              size="sm"
               style={{ display: "inline-block", marginTop: "0.75rem", textDecoration: "none" }}
               target="_blank"
+              variant="primary"
             >
               打开文档
-            </a>
+            </ButtonAnchor>
           </div>
         </div>
       </section>

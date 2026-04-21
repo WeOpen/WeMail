@@ -23,16 +23,22 @@ describe("accounts pages", () => {
   it("renders the mailbox account list table shell instead of the old placeholder", () => {
     renderWithRouter(<AccountsListPage />);
 
-    expect(screen.getByRole("heading", { name: "账号列表" })).toBeInTheDocument();
-    expect(screen.getByPlaceholderText("搜索 ID / 地址 / 标签 / 创建人")).toBeInTheDocument();
+    expect(screen.getAllByText("账号列表").length).toBeGreaterThan(0);
+    expect(screen.queryByRole("heading", { name: "批量管理表格壳层" })).not.toBeInTheDocument();
+    expect(screen.getByPlaceholderText("搜索 ID / 地址 / 创建人")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "导出" })).toHaveClass("ui-button-primary");
+    expect(screen.getByRole("button", { name: "刷新" })).toHaveClass("ui-button-secondary");
     expect(screen.getByRole("button", { name: "仅看异常" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "仅看长期不活跃" })).toBeInTheDocument();
+    expect(screen.queryByLabelText("标签筛选")).not.toBeInTheDocument();
     expect(screen.getByLabelText("最近活跃筛选")).toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: "ID" })).toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: "地址" })).toBeInTheDocument();
+    expect(screen.queryByRole("columnheader", { name: "标签" })).not.toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: "邮件数量" })).toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: "操作" })).toBeInTheDocument();
-    expect(screen.getByRole("checkbox", { name: "选择全部账号" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "操作" })).toHaveClass("ui-table-sticky-end");
+    expect(screen.getByRole("checkbox", { name: "选择全部账号" }).closest("th")).toHaveClass("ui-table-sticky-start");
     expect(screen.getAllByRole("checkbox")).toHaveLength(4);
     expect(screen.getAllByRole("button", { name: "查看" })).toHaveLength(3);
     expect(screen.queryByText("账号列表先以占位页承接")).not.toBeInTheDocument();
@@ -47,9 +53,9 @@ describe("accounts pages", () => {
     await user.click(screen.getByRole("checkbox", { name: "选择账号 growth@wemail.ai" }));
 
     expect(screen.getByText("已选择 2 个账号")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "批量启用" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "批量停用" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "批量归档" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "批量启用" })).toHaveClass("ui-button-primary");
+    expect(screen.getByRole("button", { name: "批量停用" })).toHaveClass("ui-button-secondary");
+    expect(screen.getByRole("button", { name: "批量归档" })).toHaveClass("ui-button-secondary");
 
     await user.click(screen.getByRole("button", { name: "更多操作" }));
     await user.click(screen.getByRole("button", { name: "批量软删除" }));

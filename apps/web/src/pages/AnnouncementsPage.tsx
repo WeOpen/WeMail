@@ -1,3 +1,6 @@
+import { useMemo } from "react";
+import { ResponsivePie } from "@nivo/pie";
+
 import {
   announcementFilters,
   announcementsTimeline,
@@ -5,23 +8,13 @@ import {
   featuredAnnouncement,
   type AnnouncementItem
 } from "../features/announcements/announcementsMockData";
+import { Button } from "../shared/button";
+import { nivoTheme } from "../shared/chart";
 import { FormField, SelectInput, TextInput } from "../shared/form";
 
 type AnnouncementsPageProps = {
   canPublish?: boolean;
 };
-
-function buildOverviewDonut() {
-  let offset = 0;
-  const segments = announcementStatusSummary.map((item) => {
-    const next = offset + item.ratio;
-    const segment = `${item.tone} ${offset}% ${next}%`;
-    offset = next;
-    return segment;
-  });
-
-  return `conic-gradient(${segments.join(", ")})`;
-}
 
 function typeClassName(type: AnnouncementItem["type"]) {
   switch (type) {
@@ -54,6 +47,17 @@ function statusClassName(status: AnnouncementItem["status"]) {
 }
 
 export function AnnouncementsPage({ canPublish = false }: AnnouncementsPageProps) {
+  const overviewData = useMemo(
+    () =>
+      announcementStatusSummary.map((item) => ({
+        id: item.label,
+        label: item.label,
+        value: item.ratio,
+        color: item.tone
+      })),
+    []
+  );
+
   return (
     <main className="workspace-grid announcements-grid">
       <div className="announcements-top-grid">
@@ -79,8 +83,22 @@ export function AnnouncementsPage({ canPublish = false }: AnnouncementsPageProps
                 aria-label="公告状态分布图"
                 className="announcements-overview-donut announcements-overview-donut-combined"
                 role="img"
-                style={{ backgroundImage: buildOverviewDonut() }}
               >
+                <ResponsivePie
+                  activeOuterRadiusOffset={4}
+                  animate={false}
+                  borderWidth={0}
+                  colors={{ datum: "data.color" }}
+                  cornerRadius={4}
+                  data={overviewData}
+                  enableArcLabels={false}
+                  enableArcLinkLabels={false}
+                  innerRadius={0.62}
+                  margin={{ top: 4, right: 4, bottom: 4, left: 4 }}
+                  padAngle={1.5}
+                  theme={nivoTheme}
+                  valueFormat={(value) => `${value}%`}
+                />
                 <div className="announcements-overview-donut-center">
                   <strong>40</strong>
                   <span>总公告</span>
@@ -110,9 +128,9 @@ export function AnnouncementsPage({ canPublish = false }: AnnouncementsPageProps
           <div className="announcements-section-head">
             <p className="panel-kicker announcements-section-kicker">最近公告</p>
             {canPublish ? (
-              <button className="workspace-action-button primary announcements-publish-button" type="button">
+              <Button className="announcements-publish-button" variant="primary">
                 发布公告
-              </button>
+              </Button>
             ) : null}
           </div>
 

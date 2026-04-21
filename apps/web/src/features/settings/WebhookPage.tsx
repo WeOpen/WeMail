@@ -1,4 +1,5 @@
 ﻿import { IntegrationChoiceCard, SettingsSupportCard } from "./SettingsSupport";
+import { Button } from "../../shared/button";
 import { CheckboxField, FormField, TextInput } from "../../shared/form";
 
 const eventGroups = [
@@ -48,9 +49,9 @@ export function WebhookPage() {
               <h2>Webhook 控制台</h2>
               <p className="section-copy">把 WeMail 中发生的重要事件主动推送到你的服务端点。当前先完成完整信息架构，后端接口即将开放。</p>
             </div>
-            <button className="workspace-action-button primary" disabled type="button">
+            <Button disabled variant="primary">
               新增端点（即将开放）
-            </button>
+            </Button>
           </div>
 
           <div className="integration-warning-banner">
@@ -100,9 +101,9 @@ export function WebhookPage() {
             <p className="section-copy">正式开放后，你可以在这里手动发送测试事件，观察目标服务的状态码、耗时和签名校验结果。</p>
           </div>
           <div className="integration-inline-actions">
-            <button className="workspace-action-button secondary" disabled type="button">
+            <Button disabled variant="primary">
               发送测试事件（即将开放）
-            </button>
+            </Button>
           </div>
         </section>
 

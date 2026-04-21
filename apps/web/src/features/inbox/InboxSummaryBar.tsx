@@ -1,4 +1,5 @@
 import type { MailboxSummary } from "@wemail/shared";
+import { Button } from "../../shared/button";
 
 type InboxSummaryBarProps = {
   selectedMailbox: MailboxSummary | null;
@@ -41,12 +42,12 @@ export function InboxSummaryBar({
       </dl>
 
       <div className="inbox-summary-actions">
-        <button className="workspace-action-button secondary" onClick={onOpenMailboxComposer} type="button">
+        <Button onClick={onOpenMailboxComposer} variant="secondary">
           新建邮箱
-        </button>
-        <button className="workspace-action-button primary" onClick={onOpenOutboundDrawer} type="button">
+        </Button>
+        <Button onClick={onOpenOutboundDrawer} variant="primary">
           发送测试邮件
-        </button>
+        </Button>
       </div>
     </section>
   );

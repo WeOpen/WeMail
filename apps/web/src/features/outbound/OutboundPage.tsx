@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useSearchParams } from "react-router-dom";
 
+import { Button } from "../../shared/button";
 import { FormField, TextInput } from "../../shared/form";
 import type { OutboundHistoryItem } from "../inbox/types";
 import { buildOutboundRecords, type OutboundRecord } from "./outboundMockData";
@@ -123,12 +124,10 @@ export function OutboundPage({ outboundHistory, hasActiveMailbox, onSendMail }: 
               <p className="section-copy">按发送结果回看历史、定位失败原因，并把异常 / 无匹配记录和正常外发放在同一套工作流里。</p>
             </div>
             <div className="workspace-topbar-actions outbound-toolbar-actions">
-              <button className="workspace-action-button secondary" type="button">
-                刷新
-              </button>
-              <button className="workspace-action-button primary" onClick={openBlankComposeDrawer} type="button">
+              <Button variant="secondary">刷新</Button>
+              <Button onClick={openBlankComposeDrawer} variant="primary">
                 新建发送
-              </button>
+              </Button>
             </div>
           </div>
 
@@ -144,16 +143,15 @@ export function OutboundPage({ outboundHistory, hasActiveMailbox, onSendMail }: 
             </FormField>
             <div aria-label="发件箱状态筛选" className="outbound-filter-row" role="toolbar">
               {(Object.keys(FILTER_LABELS) as OutboundFilter[]).map((filterKey) => (
-                <button
-                  key={filterKey}
+                <Button
                   aria-pressed={filter === filterKey}
-                  className="workspace-action-button ghost"
-                  data-active={filter === filterKey ? "true" : "false"}
+                  isActive={filter === filterKey}
+                  key={filterKey}
                   onClick={() => setFilter(filterKey)}
-                  type="button"
+                  variant="ghost"
                 >
                   {FILTER_LABELS[filterKey]}
-                </button>
+                </Button>
               ))}
             </div>
           </div>
@@ -172,12 +170,14 @@ export function OutboundPage({ outboundHistory, hasActiveMailbox, onSendMail }: 
             <div className="outbound-record-list workspace-stack-compact">
               {visibleRecords.length === 0 ? <p className="empty-state">当前筛选条件下还没有匹配的发件记录。</p> : null}
               {visibleRecords.map((record) => (
-                <button
+                <Button
                   key={record.id}
                   className="outbound-record-item"
+                  contentLayout="plain"
                   data-active={record.id === selectedRecord?.id ? "true" : "false"}
+                  isActive={record.id === selectedRecord?.id}
                   onClick={() => setSelectedRecordId(record.id)}
-                  type="button"
+                  variant="text"
                 >
                   <div className="outbound-record-item-top">
                     <strong>{record.toAddress}</strong>
@@ -190,7 +190,7 @@ export function OutboundPage({ outboundHistory, hasActiveMailbox, onSendMail }: 
                     <span>{record.subject}</span>
                   </div>
                   <p>{record.summary}</p>
-                </button>
+                </Button>
               ))}
             </div>
           </section>
@@ -249,20 +249,20 @@ export function OutboundPage({ outboundHistory, hasActiveMailbox, onSendMail }: 
 
                 <div className="outbound-detail-actions">
                   {selectedRecord.source === "exception" ? (
-                    <button className="workspace-action-button primary" onClick={() => openRecordComposeDrawer(selectedRecord)} type="button">
+                    <Button onClick={() => openRecordComposeDrawer(selectedRecord)} variant="primary">
                       按当前异常信息补发
-                    </button>
+                    </Button>
                   ) : (
-                    <button className="workspace-action-button primary" onClick={() => openRecordComposeDrawer(selectedRecord)} type="button">
+                    <Button onClick={() => openRecordComposeDrawer(selectedRecord)} variant="primary">
                       重发
-                    </button>
+                    </Button>
                   )}
-                  <button className="workspace-action-button secondary" onClick={() => void handleCopyPayload(selectedRecord.payloadPreview)} type="button">
+                  <Button onClick={() => void handleCopyPayload(selectedRecord.payloadPreview)} variant="secondary">
                     {selectedRecord.source === "exception" ? "复制异常 payload" : "复制 payload"}
-                  </button>
-                  <button className="workspace-action-button ghost" type="button">
+                  </Button>
+                  <Button variant="ghost">
                     {selectedRecord.source === "exception" ? "查看原始异常详情" : "查看原始详情"}
-                  </button>
+                  </Button>
                 </div>
               </>
             ) : (

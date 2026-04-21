@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
-import { X } from "lucide-react";
 
 import type { MailboxSummary, MessageSummary } from "@wemail/shared";
 
@@ -9,7 +8,9 @@ import { MessageDetailPanel } from "../features/inbox/MessageDetailPanel";
 import { MessageStreamPanel } from "../features/inbox/MessageStreamPanel";
 import { OutboundPanel } from "../features/inbox/OutboundPanel";
 import type { OutboundHistoryItem } from "../features/inbox/types";
+import { Button } from "../shared/button";
 import { FormField, TextInput } from "../shared/form";
+import { OverlayDialog } from "../shared/overlay";
 
 type InboxPageProps = {
   mailboxes: MailboxSummary[];
@@ -113,40 +114,34 @@ export function InboxPage({
       />
 
       {mailboxComposerOpen ? (
-        <div className="workspace-dialog-backdrop" role="presentation">
-          <section aria-labelledby="create-mailbox-title" aria-modal="true" className="workspace-dialog panel" role="dialog">
-            <div className="workspace-dialog-header">
-              <div>
-                <p className="panel-kicker">创建邮箱</p>
-                <h2 id="create-mailbox-title">创建新的收件入口</h2>
-              </div>
-              <button className="workspace-theme-toggle" onClick={onCloseMailboxComposer} type="button" aria-label="关闭邮箱创建对话框">
-                <X absoluteStrokeWidth aria-hidden="true" className="workspace-icon" strokeWidth={1.9} />
-              </button>
+        <OverlayDialog
+          closeLabel="关闭邮箱创建对话框"
+          description="给邮箱填写一个简短标签，地址仍会通过现有后端流程创建。"
+          eyebrow="创建邮箱"
+          onClose={onCloseMailboxComposer}
+          title="创建新的收件入口"
+        >
+          <form className="composer-form workspace-dialog-form" onSubmit={(event) => void handleCreateMailbox(event)}>
+            <FormField label="邮箱标签" required>
+              <TextInput
+                autoFocus
+                name="mailboxLabel"
+                onChange={(event) => setLabel(event.target.value)}
+                placeholder="运营邮箱"
+                required
+                value={label}
+              />
+            </FormField>
+            <div className="workspace-dialog-actions">
+              <Button onClick={onCloseMailboxComposer} variant="secondary">
+                取消
+              </Button>
+              <Button disabled={isSubmitting} type="submit" variant="primary">
+                {isSubmitting ? "创建中…" : "创建邮箱"}
+              </Button>
             </div>
-            <p className="section-copy">给邮箱填写一个简短标签，地址仍会通过现有后端流程创建。</p>
-            <form className="composer-form workspace-dialog-form" onSubmit={(event) => void handleCreateMailbox(event)}>
-              <FormField label="邮箱标签" required>
-                <TextInput
-                  autoFocus
-                  name="mailboxLabel"
-                  onChange={(event) => setLabel(event.target.value)}
-                  placeholder="运营邮箱"
-                  required
-                  value={label}
-                />
-              </FormField>
-              <div className="workspace-dialog-actions">
-                <button className="workspace-action-button secondary" onClick={onCloseMailboxComposer} type="button">
-                  取消
-                </button>
-                <button className="workspace-action-button primary" disabled={isSubmitting} type="submit">
-                  {isSubmitting ? "创建中…" : "创建邮箱"}
-                </button>
-              </div>
-            </form>
-          </section>
-        </div>
+          </form>
+        </OverlayDialog>
       ) : null}
     </>
   );

@@ -1,4 +1,4 @@
-import { type CSSProperties, type ReactNode, useEffect, useRef, useState } from "react";
+import { type CSSProperties, type MouseEvent, type ReactNode, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   Activity,
@@ -10,11 +10,15 @@ import {
   FileCheck,
   Lock,
   Menu,
+  MoonStar,
   Send,
   Shield,
+  SunMedium,
   X
 } from "lucide-react";
 
+import { Button, ButtonLink } from "../../shared/button";
+import { Switch } from "../../shared/switch";
 import { WemailBrandLockup } from "../../shared/WemailBrandLockup";
 import { AnimatedSphere } from "./AnimatedSphere";
 import { AnimatedTetrahedron } from "./AnimatedTetrahedron";
@@ -52,6 +56,21 @@ function useReducedMotion() {
   }, []);
 
   return reducedMotion;
+}
+
+function useCompactNavigation() {
+  const [isCompactNavigation, setIsCompactNavigation] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function") return;
+    const mediaQuery = window.matchMedia("(max-width: 980px)");
+    const update = () => setIsCompactNavigation(mediaQuery.matches);
+    update();
+    mediaQuery.addEventListener("change", update);
+    return () => mediaQuery.removeEventListener("change", update);
+  }, []);
+
+  return isCompactNavigation;
 }
 
 function useAutoIndex(length: number, delay: number, paused = false) {
@@ -322,10 +341,15 @@ function DesktopNavLinks() {
   );
 }
 
-function Navigation() {
+function ThemeIcon({ theme }: { theme: "dark" | "light" }) {
+  return theme === "dark" ? <SunMedium aria-hidden="true" /> : <MoonStar aria-hidden="true" />;
+}
+
+function Navigation({ onToggleTheme, theme }: { onToggleTheme: () => void; theme: "dark" | "light" }) {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const reducedMotion = useReducedMotion();
+  const isCompactNavigation = useCompactNavigation();
 
   useEffect(() => {
     const onScroll = () => setIsScrolled(window.scrollY > 20);
@@ -346,6 +370,12 @@ function Navigation() {
     };
   }, [isMobileMenuOpen]);
 
+  useEffect(() => {
+    if (!isCompactNavigation) {
+      setIsMobileMenuOpen(false);
+    }
+  }, [isCompactNavigation]);
+
   return (
     <header className={isScrolled ? "landing-nav-shell is-scrolled" : "landing-nav-shell"}>
       <nav className={isScrolled || isMobileMenuOpen ? "landing-nav is-floating" : "landing-nav"} aria-label="首页导航">
@@ -357,28 +387,35 @@ function Navigation() {
           <DesktopNavLinks />
 
           <div className="landing-nav-actions">
-            <Link className="landing-nav-action secondary" to="/login">
+            <ButtonLink size="sm" to="/login" variant="secondary">
               登录
-            </Link>
-            <Link className="landing-nav-action primary" to="/register">
+            </ButtonLink>
+            <ButtonLink size="sm" to="/register" variant="primary">
               注册
-            </Link>
+            </ButtonLink>
           </div>
 
-          <button
-            aria-controls="landing-mobile-menu"
-            aria-expanded={isMobileMenuOpen}
-            aria-label="切换菜单"
-            className="landing-mobile-toggle"
-            onClick={() => setIsMobileMenuOpen((current) => !current)}
-            type="button"
+          <Button
+            aria-controls={isCompactNavigation ? "landing-mobile-menu" : undefined}
+            aria-expanded={isCompactNavigation ? isMobileMenuOpen : undefined}
+            aria-label={isCompactNavigation ? "切换菜单" : theme === "dark" ? "切换到浅色主题" : "切换到深色主题"}
+            iconOnly
+            onClick={() => {
+              if (isCompactNavigation) {
+                setIsMobileMenuOpen((current) => !current);
+                return;
+              }
+              onToggleTheme();
+            }}
+            size="sm"
+            variant="icon"
           >
-            {isMobileMenuOpen ? <X aria-hidden="true" /> : <Menu aria-hidden="true" />}
-          </button>
+            {isCompactNavigation ? (isMobileMenuOpen ? <X aria-hidden="true" /> : <Menu aria-hidden="true" />) : <ThemeIcon theme={theme} />}
+          </Button>
         </div>
       </nav>
 
-      {isMobileMenuOpen ? (
+      {isCompactNavigation && isMobileMenuOpen ? (
         <div className="landing-mobile-menu-backdrop" role="dialog" aria-label="首页移动菜单" aria-modal="true" id="landing-mobile-menu">
           <div className="landing-mobile-menu">
             <div className="landing-mobile-links">
@@ -395,12 +432,24 @@ function Navigation() {
               ))}
             </div>
             <div className="landing-mobile-actions">
-              <Link className="landing-nav-action secondary" to="/login" onClick={() => setIsMobileMenuOpen(false)}>
+              <ButtonLink size="sm" to="/login" variant="secondary" onClick={() => setIsMobileMenuOpen(false)}>
                 登录
-              </Link>
-              <Link className="landing-nav-action primary" to="/register" onClick={() => setIsMobileMenuOpen(false)}>
+              </ButtonLink>
+              <ButtonLink size="sm" to="/register" variant="primary" onClick={() => setIsMobileMenuOpen(false)}>
                 注册
-              </Link>
+              </ButtonLink>
+              <Button
+                fullWidth
+                leadingIcon={<ThemeIcon theme={theme} />}
+                onClick={() => {
+                  onToggleTheme();
+                  setIsMobileMenuOpen(false);
+                }}
+                size="sm"
+                variant="secondary"
+              >
+                {theme === "dark" ? "切换到浅色主题" : "切换到深色主题"}
+              </Button>
             </div>
           </div>
         </div>
@@ -459,13 +508,12 @@ function HeroSection() {
         <div className="landing-hero-bottom">
           <p className="landing-hero-description">为 QA、运营、客服和内部自动化提供统一工作台，在同一界面完成收件、解析、外发与权限治理。</p>
           <div className="landing-cta-row">
-            <Link className="landing-cta primary" to="/register">
+            <ButtonLink size="lg" to="/register" trailingIcon={<ArrowRight aria-hidden="true" />} variant="primary">
               立即开始
-              <ArrowRight aria-hidden="true" />
-            </Link>
-            <Link className="landing-cta secondary" to="/login">
+            </ButtonLink>
+            <ButtonLink size="lg" to="/login" variant="secondary">
               进入登录
-            </Link>
+            </ButtonLink>
           </div>
         </div>
       </div>
@@ -539,11 +587,13 @@ function HowItWorksSection() {
       <div className="landing-process-layout">
         <div className="landing-process-steps">
           {workflowSteps.map((step, index) => (
-            <button
+            <Button
               key={step.number}
               className={activeStep === index ? "landing-process-step active" : "landing-process-step"}
+              contentLayout="plain"
+              isActive={activeStep === index}
               onClick={() => setActiveStep(index)}
-              type="button"
+              variant="text"
             >
               <span>{step.number}</span>
               <div>
@@ -551,7 +601,7 @@ function HowItWorksSection() {
                 <p>{step.description}</p>
                 {activeStep === index ? <em className="landing-process-progress" aria-hidden="true" /> : null}
               </div>
-            </button>
+            </Button>
           ))}
         </div>
         <AnimatedCodeBlock code={workflowSteps[activeStep]?.code ?? ""} fileLabel="workflow.ts" statusLabel="已就绪" dark />
@@ -588,16 +638,28 @@ function InfrastructureSection() {
             </article>
           </div>
         </div>
-        <div className="landing-location-board">
-          {infrastructureLocations.map((location, index) => (
-            <article className={index === activeLocation ? "landing-location-card active" : "landing-location-card"} key={location.city}>
-              <div>
-                <strong>{location.city}</strong>
-                <span>{location.region}</span>
-              </div>
-              <em>{location.latency}</em>
-            </article>
-          ))}
+        <div className="landing-network-panel">
+          <div className="landing-network-panel-header">
+            <span>基础设施</span>
+            <span className="landing-network-status">
+              <i aria-hidden="true" />
+              全部在线
+            </span>
+          </div>
+          <div className="landing-location-board">
+            {infrastructureLocations.map((location, index) => (
+              <article className={index === activeLocation ? "landing-location-card active" : "landing-location-card"} key={location.city}>
+                <div className="landing-location-card-main">
+                  <span className="landing-location-dot" aria-hidden="true" />
+                  <div>
+                    <strong>{location.city}</strong>
+                    <span>{location.region}</span>
+                  </div>
+                </div>
+                <em>{location.latency}</em>
+              </article>
+            ))}
+          </div>
         </div>
       </div>
     </RevealSection>
@@ -734,23 +796,32 @@ function DevelopersSection() {
           </div>
         </div>
         <div className="landing-developer-panel">
-          <div className="landing-code-tabs" role="tablist" aria-label="开发示例">
-            {developerTabs.map((tab, index) => (
-              <button
-                key={tab.label}
-                aria-selected={index === activeTab}
-                className={index === activeTab ? "active" : ""}
-                onClick={() => setActiveTab(index)}
-                role="tab"
-                type="button"
-              >
-                {tab.label}
-              </button>
-            ))}
-            <button className="landing-code-copy" onClick={() => void copyActiveSnippet()} type="button">
-              {copiedTab === activeTab ? <Check aria-hidden="true" /> : <Copy aria-hidden="true" />}
-              <span>{copiedTab === activeTab ? "已复制" : "复制"}</span>
-            </button>
+          <div className="landing-code-tabs">
+            <div className="landing-code-tab-switch" role="tablist" aria-label="开发示例">
+              {developerTabs.map((tab, index) => (
+                <Button
+                  key={tab.label}
+                  aria-selected={index === activeTab}
+                  className={index === activeTab ? "active" : ""}
+                  isActive={index === activeTab}
+                  onClick={() => setActiveTab(index)}
+                  role="tab"
+                  size="sm"
+                  variant="pill"
+                >
+                  {tab.label}
+                </Button>
+              ))}
+            </div>
+            <Button
+              className="landing-code-copy"
+              leadingIcon={copiedTab === activeTab ? <Check aria-hidden="true" /> : <Copy aria-hidden="true" />}
+              onClick={() => void copyActiveSnippet()}
+              size="sm"
+              variant="secondary"
+            >
+              {copiedTab === activeTab ? "已复制" : "复制"}
+            </Button>
           </div>
           <AnimatedCodeBlock code={developerTabs[activeTab]?.code ?? ""} fileLabel="api-snippet.ts" statusLabel="可直接接入" />
           <div className="landing-code-links">
@@ -797,12 +868,15 @@ function TestimonialsSection() {
           </div>
           <div className="landing-testimonial-pills">
             {testimonials.map((testimonial, index) => (
-              <button
+              <Button
                 key={testimonial.author}
                 aria-label={`切换到第 ${index + 1} 条评价`}
                 className={index === activeIndex ? "active" : ""}
+                iconOnly
+                isActive={index === activeIndex}
                 onClick={() => setActiveIndex(index)}
-                type="button"
+                size="xs"
+                variant="pill"
               />
             ))}
           </div>
@@ -843,14 +917,11 @@ function PricingSection() {
       <div className="landing-pricing-toggle-row">
         <div className="landing-billing-toggle pricing optimus">
           <span className={!isAnnual ? "active" : ""}>按月</span>
-          <button
-            aria-pressed={isAnnual}
-            className={isAnnual ? "active" : ""}
-            onClick={() => setIsAnnual((current) => !current)}
-            type="button"
-          >
-            <span />
-          </button>
+          <Switch
+            aria-label={isAnnual ? "切换到按月计费" : "切换到按年计费"}
+            checked={isAnnual}
+            onChange={setIsAnnual}
+          />
           <span className={isAnnual ? "active" : ""}>按年</span>
           {isAnnual ? <small>年付省 17%</small> : null}
         </div>
@@ -882,10 +953,15 @@ function PricingSection() {
                 </li>
               ))}
             </ul>
-            <Link className={plan.popular ? "landing-pricing-cta primary" : "landing-pricing-cta secondary"} to={plan.popular ? "/register" : "/login"}>
+            <ButtonLink
+              className={plan.popular ? "landing-pricing-cta primary" : "landing-pricing-cta secondary"}
+              size="lg"
+              to={plan.popular ? "/register" : "/login"}
+              trailingIcon={<ArrowRight aria-hidden="true" />}
+              variant={plan.popular ? "primary" : "secondary"}
+            >
               {plan.cta}
-              <ArrowRight aria-hidden="true" />
-            </Link>
+            </ButtonLink>
           </article>
         ))}
       </div>
@@ -897,25 +973,43 @@ function PricingSection() {
 }
 
 function CtaSection() {
+  const [mousePosition, setMousePosition] = useState({ x: 50, y: 50 });
+
+  function handleMouseMove(event: MouseEvent<HTMLDivElement>) {
+    const rect = event.currentTarget.getBoundingClientRect();
+    setMousePosition({
+      x: ((event.clientX - rect.left) / rect.width) * 100,
+      y: ((event.clientY - rect.top) / rect.height) * 100
+    });
+  }
+
   return (
     <RevealSection className="landing-section landing-section-cta">
-      <div className="landing-cta-panel">
+      <div className="landing-cta-panel" onMouseMove={handleMouseMove}>
+        <div
+          aria-hidden="true"
+          className="landing-cta-spotlight"
+          style={{
+            background: `radial-gradient(600px circle at ${mousePosition.x}% ${mousePosition.y}%, color-mix(in srgb, var(--accent) 18%, transparent), transparent 40%)`
+          }}
+        />
         <div>
           <h2 className="landing-display-title">准备把临时邮箱接入你的系统？</h2>
           <p className="landing-section-copy">先从测试、活动上线或运营协作开始，再逐步打开团队真正需要的治理能力，不必一开始就背上沉重平台成本。</p>
           <div className="landing-cta-row">
-            <Link className="landing-cta primary" to="/register">
+            <ButtonLink size="lg" to="/register" trailingIcon={<ArrowRight aria-hidden="true" />} variant="primary">
               受邀注册
-              <ArrowRight aria-hidden="true" />
-            </Link>
-            <Link className="landing-cta secondary" to="/login">
+            </ButtonLink>
+            <ButtonLink size="lg" to="/login" variant="secondary">
               进入登录
-            </Link>
+            </ButtonLink>
           </div>
         </div>
         <div className="landing-cta-visual" aria-hidden="true">
           <AnimatedTetrahedron />
         </div>
+        <div aria-hidden="true" className="landing-cta-corner landing-cta-corner-top" />
+        <div aria-hidden="true" className="landing-cta-corner landing-cta-corner-bottom" />
       </div>
     </RevealSection>
   );
@@ -962,10 +1056,16 @@ function FooterSection() {
   );
 }
 
-export function WemailLandingPage() {
+export function WemailLandingPage({
+  onToggleTheme,
+  theme
+}: {
+  onToggleTheme: () => void;
+  theme: "dark" | "light";
+}) {
   return (
     <div className="landing-page noise-overlay">
-      <Navigation />
+      <Navigation onToggleTheme={onToggleTheme} theme={theme} />
       <main className="landing-page-main">
         <HeroSection />
         <FeaturesSection />

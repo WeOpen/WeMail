@@ -1,54 +1,62 @@
+import { useMemo } from "react";
+import { ResponsiveBar } from "@nivo/bar";
+import { ResponsiveLine } from "@nivo/line";
+import { ResponsivePie } from "@nivo/pie";
+
+import { useWorkspaceTheme } from "../app/useWorkspaceTheme";
 import {
   dashboardGrowth,
   dashboardKpis,
   dashboardMailboxDistribution,
   dashboardResources,
   dashboardTrend,
-  dashboardUserRoles,
-  type DashboardDistributionSlice,
-  type DashboardGrowthPoint,
-  type DashboardTrendPoint
+  dashboardUserRoles
 } from "../features/dashboard/dashboardMockData";
+import { nivoTheme } from "../shared/chart";
 
-function buildPolyline(points: DashboardTrendPoint[], key: "inbound" | "outbound") {
-  const width = 640;
-  const height = 260;
-  const paddingX = 18;
-  const paddingY = 18;
-  const values = points.map((point) => point[key]);
-  const min = Math.min(...values);
-  const max = Math.max(...values);
-  const range = Math.max(max - min, 1);
+const GROWTH_KEYS = ["accounts", "mailboxes"] as const;
+const GROWTH_LABELS: Record<(typeof GROWTH_KEYS)[number], string> = {
+  accounts: "新增账号",
+  mailboxes: "新增邮箱"
+};
 
-  return points
-    .map((point, index) => {
-      const x = paddingX + (index * (width - paddingX * 2)) / Math.max(points.length - 1, 1);
-      const y = height - paddingY - ((point[key] - min) / range) * (height - paddingY * 2);
-      return `${x},${y}`;
-    })
-    .join(" ");
-}
-
-function buildDonutBackground(slices: DashboardDistributionSlice[]) {
-  let offset = 0;
-  const segments = slices.map((slice) => {
-    const next = offset + slice.value;
-    const segment = `${slice.tone} ${offset}% ${next}%`;
-    offset = next;
-    return segment;
-  });
-
-  return `conic-gradient(${segments.join(", ")})`;
-}
-
-function maxGrowthValue(points: DashboardGrowthPoint[]) {
-  return Math.max(...points.flatMap((point) => [point.accounts, point.mailboxes]), 1);
-}
+const INBOUND_COLOR = "#ff7a00";
 
 export function DashboardPage() {
-  const inboundPoints = buildPolyline(dashboardTrend, "inbound");
-  const outboundPoints = buildPolyline(dashboardTrend, "outbound");
-  const growthMax = maxGrowthValue(dashboardGrowth);
+  const { theme } = useWorkspaceTheme();
+  const contrastColor = theme === "dark" ? "#f5f5f5" : "#111827";
+
+  const trendData = useMemo(
+    () => [
+      {
+        id: "收件量",
+        color: INBOUND_COLOR,
+        data: dashboardTrend.map((point) => ({ x: point.day, y: point.inbound }))
+      },
+      {
+        id: "发件量",
+        color: contrastColor,
+        data: dashboardTrend.map((point) => ({ x: point.day, y: point.outbound }))
+      }
+    ],
+    [contrastColor]
+  );
+
+  const distributionData = useMemo(
+    () =>
+      dashboardMailboxDistribution.map((slice) => ({
+        id: slice.label,
+        label: slice.label,
+        value: slice.value,
+        color: slice.tone
+      })),
+    []
+  );
+
+  const growthColors = useMemo<Record<(typeof GROWTH_KEYS)[number], string>>(
+    () => ({ accounts: contrastColor, mailboxes: INBOUND_COLOR }),
+    [contrastColor]
+  );
 
   return (
     <main className="workspace-grid dashboard-grid">
@@ -76,30 +84,37 @@ export function DashboardPage() {
 
           <div className="dashboard-trend-legend" aria-hidden="true">
             <span>
-              <i className="dashboard-dot dashboard-dot-inbound" />
+              <i className="dashboard-dot" style={{ backgroundColor: INBOUND_COLOR }} />
               收件量
             </span>
             <span>
-              <i className="dashboard-dot dashboard-dot-outbound" />
+              <i className="dashboard-dot" style={{ backgroundColor: contrastColor }} />
               发件量
             </span>
           </div>
 
-          <div className="dashboard-trend-chart">
-            <div className="dashboard-trend-grid" aria-hidden="true">
-              {Array.from({ length: 5 }).map((_, index) => (
-                <span key={index} />
-              ))}
-            </div>
-            <svg aria-label="近 7 天收发趋势图" className="dashboard-trend-svg" viewBox="0 0 640 260" role="img">
-              <polyline className="dashboard-trend-line inbound" fill="none" points={inboundPoints} />
-              <polyline className="dashboard-trend-line outbound" fill="none" points={outboundPoints} />
-            </svg>
-            <div className="dashboard-trend-axis" aria-hidden="true">
-              {dashboardTrend.map((point) => (
-                <span key={point.day}>{point.day}</span>
-              ))}
-            </div>
+          <div className="dashboard-trend-chart" role="img" aria-label="近 7 天收发趋势图">
+            <ResponsiveLine
+              animate={false}
+              axisBottom={{ tickSize: 0, tickPadding: 12 }}
+              axisLeft={{ tickSize: 0, tickPadding: 10, tickValues: 4 }}
+              colors={{ datum: "color" }}
+              curve="monotoneX"
+              data={trendData}
+              enableArea
+              areaOpacity={0.08}
+              enableGridX={false}
+              gridYValues={4}
+              lineWidth={3}
+              margin={{ top: 24, right: 24, bottom: 40, left: 48 }}
+              pointBorderColor={{ from: "serieColor" }}
+              pointBorderWidth={2}
+              pointSize={7}
+              theme={nivoTheme}
+              useMesh
+              xScale={{ type: "point" }}
+              yScale={{ type: "linear", min: "auto", max: "auto" }}
+            />
           </div>
         </section>
 
@@ -114,11 +129,21 @@ export function DashboardPage() {
             </div>
 
             <div className="dashboard-distribution-layout">
-              <div
-                aria-hidden="true"
-                className="dashboard-donut"
-                style={{ backgroundImage: buildDonutBackground(dashboardMailboxDistribution) }}
-              >
+              <div className="dashboard-donut" role="img" aria-label="邮箱状态分布环形图">
+                <ResponsivePie
+                  activeOuterRadiusOffset={4}
+                  animate={false}
+                  borderWidth={0}
+                  colors={{ datum: "data.color" }}
+                  cornerRadius={4}
+                  data={distributionData}
+                  enableArcLabels={false}
+                  enableArcLinkLabels={false}
+                  innerRadius={0.62}
+                  margin={{ top: 4, right: 4, bottom: 4, left: 4 }}
+                  padAngle={1.5}
+                  theme={nivoTheme}
+                />
                 <div className="dashboard-donut-center">
                   <strong>326</strong>
                   <span>总邮箱</span>
@@ -174,24 +199,26 @@ export function DashboardPage() {
             <p className="section-copy dashboard-panel-copy">补充看平台扩张情况，用柱状对比新增账号和新增邮箱。</p>
           </div>
 
-          <div className="dashboard-growth-chart" aria-label="账号和邮箱增长图" role="img">
-            {dashboardGrowth.map((point) => (
-              <div className="dashboard-growth-group" key={point.label}>
-                <div className="dashboard-growth-bars">
-                  <span
-                    className="dashboard-growth-bar accounts"
-                    style={{ height: `${(point.accounts / growthMax) * 100}%` }}
-                    title={`新增账号 ${point.accounts}`}
-                  />
-                  <span
-                    className="dashboard-growth-bar mailboxes"
-                    style={{ height: `${(point.mailboxes / growthMax) * 100}%` }}
-                    title={`新增邮箱 ${point.mailboxes}`}
-                  />
-                </div>
-                <small>{point.label}</small>
-              </div>
-            ))}
+          <div className="dashboard-growth-chart" role="img" aria-label="账号和邮箱增长图">
+            <ResponsiveBar
+              animate={false}
+              axisBottom={{ tickSize: 0, tickPadding: 12 }}
+              axisLeft={{ tickSize: 0, tickPadding: 10, tickValues: 4 }}
+              borderRadius={6}
+              colors={({ id }) => growthColors[id as keyof typeof growthColors]}
+              data={dashboardGrowth.map((point) => ({ ...point }))}
+              enableGridY
+              enableLabel={false}
+              gridYValues={4}
+              groupMode="grouped"
+              indexBy="label"
+              innerPadding={4}
+              keys={[...GROWTH_KEYS]}
+              margin={{ top: 16, right: 16, bottom: 36, left: 40 }}
+              padding={0.32}
+              theme={nivoTheme}
+              tooltipLabel={({ id }) => GROWTH_LABELS[id as keyof typeof GROWTH_LABELS]}
+            />
           </div>
         </section>
 

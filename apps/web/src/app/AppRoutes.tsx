@@ -222,7 +222,7 @@ export function AppRoutes({ session, inbox, selectedMessage, settings, admin, ap
       <Route path="/users" element={usersListPage} />
       <Route path="/users/list" element={usersListPage} />
       <Route path="/users/settings" element={usersSettingsPage} />
-      <Route path="/admin" element={usersListPage} />
+      <Route path="/admin" element={usersSettingsPage} />
       <Route path="/settings" element={apiKeysPage} />
       <Route path="/api-keys" element={apiKeysPage} />
       <Route path="/webhook" element={webhookPage} />

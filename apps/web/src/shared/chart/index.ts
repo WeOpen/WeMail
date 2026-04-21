@@ -1,0 +1,1 @@
+export { nivoTheme } from "./nivoTheme";

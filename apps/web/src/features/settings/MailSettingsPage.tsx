@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 
+import { Button } from "../../shared/button";
 import { CheckboxField, FormField, SelectInput, TextInput, TextareaInput } from "../../shared/form";
 import { mailSettingsMockData } from "./mailSettingsMockData";
 
@@ -214,9 +215,9 @@ export function MailSettingsPage() {
           </div>
 
           <div className="integration-inline-actions">
-            <button className="workspace-action-button primary" onClick={saveSenderRules} type="button">
+            <Button onClick={saveSenderRules} variant="primary">
               保存发件规则
-            </button>
+            </Button>
             {senderSavedNotice ? <p className="mail-settings-save-notice" role="status">发件规则已保存</p> : null}
           </div>
         </section>
@@ -338,9 +339,9 @@ export function MailSettingsPage() {
           </div>
 
           <div className="integration-inline-actions">
-            <button className="workspace-action-button primary" onClick={saveRoutingRules} type="button">
+            <Button onClick={saveRoutingRules} variant="primary">
               保存通知与路由
-            </button>
+            </Button>
             {routingSavedNotice ? <p className="mail-settings-save-notice" role="status">通知与路由已保存</p> : null}
           </div>
         </section>
@@ -433,9 +434,9 @@ export function MailSettingsPage() {
           </div>
 
           <div className="integration-inline-actions">
-            <button className="workspace-action-button secondary" onClick={saveWorkspaceDefaults} type="button">
+            <Button onClick={saveWorkspaceDefaults} variant="primary">
               保存工作台偏好
-            </button>
+            </Button>
             {workspaceSavedNotice ? <p className="mail-settings-save-notice" role="status">工作台偏好已保存</p> : null}
           </div>
         </section>

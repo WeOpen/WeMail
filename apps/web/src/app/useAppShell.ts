@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect } from "react";
 
 import type { SessionSummary } from "@wemail/shared";
 
@@ -6,27 +6,23 @@ import { useAdminData } from "../features/admin/useAdminData";
 import { useAuthSession } from "../features/auth/useAuthSession";
 import { useInboxWorkspace } from "../features/inbox/useInboxWorkspace";
 import { useSettingsData } from "../features/settings/useSettingsData";
-import { createToast, type WemailToastInput, type WemailToastRecord } from "../shared/toast";
+import { useAppStore } from "./appStore";
 
 export function useAppShell() {
-  const [session, setSession] = useState<SessionSummary | null>(null);
-  const [toasts, setToasts] = useState<WemailToastRecord[]>([]);
+  const session = useAppStore((state) => state.session);
+  const toasts = useAppStore((state) => state.toasts);
+  const setSession = useAppStore((state) => state.setSession);
+  const clearSession = useAppStore((state) => state.clearSession);
+  const pushToast = useAppStore((state) => state.pushToast);
+  const dismissToast = useAppStore((state) => state.dismissToast);
 
   const handleSignedIn = useCallback((nextSession: SessionSummary) => {
     setSession(nextSession);
-  }, []);
+  }, [setSession]);
 
   const handleSignedOut = useCallback(() => {
-    setSession(null);
-  }, []);
-
-  const dismissToast = useCallback((id: string) => {
-    setToasts((currentToasts) => currentToasts.filter((toast) => toast.id !== id));
-  }, []);
-
-  const pushToast = useCallback((input: WemailToastInput) => {
-    setToasts((currentToasts) => [createToast(input), ...currentToasts]);
-  }, []);
+    clearSession();
+  }, [clearSession]);
 
   const auth = useAuthSession({
     onSignedIn: handleSignedIn,

@@ -1,6 +1,7 @@
 ﻿import { useMemo, useState } from "react";
 
 import type { ApiKeySummary } from "@wemail/shared";
+import { Button } from "../../shared/button";
 import { FormField, TextInput } from "../../shared/form";
 
 type CreateApiKeyResult = {
@@ -157,9 +158,9 @@ export function ApiKeysPage({ apiKeys, onCreateApiKey, onRevokeApiKey }: ApiKeys
                 创建并管理用于访问 WeMail API 的个人凭证。适用于脚本、CLI、自动化任务和外部系统接入。
               </p>
             </div>
-            <button className="workspace-action-button primary api-keys-create-button" onClick={() => setIsCreateOpen(true)} type="button">
+            <Button className="api-keys-create-button" onClick={() => setIsCreateOpen(true)} variant="primary">
               创建密钥
-            </button>
+            </Button>
           </div>
 
           {isCreateOpen ? (
@@ -179,12 +180,16 @@ export function ApiKeysPage({ apiKeys, onCreateApiKey, onRevokeApiKey }: ApiKeys
                 />
               </FormField>
               <div className="workspace-dialog-actions integration-inline-actions">
-                <button className="workspace-action-button ghost" onClick={() => setIsCreateOpen(false)} type="button">
+                <Button onClick={() => setIsCreateOpen(false)} variant="secondary">
                   取消
-                </button>
-                <button className="workspace-action-button primary" disabled={isCreating || label.trim().length === 0} onClick={() => void handleCreate()} type="button">
+                </Button>
+                <Button
+                  disabled={isCreating || label.trim().length === 0}
+                  onClick={() => void handleCreate()}
+                  variant="primary"
+                >
                   {isCreating ? "创建中..." : "确认创建"}
-                </button>
+                </Button>
               </div>
             </section>
           ) : null}
@@ -202,16 +207,12 @@ export function ApiKeysPage({ apiKeys, onCreateApiKey, onRevokeApiKey }: ApiKeys
                 <small>前缀：{revealState.prefix}</small>
               </div>
               <div className="integration-inline-actions">
-                <button
-                  className="workspace-action-button secondary"
-                  onClick={() => void handleCopy("secret", revealState.secret)}
-                  type="button"
-                >
+                <Button onClick={() => void handleCopy("secret", revealState.secret)} variant="primary">
                   {copiedToken === "secret" ? "已复制密钥" : "复制密钥"}
-                </button>
-                <button className="workspace-action-button ghost" onClick={() => setRevealState(null)} type="button">
+                </Button>
+                <Button onClick={() => setRevealState(null)} variant="secondary">
                   我已安全保存
-                </button>
+                </Button>
               </div>
             </section>
           ) : null}
@@ -232,21 +233,19 @@ export function ApiKeysPage({ apiKeys, onCreateApiKey, onRevokeApiKey }: ApiKeys
                     </div>
                     <span className="integration-status-pill">{getStatusLabel(key)}</span>
                     <div className="integration-inline-actions">
-                      <button
-                        className="workspace-action-button ghost"
+                      <Button
                         onClick={() => void handleCopy(`header-${key.id}`, headerSnippet)}
-                        type="button"
+                        variant="primary"
                       >
                         {copiedToken === `header-${key.id}` ? "已复制示例" : "复制示例"}
-                      </button>
-                      <button
-                        className="workspace-action-button secondary"
+                      </Button>
+                      <Button
                         disabled={Boolean(key.revokedAt) || pendingRevokeId === key.id}
                         onClick={() => void handleRevoke(key.id)}
-                        type="button"
+                        variant="secondary"
                       >
                         {key.revokedAt ? "已吊销" : pendingRevokeId === key.id ? "吊销中..." : "吊销"}
-                      </button>
+                      </Button>
                     </div>
                   </article>
                 );
@@ -275,9 +274,9 @@ export function ApiKeysPage({ apiKeys, onCreateApiKey, onRevokeApiKey }: ApiKeys
             <pre>{curlExample}</pre>
           </div>
           <div className="integration-inline-actions">
-            <button className="workspace-action-button secondary" onClick={() => void handleCopy("curl", curlExample)} type="button">
+            <Button onClick={() => void handleCopy("curl", curlExample)} variant="primary">
               {copiedToken === "curl" ? "已复制代码" : "复制代码"}
-            </button>
+            </Button>
           </div>
         </section>
       </div>

@@ -1,12 +1,10 @@
-import { FormEvent, useCallback, useMemo, useState } from "react";
+import { FormEvent, useCallback, useMemo } from "react";
 
-import type { MailboxSummary, MessageSummary } from "@wemail/shared";
-
+import { useAppStore } from "../../app/appStore";
 import type { WemailToastInput } from "../../shared/toast";
 import { createMailboxAction, sendOutboundAction } from "./actions";
-import { pickNextMailboxId, queryMailboxes, queryMessages, queryOutboundHistory } from "./queries";
+import { queryMailboxes, queryMessages, queryOutboundHistory } from "./queries";
 import { selectMessage } from "./selectors";
-import type { OutboundHistoryItem } from "./types";
 
 type UseInboxWorkspaceOptions = {
   enabled: boolean;
@@ -14,11 +12,16 @@ type UseInboxWorkspaceOptions = {
 };
 
 export function useInboxWorkspace({ enabled, onToast }: UseInboxWorkspaceOptions) {
-  const [mailboxes, setMailboxes] = useState<MailboxSummary[]>([]);
-  const [selectedMailboxId, setSelectedMailboxId] = useState<string | null>(null);
-  const [messages, setMessages] = useState<MessageSummary[]>([]);
-  const [selectedMessageId, setSelectedMessageId] = useState<string | null>(null);
-  const [outboundHistory, setOutboundHistory] = useState<OutboundHistoryItem[]>([]);
+  const mailboxes = useAppStore((state) => state.mailboxes);
+  const selectedMailboxId = useAppStore((state) => state.selectedMailboxId);
+  const messages = useAppStore((state) => state.messages);
+  const selectedMessageId = useAppStore((state) => state.selectedMessageId);
+  const outboundHistory = useAppStore((state) => state.outboundHistory);
+  const setMailboxes = useAppStore((state) => state.setMailboxes);
+  const setSelectedMailboxId = useAppStore((state) => state.setSelectedMailboxId);
+  const setMessages = useAppStore((state) => state.setMessages);
+  const setSelectedMessageId = useAppStore((state) => state.setSelectedMessageId);
+  const setOutboundHistory = useAppStore((state) => state.setOutboundHistory);
 
   const selectedMessage = useMemo(() => selectMessage(messages, selectedMessageId), [messages, selectedMessageId]);
 
@@ -26,10 +29,9 @@ export function useInboxWorkspace({ enabled, onToast }: UseInboxWorkspaceOptions
     async (nextSelectedMailboxId?: string | null) => {
       if (!enabled) return;
       const nextMailboxes = await queryMailboxes();
-      setMailboxes(nextMailboxes);
-      setSelectedMailboxId(pickNextMailboxId(nextMailboxes, nextSelectedMailboxId));
+      setMailboxes(nextMailboxes, nextSelectedMailboxId);
     },
-    [enabled]
+    [enabled, setMailboxes]
   );
 
   const refreshMessages = useCallback(
@@ -44,7 +46,7 @@ export function useInboxWorkspace({ enabled, onToast }: UseInboxWorkspaceOptions
       setMessages(nextMessages);
       setSelectedMessageId(nextMessages[0]?.id ?? null);
     },
-    [selectedMailboxId]
+    [selectedMailboxId, setMessages, setSelectedMessageId]
   );
 
   const refreshOutbound = useCallback(
@@ -56,7 +58,7 @@ export function useInboxWorkspace({ enabled, onToast }: UseInboxWorkspaceOptions
       }
       setOutboundHistory(await queryOutboundHistory(mailboxId));
     },
-    [selectedMailboxId]
+    [selectedMailboxId, setOutboundHistory]
   );
 
   const createMailbox = useCallback(

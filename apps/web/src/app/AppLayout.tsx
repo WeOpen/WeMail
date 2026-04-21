@@ -1,5 +1,5 @@
 import { ReactNode, useEffect, useRef, useState } from "react";
-import { NavLink } from "react-router-dom";
+import { NavLink, useLocation } from "react-router-dom";
 import {
   Bell,
   ChevronDown,
@@ -18,6 +18,7 @@ import {
 
 import type { SessionSummary } from "@wemail/shared";
 
+import { Button, ButtonLink } from "../shared/button";
 import { WemailBrandLockup } from "../shared/WemailBrandLockup";
 import type { WorkspaceRailIcon, WorkspaceShellState } from "./workspaceShell";
 import type { WorkspaceTheme } from "./useWorkspaceTheme";
@@ -79,6 +80,7 @@ export function AppLayout({
   shell,
   children
 }: AppLayoutProps) {
+  const location = useLocation();
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const userMenuRef = useRef<HTMLDivElement | null>(null);
   const railScrollRef = useRef<HTMLElement | null>(null);
@@ -162,57 +164,68 @@ export function AppLayout({
           {shell.secondaryNav.length > 0 ? (
             <nav className="workspace-pill-nav workspace-secondary-nav" aria-label={`${shell.activePrimaryLabel} 二级菜单`}>
               {shell.secondaryNav.map((item) => (
-                <NavLink key={item.to} className="workspace-pill-link" to={item.to} end>
-                  <span>{item.label}</span>
-                </NavLink>
+                <ButtonLink
+                  className="workspace-pill-link"
+                  isActive={location.pathname === item.to}
+                  key={item.to}
+                  size="sm"
+                  to={item.to}
+                  variant="pill"
+                >
+                  {item.label}
+                </ButtonLink>
               ))}
             </nav>
           ) : (
             <div aria-label="当前左侧菜单" className="workspace-pill-nav workspace-secondary-nav workspace-secondary-nav-single">
-              <span className="workspace-pill-link workspace-pill-link-static active" aria-current="page">
-                <span>{shell.activePrimaryLabel}</span>
+              <span className="ui-button ui-button-pill ui-button-size-sm is-active workspace-pill-link workspace-pill-link-static" aria-current="page">
+                <span className="ui-button-label">{shell.activePrimaryLabel}</span>
               </span>
             </div>
           )}
         </div>
 
         <div className="workspace-topbar-actions">
-          <button
-            className="workspace-theme-toggle"
+          <Button
+            iconOnly
             onClick={onToggleTheme}
             aria-label={theme === "dark" ? "切换到浅色主题" : "切换到深色主题"}
-            type="button"
+            size="sm"
+            variant="icon"
           >
             <ThemeIcon theme={theme} />
-          </button>
+          </Button>
 
           <div className="workspace-user-menu" ref={userMenuRef}>
-            <button
+            <Button
               aria-expanded={isUserMenuOpen}
               aria-haspopup="menu"
               aria-label="用户菜单"
               className="workspace-user-trigger"
               onClick={() => setIsUserMenuOpen((currentState) => !currentState)}
-              type="button"
+              size="sm"
+              trailingIcon={<ChevronDown absoluteStrokeWidth aria-hidden="true" className="workspace-icon" strokeWidth={1.9} />}
+              variant="secondary"
             >
-              <span>{session.user.email}</span>
-              <ChevronDown absoluteStrokeWidth aria-hidden="true" className="workspace-icon" strokeWidth={1.9} />
-            </button>
+              {session.user.email}
+            </Button>
 
             {isUserMenuOpen ? (
               <div className="workspace-user-dropdown panel" role="menu">
-                <button
+                <Button
                   className="workspace-user-dropdown-item"
+                  fullWidth
+                  leadingIcon={<LogOut absoluteStrokeWidth aria-hidden="true" className="workspace-icon" strokeWidth={1.9} />}
                   onClick={() => {
                     setIsUserMenuOpen(false);
                     onLogout();
                   }}
                   role="menuitem"
-                  type="button"
+                  size="sm"
+                  variant="text"
                 >
-                  <LogOut absoluteStrokeWidth aria-hidden="true" className="workspace-icon" strokeWidth={1.9} />
-                  <span>退出登录</span>
-                </button>
+                  退出登录
+                </Button>
               </div>
             ) : null}
           </div>

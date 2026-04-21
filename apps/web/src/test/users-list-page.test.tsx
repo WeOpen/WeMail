@@ -41,7 +41,19 @@ describe("UsersListPage", () => {
       />
     );
 
-    expect(screen.getByText("用户列表")).toBeInTheDocument();
+    expect(screen.getByText("用户中心")).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "管理成员目录" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "导出" })).toHaveClass("ui-button-primary");
+    expect(screen.getByRole("table")).toHaveClass("ui-table");
+    expect(screen.getByRole("columnheader", { name: "用户" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "邮箱" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "角色" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "操作" })).toHaveClass("ui-table-sticky-end");
+    expect(screen.getByRole("checkbox", { name: "选择全部用户" }).closest("th")).toHaveClass("ui-table-sticky-start");
+    expect(screen.getAllByText("正常").find((element) => element.classList.contains("accounts-status-pill"))).toHaveClass(
+      "accounts-status-pill",
+      "accounts-status-pill--enabled"
+    );
     expect(screen.getByLabelText("搜索用户")).toBeInTheDocument();
     expect(screen.getByLabelText("角色筛选")).toBeInTheDocument();
     expect(screen.getByText("admin@example.com")).toBeInTheDocument();
@@ -135,5 +147,31 @@ describe("UsersListPage", () => {
 
     fireEvent.click(screen.getAllByRole("button", { name: "查看设置" })[0]);
     expect(onOpenUserSettings).toHaveBeenCalledWith("admin-1");
+  });
+
+  it("shows bulk actions after selecting users", () => {
+    render(
+      <UsersListPage
+        adminQuota={null}
+        adminUsers={adminUsers}
+        onCloseUserSettings={vi.fn()}
+        onOpenUserSettings={vi.fn()}
+        onRoleFilterChange={vi.fn()}
+        onSearchChange={vi.fn()}
+        onStatusFilterChange={vi.fn()}
+        onSubmitQuota={vi.fn()}
+        roleFilter="all"
+        searchValue=""
+        selectedUser={null}
+        statusFilter="all"
+      />
+    );
+
+    fireEvent.click(screen.getByRole("checkbox", { name: "选择用户 admin@example.com" }));
+
+    expect(screen.getByText("已选择 1 个用户")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "批量设为管理员" })).toHaveClass("ui-button-primary");
+    expect(screen.getByRole("button", { name: "批量设为成员" })).toHaveClass("ui-button-secondary");
+    expect(screen.getByRole("button", { name: "批量暂停外发" })).toHaveClass("ui-button-secondary");
   });
 });

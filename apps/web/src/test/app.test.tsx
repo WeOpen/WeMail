@@ -2,7 +2,38 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-li
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { App } from "../app/App";
+import { WORKSPACE_THEME_STORAGE_KEY } from "../app/appStore";
 import { jsonResponse } from "./helpers/mock-api";
+
+const originalMatchMedia = window.matchMedia;
+
+function installMatchMedia({
+  compactNavigation = false,
+  dark = true
+}: {
+  compactNavigation?: boolean;
+  dark?: boolean;
+} = {}) {
+  Object.defineProperty(window, "matchMedia", {
+    configurable: true,
+    writable: true,
+    value: vi.fn().mockImplementation((query: string) => ({
+      matches:
+        query === "(prefers-color-scheme: dark)"
+          ? dark
+          : query === "(max-width: 980px)"
+            ? compactNavigation
+            : false,
+      media: query,
+      onchange: null,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      dispatchEvent: vi.fn()
+    }))
+  });
+}
 
 describe("App", () => {
   beforeEach(() => {
@@ -14,6 +45,11 @@ describe("App", () => {
   afterEach(() => {
     cleanup();
     window.history.pushState({}, "", "/");
+    Object.defineProperty(window, "matchMedia", {
+      configurable: true,
+      writable: true,
+      value: originalMatchMedia
+    });
   });
 
   it("renders an icon-first branded loading shell while the session request is pending", () => {
@@ -48,8 +84,31 @@ describe("App", () => {
       expect(within(navigation).getByRole("link", { name: /^产品能力$/i })).toHaveAttribute("href", "#features");
       expect(within(navigation).getByRole("link", { name: /^使用流程$/i })).toHaveAttribute("href", "#how-it-works");
       expect(screen.getByRole("heading", { name: /把临时邮箱/i })).toBeInTheDocument();
-      expect(within(navigation).getByRole("link", { name: /登录/i })).toBeInTheDocument();
-      expect(within(navigation).getByRole("link", { name: /注册/i })).toBeInTheDocument();
+      expect(within(navigation).getByRole("link", { name: /登录/i })).toHaveClass("ui-button", "ui-button-secondary");
+      expect(within(navigation).getByRole("link", { name: /注册/i })).toHaveClass("ui-button", "ui-button-primary");
+    },
+    10000
+  );
+
+  it(
+    "toggles the landing page theme from the topbar action",
+    async () => {
+      vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("not authenticated"));
+      installMatchMedia({ dark: true });
+      render(<App />);
+
+      const navigation = await screen.findByRole("navigation", { name: /首页导航/i });
+      const toggle = within(navigation).getByRole("button", { name: /切换到浅色主题/i });
+
+      expect(document.documentElement.dataset.theme).toBe("dark");
+
+      fireEvent.click(toggle);
+
+      await waitFor(() => {
+        expect(document.documentElement.dataset.theme).toBe("light");
+      });
+      expect(window.localStorage.getItem(WORKSPACE_THEME_STORAGE_KEY)).toBe("light");
+      expect(within(navigation).getByRole("button", { name: /切换到深色主题/i })).toBeInTheDocument();
     },
     10000
   );
@@ -58,17 +117,30 @@ describe("App", () => {
     "navigates from the landing page to the login form",
     async () => {
       vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("not authenticated"));
-      render(<App />);
+      const { container } = render(<App />);
 
       const navigation = await screen.findByRole("navigation", { name: /首页导航/i });
       fireEvent.click(within(navigation).getByRole("link", { name: /登录/i }));
 
       expect(await screen.findByRole("button", { name: /^立即登录$/i })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /^立即登录$/i })).toHaveClass("ui-button", "ui-button-primary");
       expect(screen.getByLabelText(/WeMail auth brand/i)).toBeInTheDocument();
       expect(screen.queryAllByRole("heading", { name: /登录到 WeMail/i })).toHaveLength(0);
       expect(screen.queryByText(/在同一个认证入口里切换登录与注册/i)).not.toBeInTheDocument();
       expect(screen.queryByText(/^账号登录$/i)).not.toBeInTheDocument();
-      expect(screen.getByLabelText(/邮箱/i)).toBeInTheDocument();
+      const emailInput = screen.getByLabelText(/邮箱/i);
+      const passwordInput = screen.getByLabelText(/密码/i);
+      expect(emailInput).toBeInTheDocument();
+      expect(emailInput.closest(".form-control-shell")?.querySelector(".form-control-icon")).not.toBeNull();
+      expect(passwordInput).toHaveAttribute("type", "password");
+
+      const toggle = screen.getByRole("button", { name: "显示密码" });
+      expect(toggle).toBeInTheDocument();
+
+      fireEvent.click(toggle);
+      expect(screen.getByLabelText(/密码/i)).toHaveAttribute("type", "text");
+      expect(screen.getByRole("button", { name: "隐藏密码" })).toBeInTheDocument();
+      expect(container.querySelectorAll(".form-control-shell").length).toBeGreaterThanOrEqual(2);
     },
     10000
   );
@@ -96,6 +168,7 @@ describe("App", () => {
     "opens the landing mobile menu on demand",
     async () => {
       vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("not authenticated"));
+      installMatchMedia({ compactNavigation: true, dark: true });
       render(<App />);
 
       fireEvent.click(await screen.findByRole("button", { name: /切换菜单/i }));
@@ -288,7 +361,7 @@ describe("App", () => {
 
       const { container } = render(<App />);
 
-      expect(await screen.findByRole("heading", { name: /^账号列表$/i })).toBeInTheDocument();
+      expect(await screen.findByRole("columnheader", { name: "地址" })).toBeInTheDocument();
       expect(screen.queryByText("账号列表先以占位页承接")).not.toBeInTheDocument();
       expect(container.querySelectorAll(".accounts-status-pill")).toHaveLength(3);
       expect(container.querySelector(".accounts-list-bulk-bar")).toBeNull();
@@ -314,6 +387,7 @@ describe("App", () => {
         expect(window.location.pathname).toBe("/register");
       });
       expect(await screen.findByRole("button", { name: /^立即注册$/i })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /^立即注册$/i })).toHaveClass("ui-button", "ui-button-primary");
       expect(screen.getByLabelText(/邀请码/i)).toBeInTheDocument();
       expect(screen.getByRole("tab", { name: /^注册$/i })).toHaveAttribute("aria-selected", "true");
       expect(container.querySelectorAll(".auth-card")).toHaveLength(1);
@@ -423,6 +497,8 @@ describe("App", () => {
       expect(screen.getByRole("heading", { name: /邮箱总览/i })).toBeInTheDocument();
       expect(screen.queryByLabelText(/工作台快速搜索/i)).not.toBeInTheDocument();
       expect(screen.getByLabelText(/WeMail logo/i)).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /切换到浅色主题|切换到深色主题/i })).toHaveClass("ui-button", "ui-button-icon");
+      expect(screen.getByRole("button", { name: /用户菜单/i })).toHaveClass("ui-button", "ui-button-secondary");
       fireEvent.click(screen.getByRole("button", { name: /用户菜单/i }));
       expect(screen.getByRole("menuitem", { name: /退出登录/i })).toBeInTheDocument();
       expect(await screen.findByText(/ops@example.com/i)).toBeInTheDocument();

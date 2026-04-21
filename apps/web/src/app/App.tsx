@@ -1,4 +1,4 @@
-﻿import { useCallback, useEffect, useMemo, useState } from "react";
+﻿import { useCallback, useEffect, useMemo } from "react";
 import { BrowserRouter, Navigate, useLocation } from "react-router-dom";
 
 import { AppLayout } from "./AppLayout";
@@ -6,6 +6,7 @@ import { AppRoutes } from "./AppRoutes";
 import { AuthPage } from "../pages/AuthPage";
 import { WemailLoadingShell } from "../shared/WemailLoadingShell";
 import { WemailToastViewport } from "../shared/WemailToastViewport";
+import { useAppStore } from "./appStore";
 import { buildWorkspaceShellState } from "./workspaceShell";
 import { useAppShell } from "./useAppShell";
 import { useWorkspaceTheme } from "./useWorkspaceTheme";
@@ -21,7 +22,8 @@ function AppContent() {
   const location = useLocation();
   const { session, toasts, dismissToast, auth, inbox, settings, admin } = useAppShell();
   const { theme, themePreference, setThemePreference, toggleTheme } = useWorkspaceTheme();
-  const [mailboxComposerOpen, setMailboxComposerOpen] = useState(false);
+  const mailboxComposerOpen = useAppStore((state) => state.mailboxComposerOpen);
+  const setMailboxComposerOpen = useAppStore((state) => state.setMailboxComposerOpen);
 
   const selectedMessage = useMemo(() => inbox.selectedMessage, [inbox.selectedMessage]);
 
@@ -29,22 +31,22 @@ function AppContent() {
     if (location.pathname !== "/") {
       setMailboxComposerOpen(false);
     }
-  }, [location.pathname]);
+  }, [location.pathname, setMailboxComposerOpen]);
 
   const openMailboxComposer = useCallback(() => {
     setMailboxComposerOpen(true);
-  }, []);
+  }, [setMailboxComposerOpen]);
 
   const closeMailboxComposer = useCallback(() => {
     setMailboxComposerOpen(false);
-  }, []);
+  }, [setMailboxComposerOpen]);
 
   const handleCreateMailbox = useCallback(
     async (label: string) => {
       await inbox.createMailbox(label);
       setMailboxComposerOpen(false);
     },
-    [inbox]
+    [inbox, setMailboxComposerOpen]
   );
 
   const shell = useMemo(() => {
@@ -71,7 +73,13 @@ function AppContent() {
     return (
       <>
         {toastViewport}
-        <AuthPage authError={auth.authError} onRegister={auth.handleRegister} onLogin={auth.handleLogin} />
+        <AuthPage
+          authError={auth.authError}
+          onLogin={auth.handleLogin}
+          onRegister={auth.handleRegister}
+          onToggleTheme={toggleTheme}
+          theme={theme}
+        />
       </>
     );
   }

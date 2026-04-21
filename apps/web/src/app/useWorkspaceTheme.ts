@@ -1,28 +1,7 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect } from "react";
 
-export type WorkspaceTheme = "dark" | "light";
-export type WorkspaceThemePreference = WorkspaceTheme | "system";
-
-export const WORKSPACE_THEME_STORAGE_KEY = "wemail-workspace-theme";
-
-function resolveSystemTheme(): WorkspaceTheme {
-  if (typeof window === "undefined") return "dark";
-
-  if (typeof window.matchMedia === "function") {
-    return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
-  }
-
-  return "dark";
-}
-
-function resolveInitialThemePreference(): WorkspaceThemePreference {
-  if (typeof window === "undefined") return "system";
-
-  const storedTheme = window.localStorage.getItem(WORKSPACE_THEME_STORAGE_KEY);
-  if (storedTheme === "dark" || storedTheme === "light" || storedTheme === "system") return storedTheme;
-
-  return "system";
-}
+import { WORKSPACE_THEME_STORAGE_KEY, useAppStore, type WorkspaceTheme } from "./appStore";
+export type { WorkspaceTheme, WorkspaceThemePreference } from "./appStore";
 
 function applyTheme(theme: WorkspaceTheme) {
   document.documentElement.dataset.theme = theme;
@@ -30,8 +9,10 @@ function applyTheme(theme: WorkspaceTheme) {
 }
 
 export function useWorkspaceTheme() {
-  const [themePreference, setThemePreference] = useState<WorkspaceThemePreference>(resolveInitialThemePreference);
-  const [systemTheme, setSystemTheme] = useState<WorkspaceTheme>(resolveSystemTheme);
+  const themePreference = useAppStore((state) => state.themePreference);
+  const systemTheme = useAppStore((state) => state.systemTheme);
+  const setThemePreference = useAppStore((state) => state.setThemePreference);
+  const setSystemTheme = useAppStore((state) => state.setSystemTheme);
   const theme = themePreference === "system" ? systemTheme : themePreference;
 
   useEffect(() => {
@@ -47,7 +28,7 @@ export function useWorkspaceTheme() {
     return () => {
       mediaQuery.removeEventListener("change", handleChange);
     };
-  }, []);
+  }, [setSystemTheme]);
 
   useEffect(() => {
     applyTheme(theme);
@@ -55,11 +36,9 @@ export function useWorkspaceTheme() {
   }, [theme, themePreference]);
 
   const toggleTheme = useCallback(() => {
-    setThemePreference((currentPreference) => {
-      const currentResolved = currentPreference === "system" ? systemTheme : currentPreference;
-      return currentResolved === "dark" ? "light" : "dark";
-    });
-  }, [systemTheme]);
+    const currentResolved = themePreference === "system" ? systemTheme : themePreference;
+    setThemePreference(currentResolved === "dark" ? "light" : "dark");
+  }, [setThemePreference, systemTheme, themePreference]);
 
   return {
     theme,

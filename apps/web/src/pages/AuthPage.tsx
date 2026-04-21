@@ -3,6 +3,7 @@ import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 
 import { AuthForms } from "../features/auth/AuthForms";
 import { WemailLandingPage } from "../features/landing/WemailLandingPage";
+import { Button } from "../shared/button";
 import { WemailLogo } from "../shared/WemailLogo";
 import { WemailWordmark } from "../shared/WemailWordmark";
 
@@ -10,11 +11,13 @@ type AuthPageProps = {
   authError: string | null;
   onRegister: (event: FormEvent<HTMLFormElement>) => Promise<void>;
   onLogin: (event: FormEvent<HTMLFormElement>) => Promise<void>;
+  onToggleTheme: () => void;
+  theme: "dark" | "light";
 };
 
 const AUTH_MODES = ["login", "register"] as const;
 
-export function AuthPage({ authError, onRegister, onLogin }: AuthPageProps) {
+export function AuthPage({ authError, onRegister, onLogin, onToggleTheme, theme }: AuthPageProps) {
   const location = useLocation();
   const navigate = useNavigate();
   const mode = location.pathname === "/register" ? "register" : "login";
@@ -47,7 +50,7 @@ export function AuthPage({ authError, onRegister, onLogin }: AuthPageProps) {
   }
 
   if (location.pathname === "/") {
-    return <WemailLandingPage />;
+    return <WemailLandingPage onToggleTheme={onToggleTheme} theme={theme} />;
   }
 
   if (location.pathname !== "/login" && location.pathname !== "/register") {
@@ -67,30 +70,34 @@ export function AuthPage({ authError, onRegister, onLogin }: AuthPageProps) {
           </Link>
         </div>
         <div className="auth-tabs" role="tablist" aria-label="认证方式切换" onKeyDown={handleTabsKeyDown}>
-          <button
+          <Button
             aria-controls="auth-panel-login"
             aria-selected={mode === "login"}
             className={mode === "login" ? "auth-tab active" : "auth-tab"}
             id="auth-tab-login"
+            isActive={mode === "login"}
             onClick={() => switchMode("login")}
             role="tab"
+            size="md"
             tabIndex={mode === "login" ? 0 : -1}
-            type="button"
+            variant="pill"
           >
             登录
-          </button>
-          <button
+          </Button>
+          <Button
             aria-controls="auth-panel-register"
             aria-selected={mode === "register"}
             className={mode === "register" ? "auth-tab active" : "auth-tab"}
             id="auth-tab-register"
+            isActive={mode === "register"}
             onClick={() => switchMode("register")}
             role="tab"
+            size="md"
             tabIndex={mode === "register" ? 0 : -1}
-            type="button"
+            variant="pill"
           >
             注册
-          </button>
+          </Button>
         </div>
         <AuthForms authError={authError} onRegister={onRegister} onLogin={onLogin} mode={mode} />
       </section>

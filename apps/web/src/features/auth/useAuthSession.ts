@@ -1,7 +1,8 @@
-import { FormEvent, useCallback, useState } from "react";
+import { FormEvent, useCallback } from "react";
 
 import type { SessionSummary } from "@wemail/shared";
 
+import { useAppStore } from "../../app/appStore";
 import type { WemailToastInput } from "../../shared/toast";
 import { loginWithPasswordAction, logoutSessionAction, registerWithInviteAction } from "./actions";
 import { queryCurrentSession } from "./queries";
@@ -13,8 +14,10 @@ type UseAuthSessionOptions = {
 };
 
 export function useAuthSession({ onSignedIn, onSignedOut, onToast }: UseAuthSessionOptions) {
-  const [authError, setAuthError] = useState<string | null>(null);
-  const [loadingSession, setLoadingSession] = useState(true);
+  const authError = useAppStore((state) => state.authError);
+  const loadingSession = useAppStore((state) => state.loadingSession);
+  const setAuthError = useAppStore((state) => state.setAuthError);
+  const setLoadingSession = useAppStore((state) => state.setLoadingSession);
 
   const refreshSession = useCallback(async () => {
     setLoadingSession(true);
@@ -27,7 +30,7 @@ export function useAuthSession({ onSignedIn, onSignedOut, onToast }: UseAuthSess
     } finally {
       setLoadingSession(false);
     }
-  }, [onSignedIn, onSignedOut]);
+  }, [onSignedIn, onSignedOut, setAuthError, setLoadingSession]);
 
   const handleRegister = useCallback(
     async (event: FormEvent<HTMLFormElement>) => {
@@ -46,7 +49,7 @@ export function useAuthSession({ onSignedIn, onSignedOut, onToast }: UseAuthSess
         setAuthError((error as Error).message);
       }
     },
-    [onSignedIn, onToast]
+    [onSignedIn, onToast, setAuthError]
   );
 
   const handleLogin = useCallback(
@@ -65,7 +68,7 @@ export function useAuthSession({ onSignedIn, onSignedOut, onToast }: UseAuthSess
         setAuthError((error as Error).message);
       }
     },
-    [onSignedIn, onToast]
+    [onSignedIn, onToast, setAuthError]
   );
 
   const handleLogout = useCallback(async () => {

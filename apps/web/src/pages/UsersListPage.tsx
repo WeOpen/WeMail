@@ -1,6 +1,19 @@
-import type { FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 
 import type { QuotaSummary, UserSummary } from "@wemail/shared";
+
+import { Button } from "../shared/button";
+import { CheckboxField, FormField, SelectInput, TextInput } from "../shared/form";
+import { OverlayDrawer } from "../shared/overlay";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableHeaderCell,
+  TableRow
+} from "../shared/table";
 
 type UsersRoleFilter = "all" | "admin" | "member";
 type UsersStatusFilter = "all" | "active";
@@ -42,6 +55,7 @@ export function UsersListPage({
   onCloseUserSettings,
   onSubmitQuota
 }: UsersListPageProps) {
+  const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
   const normalizedQuery = searchValue.trim().toLowerCase();
   const visibleUsers = adminUsers.filter((user) => {
     const matchesQuery =
@@ -52,122 +66,188 @@ export function UsersListPage({
     const matchesStatus = statusFilter === "all" || statusFilter === "active";
     return matchesQuery && matchesRole && matchesStatus;
   });
+  const visibleUserIds = visibleUsers.map((user) => user.id);
+  const selectedCount = selectedUserIds.length;
+  const allVisibleSelected = visibleUserIds.length > 0 && visibleUserIds.every((userId) => selectedUserIds.includes(userId));
+
+  function toggleUserSelection(userId: string) {
+    setSelectedUserIds((currentIds) =>
+      currentIds.includes(userId) ? currentIds.filter((currentId) => currentId !== userId) : [...currentIds, userId]
+    );
+  }
+
+  function toggleSelectAll() {
+    setSelectedUserIds((currentIds) => {
+      if (allVisibleSelected) {
+        return currentIds.filter((userId) => !visibleUserIds.includes(userId));
+      }
+
+      return Array.from(new Set([...currentIds, ...visibleUserIds]));
+    });
+  }
 
   return (
     <main className="workspace-grid users-list-grid">
       <section className="panel workspace-card page-panel users-page-header">
-        <div className="users-page-header-copy">
-          <p className="panel-kicker">用户列表</p>
-          <h2>管理成员目录</h2>
-          <p className="section-copy">搜索、筛选并进入单个用户的设置抽屉，专注目录与单人配置。</p>
+        <div className="workspace-card-header">
+          <div>
+            <p className="panel-kicker">用户中心</p>
+          </div>
+          <div className="workspace-topbar-actions">
+            <Button variant="primary">导出</Button>
+          </div>
         </div>
-      </section>
 
-      <section className="panel workspace-card page-panel users-filter-bar">
-        <label className="users-filter-field">
-          <span>搜索</span>
-          <input
-            aria-label="搜索用户"
-            onChange={(event) => onSearchChange(event.target.value)}
-            placeholder="搜索邮箱或显示名"
-            value={searchValue}
-          />
-        </label>
+        <div className="users-list-filter-grid">
+          <FormField label={<span className="sr-only">搜索用户</span>}>
+            <TextInput
+              aria-label="搜索用户"
+              onChange={(event) => onSearchChange(event.target.value)}
+              placeholder="搜索邮箱或显示名"
+              value={searchValue}
+            />
+          </FormField>
 
-        <label className="users-filter-field">
-          <span>角色</span>
-          <select aria-label="角色筛选" onChange={(event) => onRoleFilterChange(event.target.value as UsersRoleFilter)} value={roleFilter}>
-            <option value="all">全部</option>
-            <option value="admin">管理员</option>
-            <option value="member">成员</option>
-          </select>
-        </label>
+          <FormField label={<span className="sr-only">角色筛选</span>}>
+            <SelectInput aria-label="角色筛选" onChange={(event) => onRoleFilterChange(event.target.value as UsersRoleFilter)} value={roleFilter}>
+              <option value="all">全部</option>
+              <option value="admin">管理员</option>
+              <option value="member">成员</option>
+            </SelectInput>
+          </FormField>
 
-        <label className="users-filter-field">
-          <span>状态</span>
-          <select aria-label="状态筛选" onChange={(event) => onStatusFilterChange(event.target.value as UsersStatusFilter)} value={statusFilter}>
-            <option value="all">全部</option>
-            <option value="active">正常</option>
-          </select>
-        </label>
+          <FormField label={<span className="sr-only">状态筛选</span>}>
+            <SelectInput aria-label="状态筛选" onChange={(event) => onStatusFilterChange(event.target.value as UsersStatusFilter)} value={statusFilter}>
+              <option value="all">全部</option>
+              <option value="active">正常</option>
+            </SelectInput>
+          </FormField>
+        </div>
       </section>
 
       <section className="panel workspace-card page-panel users-table-panel">
-        <div className="users-table-head">
-          <span>用户</span>
-          <span>角色</span>
-          <span>创建时间</span>
-          <span>状态</span>
-          <span>操作</span>
+        <div className="workspace-card-header">
+          <div>
+            <p className="panel-kicker">用户列表</p>
+          </div>
         </div>
 
-        <div className="users-table-body">
-          {visibleUsers.map((user) => (
-            <article className="users-table-row" key={user.id}>
-              <div className="users-table-primary">
-                <strong>{buildDisplayName(user.email)}</strong>
-                <span>{user.email}</span>
+        {selectedCount > 0 ? (
+          <section aria-label="用户批量操作条" className="panel workspace-card accounts-list-bulk-bar">
+            <div className="workspace-card-header">
+              <div>
+                <p className="panel-kicker">批量操作</p>
+                <h4>已选择 {selectedCount} 个用户</h4>
               </div>
-              <span>{formatRole(user.role)}</span>
-              <span>{user.createdAt.slice(0, 10)}</span>
-              <span>正常</span>
-              <button className="workspace-action-button secondary" onClick={() => onOpenUserSettings(user.id)} type="button">
-                查看设置
-              </button>
-            </article>
-          ))}
-        </div>
+              <div className="workspace-topbar-actions">
+                <Button variant="primary">批量设为管理员</Button>
+                <Button variant="secondary">批量设为成员</Button>
+                <Button variant="secondary">批量暂停外发</Button>
+              </div>
+            </div>
+          </section>
+        ) : null}
+
+        <TableContainer density="compact" variant="liquid">
+          <Table className="users-list-table">
+            <TableHead>
+              <TableRow>
+                <TableHeaderCell align="center" className="ui-table-sticky-start" width={56}>
+                  <CheckboxField
+                    aria-label="选择全部用户"
+                    checked={allVisibleSelected}
+                    className="checkbox-row"
+                    label={<span className="sr-only">选择全部用户</span>}
+                    onChange={toggleSelectAll}
+                  />
+                </TableHeaderCell>
+                <TableHeaderCell>用户</TableHeaderCell>
+                <TableHeaderCell>邮箱</TableHeaderCell>
+                <TableHeaderCell>角色</TableHeaderCell>
+                <TableHeaderCell>创建时间</TableHeaderCell>
+                <TableHeaderCell>状态</TableHeaderCell>
+                <TableHeaderCell className="ui-table-sticky-end" nowrap width={112}>
+                  操作
+                </TableHeaderCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {visibleUsers.map((user) => {
+                const isSelected = selectedUserIds.includes(user.id);
+
+                return (
+                  <TableRow isSelected={isSelected} key={user.id}>
+                    <TableCell align="center" className="ui-table-sticky-start" width={56}>
+                      <CheckboxField
+                        aria-label={`选择用户 ${user.email}`}
+                        checked={isSelected}
+                        className="checkbox-row"
+                        label={<span className="sr-only">选择用户 {user.email}</span>}
+                        onChange={() => toggleUserSelection(user.id)}
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <strong>{buildDisplayName(user.email)}</strong>
+                    </TableCell>
+                    <TableCell>{user.email}</TableCell>
+                    <TableCell>{formatRole(user.role)}</TableCell>
+                    <TableCell>{user.createdAt.slice(0, 10)}</TableCell>
+                    <TableCell>
+                      <span className="accounts-status-pill accounts-status-pill--enabled">正常</span>
+                    </TableCell>
+                    <TableCell className="ui-table-sticky-end" nowrap width={112}>
+                      <Button onClick={() => onOpenUserSettings(user.id)} size="sm" variant="secondary">
+                        查看设置
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </TableContainer>
       </section>
 
       {selectedUser ? (
-        <div className="users-drawer-backdrop" onClick={onCloseUserSettings} role="presentation">
-          <aside
-            aria-label="用户设置"
-            className="users-drawer panel"
-            onClick={(event) => event.stopPropagation()}
-            role="dialog"
-          >
-            <div className="users-drawer-head">
-              <div>
-                <p className="panel-kicker">用户设置</p>
-                <h3>{buildDisplayName(selectedUser.email)}</h3>
-                <span>{selectedUser.email}</span>
-              </div>
-              <button className="workspace-theme-toggle" onClick={onCloseUserSettings} type="button" aria-label="关闭用户设置">
-                ×
-              </button>
+        <OverlayDrawer
+          ariaLabel="用户设置"
+          closeLabel="关闭用户设置"
+          closeOnBackdrop
+          description={selectedUser.email}
+          eyebrow="用户设置"
+          onClose={onCloseUserSettings}
+          title={buildDisplayName(selectedUser.email)}
+          width="md"
+        >
+          <div className="users-drawer-section">
+            <strong>基本资料</strong>
+            <div className="users-drawer-card">
+              <span>角色：{formatRole(selectedUser.role)}</span>
+              <span>创建时间：{selectedUser.createdAt.slice(0, 10)}</span>
             </div>
+          </div>
 
-            <div className="users-drawer-section">
-              <strong>基本资料</strong>
-              <div className="users-drawer-card">
-                <span>角色：{formatRole(selectedUser.role)}</span>
-                <span>创建时间：{selectedUser.createdAt.slice(0, 10)}</span>
-              </div>
-            </div>
-
-            <div className="users-drawer-section">
-              <strong>配额与能力</strong>
-              {adminQuota ? (
-                <form className="users-drawer-form" onSubmit={(event) => void onSubmitQuota(event, adminQuota.userId)}>
-                  <label>
-                    <span>每日发送上限</span>
-                    <input defaultValue={adminQuota.dailyLimit} name="dailyLimit" type="number" />
-                  </label>
-                  <label className="checkbox-row">
-                    <input defaultChecked={adminQuota.disabled} name="disabled" type="checkbox" />
-                    暂停该用户的外发能力
-                  </label>
-                  <button className="workspace-action-button primary" type="submit">
-                    保存用户设置
-                  </button>
-                </form>
-              ) : (
-                <p className="empty-state">正在加载该用户的配额信息。</p>
-              )}
-            </div>
-          </aside>
-        </div>
+          <div className="users-drawer-section">
+            <strong>配额与能力</strong>
+            {adminQuota ? (
+              <form className="users-drawer-form" onSubmit={(event) => void onSubmitQuota(event, adminQuota.userId)}>
+                <label>
+                  <span>每日发送上限</span>
+                  <input defaultValue={adminQuota.dailyLimit} name="dailyLimit" type="number" />
+                </label>
+                <label className="checkbox-row">
+                  <input defaultChecked={adminQuota.disabled} name="disabled" type="checkbox" />
+                  暂停该用户的外发能力
+                </label>
+                <Button type="submit" variant="primary">
+                  保存用户设置
+                </Button>
+              </form>
+            ) : (
+              <p className="empty-state">正在加载该用户的配额信息。</p>
+            )}
+          </div>
+        </OverlayDrawer>
       ) : null}
     </main>
   );

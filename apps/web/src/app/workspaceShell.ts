@@ -153,7 +153,7 @@ const workspacePrimaryNav: WorkspacePrimaryNavConfig[] = [
 function normalizeWorkspacePath(pathname: string) {
   if (pathname === "/" || pathname === "/dashboard") return "/dashboard";
   if (pathname === "/settings") return "/api-keys";
-  if (pathname === "/admin") return "/users/list";
+  if (pathname === "/admin") return "/users/settings";
   if (pathname === "/accounts") return "/accounts/list";
   if (pathname === "/mail") return "/mail/list";
   if (pathname === "/mail/unassigned") return "/mail/outbound";

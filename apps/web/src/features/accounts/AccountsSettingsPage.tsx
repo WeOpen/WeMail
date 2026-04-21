@@ -1,6 +1,8 @@
 import { useState } from "react";
 
+import { Button } from "../../shared/button";
 import { CheckboxField, FormField, SelectInput, TextInput } from "../../shared/form";
+import { OverlayDialog } from "../../shared/overlay";
 import { mailboxAccountPolicyMock } from "./accountsMockData";
 
 export function AccountsSettingsPage() {
@@ -140,9 +142,9 @@ export function AccountsSettingsPage() {
               }}
             />
 
-            <button className="workspace-action-button primary" onClick={saveCreationRules} type="button">
+            <Button onClick={saveCreationRules} variant="primary">
               保存默认创建规则
-            </button>
+            </Button>
             {creationSaved ? <p role="status">默认创建规则已保存</p> : null}
           </section>
 
@@ -207,9 +209,9 @@ export function AccountsSettingsPage() {
               }}
             />
 
-            <button className="workspace-action-button primary" onClick={saveLifecycleRules} type="button">
+            <Button onClick={saveLifecycleRules} variant="primary">
               保存生命周期规则
-            </button>
+            </Button>
             {lifecycleSaved ? <p role="status">生命周期规则已保存</p> : null}
           </section>
 
@@ -268,9 +270,9 @@ export function AccountsSettingsPage() {
               }}
             />
 
-            <button className="workspace-action-button primary" onClick={saveProtectionRules} type="button">
+            <Button onClick={saveProtectionRules} variant="primary">
               保存批量操作保护
-            </button>
+            </Button>
             {protectionSaved ? <p role="status">批量操作保护已保存</p> : null}
           </section>
         </div>
@@ -310,25 +312,17 @@ export function AccountsSettingsPage() {
       </main>
 
       {showDangerConfirm ? (
-        <div className="workspace-dialog-backdrop" role="presentation">
-          <section aria-labelledby="accounts-danger-policy-title" aria-modal="true" className="panel workspace-dialog" role="dialog">
-            <div className="workspace-card-header">
-              <div>
-                <p className="panel-kicker">危险策略</p>
-                <h3 id="accounts-danger-policy-title">确认危险策略变更</h3>
-              </div>
-            </div>
-            <p className="section-copy">开启“允许彻底删除”会让高风险批量动作可用，请确认这是你要对全局邮箱账号策略做出的调整。</p>
-            <div className="workspace-dialog-actions">
-              <button className="workspace-action-button secondary" onClick={cancelDangerousLifecycleChange} type="button">
-                取消
-              </button>
-              <button className="workspace-action-button danger" onClick={confirmDangerousLifecycleChange} type="button">
-                确认危险策略变更
-              </button>
-            </div>
-          </section>
-        </div>
+        <OverlayDialog closeLabel="关闭危险策略确认" eyebrow="危险策略" onClose={cancelDangerousLifecycleChange} title="确认危险策略变更">
+          <p className="section-copy">开启“允许彻底删除”会让高风险批量动作可用，请确认这是你要对全局邮箱账号策略做出的调整。</p>
+          <div className="workspace-dialog-actions">
+            <Button onClick={cancelDangerousLifecycleChange} variant="secondary">
+              取消
+            </Button>
+            <Button onClick={confirmDangerousLifecycleChange} variant="danger">
+              确认危险策略变更
+            </Button>
+          </div>
+        </OverlayDialog>
       ) : null}
     </>
   );

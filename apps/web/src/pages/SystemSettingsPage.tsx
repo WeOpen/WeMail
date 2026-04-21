@@ -1,4 +1,5 @@
 import type { WorkspaceTheme, WorkspaceThemePreference } from "../app/useWorkspaceTheme";
+import { Button } from "../shared/button";
 
 type SystemSettingsPageProps = {
   resolvedTheme: WorkspaceTheme;
@@ -48,13 +49,15 @@ export function SystemSettingsPage({
 
         <div className="appearance-option-grid" role="list" aria-label="主题模式选项">
           {themeOptions.map((option) => (
-            <button
+            <Button
               aria-label={option.label}
-              key={option.value}
               aria-pressed={themePreference === option.value}
               className={`appearance-option-card${themePreference === option.value ? " active" : ""}`}
+              contentLayout="plain"
+              isActive={themePreference === option.value}
+              key={option.value}
               onClick={() => onSelectThemePreference(option.value)}
-              type="button"
+              variant="text"
             >
               <span className={`appearance-option-preview ${option.surfaceClassName}`} aria-hidden="true">
                 <span className="appearance-option-preview-topbar" />
@@ -65,7 +68,7 @@ export function SystemSettingsPage({
                 <strong>{option.label}</strong>
                 <small>{option.description}</small>
               </span>
-            </button>
+            </Button>
           ))}
         </div>
       </section>

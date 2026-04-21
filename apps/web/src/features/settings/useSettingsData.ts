@@ -1,7 +1,8 @@
-import { useCallback, useState } from "react";
+import { useCallback } from "react";
 
-import type { ApiKeySummary, SessionSummary, TelegramSubscriptionSummary } from "@wemail/shared";
+import type { SessionSummary } from "@wemail/shared";
 
+import { useAppStore } from "../../app/appStore";
 import type { WemailToastInput } from "../../shared/toast";
 import { createApiKeyAction, revokeApiKeyAction, saveTelegramAction } from "./actions";
 import { querySettingsData } from "./queries";
@@ -12,15 +13,15 @@ type UseSettingsDataOptions = {
 };
 
 export function useSettingsData({ session, onToast }: UseSettingsDataOptions) {
-  const [apiKeys, setApiKeys] = useState<ApiKeySummary[]>([]);
-  const [telegram, setTelegram] = useState<TelegramSubscriptionSummary | null>(null);
+  const apiKeys = useAppStore((state) => state.apiKeys);
+  const telegram = useAppStore((state) => state.telegram);
+  const setSettingsData = useAppStore((state) => state.setSettingsData);
 
   const refreshSettingsData = useCallback(async () => {
     if (!session) return;
     const data = await querySettingsData();
-    setApiKeys(data.apiKeys);
-    setTelegram(data.telegram);
-  }, [session]);
+    setSettingsData(data.apiKeys, data.telegram);
+  }, [session, setSettingsData]);
 
   const createApiKey = useCallback(
     async (label: string) => {
