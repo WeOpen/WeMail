@@ -6,14 +6,14 @@ CREATE TABLE IF NOT EXISTS users (
   created_at TEXT NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS sessions (
+CREATE TABLE IF NOT EXISTS auth_sessions (
   id TEXT PRIMARY KEY,
   user_id TEXT NOT NULL,
   expires_at TEXT NOT NULL,
   created_at TEXT NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS invites (
+CREATE TABLE IF NOT EXISTS user_invites (
   id TEXT PRIMARY KEY,
   code TEXT NOT NULL UNIQUE,
   created_by_user_id TEXT,
@@ -23,17 +23,30 @@ CREATE TABLE IF NOT EXISTS invites (
   created_at TEXT NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS mailboxes (
+CREATE TABLE IF NOT EXISTS accounts (
   id TEXT PRIMARY KEY,
   user_id TEXT NOT NULL,
   address TEXT NOT NULL UNIQUE,
   label TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'enabled',
+  tags_json TEXT NOT NULL DEFAULT '[]',
+  created_by_user_id TEXT,
+  last_active_at TEXT,
+  deleted_at TEXT,
   created_at TEXT NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS messages (
+CREATE TABLE IF NOT EXISTS account_settings (
   id TEXT PRIMARY KEY,
-  mailbox_id TEXT NOT NULL,
+  creation_json TEXT NOT NULL,
+  lifecycle_json TEXT NOT NULL,
+  protection_json TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS mail_messages (
+  id TEXT PRIMARY KEY,
+  account_id TEXT NOT NULL,
   from_address TEXT NOT NULL,
   subject TEXT NOT NULL,
   preview_text TEXT NOT NULL,
@@ -45,7 +58,7 @@ CREATE TABLE IF NOT EXISTS messages (
   expires_at TEXT NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS attachments (
+CREATE TABLE IF NOT EXISTS mail_attachments (
   id TEXT PRIMARY KEY,
   message_id TEXT NOT NULL,
   filename TEXT NOT NULL,
@@ -55,14 +68,31 @@ CREATE TABLE IF NOT EXISTS attachments (
   created_at TEXT NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS outbound_messages (
+CREATE TABLE IF NOT EXISTS mail_outbound_messages (
   id TEXT PRIMARY KEY,
-  mailbox_id TEXT NOT NULL,
+  account_id TEXT NOT NULL,
   to_address TEXT NOT NULL,
   subject TEXT NOT NULL,
   status TEXT NOT NULL,
   error_text TEXT,
   created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS mail_settings (
+  id TEXT PRIMARY KEY,
+  sender_rules_json TEXT NOT NULL,
+  routing_json TEXT NOT NULL,
+  workspace_defaults_json TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS mail_domains (
+  id TEXT PRIMARY KEY,
+  domain TEXT NOT NULL UNIQUE,
+  allowed_roles_json TEXT NOT NULL DEFAULT '[]',
+  sort_order INTEGER NOT NULL,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS api_keys (
@@ -85,7 +115,7 @@ CREATE TABLE IF NOT EXISTS telegram_subscriptions (
   updated_at TEXT NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS send_quotas (
+CREATE TABLE IF NOT EXISTS user_send_quotas (
   user_id TEXT PRIMARY KEY,
   daily_limit INTEGER NOT NULL,
   sends_today INTEGER NOT NULL,
@@ -93,13 +123,55 @@ CREATE TABLE IF NOT EXISTS send_quotas (
   updated_at TEXT NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS settings (
+CREATE TABLE IF NOT EXISTS webhook_endpoints (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  name TEXT NOT NULL,
+  url TEXT NOT NULL,
+  events_json TEXT NOT NULL,
+  signing_secret TEXT NOT NULL,
+  enabled INTEGER NOT NULL,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS webhook_deliveries (
+  id TEXT PRIMARY KEY,
+  endpoint_id TEXT NOT NULL,
+  event_type TEXT NOT NULL,
+  status TEXT NOT NULL,
+  status_code INTEGER,
+  duration_ms INTEGER,
+  error_text TEXT,
+  payload_json TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS announcements (
+  id TEXT PRIMARY KEY,
+  title TEXT NOT NULL,
+  summary TEXT NOT NULL,
+  type TEXT NOT NULL,
+  status TEXT NOT NULL,
+  audience TEXT NOT NULL,
+  priority TEXT NOT NULL,
+  author_user_id TEXT,
+  author_label TEXT NOT NULL,
+  tags_json TEXT NOT NULL,
+  pinned INTEGER NOT NULL,
+  start_at TEXT,
+  end_at TEXT,
+  published_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS system_settings (
   key TEXT PRIMARY KEY,
   value TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS audit_events (
+CREATE TABLE IF NOT EXISTS system_audit_events (
   id TEXT PRIMARY KEY,
   actor_type TEXT NOT NULL,
   actor_id TEXT NOT NULL,

@@ -11,7 +11,7 @@ describe("worker mailbox integration", () => {
 
     for (let index = 0; index < 5; index += 1) {
       const response = await app.request(
-        "/api/mailboxes",
+        "/api/accounts",
         {
           method: "POST",
           headers: {
@@ -27,7 +27,7 @@ describe("worker mailbox integration", () => {
     }
 
     const overflow = await app.request(
-      "/api/mailboxes",
+      "/api/accounts",
       {
         method: "POST",
         headers: {

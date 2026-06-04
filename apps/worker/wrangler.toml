@@ -26,6 +26,7 @@ ADMIN_EMAILS = ""
 binding = "DB"
 database_name = "wemail"
 database_id = "local"
+migrations_dir = "src/infrastructure/db/migrations"
 
 # Remote deployments should use explicit environments so staging and
 # production can point at different D1 instances, domains, and secrets.
@@ -54,6 +55,7 @@ ADMIN_EMAILS = ""
 binding = "DB"
 database_name = "wemail-staging"
 database_id = "replace-with-staging-d1-id"
+migrations_dir = "src/infrastructure/db/migrations"
 
 [env.production]
 workers_dev = true
@@ -80,4 +82,4 @@ ADMIN_EMAILS = ""
 binding = "DB"
 database_name = "wemail-production"
 database_id = "replace-with-production-d1-id"
-
+migrations_dir = "src/infrastructure/db/migrations"

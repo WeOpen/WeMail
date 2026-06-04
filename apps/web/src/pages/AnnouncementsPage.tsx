@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ResponsivePie } from "@nivo/pie";
 
 import {
@@ -9,6 +9,7 @@ import {
   type AnnouncementItem
 } from "../features/announcements/announcementsMockData";
 import { Button } from "../shared/button";
+import { apiFetch } from "../shared/api/client";
 import { nivoTheme } from "../shared/chart";
 import { FormField, SelectInput, TextInput } from "../shared/form";
 
@@ -47,6 +48,8 @@ function statusClassName(status: AnnouncementItem["status"]) {
 }
 
 export function AnnouncementsPage({ canPublish = false }: AnnouncementsPageProps) {
+  const [announcements, setAnnouncements] = useState<AnnouncementItem[]>(announcementsTimeline);
+  const activeFeaturedAnnouncement = announcements.find((announcement) => announcement.pinned) ?? featuredAnnouncement;
   const overviewData = useMemo(
     () =>
       announcementStatusSummary.map((item) => ({
@@ -58,19 +61,51 @@ export function AnnouncementsPage({ canPublish = false }: AnnouncementsPageProps
     []
   );
 
+  useEffect(() => {
+    let cancelled = false;
+    void apiFetch<{ announcements?: AnnouncementItem[] }>("/api/announcements")
+      .then((payload) => {
+        if (!cancelled && payload.announcements && payload.announcements.length > 0) {
+          setAnnouncements(payload.announcements);
+        }
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  function publishAnnouncement() {
+    void apiFetch<{ announcement: AnnouncementItem }>("/api/announcements", {
+      method: "POST",
+      body: JSON.stringify({
+        title: "系统公告已连接后端",
+        summary: "公告页面已切换到新的菜单化 API，后续发布会写入 announcements 表。",
+        type: "产品更新",
+        status: "已发布",
+        audience: "全部成员",
+        priority: "中",
+        tags: ["公告", "API"],
+        pinned: false
+      })
+    })
+      .then((payload) => setAnnouncements((current) => [payload.announcement, ...current]))
+      .catch(() => undefined);
+  }
+
   return (
     <main className="workspace-grid announcements-grid">
       <div className="announcements-top-grid">
         <section className="panel workspace-card announcements-hero-card">
           <div className="announcements-hero-copy">
             <p className="panel-kicker">置顶公告</p>
-            <h1>{featuredAnnouncement.title}</h1>
-            <p className="section-copy announcements-hero-description">{featuredAnnouncement.summary}</p>
+            <h1>{activeFeaturedAnnouncement.title}</h1>
+            <p className="section-copy announcements-hero-description">{activeFeaturedAnnouncement.summary}</p>
             <div className="announcements-chip-row">
-              <span className={`announcements-chip ${typeClassName(featuredAnnouncement.type)}`}>{featuredAnnouncement.type}</span>
-              <span className={`announcements-chip ${statusClassName(featuredAnnouncement.status)}`}>{featuredAnnouncement.status}</span>
-              <span className="announcements-chip neutral">发布者：{featuredAnnouncement.author}</span>
-              <span className="announcements-chip neutral">发布时间：{featuredAnnouncement.publishedAt}</span>
+              <span className={`announcements-chip ${typeClassName(activeFeaturedAnnouncement.type)}`}>{activeFeaturedAnnouncement.type}</span>
+              <span className={`announcements-chip ${statusClassName(activeFeaturedAnnouncement.status)}`}>{activeFeaturedAnnouncement.status}</span>
+              <span className="announcements-chip neutral">发布者：{activeFeaturedAnnouncement.author}</span>
+              <span className="announcements-chip neutral">发布时间：{activeFeaturedAnnouncement.publishedAt}</span>
             </div>
           </div>
         </section>
@@ -128,7 +163,7 @@ export function AnnouncementsPage({ canPublish = false }: AnnouncementsPageProps
           <div className="announcements-section-head">
             <p className="panel-kicker announcements-section-kicker">最近公告</p>
             {canPublish ? (
-              <Button className="announcements-publish-button" variant="primary">
+              <Button className="announcements-publish-button" onClick={publishAnnouncement} variant="primary">
                 发布公告
               </Button>
             ) : null}
@@ -171,7 +206,7 @@ export function AnnouncementsPage({ canPublish = false }: AnnouncementsPageProps
           </div>
 
           <div className="announcements-timeline">
-            {announcementsTimeline.map((announcement) => (
+            {announcements.map((announcement) => (
               <article className="announcements-item" key={announcement.id}>
                 <div className="announcements-item-head">
                   <div className="announcements-item-title">

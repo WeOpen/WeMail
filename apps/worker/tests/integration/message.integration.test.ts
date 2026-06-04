@@ -11,7 +11,7 @@ async function registerMemberAndCreateMailbox() {
   });
 
   const registerResponse = await app.request(
-    "/auth/register",
+    "/api/auth/register",
     {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -26,7 +26,7 @@ async function registerMemberAndCreateMailbox() {
 
   const cookie = registerResponse.headers.get("set-cookie") ?? "";
   const sessionResponse = await app.request(
-    "/auth/session",
+    "/api/auth/session",
     { headers: { cookie } },
     env
   );
@@ -66,7 +66,7 @@ describe("worker message integration", () => {
     });
 
     const listResponse = await app.request(
-      `/api/messages?mailboxId=${mailbox.id}`,
+      `/api/mail/messages?accountId=${mailbox.id}`,
       { headers: { cookie } },
       env
     );
@@ -79,7 +79,7 @@ describe("worker message integration", () => {
     expect(listPayload.messages[0].extraction.value).toBe("123456");
 
     const detailResponse = await app.request(
-      `/api/messages/${message.id}`,
+      `/api/mail/messages/${message.id}`,
       { headers: { cookie } },
       env
     );
@@ -123,7 +123,7 @@ describe("worker message integration", () => {
     ]);
 
     const response = await app.request(
-      `/api/messages/${message.id}/attachments/attachment-1`,
+      `/api/mail/messages/${message.id}/attachments/attachment-1`,
       { headers: { cookie } },
       env
     );

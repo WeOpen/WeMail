@@ -2,7 +2,6 @@ import { ReactNode, useEffect, useRef, useState } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import {
   Bell,
-  ChevronDown,
   Inbox,
   KeyRound,
   LayoutDashboard,
@@ -12,13 +11,14 @@ import {
   MoonStar,
   Settings2,
   SunMedium,
+  UserRound,
   Users,
   Webhook
 } from "lucide-react";
 
 import type { SessionSummary } from "@wemail/shared";
 
-import { Button } from "../shared/button";
+import { Button, ButtonLink } from "../shared/button";
 import { Tabs, TabsList, TabsPanel, TabsTrigger } from "../shared/tabs";
 import { WemailBrandLockup } from "../shared/WemailBrandLockup";
 import type { WorkspaceRailIcon, WorkspaceShellState } from "./workspaceShell";
@@ -39,6 +39,10 @@ function ThemeIcon({ theme }: { theme: WorkspaceTheme }) {
   ) : (
     <MoonStar absoluteStrokeWidth aria-hidden="true" className="workspace-theme-icon workspace-icon" strokeWidth={1.8} />
   );
+}
+
+function buildUserDisplayName(email: string) {
+  return email.split("@")[0] || email;
 }
 
 function RailIcon({ icon }: { icon: WorkspaceRailIcon }) {
@@ -84,20 +88,33 @@ export function AppLayout({
   const location = useLocation();
   const navigate = useNavigate();
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const [isMobileSettingsMenuOpen, setIsMobileSettingsMenuOpen] = useState(false);
   const userMenuRef = useRef<HTMLDivElement | null>(null);
+  const mobileDockRef = useRef<HTMLDivElement | null>(null);
   const railScrollRef = useRef<HTMLElement | null>(null);
   const mainScrollRef = useRef<HTMLDivElement | null>(null);
+  const userDisplayName = buildUserDisplayName(session.user.email);
+  const workspaceNavItems = shell.railSections.find((section) => section.title === "工作台")?.items ?? [];
+  const settingsNavItems = shell.railSections.find((section) => section.title === "设置")?.items ?? [];
+  const isSettingsActive = settingsNavItems.some((item) => item.id === shell.activePrimaryId);
 
   useEffect(() => {
     const handlePointerDown = (event: MouseEvent) => {
-      if (!userMenuRef.current) return;
-      if (userMenuRef.current.contains(event.target as Node)) return;
-      setIsUserMenuOpen(false);
+      const targetNode = event.target as Node;
+
+      if (userMenuRef.current && !userMenuRef.current.contains(targetNode)) {
+        setIsUserMenuOpen(false);
+      }
+
+      if (mobileDockRef.current && !mobileDockRef.current.contains(targetNode)) {
+        setIsMobileSettingsMenuOpen(false);
+      }
     };
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         setIsUserMenuOpen(false);
+        setIsMobileSettingsMenuOpen(false);
       }
     };
 
@@ -109,6 +126,10 @@ export function AppLayout({
       document.removeEventListener("keydown", handleKeyDown);
     };
   }, []);
+
+  useEffect(() => {
+    setIsMobileSettingsMenuOpen(false);
+  }, [location.pathname]);
 
   const activeSecondaryRoute =
     shell.secondaryNav.find((item) => item.to === location.pathname)?.to ?? shell.secondaryNav[0]?.to ?? "";
@@ -216,16 +237,31 @@ export function AppLayout({
               aria-haspopup="menu"
               aria-label="用户菜单"
               className="workspace-user-trigger"
+              iconOnly
               onClick={() => setIsUserMenuOpen((currentState) => !currentState)}
               size="sm"
-              trailingIcon={<ChevronDown absoluteStrokeWidth aria-hidden="true" className="workspace-icon" strokeWidth={1.9} />}
               variant="secondary"
             >
-              {session.user.email}
+              <UserRound absoluteStrokeWidth aria-hidden="true" className="workspace-user-trigger-icon workspace-icon" strokeWidth={1.9} />
             </Button>
 
             {isUserMenuOpen ? (
               <div className="workspace-user-dropdown panel" role="menu">
+                <div className="workspace-user-dropdown-header" role="none">
+                  <strong>姓名：{userDisplayName}</strong>
+                </div>
+                <ButtonLink
+                  className="workspace-user-dropdown-item"
+                  fullWidth
+                  leadingIcon={<Settings2 absoluteStrokeWidth aria-hidden="true" className="workspace-icon" strokeWidth={1.9} />}
+                  onClick={() => setIsUserMenuOpen(false)}
+                  role="menuitem"
+                  size="sm"
+                  to="/system/profile"
+                  variant="text"
+                >
+                  个人设置
+                </ButtonLink>
                 <Button
                   className="workspace-user-dropdown-item"
                   fullWidth
@@ -278,6 +314,55 @@ export function AppLayout({
         <div className="workspace-main-column workspace-scroll-area" ref={mainScrollRef}>
           <div className={`workspace-route workspace-route-${shell.routeKey}`}>{children}</div>
         </div>
+      </div>
+
+      <div className="workspace-mobile-dock-shell" ref={mobileDockRef}>
+        {isMobileSettingsMenuOpen ? (
+          <nav aria-label="移动端设置菜单" className="workspace-mobile-settings-bar" role="menu">
+            {settingsNavItems.map((item) => (
+              <NavLink
+                aria-label={item.label}
+                className={({ isActive }) =>
+                  `workspace-mobile-dock-item workspace-mobile-settings-item${isActive || item.id === shell.activePrimaryId ? " active" : ""}`
+                }
+                key={`mobile-settings-${item.id}`}
+                onClick={() => setIsMobileSettingsMenuOpen(false)}
+                role="menuitem"
+                to={item.to}
+              >
+                <RailIcon icon={item.icon} />
+                <span className="sr-only">{item.label}</span>
+              </NavLink>
+            ))}
+          </nav>
+        ) : null}
+
+        <nav aria-label="移动端工作台 Dock" className="workspace-mobile-dock">
+          {workspaceNavItems.map((item) => (
+            <NavLink
+              aria-label={item.label}
+              className={({ isActive }) =>
+                `workspace-mobile-dock-item workspace-mobile-workspace-item${isActive || item.id === shell.activePrimaryId ? " active" : ""}`
+              }
+              key={`mobile-workspace-${item.id}`}
+              onClick={() => setIsMobileSettingsMenuOpen(false)}
+              to={item.to}
+            >
+              <RailIcon icon={item.icon} />
+              <span className="sr-only">{item.label}</span>
+            </NavLink>
+          ))}
+          <button
+            aria-expanded={isMobileSettingsMenuOpen}
+            aria-haspopup="menu"
+            aria-label="设置菜单"
+            className={`workspace-mobile-dock-item workspace-mobile-settings-trigger${isMobileSettingsMenuOpen || isSettingsActive ? " active" : ""}`}
+            onClick={() => setIsMobileSettingsMenuOpen((currentState) => !currentState)}
+            type="button"
+          >
+            <Settings2 absoluteStrokeWidth aria-hidden="true" className="workspace-rail-icon workspace-icon" strokeWidth={1.9} />
+          </button>
+        </nav>
       </div>
     </div>
   );

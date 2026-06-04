@@ -1,13 +1,21 @@
-import type { FeatureToggles } from "@wemail/shared";
+import type { FeatureToggles, MailDomainSettings } from "@wemail/shared";
 
 import type { AppStore } from "../../core/bindings";
 import { createApiKeySecret, hashString } from "../../shared/auth";
+import { defaultMailDomains, getMailDomains, normalizeMailDomainEntries } from "../services/config-service";
 import { jsonError, recordAudit } from "../services/audit-service";
 
 type SettingsUseCaseContext = {
   store: AppStore;
   featureToggles: Pick<FeatureToggles, "telegramEnabled">;
 };
+
+function toMailDomainSettings(domains: MailDomainSettings["domains"]): MailDomainSettings {
+  return {
+    domains,
+    primaryDomain: domains[0]?.domain ?? ""
+  };
+}
 
 export async function getTelegramSubscription(context: SettingsUseCaseContext, userId: string) {
   return context.store.telegram.findByUserId(userId);
@@ -78,4 +86,25 @@ export async function updateFeatureTogglesUseCase(
   });
   await recordAudit(context.store, "user", actorUserId, "features-update", next);
   return next;
+}
+
+export async function getMailDomainSettingsUseCase(
+  context: Pick<SettingsUseCaseContext, "store">,
+  env: Parameters<typeof defaultMailDomains>[0]
+) {
+  return toMailDomainSettings(await getMailDomains(context.store, env));
+}
+
+export async function updateMailDomainsUseCase(
+  context: Pick<SettingsUseCaseContext, "store">,
+  payload: { domains?: unknown },
+  actorUserId: string
+) {
+  const domains = Array.isArray(payload.domains) ? normalizeMailDomainEntries(payload.domains) : [];
+
+  if (domains.length === 0) return jsonError("At least one mail domain is required", 400);
+
+  const next = await context.store.mailDomains.saveAll(domains);
+  await recordAudit(context.store, "user", actorUserId, "mail-domains-update", { domains: next });
+  return toMailDomainSettings(next);
 }

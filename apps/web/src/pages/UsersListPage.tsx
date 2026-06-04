@@ -1,13 +1,14 @@
 import { useState, type FormEvent } from "react";
+import { Download, Plus } from "lucide-react";
 
-import type { QuotaSummary, UserSummary } from "@wemail/shared";
+import type { QuotaSummary, UserRole, UserStatus, UserSummary } from "@wemail/shared";
 
 import { Button } from "../shared/button";
 import { Badge } from "../shared/badge";
 import { FilterBar } from "../shared/filter-bar";
-import { CheckboxField, FormField, SearchInput, SelectInput } from "../shared/form";
+import { CheckboxField, FormField, SearchInput, SelectInput, TextInput } from "../shared/form";
 import { OverlayDrawer } from "../shared/overlay";
-import { Page, PageBody, PageHeader, PageMain, PageSidebar, PageToolbar } from "../shared/page-layout";
+import { Page, PageBody, PageHeader, PageMain, PageToolbar } from "../shared/page-layout";
 import {
   Table,
   TableBody,
@@ -19,7 +20,7 @@ import {
 } from "../shared/table";
 
 type UsersRoleFilter = "all" | "admin" | "member";
-type UsersStatusFilter = "all" | "active";
+type UsersStatusFilter = "all" | "active" | "outbound_disabled";
 
 type UsersListPageProps = {
   adminUsers: UserSummary[];
@@ -31,6 +32,10 @@ type UsersListPageProps = {
   onSearchChange: (value: string) => void;
   onRoleFilterChange: (value: UsersRoleFilter) => void;
   onStatusFilterChange: (value: UsersStatusFilter) => void;
+  onCreateUser: (payload: { email: string; password: string; role: UserRole }) => Promise<void>;
+  onExportUsers: (users: UserSummary[]) => void;
+  onBulkChangeRole: (userIds: string[], role: UserRole) => Promise<void>;
+  onBulkSuspendOutbound: (userIds: string[]) => Promise<void>;
   onOpenUserSettings: (userId: string) => void;
   onCloseUserSettings: () => void;
   onSubmitQuota: (event: FormEvent<HTMLFormElement>, userId: string) => Promise<void>;
@@ -44,6 +49,14 @@ function buildDisplayName(email: string) {
   return email.split("@")[0] || email;
 }
 
+function resolveStatus(user: UserSummary): UserStatus {
+  return user.status ?? "active";
+}
+
+function formatStatus(status: UserStatus) {
+  return status === "outbound_disabled" ? "外发暂停" : "正常";
+}
+
 export function UsersListPage({
   adminUsers,
   adminQuota,
@@ -54,11 +67,19 @@ export function UsersListPage({
   onSearchChange,
   onRoleFilterChange,
   onStatusFilterChange,
+  onCreateUser,
+  onExportUsers,
+  onBulkChangeRole,
+  onBulkSuspendOutbound,
   onOpenUserSettings,
   onCloseUserSettings,
   onSubmitQuota
 }: UsersListPageProps) {
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
+  const [isCreateDrawerOpen, setIsCreateDrawerOpen] = useState(false);
+  const [isCreatingUser, setIsCreatingUser] = useState(false);
+  const [createUserError, setCreateUserError] = useState<string | null>(null);
+  const [isBulkUpdating, setIsBulkUpdating] = useState(false);
   const normalizedQuery = searchValue.trim().toLowerCase();
   const visibleUsers = adminUsers.filter((user) => {
     const matchesQuery =
@@ -66,7 +87,7 @@ export function UsersListPage({
       user.email.toLowerCase().includes(normalizedQuery) ||
       buildDisplayName(user.email).toLowerCase().includes(normalizedQuery);
     const matchesRole = roleFilter === "all" || user.role === roleFilter;
-    const matchesStatus = statusFilter === "all" || statusFilter === "active";
+    const matchesStatus = statusFilter === "all" || resolveStatus(user) === statusFilter;
     return matchesQuery && matchesRole && matchesStatus;
   });
   const visibleUserIds = visibleUsers.map((user) => user.id);
@@ -89,13 +110,60 @@ export function UsersListPage({
     });
   }
 
+  async function handleCreateUser(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    const email = String(form.get("email") ?? "").trim().toLowerCase();
+    const password = String(form.get("password") ?? "");
+    const role = String(form.get("role") ?? "member") as UserRole;
+
+    if (!email || !password) {
+      setCreateUserError("请填写邮箱和初始密码。");
+      return;
+    }
+
+    setIsCreatingUser(true);
+    setCreateUserError(null);
+    try {
+      await onCreateUser({ email, password, role });
+      setIsCreateDrawerOpen(false);
+      event.currentTarget.reset();
+    } catch {
+      setCreateUserError("用户创建失败，请稍后重试。");
+    } finally {
+      setIsCreatingUser(false);
+    }
+  }
+
+  async function handleBulkRoleChange(role: UserRole) {
+    setIsBulkUpdating(true);
+    try {
+      await onBulkChangeRole(selectedUserIds, role);
+      setSelectedUserIds([]);
+    } finally {
+      setIsBulkUpdating(false);
+    }
+  }
+
+  async function handleBulkSuspendOutbound() {
+    setIsBulkUpdating(true);
+    try {
+      await onBulkSuspendOutbound(selectedUserIds);
+      setSelectedUserIds([]);
+    } finally {
+      setIsBulkUpdating(false);
+    }
+  }
+
   return (
     <Page className="workspace-grid users-list-grid">
       <section className="panel workspace-card page-panel users-page-header">
         <PageHeader
           actions={
             <div className="workspace-topbar-actions">
-              <Button variant="primary">导出</Button>
+              <Button leadingIcon={<Download aria-hidden="true" />} onClick={() => onExportUsers(visibleUsers)} variant="secondary">
+                导出
+              </Button>
             </div>
           }
           kicker="用户中心"
@@ -124,18 +192,22 @@ export function UsersListPage({
               <SelectInput aria-label="状态筛选" onChange={(event) => onStatusFilterChange(event.target.value as UsersStatusFilter)} value={statusFilter}>
                 <option value="all">全部</option>
                 <option value="active">正常</option>
+                <option value="outbound_disabled">外发暂停</option>
               </SelectInput>
             </FormField>
           </FilterBar>
         </PageToolbar>
       </section>
 
-      <PageBody hasSidebar>
+      <PageBody>
         <PageMain className="panel workspace-card page-panel users-table-panel">
           <div className="workspace-card-header">
             <div>
               <p className="panel-kicker">用户列表</p>
             </div>
+            <Button leadingIcon={<Plus aria-hidden="true" />} onClick={() => setIsCreateDrawerOpen(true)} variant="primary">
+              新增用户
+            </Button>
           </div>
 
           {selectedCount > 0 ? (
@@ -143,9 +215,15 @@ export function UsersListPage({
               <PageHeader
                 actions={
                   <div className="workspace-topbar-actions">
-                    <Button variant="primary">批量设为管理员</Button>
-                    <Button variant="secondary">批量设为成员</Button>
-                    <Button variant="secondary">批量暂停外发</Button>
+                    <Button disabled={isBulkUpdating} onClick={() => void handleBulkRoleChange("admin")} variant="primary">
+                      批量设为管理员
+                    </Button>
+                    <Button disabled={isBulkUpdating} onClick={() => void handleBulkRoleChange("member")} variant="secondary">
+                      批量设为成员
+                    </Button>
+                    <Button disabled={isBulkUpdating} onClick={() => void handleBulkSuspendOutbound()} variant="secondary">
+                      批量暂停外发
+                    </Button>
                   </div>
                 }
                 kicker="批量操作"
@@ -180,6 +258,7 @@ export function UsersListPage({
               <TableBody>
                 {visibleUsers.map((user) => {
                   const isSelected = selectedUserIds.includes(user.id);
+                  const status = resolveStatus(user);
 
                   return (
                     <TableRow isSelected={isSelected} key={user.id}>
@@ -199,7 +278,7 @@ export function UsersListPage({
                       <TableCell>{formatRole(user.role)}</TableCell>
                       <TableCell>{user.createdAt.slice(0, 10)}</TableCell>
                       <TableCell>
-                        <Badge variant="success">正常</Badge>
+                        <Badge variant={status === "outbound_disabled" ? "warning" : "success"}>{formatStatus(status)}</Badge>
                       </TableCell>
                       <TableCell className="ui-table-sticky-end" nowrap width={112}>
                         <Button onClick={() => onOpenUserSettings(user.id)} size="sm" variant="secondary">
@@ -213,18 +292,45 @@ export function UsersListPage({
             </Table>
           </TableContainer>
         </PageMain>
-
-        <PageSidebar>
-          <section className="panel workspace-card page-panel users-table-panel">
-            <p className="panel-kicker">筛选摘要</p>
-            <div className="accounts-list-status-cell">
-              <div className="section-copy">可见用户：{visibleUsers.length}</div>
-              <div className="section-copy">已选用户：{selectedCount}</div>
-              <div className="section-copy">角色筛选：{roleFilter === "all" ? "全部" : formatRole(roleFilter)}</div>
-            </div>
-          </section>
-        </PageSidebar>
       </PageBody>
+
+      {isCreateDrawerOpen ? (
+        <OverlayDrawer
+          ariaLabel="新增用户"
+          closeLabel="关闭新增用户"
+          closeOnBackdrop
+          eyebrow="用户列表"
+          onClose={() => {
+            setIsCreateDrawerOpen(false);
+            setCreateUserError(null);
+          }}
+          title="新增用户"
+          width="sm"
+        >
+          <form className="users-drawer-form" onSubmit={(event) => void handleCreateUser(event)}>
+            <FormField htmlFor="create-user-email" label="邮箱" required>
+              <TextInput id="create-user-email" name="email" placeholder="name@example.com" required type="email" />
+            </FormField>
+            <FormField htmlFor="create-user-password" label="初始密码" required>
+              <TextInput id="create-user-password" minLength={8} name="password" required type="password" />
+            </FormField>
+            <FormField htmlFor="create-user-role" label="角色" required>
+              <SelectInput defaultValue="member" id="create-user-role" name="role">
+                <option value="member">成员</option>
+                <option value="admin">管理员</option>
+              </SelectInput>
+            </FormField>
+            {createUserError ? (
+              <p className="form-message" data-tone="error" role="alert">
+                {createUserError}
+              </p>
+            ) : null}
+            <Button isLoading={isCreatingUser} loadingLabel="创建中" type="submit" variant="primary">
+              创建用户
+            </Button>
+          </form>
+        </OverlayDrawer>
+      ) : null}
 
       {selectedUser ? (
         <OverlayDrawer
@@ -241,6 +347,7 @@ export function UsersListPage({
             <strong>基本资料</strong>
             <div className="users-drawer-card">
               <span>角色：{formatRole(selectedUser.role)}</span>
+              <span>状态：{formatStatus(resolveStatus(selectedUser))}</span>
               <span>创建时间：{selectedUser.createdAt.slice(0, 10)}</span>
             </div>
           </div>

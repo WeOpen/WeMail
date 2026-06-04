@@ -4,7 +4,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "db:init:local": "node ./scripts/init-local-db.mjs"
+    "dev": "wrangler dev",
+    "db:init:local": "node ./scripts/init-local-db.mjs",
+    "db:migrate:local": "wrangler d1 migrations apply DB --local"
   },
   "dependencies": {
     "@wemail/shared": "workspace:*",

@@ -1,5 +1,8 @@
-import type { AppBindings, AppStore } from "../../core/bindings";
-import { recordAudit } from "../services/audit-service";
+import type { UserRole } from "@wemail/shared";
+
+import type { AppBindings, AppStore, UserRecord } from "../../core/bindings";
+import { hashPassword } from "../../shared/auth";
+import { jsonError, recordAudit } from "../services/audit-service";
 import { getOutboundLimit } from "../services/config-service";
 
 type AdminUseCaseContext = {
@@ -8,7 +11,61 @@ type AdminUseCaseContext = {
 };
 
 export async function listAdminUsers(context: AdminUseCaseContext) {
-  return context.store.users.list();
+  const users = await context.store.users.list();
+  return Promise.all(users.map((user) => toAdminUserSummary(context, user)));
+}
+
+async function toAdminUserSummary(context: AdminUseCaseContext, user: UserRecord) {
+  const quota = await context.store.quotas.getByUserId(user.id, getOutboundLimit(context.env));
+  return {
+    id: user.id,
+    email: user.email,
+    role: user.role,
+    status: quota.disabled ? "outbound_disabled" : "active",
+    createdAt: user.createdAt
+  };
+}
+
+export async function createAdminUserUseCase(
+  context: AdminUseCaseContext,
+  payload: { actorUserId: string; email: string; password: string; role: UserRole }
+) {
+  if (await context.store.users.findByEmail(payload.email)) return jsonError("User already exists", 409);
+
+  const user = await context.store.users.create({
+    email: payload.email,
+    passwordHash: await hashPassword(payload.password),
+    role: payload.role
+  });
+
+  await context.store.quotas.save({
+    userId: user.id,
+    dailyLimit: getOutboundLimit(context.env),
+    sendsToday: 0,
+    disabled: false,
+    updatedAt: new Date().toISOString()
+  });
+  await recordAudit(context.store, "user", payload.actorUserId, "user-create", {
+    userId: user.id,
+    role: user.role
+  });
+
+  return toAdminUserSummary(context, user);
+}
+
+export async function updateUserRoleUseCase(
+  context: AdminUseCaseContext,
+  payload: { actorUserId: string; userId: string; role: UserRole }
+) {
+  const user = await context.store.users.updateRole(payload.userId, payload.role);
+  if (!user) return jsonError("User not found", 404);
+
+  await recordAudit(context.store, "user", payload.actorUserId, "user-role-update", {
+    userId: user.id,
+    role: user.role
+  });
+
+  return toAdminUserSummary(context, user);
 }
 
 export async function listAdminInvites(context: AdminUseCaseContext) {

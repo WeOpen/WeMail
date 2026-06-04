@@ -158,7 +158,7 @@ cd apps/worker && pnpm exec wrangler deploy --env staging
 
 staging 与 production 都至少执行以下冒烟：
 
-1. `GET /health` 返回 `ok: true`，且 `environment` 正确。
+1. `GET /api/system/health` 返回 `ok: true`，且 `environment` 正确。
 2. 邀请码注册可用。
 3. 能创建临时邮箱。
 4. 能正常收件并查看附件。

@@ -95,9 +95,17 @@ export function DesignSystemPage() {
             <p className="panel-kicker" style={{ margin: 0, alignSelf: "start" }}>
               WeMail Design System v1
             </p>
+            <div style={{ ...designSystemSharedStyles.stack, gap: "10px" }}>
+              <h1 style={{ margin: 0 }}>Components</h1>
+              <p className="section-copy" style={{ margin: 0, maxWidth: "820px" }}>
+                参考 HeroUI React Components 的信息架构：左侧按组件索引导航，右侧每个组件都按 Import、Usage、Variants、Anatomy、Accessibility、API Reference 和 Examples 展开。
+                WeMail 保留自己的共享原语、token 和业务约束，但阅读路径会尽量贴近 HeroUI 的组件文档体验。
+              </p>
+            </div>
             <div style={{ ...designSystemSharedStyles.chipRow, justifyContent: "space-between", alignItems: "center" }}>
               <div style={designSystemSharedStyles.chipRow}>
                 <span style={designSystemPageStyles.emphasisChip}>{`${groups.length} groups`}</span>
+                <span style={designSystemSharedStyles.chip}>{`${groups.reduce((total, group) => total + group.components.length, 0)} components`}</span>
                 <span style={designSystemSharedStyles.chip}>{`${designSystemSections.length} sections`}</span>
                 <span style={designSystemSharedStyles.chip}>/design-system</span>
               </div>

@@ -6,7 +6,9 @@ import {
   parseOutboundPayload,
   parseQuotaPayload,
   parseRegisterPayload,
-  parseTelegramPayload
+  parseTelegramPayload,
+  parseUserCreatePayload,
+  parseUserRoleUpdatePayload
 } from "../src";
 
 describe("shared schemas", () => {
@@ -74,5 +76,26 @@ describe("shared schemas", () => {
       dailyLimit: 5,
       disabled: true
     });
+  });
+
+  it("parses admin user create payload", () => {
+    expect(
+      parseUserCreatePayload({
+        email: " New.User@Example.COM ",
+        password: "password123",
+        role: "member"
+      })
+    ).toEqual({
+      email: "new.user@example.com",
+      password: "password123",
+      role: "member"
+    });
+  });
+
+  it("rejects invalid admin user roles", () => {
+    expect(() => parseUserCreatePayload({ email: "demo@example.com", password: "password123", role: "owner" })).toThrow(
+      "role must be admin or member"
+    );
+    expect(() => parseUserRoleUpdatePayload({ role: "owner" })).toThrow("role must be admin or member");
   });
 });

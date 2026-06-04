@@ -9,7 +9,7 @@ function mockMailShell() {
   vi.spyOn(globalThis, "fetch").mockImplementation((input) => {
     const url = typeof input === "string" ? input : input instanceof Request ? input.url : String(input);
 
-    if (url.endsWith("/auth/session")) {
+    if (url.endsWith("/api/auth/session")) {
       return jsonResponse({
         user: { id: "member-1", email: "member@example.com", role: "member", createdAt: "2026-04-08T00:00:00.000Z" },
         featureToggles: {
@@ -21,19 +21,19 @@ function mockMailShell() {
       });
     }
 
-    if (url.endsWith("/api/mailboxes")) {
+    if (url.endsWith("/api/accounts")) {
       return jsonResponse({
         mailboxes: [{ id: "box-1", address: "ops@example.com", label: "Ops", createdAt: "2026-04-08T00:00:00.000Z" }]
       });
     }
 
-    if (url.endsWith("/api/messages?mailboxId=box-1")) return jsonResponse({ messages: [] });
-    if (url.endsWith("/api/outbound?mailboxId=box-1")) return jsonResponse({ messages: [] });
-    if (url.endsWith("/api/keys")) return jsonResponse({ keys: [] });
-    if (url.endsWith("/api/telegram")) return jsonResponse({ subscription: { chatId: "123456", enabled: true } });
-    if (url.endsWith("/admin/users")) return jsonResponse({ users: [] });
-    if (url.endsWith("/admin/invites")) return jsonResponse({ invites: [] });
-    if (url.endsWith("/admin/features")) {
+    if (url.endsWith("/api/mail/messages?accountId=box-1")) return jsonResponse({ messages: [] });
+    if (url.endsWith("/api/mail/outbound?accountId=box-1")) return jsonResponse({ messages: [] });
+    if (url.endsWith("/api/api-keys")) return jsonResponse({ keys: [] });
+    if (url.endsWith("/api/telegram/subscription")) return jsonResponse({ subscription: { chatId: "123456", enabled: true } });
+    if (url.endsWith("/api/users")) return jsonResponse({ users: [] });
+    if (url.endsWith("/api/users/invites")) return jsonResponse({ invites: [] });
+    if (url.endsWith("/api/system/features")) {
       return jsonResponse({
         featureToggles: {
           aiEnabled: true,
@@ -43,7 +43,7 @@ function mockMailShell() {
         }
       });
     }
-    if (url.includes("/admin/quotas/")) {
+    if (/\/api\/users\/[^/]+\/quota/.test(url)) {
       return jsonResponse({
         quota: {
           userId: "member-1",
@@ -54,7 +54,7 @@ function mockMailShell() {
         }
       });
     }
-    if (url.endsWith("/admin/mailboxes")) return jsonResponse({ mailboxes: [] });
+    if (url.endsWith("/api/users/accounts")) return jsonResponse({ mailboxes: [] });
 
     return jsonResponse({});
   });

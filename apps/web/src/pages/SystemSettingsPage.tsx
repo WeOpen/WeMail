@@ -1,7 +1,9 @@
 import type { WorkspaceTheme, WorkspaceThemePreference } from "../app/useWorkspaceTheme";
+import { SystemDomainSettingsPanel } from "../features/settings/SystemDomainSettingsPanel";
 import { Button } from "../shared/button";
 
 type SystemSettingsPageProps = {
+  canManageDomains?: boolean;
   resolvedTheme: WorkspaceTheme;
   themePreference: WorkspaceThemePreference;
   onSelectThemePreference: (preference: WorkspaceThemePreference) => void;
@@ -34,6 +36,7 @@ const themeOptions: Array<{
 ];
 
 export function SystemSettingsPage({
+  canManageDomains = false,
   themePreference,
   onSelectThemePreference
 }: SystemSettingsPageProps) {
@@ -72,6 +75,7 @@ export function SystemSettingsPage({
           ))}
         </div>
       </section>
+      {canManageDomains ? <SystemDomainSettingsPanel /> : null}
     </main>
   );
 }

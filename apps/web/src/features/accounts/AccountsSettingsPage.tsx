@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { Button } from "../../shared/button";
 import { CheckboxField, FormField, SelectInput, TextInput } from "../../shared/form";
 import { OverlayDialog } from "../../shared/overlay";
-import { mailboxAccountPolicyMock } from "./accountsMockData";
+import { apiFetch } from "../../shared/api/client";
+import { mailboxAccountPolicyMock, type MailboxAccountPolicy } from "./accountsMockData";
 
 export function AccountsSettingsPage() {
   const [defaultTagsEnabled, setDefaultTagsEnabled] = useState(mailboxAccountPolicyMock.creation.defaultTagsEnabled);
@@ -35,11 +36,61 @@ export function AccountsSettingsPage() {
 
   const [lastUpdatedLabel, setLastUpdatedLabel] = useState(mailboxAccountPolicyMock.lastUpdatedLabel);
 
+  useEffect(() => {
+    let cancelled = false;
+    void apiFetch<{ policy?: MailboxAccountPolicy }>("/api/accounts/settings")
+      .then((payload) => {
+        if (cancelled || !payload.policy) return;
+        setDefaultTagsEnabled(payload.policy.creation.defaultTagsEnabled);
+        setDefaultTags(payload.policy.creation.defaultTags);
+        setAllowCreationOverride(payload.policy.creation.allowCreationOverride);
+        setDefaultStatus(payload.policy.creation.defaultStatus);
+        setRequireCreatorNote(payload.policy.creation.requireCreatorNote);
+        setInactiveDays(payload.policy.lifecycle.inactiveDays);
+        setInactiveAction(payload.policy.lifecycle.inactiveAction);
+        setSoftDeleteRetentionDays(payload.policy.lifecycle.softDeleteRetentionDays);
+        setAllowHardDelete(payload.policy.lifecycle.allowHardDelete);
+        setSavedAllowHardDelete(payload.policy.lifecycle.allowHardDelete);
+        setRequireSoftDeleteBeforeHardDelete(payload.policy.lifecycle.requireSoftDeleteBeforeHardDelete);
+        setConfirmStandardBulkActions(payload.policy.protection.confirmStandardBulkActions);
+        setStandardBulkLimit(payload.policy.protection.standardBulkLimit);
+        setRequireDangerPhrase(payload.policy.protection.requireDangerPhrase);
+        setHardDeleteLimit(payload.policy.protection.hardDeleteLimit);
+        setAuditLoggingEnabled(payload.policy.protection.auditLoggingEnabled);
+        setLastUpdatedLabel(payload.policy.lastUpdatedLabel);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   function markUpdated() {
     setLastUpdatedLabel("刚刚更新");
   }
 
+  async function savePolicyPatch(payload: Partial<MailboxAccountPolicy>) {
+    try {
+      const result = await apiFetch<{ policy?: MailboxAccountPolicy }>("/api/accounts/settings", {
+        method: "PUT",
+        body: JSON.stringify(payload)
+      });
+      if (result.policy?.lastUpdatedLabel) setLastUpdatedLabel(result.policy.lastUpdatedLabel);
+    } catch {
+      // Keep the optimistic local state when the settings endpoint is unavailable in tests or preview data.
+    }
+  }
+
   function saveCreationRules() {
+    void savePolicyPatch({
+      creation: {
+        defaultTagsEnabled,
+        defaultTags,
+        allowCreationOverride,
+        defaultStatus,
+        requireCreatorNote
+      }
+    });
     setCreationSaved(true);
     markUpdated();
   }
@@ -51,12 +102,30 @@ export function AccountsSettingsPage() {
     }
 
     setSavedAllowHardDelete(allowHardDelete);
+    void savePolicyPatch({
+      lifecycle: {
+        inactiveDays,
+        inactiveAction,
+        softDeleteRetentionDays,
+        allowHardDelete,
+        requireSoftDeleteBeforeHardDelete
+      }
+    });
     setLifecycleSaved(true);
     markUpdated();
   }
 
   function confirmDangerousLifecycleChange() {
     setSavedAllowHardDelete(allowHardDelete);
+    void savePolicyPatch({
+      lifecycle: {
+        inactiveDays,
+        inactiveAction,
+        softDeleteRetentionDays,
+        allowHardDelete,
+        requireSoftDeleteBeforeHardDelete
+      }
+    });
     setLifecycleSaved(true);
     setShowDangerConfirm(false);
     markUpdated();
@@ -68,6 +137,15 @@ export function AccountsSettingsPage() {
   }
 
   function saveProtectionRules() {
+    void savePolicyPatch({
+      protection: {
+        confirmStandardBulkActions,
+        standardBulkLimit,
+        requireDangerPhrase,
+        hardDeleteLimit,
+        auditLoggingEnabled
+      }
+    });
     setProtectionSaved(true);
     markUpdated();
   }

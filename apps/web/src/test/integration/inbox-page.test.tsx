@@ -13,7 +13,7 @@ describe("mail list integration", () => {
     vi.spyOn(globalThis, "fetch").mockImplementation((input) => {
       const url = typeof input === "string" ? input : input instanceof Request ? input.url : String(input);
 
-      if (url.endsWith("/auth/session")) {
+      if (url.endsWith("/api/auth/session")) {
         return jsonResponse({
           user: { id: "member-1", email: "member@example.com", role: "member", createdAt: "2026-04-08T00:00:00.000Z" },
           featureToggles: {
@@ -25,13 +25,13 @@ describe("mail list integration", () => {
         });
       }
 
-      if (url.endsWith("/api/mailboxes")) {
+      if (url.endsWith("/api/accounts")) {
         return jsonResponse({
           mailboxes: [{ id: "box-1", address: "qa-signup@example.com", label: "QA Signup", createdAt: "2026-04-08T00:00:00.000Z" }]
         });
       }
 
-      if (url.endsWith("/api/messages?mailboxId=box-1")) {
+      if (url.endsWith("/api/mail/messages?accountId=box-1")) {
         return jsonResponse({
           messages: [
             {
@@ -79,12 +79,12 @@ describe("mail list integration", () => {
         });
       }
 
-      if (url.endsWith("/api/outbound?mailboxId=box-1")) return jsonResponse({ messages: [] });
-      if (url.endsWith("/api/keys")) return jsonResponse({ keys: [] });
-      if (url.endsWith("/api/telegram")) return jsonResponse({ subscription: null });
-      if (url.endsWith("/admin/users")) return jsonResponse({ users: [] });
-      if (url.endsWith("/admin/invites")) return jsonResponse({ invites: [] });
-      if (url.endsWith("/admin/features")) {
+      if (url.endsWith("/api/mail/outbound?accountId=box-1")) return jsonResponse({ messages: [] });
+      if (url.endsWith("/api/api-keys")) return jsonResponse({ keys: [] });
+      if (url.endsWith("/api/telegram/subscription")) return jsonResponse({ subscription: null });
+      if (url.endsWith("/api/users")) return jsonResponse({ users: [] });
+      if (url.endsWith("/api/users/invites")) return jsonResponse({ invites: [] });
+      if (url.endsWith("/api/system/features")) {
         return jsonResponse({
           featureToggles: {
             aiEnabled: true,
@@ -94,7 +94,7 @@ describe("mail list integration", () => {
           }
         });
       }
-      if (url.includes("/admin/quotas/")) {
+      if (/\/api\/users\/[^/]+\/quota/.test(url)) {
         return jsonResponse({
           quota: {
             userId: "member-1",
@@ -105,7 +105,7 @@ describe("mail list integration", () => {
           }
         });
       }
-      if (url.endsWith("/admin/mailboxes")) return jsonResponse({ mailboxes: [] });
+      if (url.endsWith("/api/users/accounts")) return jsonResponse({ mailboxes: [] });
 
       return jsonResponse({});
     });
@@ -179,8 +179,8 @@ describe("mail list integration", () => {
     render(<App />);
 
     expect(await screen.findByRole("button", { name: /^复制验证码$/i })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /^打开原始邮件$/i })).toHaveAttribute("href", "/api/messages/msg-1");
-    expect(screen.getByRole("link", { name: /^查看提取 JSON$/i })).toHaveAttribute("href", "/api/messages/msg-1");
+    expect(screen.getByRole("link", { name: /^打开原始邮件$/i })).toHaveAttribute("href", "/api/mail/messages/msg-1");
+    expect(screen.getByRole("link", { name: /^查看提取 JSON$/i })).toHaveAttribute("href", "/api/mail/messages/msg-1");
 
     await user.click(screen.getByRole("button", { name: /^复制验证码$/i }));
 

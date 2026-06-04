@@ -4,22 +4,22 @@ import { apiFetch } from "../../shared/api/client";
 import type { OutboundHistoryItem } from "./types";
 
 export function fetchMailboxes() {
-  return apiFetch<{ mailboxes: MailboxSummary[] }>("/api/mailboxes");
+  return apiFetch<{ mailboxes: MailboxSummary[] }>("/api/accounts");
 }
 
 export function createMailbox(label: string) {
-  return apiFetch<{ mailbox: MailboxSummary }>("/api/mailboxes", {
+  return apiFetch<{ mailbox: MailboxSummary }>("/api/accounts", {
     method: "POST",
     body: JSON.stringify({ label })
   });
 }
 
 export function fetchMessages(mailboxId: string) {
-  return apiFetch<{ messages: MessageSummary[] }>(`/api/messages?mailboxId=${mailboxId}`);
+  return apiFetch<{ messages: MessageSummary[] }>(`/api/mail/messages?accountId=${mailboxId}`);
 }
 
 export function fetchOutboundHistory(mailboxId: string) {
-  return apiFetch<{ messages: OutboundHistoryItem[] }>(`/api/outbound?mailboxId=${mailboxId}`);
+  return apiFetch<{ messages: OutboundHistoryItem[] }>(`/api/mail/outbound?accountId=${mailboxId}`);
 }
 
 export function sendOutboundMessage(payload: {
@@ -28,7 +28,7 @@ export function sendOutboundMessage(payload: {
   subject: FormDataEntryValue | null;
   bodyText: FormDataEntryValue | null;
 }) {
-  return apiFetch("/api/outbound/send", {
+  return apiFetch("/api/mail/send", {
     method: "POST",
     body: JSON.stringify(payload)
   });

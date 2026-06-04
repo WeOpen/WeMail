@@ -1,16 +1,9 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 
-import { resolveAppConfig } from "../core/config";
+import { registerMenuModules } from "../modules/register-modules";
 import type { AppContext } from "./context";
-import { registerAdminRoutes } from "./routes/admin-routes";
-import { registerAuthRoutes } from "./routes/auth-routes";
-import { registerMailboxRoutes } from "./routes/mailbox-routes";
-import { registerMessageRoutes } from "./routes/message-routes";
-import { registerOutboundRoutes } from "./routes/outbound-routes";
-import { registerSettingsRoutes } from "./routes/settings-routes";
 import { jsonError } from "./services/audit-service";
-import { defaultFeatureToggles } from "./services/config-service";
 import { getUserFromApiKey, getUserFromSession, resolveFeatureToggles } from "./services/session-service";
 import { resolveStore } from "./services/store-service";
 import { processInboundEmail, runCleanup } from "./runtime";
@@ -46,9 +39,13 @@ export function createApp(options?: { store?: AppContext["Variables"]["store"] }
 
     if (c.env.RATE_LIMITER) {
       const ip = c.req.header("cf-connecting-ip") ?? "local";
-      const limited = ["/auth/register", "/auth/login", "/api/mailboxes", "/api/outbound/send", "/api/keys"].includes(
-        c.req.path
-      );
+      const limited = [
+        "/api/auth/register",
+        "/api/auth/login",
+        "/api/accounts",
+        "/api/mail/send",
+        "/api/api-keys"
+      ].includes(c.req.path);
       if (limited) {
         const result = await c.env.RATE_LIMITER.limit({ key: `${c.req.path}:${ip}` });
         if (!result.success) return jsonError("Rate limit exceeded", 429);
@@ -58,22 +55,7 @@ export function createApp(options?: { store?: AppContext["Variables"]["store"] }
     return next();
   });
 
-  app.get("/health", (c) => {
-    const config = resolveAppConfig(c.env);
-    return c.json({
-      ok: true,
-      environment: config.environment,
-      appName: config.appName,
-      featureToggles: c.get("featureToggles") ?? defaultFeatureToggles(c.env)
-    });
-  });
-
-  registerAuthRoutes(app);
-  registerMailboxRoutes(app);
-  registerMessageRoutes(app);
-  registerOutboundRoutes(app);
-  registerSettingsRoutes(app);
-  registerAdminRoutes(app);
+  registerMenuModules(app);
 
   return app;
 }

@@ -37,7 +37,7 @@ export function resolveInviteCode(argv, fallbackFactory = () => defaultInviteCod
 
 export function createInviteSeedSql({ inviteId, inviteCode, createdAt }) {
   return [
-    "INSERT OR IGNORE INTO invites (",
+    "INSERT OR IGNORE INTO user_invites (",
     "  id,",
     "  code,",
     "  created_by_user_id,",
@@ -58,7 +58,7 @@ export function createInviteSeedSql({ inviteId, inviteCode, createdAt }) {
 }
 
 export function createInviteVerifySql(inviteCode) {
-  return `SELECT code, redeemed_at, disabled_at FROM invites WHERE code = '${escapeSqlString(inviteCode)}';`;
+  return `SELECT code, redeemed_at, disabled_at FROM user_invites WHERE code = '${escapeSqlString(inviteCode)}';`;
 }
 
 function formatCommandError(step, result) {

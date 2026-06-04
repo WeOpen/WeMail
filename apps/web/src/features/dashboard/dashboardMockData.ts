@@ -1,4 +1,5 @@
 export type DashboardKpi = {
+  kicker: string;
   label: string;
   value: string;
   detail: string;
@@ -27,14 +28,16 @@ export type DashboardResourceRow = {
   label: string;
   value: string;
   detail: string;
+  progress: number;
+  tone: string;
 };
 
 export const dashboardKpis: DashboardKpi[] = [
-  { label: "今日收件", value: "12,480", detail: "近 24 小时平台收件总量", change: "较昨日 +8.4%" },
-  { label: "今日发件", value: "1,284", detail: "平均成功率 97.8%", change: "失败重试 26 次" },
-  { label: "活跃邮箱", value: "326", detail: "占总邮箱 74%", change: "高频邮箱 42 个" },
-  { label: "平台用户", value: "89", detail: "管理员 12 / 成员 77", change: "本周新增 7 人" },
-  { label: "功能开关", value: "3 / 4", detail: "AI、Telegram、外发已启用", change: "邮箱创建已关闭" }
+  { kicker: "今日收件", label: "收件总量", value: "12,480", detail: "近 24 小时平台收件总量", change: "较昨日 +8.4%" },
+  { kicker: "今日发件", label: "发件总量", value: "1,284", detail: "平均成功率 97.8%", change: "失败重试 26 次" },
+  { kicker: "API 密钥数", label: "活跃密钥", value: "12", detail: "9 个正在使用", change: "3 个待轮换" },
+  { kicker: "Webhook", label: "投递端点", value: "6", detail: "5 个正常投递", change: "失败重试 3 次" },
+  { kicker: "公告", label: "已发布公告", value: "4", detail: "2 条正在展示", change: "本周发布 1 条" }
 ];
 
 export const dashboardTrend: DashboardTrendPoint[] = [
@@ -47,17 +50,15 @@ export const dashboardTrend: DashboardTrendPoint[] = [
   { day: "周三", inbound: 12480, outbound: 1284 }
 ];
 
-export const dashboardMailboxDistribution: DashboardDistributionSlice[] = [
-  { label: "活跃邮箱", value: 44, tone: "#111827" },
-  { label: "待分配账号", value: 31, tone: "#ff7a00" },
-  { label: "暂停邮箱", value: 18, tone: "#ffcf99" },
-  { label: "测试邮箱", value: 7, tone: "#e5e7eb" }
+export const dashboardAccountDistribution: DashboardDistributionSlice[] = [
+  { label: "活跃账号", value: 72, tone: "#111827" },
+  { label: "待激活账号", value: 17, tone: "#ff7a00" },
+  { label: "暂停账号", value: 11, tone: "#ffcf99" }
 ];
 
 export const dashboardUserRoles: DashboardDistributionSlice[] = [
   { label: "管理员", value: 13, tone: "#111827" },
-  { label: "运营成员", value: 61, tone: "#ff7a00" },
-  { label: "只读成员", value: 26, tone: "#ffd8b0" }
+  { label: "成员", value: 87, tone: "#ff7a00" }
 ];
 
 export const dashboardGrowth: DashboardGrowthPoint[] = [
@@ -69,7 +70,6 @@ export const dashboardGrowth: DashboardGrowthPoint[] = [
 ];
 
 export const dashboardResources: DashboardResourceRow[] = [
-  { label: "可用邀请码", value: "18 个", detail: "本周新建 6 个" },
-  { label: "默认配额池", value: "20 / 天", detail: "12 个用户继承默认额度" },
-  { label: "最近新增账号", value: "7 个", detail: "近 48 小时新增接入" }
+  { label: "可用邀请码", value: "18 个", detail: "本周新建 6 个", progress: 72, tone: "#111827" },
+  { label: "默认配额池", value: "20 / 天", detail: "12 个用户继承默认额度", progress: 60, tone: "#ff7a00" }
 ];

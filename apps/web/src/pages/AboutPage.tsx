@@ -1,4 +1,4 @@
-import { ButtonAnchor } from "../shared/button";
+import { ButtonAnchor, ButtonLink } from "../shared/button";
 
 export function AboutPage() {
   return (
@@ -54,6 +54,18 @@ export function AboutPage() {
             >
               打开文档
             </ButtonAnchor>
+          </div>
+          <div className="profile-security-row">
+            <strong>设计系统组件</strong>
+            <span>公开组件介绍页已参考 HeroUI React Components，按 Import、Usage、Variants、Anatomy、Accessibility、API Reference 和 Examples 组织。</span>
+            <ButtonLink
+              size="sm"
+              style={{ display: "inline-block", marginTop: "0.75rem", textDecoration: "none" }}
+              to="/design-system"
+              variant="secondary"
+            >
+              查看设计系统
+            </ButtonLink>
           </div>
         </div>
       </section>

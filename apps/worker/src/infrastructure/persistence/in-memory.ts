@@ -1,16 +1,23 @@
+import type { MailDomainSummary } from "@wemail/shared";
+
 import type {
+  AccountSettingsRecord,
+  AnnouncementRecord,
   ApiKeyRecord,
   AppStore,
   AttachmentRecord,
   AuditEventRecord,
   FeatureToggles,
   InviteRecord,
+  MailSettingsRecord,
   MailboxRecord,
   PersistedMessageRecord,
   QuotaRecord,
   SessionRecord,
   TelegramSubscriptionRecord,
-  UserRecord
+  UserRecord,
+  WebhookDeliveryRecord,
+  WebhookEndpointRecord
 } from "../../core/bindings";
 
 function nowIso() {
@@ -41,7 +48,13 @@ export function createInMemoryStore(): AppStore {
   const telegramSubscriptions = new Map<string, TelegramSubscriptionRecord>();
   const quotas = new Map<string, QuotaRecord>();
   const settings = new Map<keyof FeatureToggles, boolean>();
+  let mailDomains: MailDomainSummary[] | null = null;
   const auditEvents: AuditEventRecord[] = [];
+  let accountSettingsRecord: AccountSettingsRecord | null = null;
+  let mailSettingsRecord: MailSettingsRecord | null = null;
+  const webhookEndpoints = new Map<string, WebhookEndpointRecord>();
+  const webhookDeliveries: WebhookDeliveryRecord[] = [];
+  const announcements: AnnouncementRecord[] = [];
 
   return {
     users: {
@@ -63,6 +76,12 @@ export function createInMemoryStore(): AppStore {
           createdAt: nowIso()
         };
         users.set(record.id, record);
+        return clone(record);
+      },
+      async updateRole(id, role) {
+        const record = users.get(id);
+        if (!record) return null;
+        record.role = role;
         return clone(record);
       },
       async list() {
@@ -298,6 +317,15 @@ export function createInMemoryStore(): AppStore {
         return clone(next);
       }
     },
+    mailDomains: {
+      async list(defaults) {
+        return clone(mailDomains ?? defaults);
+      },
+      async saveAll(next) {
+        mailDomains = clone(next);
+        return clone(next);
+      }
+    },
     audit: {
       async record(event) {
         auditEvents.push({
@@ -310,6 +338,102 @@ export function createInMemoryStore(): AppStore {
         return auditEvents.filter(
           (entry) => entry.actorId === actorId && entry.eventType === eventType && entry.createdAt >= sinceIso
         ).length;
+      }
+    },
+    accountSettings: {
+      async get() {
+        return clone(accountSettingsRecord);
+      },
+      async save(record) {
+        accountSettingsRecord = {
+          id: "account_settings",
+          updatedAt: nowIso(),
+          ...record
+        };
+        return clone(accountSettingsRecord);
+      }
+    },
+    mailSettings: {
+      async get() {
+        return clone(mailSettingsRecord);
+      },
+      async save(record) {
+        mailSettingsRecord = {
+          id: "mail_settings",
+          updatedAt: nowIso(),
+          ...record
+        };
+        return clone(mailSettingsRecord);
+      }
+    },
+    webhookEndpoints: {
+      async listByUser(userId) {
+        return clone(Array.from(webhookEndpoints.values()).filter((entry) => entry.userId === userId));
+      },
+      async create(input) {
+        const now = nowIso();
+        const record = {
+          id: crypto.randomUUID(),
+          userId: input.userId,
+          name: input.name,
+          url: input.url,
+          eventsJson: input.eventsJson,
+          signingSecret: crypto.randomUUID().replaceAll("-", ""),
+          enabled: input.enabled,
+          createdAt: now,
+          updatedAt: now
+        };
+        webhookEndpoints.set(record.id, record);
+        return clone(record);
+      },
+      async update(id, userId, input) {
+        const existing = webhookEndpoints.get(id);
+        if (!existing || existing.userId !== userId) return null;
+        const next = {
+          ...existing,
+          name: input.name,
+          url: input.url,
+          eventsJson: input.eventsJson,
+          enabled: input.enabled,
+          updatedAt: nowIso()
+        };
+        webhookEndpoints.set(id, next);
+        return clone(next);
+      },
+      async delete(id, userId) {
+        const existing = webhookEndpoints.get(id);
+        if (existing?.userId === userId) webhookEndpoints.delete(id);
+      }
+    },
+    webhookDeliveries: {
+      async listByUser(userId) {
+        const endpointIds = new Set(Array.from(webhookEndpoints.values()).filter((entry) => entry.userId === userId).map((entry) => entry.id));
+        return clone(webhookDeliveries.filter((entry) => endpointIds.has(entry.endpointId)));
+      },
+      async record(input) {
+        const record = {
+          id: crypto.randomUUID(),
+          createdAt: nowIso(),
+          ...input
+        };
+        webhookDeliveries.push(record);
+        return clone(record);
+      }
+    },
+    announcements: {
+      async list() {
+        return clone([...announcements].sort((a, b) => b.publishedAt.localeCompare(a.publishedAt)));
+      },
+      async create(input) {
+        const now = nowIso();
+        const record = {
+          id: crypto.randomUUID(),
+          publishedAt: now,
+          updatedAt: now,
+          ...input
+        };
+        announcements.unshift(record);
+        return clone(record);
       }
     }
   };

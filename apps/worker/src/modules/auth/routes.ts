@@ -1,15 +1,15 @@
 import type { Hono } from "hono";
 
-import type { AppContext } from "../context";
-import { requireUser } from "../context";
-import { jsonError } from "../services/audit-service";
-import { toSessionResponse } from "./dto/auth-dto";
-import { parseLoginRequest, parseRegisterRequest } from "./requests/auth-request";
+import type { AppContext } from "../../app/context";
+import { requireUser } from "../../app/context";
+import { jsonError } from "../../app/services/audit-service";
+import { toSessionResponse } from "../../app/routes/dto/auth-dto";
+import { parseLoginRequest, parseRegisterRequest } from "../../app/routes/requests/auth-request";
 import { clearSessionCookie } from "../../shared/auth";
-import { loginUser, logoutUser, registerUserWithInvite } from "../use-cases/auth-use-cases";
+import { loginUser, logoutUser, registerUserWithInvite } from "../../app/use-cases/auth-use-cases";
 
 export function registerAuthRoutes(app: Hono<AppContext>) {
-  app.post("/auth/register", async (c) => {
+  app.post("/api/auth/register", async (c) => {
     const { email, password, inviteCode } = await parseRegisterRequest(c.req.raw);
     const result = await registerUserWithInvite(
       {
@@ -24,7 +24,7 @@ export function registerAuthRoutes(app: Hono<AppContext>) {
     return c.json(result, 201);
   });
 
-  app.post("/auth/login", async (c) => {
+  app.post("/api/auth/login", async (c) => {
     const { email, password } = await parseLoginRequest(c.req.raw);
     const result = await loginUser(
       {
@@ -39,13 +39,13 @@ export function registerAuthRoutes(app: Hono<AppContext>) {
     return c.json(result);
   });
 
-  app.post("/auth/logout", async (c) => {
+  app.post("/api/auth/logout", async (c) => {
     await logoutUser({ store: c.get("store") }, c);
     clearSessionCookie(c);
     return c.json({ ok: true });
   });
 
-  app.get("/auth/session", async (c) => {
+  app.get("/api/auth/session", async (c) => {
     const user = requireUser(c);
     if (!user) return jsonError("Not authenticated", 401);
     const fullUser = await c.get("store").users.findById(user.id);

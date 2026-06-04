@@ -23,7 +23,7 @@ describe("admin dashboard integration", () => {
       vi.spyOn(globalThis, "fetch").mockImplementation((input) => {
         const url = typeof input === "string" ? input : input instanceof Request ? input.url : String(input);
 
-        if (url.endsWith("/auth/session")) {
+        if (url.endsWith("/api/auth/session")) {
           return jsonResponse({
             user: {
               id: "admin-1",
@@ -40,10 +40,10 @@ describe("admin dashboard integration", () => {
           });
         }
 
-        if (url.endsWith("/api/mailboxes")) return jsonResponse({ mailboxes: [] });
-        if (url.endsWith("/api/keys")) return jsonResponse({ keys: [] });
-        if (url.endsWith("/api/telegram")) return jsonResponse({ subscription: null });
-        if (url.endsWith("/admin/users")) {
+        if (url.endsWith("/api/accounts")) return jsonResponse({ mailboxes: [] });
+        if (url.endsWith("/api/api-keys")) return jsonResponse({ keys: [] });
+        if (url.endsWith("/api/telegram/subscription")) return jsonResponse({ subscription: null });
+        if (url.endsWith("/api/users")) {
           return jsonResponse({
             users: [
               { id: "admin-1", email: "admin@example.com", role: "admin", createdAt: "2026-04-08T00:00:00.000Z" },
@@ -51,14 +51,14 @@ describe("admin dashboard integration", () => {
             ]
           });
         }
-        if (url.endsWith("/admin/invites")) {
+        if (url.endsWith("/api/users/invites")) {
           return jsonResponse({
             invites: [
               { id: "invite-1", code: "ALPHA-2026", createdAt: "2026-04-08T00:00:00.000Z", redeemedAt: null, disabledAt: null }
             ]
           });
         }
-        if (url.endsWith("/admin/features")) {
+        if (url.endsWith("/api/system/features")) {
           return jsonResponse({
             featureToggles: {
               aiEnabled: true,
@@ -68,7 +68,7 @@ describe("admin dashboard integration", () => {
             }
           });
         }
-        if (url.includes("/admin/quotas/")) {
+        if (/\/api\/users\/[^/]+\/quota/.test(url)) {
           return jsonResponse({
             quota: {
               userId: "admin-1",
@@ -79,7 +79,7 @@ describe("admin dashboard integration", () => {
             }
           });
         }
-        if (url.endsWith("/admin/mailboxes")) {
+        if (url.endsWith("/api/users/accounts")) {
           return jsonResponse({
             mailboxes: [
               { id: "box-1", address: "ops@example.com", label: "Ops", createdAt: "2026-04-08T00:00:00.000Z" }

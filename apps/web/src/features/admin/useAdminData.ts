@@ -1,10 +1,17 @@
 import { FormEvent, useCallback } from "react";
 
-import type { FeatureToggles, SessionSummary } from "@wemail/shared";
+import type { FeatureToggles, SessionSummary, UserRole } from "@wemail/shared";
 
 import { useAppStore } from "../../app/appStore";
 import type { WemailToastInput } from "../../shared/toast";
-import { createInviteAction, disableInviteAction, updateFeatureTogglesAction, updateQuotaAction } from "./actions";
+import {
+  createAdminUserAction,
+  createInviteAction,
+  disableInviteAction,
+  updateAdminUserRoleAction,
+  updateFeatureTogglesAction,
+  updateQuotaAction
+} from "./actions";
 import { queryAdminDashboard, queryQuota } from "./queries";
 
 type UseAdminDataOptions = {
@@ -34,6 +41,41 @@ export function useAdminData({ session, onToast }: UseAdminDataOptions) {
     await refreshAdminData();
   }, [onToast, refreshAdminData]);
 
+  const createUser = useCallback(
+    async (payload: { email: string; password: string; role: UserRole }) => {
+      await createAdminUserAction(payload);
+      onToast({ message: "用户已创建。", tone: "success" });
+      await refreshAdminData();
+    },
+    [onToast, refreshAdminData]
+  );
+
+  const changeUserRoles = useCallback(
+    async (userIds: string[], role: UserRole) => {
+      await Promise.all(userIds.map((userId) => updateAdminUserRoleAction(userId, role)));
+      onToast({ message: "用户角色已更新。", tone: "success" });
+      await refreshAdminData();
+    },
+    [onToast, refreshAdminData]
+  );
+
+  const suspendUsersOutbound = useCallback(
+    async (userIds: string[]) => {
+      await Promise.all(
+        userIds.map(async (userId) => {
+          const quota = await queryQuota(userId);
+          await updateQuotaAction(userId, {
+            dailyLimit: quota.dailyLimit,
+            disabled: true
+          });
+        })
+      );
+      onToast({ message: "已暂停所选用户的外发能力。", tone: "success" });
+      await refreshAdminData();
+    },
+    [onToast, refreshAdminData]
+  );
+
   const disableInvite = useCallback(
     async (inviteId: string) => {
       await disableInviteAction(inviteId);
@@ -51,14 +93,15 @@ export function useAdminData({ session, onToast }: UseAdminDataOptions) {
     async (event: FormEvent<HTMLFormElement>, userId: string) => {
       event.preventDefault();
       const form = new FormData(event.currentTarget);
-      await updateQuotaAction(userId, {
+      const payload = await updateQuotaAction(userId, {
         dailyLimit: Number(form.get("dailyLimit")),
         disabled: form.get("disabled") === "on"
       });
       onToast({ message: "用户配额已更新。", tone: "success" });
       await refreshAdminData();
+      setAdminQuota(payload.quota);
     },
-    [onToast, refreshAdminData]
+    [onToast, refreshAdminData, setAdminQuota]
   );
 
   const toggleFeatures = useCallback(
@@ -77,6 +120,9 @@ export function useAdminData({ session, onToast }: UseAdminDataOptions) {
     adminQuota,
     adminMailboxes,
     refreshAdminData,
+    createUser,
+    changeUserRoles,
+    suspendUsersOutbound,
     createInvite,
     disableInvite,
     selectQuotaUser,

@@ -9,6 +9,7 @@ import type {
   QuotaSummary,
   SessionSummary,
   TelegramSubscriptionSummary,
+  UserRole,
   UserSummary
 } from "@wemail/shared";
 
@@ -60,6 +61,9 @@ type AppRoutesProps = {
     adminQuota: QuotaSummary | null;
     adminFeatures: FeatureToggles | null;
     adminMailboxes: MailboxSummary[];
+    createUser: (payload: { email: string; password: string; role: UserRole }) => Promise<void>;
+    changeUserRoles: (userIds: string[], role: UserRole) => Promise<void>;
+    suspendUsersOutbound: (userIds: string[]) => Promise<void>;
     createInvite: () => Promise<void>;
     disableInvite: (inviteId: string) => Promise<void>;
     selectQuotaUser: (userId: string) => Promise<void>;
@@ -124,6 +128,9 @@ export function AppRoutes({ session, inbox, selectedMessage, settings, admin, ap
       <UsersListRoutePage
         adminUsers={admin.adminUsers}
         adminQuota={admin.adminQuota}
+        onBulkChangeRole={admin.changeUserRoles}
+        onBulkSuspendOutbound={admin.suspendUsersOutbound}
+        onCreateUser={admin.createUser}
         onSelectQuotaUser={admin.selectQuotaUser}
         onSubmitQuota={admin.submitQuota}
       />
@@ -147,7 +154,7 @@ export function AppRoutes({ session, inbox, selectedMessage, settings, admin, ap
       />
     );
 
-  const dashboardPage = <DashboardPage />;
+  const dashboardPage = <DashboardPage canViewRoleCard={session.user.role === "admin"} />;
 
   const accountsListPage = <AccountsListPage />;
 
@@ -191,6 +198,7 @@ export function AppRoutes({ session, inbox, selectedMessage, settings, admin, ap
 
   const systemSettingsPage = (
     <SystemSettingsPage
+      canManageDomains={session.user.role === "admin"}
       resolvedTheme={appearance.theme}
       themePreference={appearance.themePreference}
       onSelectThemePreference={appearance.setThemePreference}

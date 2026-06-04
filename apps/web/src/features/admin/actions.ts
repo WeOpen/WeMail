@@ -1,6 +1,14 @@
-import type { FeatureToggles } from "@wemail/shared";
+import type { FeatureToggles, UserRole } from "@wemail/shared";
 
-import { createInvite, disableInvite, updateAdminFeatures, updateQuota } from "./api";
+import { createAdminUser, createInvite, disableInvite, updateAdminFeatures, updateAdminUserRole, updateQuota } from "./api";
+
+export async function createAdminUserAction(payload: { email: string; password: string; role: UserRole }) {
+  return createAdminUser(payload);
+}
+
+export async function updateAdminUserRoleAction(userId: string, role: UserRole) {
+  return updateAdminUserRole(userId, role);
+}
 
 export async function createInviteAction() {
   return createInvite();

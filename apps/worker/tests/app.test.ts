@@ -32,7 +32,7 @@ describe("worker app", () => {
     });
 
     const response = await app.request(
-      "/auth/register",
+      "/api/auth/register",
       {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -59,7 +59,7 @@ describe("worker app", () => {
     });
 
     const response = await app.request(
-      "/auth/register",
+      "/api/auth/register",
       {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -89,7 +89,7 @@ describe("worker app", () => {
 
     const before = Date.now();
     const response = await app.request(
-      "/auth/register",
+      "/api/auth/register",
       {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -119,7 +119,7 @@ describe("worker app", () => {
     const app = createApp({ store: createInMemoryStore() });
 
     const response = await app.request(
-      "/api/mailboxes",
+      "/api/accounts",
       {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -141,7 +141,7 @@ describe("worker app", () => {
     });
 
     const registerResponse = await app.request(
-      "/auth/register",
+      "/api/auth/register",
       {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -157,7 +157,7 @@ describe("worker app", () => {
     const cookie = registerResponse.headers.get("set-cookie") ?? "";
 
     const createResponse = await app.request(
-      "/api/mailboxes",
+      "/api/accounts",
       {
         method: "POST",
         headers: {
@@ -172,7 +172,7 @@ describe("worker app", () => {
     expect(createResponse.status).toBe(201);
 
     const listResponse = await app.request(
-      "/api/mailboxes",
+      "/api/accounts",
       {
         headers: { cookie }
       },
@@ -188,7 +188,7 @@ describe("worker app", () => {
     const app = createApp({ store: createInMemoryStore() });
 
     const response = await app.request(
-      "/auth/session",
+      "/api/auth/session",
       {
         method: "OPTIONS",
         headers: {

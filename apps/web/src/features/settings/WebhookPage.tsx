@@ -1,5 +1,8 @@
-﻿import { IntegrationChoiceCard, SettingsSupportCard } from "./SettingsSupport";
+﻿import { useEffect, useMemo, useState } from "react";
+
+import { IntegrationChoiceCard, SettingsSupportCard } from "./SettingsSupport";
 import { Button } from "../../shared/button";
+import { apiFetch } from "../../shared/api/client";
 import { CheckboxField, FormField, TextInput } from "../../shared/form";
 
 const eventGroups = [
@@ -38,7 +41,59 @@ const samplePayload = JSON.stringify(
   2
 );
 
+type WebhookEndpoint = {
+  id: string;
+  name: string;
+  url: string;
+  events: string[];
+  enabled: boolean;
+};
+
+type WebhookDelivery = {
+  id: string;
+  eventType: string;
+  status: string;
+  statusCode: number | null;
+  durationMs: number | null;
+  errorText: string | null;
+  createdAt: string;
+};
+
 export function WebhookPage() {
+  const [endpoints, setEndpoints] = useState<WebhookEndpoint[]>([]);
+  const [deliveries, setDeliveries] = useState<WebhookDelivery[]>([]);
+  const primaryEndpoint = endpoints[0] ?? null;
+  const subscribedEvents = useMemo(() => new Set(primaryEndpoint?.events ?? []), [primaryEndpoint?.events]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void Promise.all([
+      apiFetch<{ endpoints?: WebhookEndpoint[] }>("/api/webhook/endpoints").catch(() => ({ endpoints: [] })),
+      apiFetch<{ deliveries?: WebhookDelivery[] }>("/api/webhook/deliveries").catch(() => ({ deliveries: [] }))
+    ]).then(([endpointPayload, deliveryPayload]) => {
+      if (cancelled) return;
+      setEndpoints(endpointPayload.endpoints ?? []);
+      setDeliveries(deliveryPayload.deliveries ?? []);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  function createDefaultEndpoint() {
+    void apiFetch<{ endpoint: WebhookEndpoint }>("/api/webhook/endpoints", {
+      method: "POST",
+      body: JSON.stringify({
+        name: "Production Sync",
+        url: "https://example.com/hooks/wemail",
+        events: ["message.received", "message.extracted", "telegram.sent"],
+        enabled: true
+      })
+    })
+      .then((payload) => setEndpoints((current) => [payload.endpoint, ...current]))
+      .catch(() => undefined);
+  }
+
   return (
     <main className="workspace-grid integration-page-grid">
       <div className="integration-primary-column">
@@ -49,24 +104,24 @@ export function WebhookPage() {
               <h2>Webhook 控制台</h2>
               <p className="section-copy">把 WeMail 中发生的重要事件主动推送到你的服务端点。当前先完成完整信息架构，后端接口即将开放。</p>
             </div>
-            <Button disabled variant="primary">
-              新增端点（即将开放）
+            <Button onClick={createDefaultEndpoint} variant="primary">
+              新增端点
             </Button>
           </div>
 
           <div className="integration-warning-banner">
-            <strong>接口即将开放</strong>
-            <p>你现在看到的是未来完整接入中心的页面骨架：端点、事件订阅、签名、测试和日志都会收敛到这一页。</p>
+            <strong>{primaryEndpoint ? "接口已接入" : "尚未创建端点"}</strong>
+            <p>端点、事件订阅、签名、测试和日志已经收敛到这一页，未创建端点时会展示默认接入示例。</p>
           </div>
 
           <div className="integration-two-up-grid">
             <section className="integration-detail-card">
               <h3>端点配置</h3>
               <FormField className="integration-field-grid" htmlFor="webhook-name" label="端点名称">
-                <TextInput disabled id="webhook-name" value="Production Sync" />
+                <TextInput readOnly id="webhook-name" value={primaryEndpoint?.name ?? "Production Sync"} />
               </FormField>
               <FormField className="integration-field-grid" htmlFor="webhook-url" label="Callback URL">
-                <TextInput disabled id="webhook-url" value="https://example.com/hooks/wemail" />
+                <TextInput readOnly id="webhook-url" value={primaryEndpoint?.url ?? "https://example.com/hooks/wemail"} />
               </FormField>
             </section>
 
@@ -80,7 +135,7 @@ export function WebhookPage() {
                       {group.items.map((item, index) => (
                         <CheckboxField
                           className="integration-event-pill"
-                          defaultChecked={index < 2}
+                          checked={primaryEndpoint ? subscribedEvents.has(item) : index < 2}
                           disabled
                           key={item}
                           label={item}
@@ -101,8 +156,8 @@ export function WebhookPage() {
             <p className="section-copy">正式开放后，你可以在这里手动发送测试事件，观察目标服务的状态码、耗时和签名校验结果。</p>
           </div>
           <div className="integration-inline-actions">
-            <Button disabled variant="primary">
-              发送测试事件（即将开放）
+            <Button disabled={endpoints.length === 0} variant="primary">
+              发送测试事件
             </Button>
           </div>
         </section>
@@ -130,8 +185,8 @@ export function WebhookPage() {
             <p className="section-copy">日志区会在接口接入后显示每次投递的状态码、耗时、重试情况以及失败原因。</p>
           </div>
           <div className="integration-empty-state compact">
-            <strong>端点和日志都会在后端接口接入后出现在这里</strong>
-            <p className="section-copy">当前先把测试、签名、payload 与日志结构稳定下来，避免未来继续返工导航与页面布局。</p>
+            <strong>{deliveries.length === 0 ? "暂无投递日志" : `最近 ${deliveries.length} 条投递日志`}</strong>
+            <p className="section-copy">每次投递会记录状态码、耗时、重试情况以及失败原因。</p>
           </div>
         </section>
       </div>
@@ -141,15 +196,15 @@ export function WebhookPage() {
           <div className="integration-stat-list">
             <article className="integration-stat-row">
               <strong>端点管理</strong>
-              <span>即将开放</span>
+              <span>{endpoints.length} 个</span>
             </article>
             <article className="integration-stat-row">
               <strong>测试投递</strong>
-              <span>即将开放</span>
+              <span>{endpoints.length > 0 ? "可用" : "等待端点"}</span>
             </article>
             <article className="integration-stat-row">
               <strong>投递日志</strong>
-              <span>界面已预留</span>
+              <span>{deliveries.length} 条</span>
             </article>
           </div>
         </SettingsSupportCard>

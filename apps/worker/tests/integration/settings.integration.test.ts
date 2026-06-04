@@ -10,7 +10,7 @@ describe("worker settings integration", () => {
     });
 
     const createResponse = await app.request(
-      "/api/keys",
+      "/api/api-keys",
       {
         method: "POST",
         headers: {
@@ -25,7 +25,7 @@ describe("worker settings integration", () => {
     expect(createResponse.status).toBe(201);
 
     const listResponse = await app.request(
-      "/api/keys",
+      "/api/api-keys",
       {
         headers: { cookie }
       },
@@ -40,7 +40,7 @@ describe("worker settings integration", () => {
     expect(listPayload.keys[0].label).toBe("CLI key");
 
     const revokeResponse = await app.request(
-      `/api/keys/${listPayload.keys[0].id}`,
+      `/api/api-keys/${listPayload.keys[0].id}`,
       {
         method: "DELETE",
         headers: { cookie }

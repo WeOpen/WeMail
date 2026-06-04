@@ -61,13 +61,48 @@ describe("settings pages", () => {
     expect(screen.getByRole("button", { name: /我已安全保存/i })).toBeInTheDocument();
   });
 
+  it("paginates api keys and omits per-row copy example actions", async () => {
+    const user = userEvent.setup();
+    const apiKeys = Array.from({ length: 6 }, (_, index) => ({
+      id: `key-${index + 1}`,
+      label: `脚本 ${index + 1}`,
+      prefix: `wk_live_000${index + 1}`,
+      createdAt: "2026-04-08T00:00:00.000Z",
+      lastUsedAt: null,
+      revokedAt: null
+    }));
+
+    renderWithRouter(
+      <ApiKeysPage
+        apiKeys={apiKeys}
+        onCreateApiKey={vi.fn()}
+        onRevokeApiKey={vi.fn()}
+      />
+    );
+
+    expect(screen.queryByText("密钥总览")).not.toBeInTheDocument();
+    expect(screen.queryByText("当前可用")).not.toBeInTheDocument();
+    expect(screen.queryByText("待接入")).not.toBeInTheDocument();
+    expect(screen.queryByText("不可用")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /复制示例/i })).not.toBeInTheDocument();
+    expect(screen.getByText("wk_live_0001")).toBeInTheDocument();
+    expect(screen.queryByText("wk_live_0006")).not.toBeInTheDocument();
+    expect(screen.getByRole("navigation", { name: /API 密钥分页/i })).toHaveTextContent("1-5 / 6");
+
+    await user.click(screen.getByRole("button", { name: /下一页/i }));
+
+    expect(screen.getByText("wk_live_0006")).toBeInTheDocument();
+    expect(screen.queryByText("wk_live_0001")).not.toBeInTheDocument();
+    expect(screen.getByRole("navigation", { name: /API 密钥分页/i })).toHaveTextContent("6-6 / 6");
+  });
+
   it("renders a webhook control-center scaffold instead of the old placeholder", () => {
     renderWithRouter(<WebhookPage />);
 
     expect(screen.getByRole("heading", { name: /事件订阅/i })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /Payload 示例/i })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /投递日志/i })).toBeInTheDocument();
-    expect(screen.getByText("接口即将开放", { selector: "strong" })).toBeInTheDocument();
+    expect(screen.getByText("尚未创建端点", { selector: "strong" })).toBeInTheDocument();
   });
 
   it("renders the telegram self-serve notification center and submits chat settings", async () => {

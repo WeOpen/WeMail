@@ -11,6 +11,7 @@ type MetricCardProps = HTMLAttributes<HTMLElement> & {
   tone?: MetricCardTone;
   value: ReactNode;
   valueSize?: MetricCardValueSize;
+  visualIcon?: ReactNode;
 };
 
 function cx(...parts: Array<string | false | null | undefined>) {
@@ -27,6 +28,7 @@ export const MetricCard = forwardRef<HTMLElement, MetricCardProps>(function Metr
     tone = "default",
     value,
     valueSize = "xl",
+    visualIcon,
     ...props
   },
   ref
@@ -42,6 +44,7 @@ export const MetricCard = forwardRef<HTMLElement, MetricCardProps>(function Metr
       <strong className="ui-metric-card-value">{value}</strong>
       {detail ? <span className="ui-metric-card-detail">{detail}</span> : null}
       {caption ? <small className="ui-metric-card-caption">{caption}</small> : null}
+      {visualIcon ? <span className="ui-metric-card-visual-icon">{visualIcon}</span> : null}
     </article>
   );
 });
