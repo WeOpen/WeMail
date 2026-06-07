@@ -68,24 +68,82 @@ export function createInMemoryStore(): AppStore {
         return clone(users.get(id) ?? null);
       },
       async create(input) {
+        const createdAt = nowIso();
         const record: UserRecord = {
           id: crypto.randomUUID(),
           email: input.email,
+          name: input.name,
           passwordHash: input.passwordHash,
           role: input.role,
-          createdAt: nowIso()
+          status: "active",
+          createdAt,
+          updatedAt: createdAt
         };
         users.set(record.id, record);
+        return clone(record);
+      },
+      async updateProfile(id, input) {
+        const record = users.get(id);
+        if (!record) return null;
+        record.name = input.name;
+        record.updatedAt = nowIso();
         return clone(record);
       },
       async updateRole(id, role) {
         const record = users.get(id);
         if (!record) return null;
         record.role = role;
+        record.updatedAt = nowIso();
         return clone(record);
       },
-      async list() {
-        return clone(Array.from(users.values()).sort((a, b) => a.email.localeCompare(b.email)));
+      async updatePasswordHash(id, passwordHash) {
+        const record = users.get(id);
+        if (!record) return null;
+        record.passwordHash = passwordHash;
+        record.updatedAt = nowIso();
+        return clone(record);
+      },
+      async updateStatus(id, status) {
+        const record = users.get(id);
+        if (!record) return null;
+        record.status = status;
+        record.updatedAt = nowIso();
+        return clone(record);
+      },
+      async delete(id) {
+        if (!users.has(id)) return false;
+        users.delete(id);
+        quotas.delete(id);
+        telegramSubscriptions.delete(id);
+        for (const [sessionId, session] of sessions) {
+          if (session.userId === id) sessions.delete(sessionId);
+        }
+        for (const [keyId, key] of apiKeys) {
+          if (key.userId === id) apiKeys.delete(keyId);
+        }
+        return true;
+      },
+      async list(options) {
+        const normalizedSearch = options.search?.toLowerCase();
+        const filteredUsers = Array.from(users.values())
+          .filter((user) => {
+            const matchesSearch =
+              !normalizedSearch ||
+              user.email.toLowerCase().includes(normalizedSearch) ||
+              user.name.toLowerCase().includes(normalizedSearch);
+            const matchesRole = !options.role || user.role === options.role;
+            const matchesStatus = !options.status || user.status === options.status;
+            return matchesSearch && matchesRole && matchesStatus;
+          })
+          .sort((a, b) => a.email.localeCompare(b.email));
+        const startIndex = (options.page - 1) * options.pageSize;
+
+        return {
+          users: clone(filteredUsers.slice(startIndex, startIndex + options.pageSize)),
+          total: filteredUsers.length,
+          page: options.page,
+          pageSize: options.pageSize
+        };
       }
     },
     sessions: {
@@ -104,6 +162,11 @@ export function createInMemoryStore(): AppStore {
       },
       async delete(id) {
         sessions.delete(id);
+      },
+      async deleteByUserId(userId) {
+        for (const [sessionId, session] of sessions) {
+          if (session.userId === userId) sessions.delete(sessionId);
+        }
       }
     },
     invites: {

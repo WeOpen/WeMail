@@ -1,5 +1,7 @@
+import { readFileSync } from "node:fs";
+
 import { createRef, useState } from "react";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
@@ -15,6 +17,8 @@ import {
   TextInput,
   TextareaInput
 } from "../shared/form";
+
+const formStyles = readFileSync("src/shared/form/form.css", "utf8");
 
 describe("shared form primitives", () => {
   it("associates FormField labels with wrapped controls", () => {
@@ -52,13 +56,15 @@ describe("shared form primitives", () => {
     expect(ref.current).toBe(input);
   });
 
-  it("forwards props and ref on select and textarea controls", () => {
+  it("renders SelectInput as a custom combobox while preserving native form props", async () => {
+    const user = userEvent.setup();
     const selectRef = createRef<HTMLSelectElement>();
     const textareaRef = createRef<HTMLTextAreaElement>();
+    const handleChange = vi.fn();
 
     render(
       <>
-        <SelectInput defaultValue="asia" disabled ref={selectRef} required>
+        <SelectInput aria-label="时区" defaultValue="asia" name="timezone" onChange={handleChange} ref={selectRef} required>
           <option value="cn">Asia/Shanghai</option>
           <option value="asia">Asia/Tokyo</option>
         </SelectInput>
@@ -66,16 +72,36 @@ describe("shared form primitives", () => {
       </>
     );
 
-    const select = screen.getByRole("combobox");
+    const select = screen.getByRole("combobox", { name: "时区" });
     const textarea = screen.getByDisplayValue("Edge mail operations owner");
 
-    expect(select).toHaveClass("form-control", "form-select");
-    expect(select).toBeDisabled();
-    expect(select).toBeRequired();
-    expect(selectRef.current).toBe(select);
+    expect(select).toHaveClass("form-control", "form-select", "ui-select-trigger");
+    expect(select).toHaveTextContent("Asia/Tokyo");
+    expect(select).toHaveAttribute("aria-required", "true");
+    expect(selectRef.current).toHaveAttribute("name", "timezone");
+    expect(selectRef.current).toHaveValue("asia");
+
+    await user.click(select);
+    const listbox = await screen.findByRole("listbox", { name: "时区" });
+    expect(listbox).toHaveClass("ui-select-panel");
+    expect(within(listbox).getByRole("option", { name: "Asia/Tokyo" })).toHaveAttribute("aria-selected", "true");
+
+    await user.click(within(listbox).getByRole("option", { name: "Asia/Shanghai" }));
+
+    expect(handleChange).toHaveBeenCalled();
+    expect(handleChange.mock.calls.at(-1)?.[0].target.value).toBe("cn");
+    expect(select).toHaveTextContent("Asia/Shanghai");
+    expect(selectRef.current).toHaveValue("cn");
     expect(textarea).toHaveClass("form-control", "form-textarea");
     expect(textarea).toHaveAttribute("rows", "3");
     expect(textareaRef.current).toBe(textarea);
+  });
+
+  it("keeps custom select panels above modal and drawer overlays", () => {
+    const selectPanelRule = formStyles.match(/\.ui-select-panel\s*\{(?<body>[^}]*)\}/)?.groups?.body ?? "";
+    const zIndex = Number(selectPanelRule.match(/z-index:\s*(\d+);/)?.[1] ?? 0);
+
+    expect(zIndex).toBeGreaterThan(60);
   });
 
   it("renders checkbox labels and descriptions with shared classes", () => {

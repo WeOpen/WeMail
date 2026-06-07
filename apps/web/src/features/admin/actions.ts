@@ -1,13 +1,40 @@
-import type { FeatureToggles, UserRole } from "@wemail/shared";
+import type { FeatureToggles, UserRole, UserStatus } from "@wemail/shared";
 
-import { createAdminUser, createInvite, disableInvite, updateAdminFeatures, updateAdminUserRole, updateQuota } from "./api";
+import {
+  createAdminUser,
+  createInvite,
+  deleteAdminUser,
+  disableInvite,
+  resetAdminUserPassword,
+  updateAdminFeatures,
+  updateAdminUser,
+  updateAdminUserRole,
+  updateAdminUserStatus,
+  updateQuota
+} from "./api";
 
-export async function createAdminUserAction(payload: { email: string; password: string; role: UserRole }) {
+export async function createAdminUserAction(payload: { email: string; name: string; password: string; role: UserRole }) {
   return createAdminUser(payload);
 }
 
 export async function updateAdminUserRoleAction(userId: string, role: UserRole) {
   return updateAdminUserRole(userId, role);
+}
+
+export async function updateAdminUserAction(userId: string, payload: { name: string }) {
+  return updateAdminUser(userId, payload);
+}
+
+export async function resetAdminUserPasswordAction(userId: string, password: string) {
+  return resetAdminUserPassword(userId, password);
+}
+
+export async function updateAdminUserStatusAction(userId: string, status: UserStatus) {
+  return updateAdminUserStatus(userId, status);
+}
+
+export async function deleteAdminUserAction(userId: string) {
+  return deleteAdminUser(userId);
 }
 
 export async function createInviteAction() {

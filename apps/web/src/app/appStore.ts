@@ -30,6 +30,7 @@ type SessionScopedState = {
   apiKeys: ApiKeySummary[];
   telegram: TelegramSubscriptionSummary | null;
   adminUsers: UserSummary[];
+  adminUsersTotal: number;
   adminInvites: InviteSummary[];
   adminFeatures: FeatureToggles | null;
   adminQuota: QuotaSummary | null;
@@ -47,6 +48,9 @@ type AppState = SessionScopedState & {
 
 type AdminDashboardState = {
   users: UserSummary[];
+  usersTotal: number;
+  usersPage: number;
+  usersPageSize: number;
   invites: InviteSummary[];
   features: FeatureToggles;
   mailboxes: MailboxSummary[];
@@ -70,6 +74,7 @@ type AppActions = {
   setOutboundHistory: (outboundHistory: OutboundHistoryItem[]) => void;
   setSettingsData: (apiKeys: ApiKeySummary[], telegram: TelegramSubscriptionSummary | null) => void;
   setAdminDashboard: (dashboard: AdminDashboardState) => void;
+  setAdminUsers: (users: UserSummary[], total: number) => void;
   setAdminQuota: (adminQuota: QuotaSummary | null) => void;
   setAdminFeatures: (adminFeatures: FeatureToggles) => void;
 };
@@ -106,6 +111,7 @@ function createSessionScopedState(): SessionScopedState {
     apiKeys: [],
     telegram: null,
     adminUsers: [],
+    adminUsersTotal: 0,
     adminInvites: [],
     adminFeatures: null,
     adminQuota: null,
@@ -157,11 +163,13 @@ export const useAppStore = create<AppStore>()((set) => ({
   setAdminDashboard: (dashboard) =>
     set({
       adminUsers: dashboard.users,
+      adminUsersTotal: dashboard.usersTotal,
       adminInvites: dashboard.invites,
       adminFeatures: dashboard.features,
       adminMailboxes: dashboard.mailboxes,
       adminQuota: dashboard.quota
     }),
+  setAdminUsers: (adminUsers, adminUsersTotal) => set({ adminUsers, adminUsersTotal }),
   setAdminQuota: (adminQuota) => set({ adminQuota }),
   setAdminFeatures: (adminFeatures) => set({ adminFeatures })
 }));

@@ -76,6 +76,7 @@ export function useAuthSession({ onSignedIn, onSignedOut, onToast }: UseAuthSess
       try {
         const nextSession = await registerWithInviteAction({
           email: form.get("email"),
+          name: form.get("name"),
           password: form.get("password"),
           inviteCode: form.get("inviteCode")
         });

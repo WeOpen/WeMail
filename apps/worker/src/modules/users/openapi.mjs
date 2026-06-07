@@ -7,21 +7,100 @@ export const paths = {
       summary: "获取用户列表",
       operationId: "listUsers",
       security: [{ cookieAuth: [] }],
-      responses: { 200: { description: "用户列表" }, 403: { $ref: "#/components/responses/Error" } }
+      parameters: [
+        { name: "page", in: "query", required: false, schema: { type: "integer", minimum: 1, default: 1 } },
+        {
+          name: "pageSize",
+          in: "query",
+          required: false,
+          schema: { type: "integer", enum: [10, 20, 50], default: 10 }
+        },
+        { name: "search", in: "query", required: false, schema: { type: "string" } },
+        { name: "role", in: "query", required: false, schema: { type: "string", enum: ["admin", "member"] } },
+        { name: "status", in: "query", required: false, schema: { type: "string", enum: ["active", "disabled"] } }
+      ],
+      responses: {
+        200: {
+          description: "分页用户列表",
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["users", "total", "page", "pageSize"],
+                properties: {
+                  users: {
+                    type: "array",
+                    items: { type: "object" }
+                  },
+                  total: { type: "integer", minimum: 0 },
+                  page: { type: "integer", minimum: 1 },
+                  pageSize: { type: "integer", enum: [10, 20, 50] }
+                }
+              }
+            }
+          }
+        },
+        403: { $ref: "#/components/responses/Error" }
+      }
     },
     post: {
       tags: ["用户"],
       summary: "新增用户",
       operationId: "createUser",
       security: [{ cookieAuth: [] }],
+      requestBody: {
+        required: true,
+        content: {
+          "application/json": {
+            schema: {
+              type: "object",
+              required: ["email", "name", "password", "role"],
+              properties: {
+                email: { type: "string", format: "email" },
+                name: { type: "string" },
+                password: { type: "string", minLength: 8 },
+                role: { type: "string", enum: ["admin", "member"] }
+              }
+            }
+          }
+        }
+      },
       responses: { 201: { description: "创建成功" }, 400: { $ref: "#/components/responses/Error" }, 403: { $ref: "#/components/responses/Error" } }
     }
   },
   "/api/users/{userId}": {
     patch: {
       tags: ["用户"],
-      summary: "更新用户角色",
-      operationId: "updateUserRole",
+      summary: "更新用户资料",
+      operationId: "updateUser",
+      security: [{ cookieAuth: [] }],
+      parameters: [{ name: "userId", in: "path", required: true, schema: { type: "string" } }],
+      responses: { 200: { description: "用户" }, 400: { $ref: "#/components/responses/Error" }, 403: { $ref: "#/components/responses/Error" } }
+    },
+    delete: {
+      tags: ["用户"],
+      summary: "删除用户",
+      operationId: "deleteUser",
+      security: [{ cookieAuth: [] }],
+      parameters: [{ name: "userId", in: "path", required: true, schema: { type: "string" } }],
+      responses: { 200: { $ref: "#/components/responses/Ok" }, 400: { $ref: "#/components/responses/Error" }, 403: { $ref: "#/components/responses/Error" } }
+    }
+  },
+  "/api/users/{userId}/password": {
+    patch: {
+      tags: ["用户"],
+      summary: "重置用户密码",
+      operationId: "resetUserPassword",
+      security: [{ cookieAuth: [] }],
+      parameters: [{ name: "userId", in: "path", required: true, schema: { type: "string" } }],
+      responses: { 200: { description: "用户" }, 400: { $ref: "#/components/responses/Error" }, 403: { $ref: "#/components/responses/Error" } }
+    }
+  },
+  "/api/users/{userId}/status": {
+    patch: {
+      tags: ["用户"],
+      summary: "切换用户状态",
+      operationId: "updateUserStatus",
       security: [{ cookieAuth: [] }],
       parameters: [{ name: "userId", in: "path", required: true, schema: { type: "string" } }],
       responses: { 200: { description: "用户" }, 400: { $ref: "#/components/responses/Error" }, 403: { $ref: "#/components/responses/Error" } }

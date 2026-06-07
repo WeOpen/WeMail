@@ -1,5 +1,5 @@
 import type { FormEvent, ReactNode } from "react";
-import { CircleAlert, Eye, EyeOff, KeyRound, Mail, Ticket } from "lucide-react";
+import { CircleAlert, Eye, EyeOff, KeyRound, Mail, Ticket, UserRound } from "lucide-react";
 import { useRef, useState } from "react";
 
 import { Button } from "../../shared/button";
@@ -12,12 +12,18 @@ type AuthFormsProps = {
   mode: "login" | "register";
 };
 
-type AuthFieldId = "loginEmail" | "loginPassword" | "registerEmail" | "registerPassword" | "registerInviteCode";
+type AuthFieldId =
+  | "loginEmail"
+  | "loginPassword"
+  | "registerName"
+  | "registerEmail"
+  | "registerPassword"
+  | "registerInviteCode";
 type AuthFieldErrors = Partial<Record<AuthFieldId, string>>;
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const LOGIN_FIELD_ORDER: AuthFieldId[] = ["loginEmail", "loginPassword"];
-const REGISTER_FIELD_ORDER: AuthFieldId[] = ["registerEmail", "registerPassword", "registerInviteCode"];
+const REGISTER_FIELD_ORDER: AuthFieldId[] = ["registerName", "registerEmail", "registerPassword", "registerInviteCode"];
 
 function cx(...parts: Array<string | false | null | undefined>) {
   return parts.filter(Boolean).join(" ");
@@ -30,6 +36,11 @@ function getRequiredMessage(label: string) {
 function validateEmail(value: string) {
   if (!value.trim()) return getRequiredMessage("邮箱");
   if (!EMAIL_PATTERN.test(value.trim())) return "请输入有效邮箱";
+  return null;
+}
+
+function validateName(value: string) {
+  if (!value.trim()) return getRequiredMessage("用户名");
   return null;
 }
 
@@ -68,12 +79,14 @@ export function AuthForms({ authError, onRegister, onLogin, mode }: AuthFormsPro
   const [isRegisterPasswordVisible, setIsRegisterPasswordVisible] = useState(false);
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
+  const [registerName, setRegisterName] = useState("");
   const [registerEmail, setRegisterEmail] = useState("");
   const [registerPassword, setRegisterPassword] = useState("");
   const [registerInviteCode, setRegisterInviteCode] = useState("");
   const [fieldErrors, setFieldErrors] = useState<AuthFieldErrors>({});
   const loginEmailRef = useRef<HTMLInputElement>(null);
   const loginPasswordRef = useRef<HTMLInputElement>(null);
+  const registerNameRef = useRef<HTMLInputElement>(null);
   const registerEmailRef = useRef<HTMLInputElement>(null);
   const registerPasswordRef = useRef<HTMLInputElement>(null);
   const registerInviteCodeRef = useRef<HTMLInputElement>(null);
@@ -81,6 +94,7 @@ export function AuthForms({ authError, onRegister, onLogin, mode }: AuthFormsPro
   const fieldRefs = {
     loginEmail: loginEmailRef,
     loginPassword: loginPasswordRef,
+    registerName: registerNameRef,
     registerEmail: registerEmailRef,
     registerPassword: registerPasswordRef,
     registerInviteCode: registerInviteCodeRef
@@ -140,6 +154,7 @@ export function AuthForms({ authError, onRegister, onLogin, mode }: AuthFormsPro
   async function handleRegisterSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const nextErrors: AuthFieldErrors = {
+      registerName: validateName(registerName) ?? undefined,
       registerEmail: validateEmail(registerEmail) ?? undefined,
       registerPassword: validatePassword(registerPassword) ?? undefined,
       registerInviteCode: validateInviteCode(registerInviteCode) ?? undefined
@@ -227,6 +242,29 @@ export function AuthForms({ authError, onRegister, onLogin, mode }: AuthFormsPro
       ) : (
         <div aria-labelledby="auth-tab-register" className="auth-form-panel" id="auth-panel-register" role="tabpanel">
           <form className="auth-form" noValidate onSubmit={handleRegisterSubmit}>
+            <FormField htmlFor="register-name" label="用户名" required>
+              <div className="auth-field-stack">
+                <div className={cx("auth-input-shell form-control-shell", fieldErrors.registerName && "is-invalid")}>
+                  <span aria-hidden="true" className="auth-input-icon form-control-icon">
+                    <UserRound />
+                  </span>
+                  <TextInput
+                    {...getFieldErrorProps("registerName", "register-name")}
+                    className="auth-input-control"
+                    id="register-name"
+                    name="name"
+                    onChange={(event) => {
+                      setRegisterName(event.target.value);
+                      clearFieldError("registerName");
+                    }}
+                    ref={registerNameRef}
+                    required
+                    value={registerName}
+                  />
+                </div>
+                {renderFieldValidation("registerName", "register-name")}
+              </div>
+            </FormField>
             <FormField htmlFor="register-email" label="邮箱" required>
               <div className="auth-field-stack">
                 <div className={cx("auth-input-shell form-control-shell", fieldErrors.registerEmail && "is-invalid")}>

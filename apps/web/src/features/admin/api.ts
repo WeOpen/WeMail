@@ -1,13 +1,27 @@
-import type { FeatureToggles, MailboxSummary, QuotaSummary, UserRole, UserSummary } from "@wemail/shared";
+import type { FeatureToggles, MailboxSummary, QuotaSummary, UserRole, UserStatus, UserSummary } from "@wemail/shared";
 
 import { apiFetch } from "../../shared/api/client";
-import type { InviteSummary } from "./types";
+import type { AdminUsersPayload, AdminUsersQuery, InviteSummary } from "./types";
 
-export function fetchAdminUsers() {
-  return apiFetch<{ users: UserSummary[] }>("/api/users");
+function buildAdminUsersPath(query?: AdminUsersQuery) {
+  if (!query) return "/api/users";
+
+  const params = new URLSearchParams({
+    page: String(query.page),
+    pageSize: String(query.pageSize)
+  });
+  if (query.search.trim()) params.set("search", query.search.trim());
+  if (query.role !== "all") params.set("role", query.role);
+  if (query.status !== "all") params.set("status", query.status);
+
+  return `/api/users?${params.toString()}`;
 }
 
-export function createAdminUser(payload: { email: string; password: string; role: UserRole }) {
+export function fetchAdminUsers(query?: AdminUsersQuery) {
+  return apiFetch<AdminUsersPayload>(buildAdminUsersPath(query));
+}
+
+export function createAdminUser(payload: { email: string; name: string; password: string; role: UserRole }) {
   return apiFetch<{ user: UserSummary }>("/api/users", {
     method: "POST",
     body: JSON.stringify(payload)
@@ -19,6 +33,31 @@ export function updateAdminUserRole(userId: string, role: UserRole) {
     method: "PATCH",
     body: JSON.stringify({ role })
   });
+}
+
+export function updateAdminUser(userId: string, payload: { name: string }) {
+  return apiFetch<{ user: UserSummary }>(`/api/users/${userId}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload)
+  });
+}
+
+export function resetAdminUserPassword(userId: string, password: string) {
+  return apiFetch<{ user: UserSummary }>(`/api/users/${userId}/password`, {
+    method: "PATCH",
+    body: JSON.stringify({ password })
+  });
+}
+
+export function updateAdminUserStatus(userId: string, status: UserStatus) {
+  return apiFetch<{ user: UserSummary }>(`/api/users/${userId}/status`, {
+    method: "PATCH",
+    body: JSON.stringify({ status })
+  });
+}
+
+export function deleteAdminUser(userId: string) {
+  return apiFetch<{ ok: boolean }>(`/api/users/${userId}`, { method: "DELETE" });
 }
 
 export function fetchAdminInvites() {

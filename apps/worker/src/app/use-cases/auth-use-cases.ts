@@ -16,7 +16,7 @@ type AuthUseCaseContext = {
 
 export async function registerUserWithInvite(
   c: AuthUseCaseContext,
-  payload: { email: string; password: string; inviteCode: string },
+  payload: { email: string; name: string; password: string; inviteCode: string },
   rawContext: any
 ) {
   if (await c.store.users.findByEmail(payload.email)) return jsonError("User already exists", 409);
@@ -29,6 +29,7 @@ export async function registerUserWithInvite(
 
   const user = await c.store.users.create({
     email: payload.email,
+    name: payload.name,
     passwordHash: await hashPassword(payload.password),
     role: shouldBeAdmin ? "admin" : "member"
   });
@@ -46,10 +47,7 @@ export async function registerUserWithInvite(
   setSessionCookie(rawContext, session.id);
   await recordAudit(c.store, "user", user.id, "register", { inviteCode: payload.inviteCode });
 
-  return toSessionResponse(
-    { id: user.id, email: user.email, role: user.role, createdAt: user.createdAt },
-    c.featureToggles
-  );
+  return toSessionResponse(user, c.featureToggles);
 }
 
 export async function loginUser(
@@ -61,15 +59,13 @@ export async function loginUser(
   if (!user || !(await verifyPassword(payload.password, user.passwordHash))) {
     return jsonError("Invalid credentials", 401);
   }
+  if (user.status !== "active") return jsonError("User is disabled", 403);
 
   const session = await c.store.sessions.create({ userId: user.id, expiresAt: sessionExpiryIso(c.env) });
   setSessionCookie(rawContext, session.id);
   await recordAudit(c.store, "user", user.id, "login", {});
 
-  return toSessionResponse(
-    { id: user.id, email: user.email, role: user.role, createdAt: user.createdAt },
-    c.featureToggles
-  );
+  return toSessionResponse(user, c.featureToggles);
 }
 
 export async function logoutUser(c: Pick<AuthUseCaseContext, "store">, rawContext: any) {

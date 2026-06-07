@@ -22,6 +22,7 @@
 
 .ui-search-input-icon,
 .ui-search-input-clear,
+.ui-select-icon,
 .ui-multi-select-actions {
   display: inline-flex;
   align-items: center;
@@ -60,6 +61,147 @@
   border: 0;
   border-radius: 999px;
   background: transparent;
+}
+
+.ui-select {
+  position: relative;
+  display: block;
+  min-width: 0;
+}
+
+.ui-select-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  min-height: 52px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.ui-select-trigger.form-select {
+  padding-right: 16px;
+  background-image: none;
+  background-position: initial;
+  background-repeat: initial;
+  background-size: initial;
+}
+
+.ui-select-trigger:focus-visible,
+.ui-select[data-state="open"] .ui-select-trigger {
+  outline: none;
+  border-color: rgba(255, 122, 0, 0.48);
+  background: var(--surface-strong);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.ui-select-trigger:disabled,
+.ui-select.is-disabled .ui-select-trigger {
+  cursor: not-allowed;
+  color: var(--text-soft);
+  border-color: color-mix(in srgb, var(--border) 78%, transparent);
+  background: color-mix(in srgb, var(--surface-muted) 78%, transparent);
+}
+
+.ui-select-value {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ui-select-value.is-placeholder {
+  color: var(--text-soft);
+}
+
+.ui-select-icon {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  transition: transform var(--transition-fast);
+}
+
+.ui-select[data-state="open"] .ui-select-icon {
+  transform: rotate(180deg);
+}
+
+.ui-select-native {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  border: 0;
+  white-space: nowrap;
+}
+
+.ui-select-panel {
+  position: fixed;
+  z-index: 80;
+  display: grid;
+  gap: 4px;
+  max-height: min(320px, calc(100vh - 24px));
+  overflow: auto;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius-field) + 2px);
+  background: var(--surface-strong);
+  color: var(--text);
+  box-shadow: var(--shadow-card);
+}
+
+.ui-select-option {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 18px;
+  align-items: center;
+  gap: 10px;
+  min-height: 40px;
+  width: 100%;
+  padding: 9px 10px;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.ui-select-option:hover:not(:disabled),
+.ui-select-option:focus-visible {
+  outline: none;
+  border-color: color-mix(in srgb, var(--accent) 26%, transparent);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+
+.ui-select-option[data-state="selected"] {
+  color: var(--text);
+  border-color: color-mix(in srgb, var(--accent) 30%, transparent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.ui-select-option:disabled {
+  cursor: not-allowed;
+  color: var(--text-soft);
+  opacity: 0.66;
+}
+
+.ui-select-option-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ui-select-option-check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent);
 }
 
 .ui-multi-select {
@@ -155,6 +297,8 @@
 
 @media (prefers-reduced-motion: reduce) {
   .ui-search-input,
+  .ui-select-trigger,
+  .ui-select-icon,
   .ui-multi-select-trigger {
     transition: none;
   }

@@ -74,6 +74,18 @@ const workspacePrimaryNav: WorkspacePrimaryNavConfig[] = [
     icon: "dashboard"
   },
   {
+    id: "users",
+    section: "工作台",
+    label: "用户",
+    to: "/users/list",
+    icon: "users",
+    adminOnly: true,
+    children: [
+      { label: "用户列表", to: "/users/list" },
+      { label: "用户设置", to: "/users/settings" }
+    ]
+  },
+  {
     id: "accounts",
     section: "工作台",
     label: "账号",
@@ -94,18 +106,6 @@ const workspacePrimaryNav: WorkspacePrimaryNavConfig[] = [
       { label: "邮件列表", to: "/mail/list" },
       { label: "发件箱", to: "/mail/outbound" },
       { label: "邮件设置", to: "/mail/settings" }
-    ]
-  },
-  {
-    id: "users",
-    section: "工作台",
-    label: "用户",
-    to: "/users/list",
-    icon: "users",
-    adminOnly: true,
-    children: [
-      { label: "用户列表", to: "/users/list" },
-      { label: "用户设置", to: "/users/settings" }
     ]
   },
   {

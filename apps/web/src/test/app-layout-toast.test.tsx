@@ -11,8 +11,11 @@ const session: SessionSummary = {
   user: {
     id: "member-1",
     email: "member@example.com",
+    name: "Member User",
     role: "member",
-    createdAt: "2026-04-08T00:00:00.000Z"
+    status: "active",
+    createdAt: "2026-04-08T00:00:00.000Z",
+    updatedAt: "2026-04-08T00:00:00.000Z"
   },
   featureToggles: {
     aiEnabled: true,
@@ -114,7 +117,7 @@ describe("AppLayout notice removal", () => {
     fireEvent.click(userMenuTrigger);
 
     const userMenu = screen.getByRole("menu");
-    expect(within(userMenu).getByText("姓名：member")).toBeInTheDocument();
+    expect(within(userMenu).getByText("用户名：Member User")).toBeInTheDocument();
     expect(within(userMenu).queryByText(session.user.email)).not.toBeInTheDocument();
     expect(within(userMenu).getByRole("menuitem", { name: "个人设置" })).toHaveAttribute("href", "/system/profile");
 

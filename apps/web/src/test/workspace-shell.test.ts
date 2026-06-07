@@ -10,8 +10,11 @@ describe("buildWorkspaceShellState", () => {
         user: {
           id: "member-1",
           email: "member@example.com",
+          name: "Member User",
           role: "member",
-          createdAt: "2026-04-14T00:00:00.000Z"
+          status: "active",
+          createdAt: "2026-04-14T00:00:00.000Z",
+          updatedAt: "2026-04-14T00:00:00.000Z"
         },
         featureToggles: {
           aiEnabled: true,
@@ -73,8 +76,11 @@ describe("buildWorkspaceShellState", () => {
         user: {
           id: "member-1",
           email: "member@example.com",
+          name: "Member User",
           role: "member",
-          createdAt: "2026-04-14T00:00:00.000Z"
+          status: "active",
+          createdAt: "2026-04-14T00:00:00.000Z",
+          updatedAt: "2026-04-14T00:00:00.000Z"
         },
         featureToggles: {
           aiEnabled: true,
@@ -88,6 +94,31 @@ describe("buildWorkspaceShellState", () => {
     expect(shell.railSections[0]?.items.some((item) => item.label === "用户")).toBe(false);
   });
 
+  it("places the admin user menu directly below the dashboard", () => {
+    const shell = buildWorkspaceShellState({
+      pathname: "/dashboard",
+      session: {
+        user: {
+          id: "admin-1",
+          email: "admin@example.com",
+          name: "Admin User",
+          role: "admin",
+          status: "active",
+          createdAt: "2026-04-14T00:00:00.000Z",
+          updatedAt: "2026-04-14T00:00:00.000Z"
+        },
+        featureToggles: {
+          aiEnabled: true,
+          telegramEnabled: true,
+          outboundEnabled: true,
+          mailboxCreationEnabled: true
+        }
+      }
+    });
+
+    expect(shell.railSections[0]?.items.map((item) => item.label)).toEqual(["仪表盘", "用户", "账号", "邮件"]);
+  });
+
   it("normalizes /mail/unassigned to the outbound shell so legacy deep links stay in the mail workspace", () => {
     const shell = buildWorkspaceShellState({
       pathname: "/mail/unassigned",
@@ -95,8 +126,11 @@ describe("buildWorkspaceShellState", () => {
         user: {
           id: "member-1",
           email: "member@example.com",
+          name: "Member User",
           role: "member",
-          createdAt: "2026-04-14T00:00:00.000Z"
+          status: "active",
+          createdAt: "2026-04-14T00:00:00.000Z",
+          updatedAt: "2026-04-14T00:00:00.000Z"
         },
         featureToggles: {
           aiEnabled: true,
@@ -119,8 +153,11 @@ describe("buildWorkspaceShellState", () => {
         user: {
           id: "member-1",
           email: "member@example.com",
+          name: "Member User",
           role: "member",
-          createdAt: "2026-04-14T00:00:00.000Z"
+          status: "active",
+          createdAt: "2026-04-14T00:00:00.000Z",
+          updatedAt: "2026-04-14T00:00:00.000Z"
         },
         featureToggles: {
           aiEnabled: true,

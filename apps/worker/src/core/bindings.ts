@@ -1,4 +1,4 @@
-import type { FeatureToggles, MailDomainSummary } from "@wemail/shared";
+import type { FeatureToggles, MailDomainSummary, UserStatus } from "@wemail/shared";
 
 export type { FeatureToggles } from "@wemail/shared";
 
@@ -45,9 +45,27 @@ export type PersistedMessageRecord = {
 export type UserRecord = {
   id: string;
   email: string;
+  name: string;
   passwordHash: string;
   role: "admin" | "member";
+  status: UserStatus;
   createdAt: string;
+  updatedAt: string;
+};
+
+export type UserListOptions = {
+  page: number;
+  pageSize: number;
+  search?: string;
+  role?: UserRecord["role"];
+  status?: UserRecord["status"];
+};
+
+export type UserListResult = {
+  users: UserRecord[];
+  total: number;
+  page: number;
+  pageSize: number;
 };
 
 export type SessionRecord = {
@@ -175,14 +193,19 @@ export interface AppStore {
     count: () => Promise<number>;
     findByEmail: (email: string) => Promise<UserRecord | null>;
     findById: (id: string) => Promise<UserRecord | null>;
-    create: (input: { email: string; passwordHash: string; role: UserRecord["role"] }) => Promise<UserRecord>;
+    create: (input: { email: string; name: string; passwordHash: string; role: UserRecord["role"] }) => Promise<UserRecord>;
+    updateProfile: (id: string, input: { name: string }) => Promise<UserRecord | null>;
     updateRole: (id: string, role: UserRecord["role"]) => Promise<UserRecord | null>;
-    list: () => Promise<UserRecord[]>;
+    updatePasswordHash: (id: string, passwordHash: string) => Promise<UserRecord | null>;
+    updateStatus: (id: string, status: UserRecord["status"]) => Promise<UserRecord | null>;
+    delete: (id: string) => Promise<boolean>;
+    list: (options: UserListOptions) => Promise<UserListResult>;
   };
   sessions: {
     create: (input: { userId: string; expiresAt: string }) => Promise<SessionRecord>;
     findById: (id: string) => Promise<SessionRecord | null>;
     delete: (id: string) => Promise<void>;
+    deleteByUserId: (userId: string) => Promise<void>;
   };
   invites: {
     create: (input: { code: string; createdByUserId: string | null }) => Promise<InviteRecord>;

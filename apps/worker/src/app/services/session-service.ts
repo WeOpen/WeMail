@@ -16,7 +16,8 @@ export async function getUserFromApiKey(c: any, store: AppStore) {
   const key = await store.apiKeys.findActiveByHash(await hashString(token));
   if (!key) return null;
   await store.apiKeys.touch(key.id);
-  return store.users.findById(key.userId);
+  const user = await store.users.findById(key.userId);
+  return user?.status === "active" ? user : null;
 }
 
 export async function getUserFromSession(c: any, store: AppStore) {
@@ -28,7 +29,8 @@ export async function getUserFromSession(c: any, store: AppStore) {
     await store.sessions.delete(session.id);
     return null;
   }
-  return store.users.findById(session.userId);
+  const user = await store.users.findById(session.userId);
+  return user?.status === "active" ? user : null;
 }
 
 export async function resolveFeatureToggles(store: AppStore, env: AppBindings) {

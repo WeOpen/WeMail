@@ -39,9 +39,10 @@ const spec = {
           "application/json": {
             schema: {
               type: "object",
-              required: ["email", "password", "inviteCode"],
+              required: ["email", "name", "password", "inviteCode"],
               properties: {
                 email: { type: "string", format: "email" },
+                name: { type: "string" },
                 password: { type: "string" },
                 inviteCode: { type: "string" }
               }
@@ -92,7 +93,19 @@ const spec = {
             schema: {
               type: "object",
               properties: {
-                user: { type: "object" },
+                user: {
+                  type: "object",
+                  required: ["id", "email", "name", "role", "status", "createdAt", "updatedAt"],
+                  properties: {
+                    id: { type: "string" },
+                    email: { type: "string", format: "email" },
+                    name: { type: "string" },
+                    role: { type: "string", enum: ["admin", "member"] },
+                    status: { type: "string", enum: ["active", "disabled"] },
+                    createdAt: { type: "string", format: "date-time" },
+                    updatedAt: { type: "string", format: "date-time" }
+                  }
+                },
                 featureToggles: { type: "object" }
               }
             }

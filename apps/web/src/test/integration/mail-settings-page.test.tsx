@@ -92,7 +92,12 @@ describe("mail settings integration", () => {
 
     expect(await screen.findByRole("heading", { name: /^邮件设置$/i })).toBeInTheDocument();
 
-    await user.selectOptions(screen.getByLabelText(/^默认发件身份$/i), "WeMail Support <support@example.com>");
+    await user.click(screen.getByRole("combobox", { name: /^默认发件身份$/i }));
+    await user.click(
+      within(await screen.findByRole("listbox", { name: /^默认发件身份$/i })).getByRole("option", {
+        name: "WeMail Support <support@example.com>"
+      })
+    );
     await user.click(screen.getByRole("button", { name: /^保存发件规则$/i }));
     expect(screen.getByText(/发件规则已保存/i)).toBeInTheDocument();
 

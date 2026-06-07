@@ -10,14 +10,14 @@ import { loginUser, logoutUser, registerUserWithInvite } from "../../app/use-cas
 
 export function registerAuthRoutes(app: Hono<AppContext>) {
   app.post("/api/auth/register", async (c) => {
-    const { email, password, inviteCode } = await parseRegisterRequest(c.req.raw);
+    const { email, name, password, inviteCode } = await parseRegisterRequest(c.req.raw);
     const result = await registerUserWithInvite(
       {
         store: c.get("store"),
         featureToggles: c.var.featureToggles,
         env: c.env
       },
-      { email, password, inviteCode },
+      { email, name, password, inviteCode },
       c
     );
     if (result instanceof Response) return result;
@@ -50,11 +50,6 @@ export function registerAuthRoutes(app: Hono<AppContext>) {
     if (!user) return jsonError("Not authenticated", 401);
     const fullUser = await c.get("store").users.findById(user.id);
     if (!fullUser) return jsonError("User not found", 404);
-    return c.json(
-      toSessionResponse(
-        { id: fullUser.id, email: fullUser.email, role: fullUser.role, createdAt: fullUser.createdAt },
-        c.var.featureToggles
-      )
-    );
+    return c.json(toSessionResponse(fullUser, c.var.featureToggles));
   });
 }

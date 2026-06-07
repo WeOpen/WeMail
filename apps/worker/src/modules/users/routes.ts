@@ -5,20 +5,26 @@ import { getAppServices, requireSessionAuth, requireUser } from "../../app/conte
 import { jsonError } from "../../app/services/audit-service";
 import { toInviteListItem } from "../../app/routes/dto/admin-dto";
 import {
+  parseUserPasswordResetRequest,
   parseQuotaUpdateRequest,
+  parseUserListQuery,
   parseUserCreateRequest,
-  parseUserRoleUpdateRequest
+  parseUserStatusUpdateRequest,
+  parseUserUpdateRequest
 } from "../../app/routes/requests/admin-request";
 import {
   createAdminUserUseCase,
   createInviteUseCase,
+  deleteUserUseCase,
   disableInviteUseCase,
   getQuotaUseCase,
   listAdminInvites,
   listAdminMailboxes,
   listAdminUsers,
+  resetUserPasswordUseCase,
   updateQuotaUseCase,
-  updateUserRoleUseCase
+  updateUserProfileUseCase,
+  updateUserStatusUseCase
 } from "../../app/use-cases/admin-use-cases";
 
 function requireAdminSession(c: { get: <T>(key: string) => T }) {
@@ -38,7 +44,7 @@ export function registerUsersRoutes(app: Hono<AppContext>) {
     return next();
   });
 
-  app.get("/api/users", async (c) => c.json({ users: await listAdminUsers(getAppServices(c)) }));
+  app.get("/api/users", async (c) => c.json(await listAdminUsers(getAppServices(c), parseUserListQuery(c.req.url))));
 
   app.post("/api/users", async (c) => {
     const payload = await parseUserCreateRequest(c.req.raw);
@@ -51,14 +57,45 @@ export function registerUsersRoutes(app: Hono<AppContext>) {
   });
 
   app.patch("/api/users/:userId", async (c) => {
-    const payload = await parseUserRoleUpdateRequest(c.req.raw);
-    const result = await updateUserRoleUseCase(getAppServices(c), {
+    const payload = await parseUserUpdateRequest(c.req.raw);
+    const result = await updateUserProfileUseCase(getAppServices(c), {
       actorUserId: requireUser(c)!.id,
       userId: c.req.param("userId"),
-      role: payload.role
+      ...payload
     });
     if (result instanceof Response) return result;
     return c.json({ user: result });
+  });
+
+  app.patch("/api/users/:userId/password", async (c) => {
+    const payload = await parseUserPasswordResetRequest(c.req.raw);
+    const result = await resetUserPasswordUseCase(getAppServices(c), {
+      actorUserId: requireUser(c)!.id,
+      userId: c.req.param("userId"),
+      password: payload.password
+    });
+    if (result instanceof Response) return result;
+    return c.json({ user: result });
+  });
+
+  app.patch("/api/users/:userId/status", async (c) => {
+    const payload = await parseUserStatusUpdateRequest(c.req.raw);
+    const result = await updateUserStatusUseCase(getAppServices(c), {
+      actorUserId: requireUser(c)!.id,
+      userId: c.req.param("userId"),
+      status: payload.status
+    });
+    if (result instanceof Response) return result;
+    return c.json({ user: result });
+  });
+
+  app.delete("/api/users/:userId", async (c) => {
+    const result = await deleteUserUseCase(getAppServices(c), {
+      actorUserId: requireUser(c)!.id,
+      userId: c.req.param("userId")
+    });
+    if (result instanceof Response) return result;
+    return c.json(result);
   });
 
   app.get("/api/users/invites", async (c) =>

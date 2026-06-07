@@ -1,4 +1,4 @@
-import type { MailDomainSummary, UserRole } from "@wemail/shared";
+import type { MailDomainSummary, UserRole, UserStatus } from "@wemail/shared";
 
 import type { AppStore, AttachmentRecord, QuotaRecord } from "../../core/bindings";
 
@@ -20,6 +20,24 @@ function parseAllowedRoles(value: string | null | undefined): UserRole[] {
   return roles.filter((role): role is UserRole => role === "admin" || role === "member");
 }
 
+function parseUserStatus(value: unknown): UserStatus {
+  return value === "disabled" || value === "outbound_disabled" ? "disabled" : "active";
+}
+
+function toUserRecord(row: any) {
+  const email = String(row.email);
+  return {
+    id: row.id,
+    email,
+    name: row.name || email.split("@")[0] || email,
+    passwordHash: row.password_hash,
+    role: row.role,
+    status: parseUserStatus(row.status),
+    createdAt: row.created_at,
+    updatedAt: row.updated_at || row.created_at
+  };
+}
+
 export function createD1Store(db: D1Database): AppStore {
   return {
     users: {
@@ -29,38 +47,92 @@ export function createD1Store(db: D1Database): AppStore {
       },
       async findByEmail(email) {
         const row = await db.prepare("SELECT * FROM users WHERE email = ?").bind(email).first<any>();
-        return row
-          ? { id: row.id, email: row.email, passwordHash: row.password_hash, role: row.role, createdAt: row.created_at }
-          : null;
+        return row ? toUserRecord(row) : null;
       },
       async findById(id) {
         const row = await db.prepare("SELECT * FROM users WHERE id = ?").bind(id).first<any>();
-        return row
-          ? { id: row.id, email: row.email, passwordHash: row.password_hash, role: row.role, createdAt: row.created_at }
-          : null;
+        return row ? toUserRecord(row) : null;
       },
       async create(input) {
         const id = crypto.randomUUID();
         const createdAt = nowIso();
         await db
-          .prepare("INSERT INTO users (id, email, password_hash, role, created_at) VALUES (?, ?, ?, ?, ?)")
-          .bind(id, input.email, input.passwordHash, input.role, createdAt)
+          .prepare(
+            "INSERT INTO users (id, email, name, password_hash, role, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, 'active', ?, ?)"
+          )
+          .bind(id, input.email, input.name, input.passwordHash, input.role, createdAt, createdAt)
           .run();
-        return { id, email: input.email, passwordHash: input.passwordHash, role: input.role, createdAt };
+        return {
+          id,
+          email: input.email,
+          name: input.name,
+          passwordHash: input.passwordHash,
+          role: input.role,
+          status: "active",
+          createdAt,
+          updatedAt: createdAt
+        };
       },
-      async updateRole(id, role) {
-        await db.prepare("UPDATE users SET role = ? WHERE id = ?").bind(role, id).run();
+      async updateProfile(id, input) {
+        await db.prepare("UPDATE users SET name = ?, updated_at = ? WHERE id = ?").bind(input.name, nowIso(), id).run();
         return this.findById(id);
       },
-      async list() {
-        const result = await db.prepare("SELECT * FROM users ORDER BY email ASC").all();
-        return (result.results ?? []).map((row: any) => ({
-          id: row.id,
-          email: row.email,
-          passwordHash: row.password_hash,
-          role: row.role,
-          createdAt: row.created_at
-        }));
+      async updateRole(id, role) {
+        await db.prepare("UPDATE users SET role = ?, updated_at = ? WHERE id = ?").bind(role, nowIso(), id).run();
+        return this.findById(id);
+      },
+      async updatePasswordHash(id, passwordHash) {
+        await db.prepare("UPDATE users SET password_hash = ?, updated_at = ? WHERE id = ?").bind(passwordHash, nowIso(), id).run();
+        return this.findById(id);
+      },
+      async updateStatus(id, status) {
+        await db.prepare("UPDATE users SET status = ?, updated_at = ? WHERE id = ?").bind(status, nowIso(), id).run();
+        return this.findById(id);
+      },
+      async delete(id) {
+        const existing = await this.findById(id);
+        if (!existing) return false;
+        await db.prepare("DELETE FROM auth_sessions WHERE user_id = ?").bind(id).run();
+        await db.prepare("DELETE FROM user_send_quotas WHERE user_id = ?").bind(id).run();
+        await db.prepare("DELETE FROM api_keys WHERE user_id = ?").bind(id).run();
+        await db.prepare("DELETE FROM telegram_subscriptions WHERE user_id = ?").bind(id).run();
+        await db.prepare("DELETE FROM users WHERE id = ?").bind(id).run();
+        return true;
+      },
+      async list(options) {
+        const whereParts: string[] = [];
+        const bindings: Array<string | number> = [];
+        const normalizedSearch = options.search?.toLowerCase();
+
+        if (normalizedSearch) {
+          whereParts.push("(lower(email) LIKE ? OR lower(name) LIKE ?)");
+          bindings.push(`%${normalizedSearch}%`, `%${normalizedSearch}%`);
+        }
+        if (options.role) {
+          whereParts.push("role = ?");
+          bindings.push(options.role);
+        }
+        if (options.status) {
+          whereParts.push("status = ?");
+          bindings.push(options.status);
+        }
+
+        const whereSql = whereParts.length > 0 ? ` WHERE ${whereParts.join(" AND ")}` : "";
+        const totalRow = await db
+          .prepare(`SELECT count(*) AS count FROM users${whereSql}`)
+          .bind(...bindings)
+          .first<{ count: number }>();
+        const result = await db
+          .prepare(`SELECT * FROM users${whereSql} ORDER BY email ASC LIMIT ? OFFSET ?`)
+          .bind(...bindings, options.pageSize, (options.page - 1) * options.pageSize)
+          .all();
+
+        return {
+          users: (result.results ?? []).map(toUserRecord),
+          total: totalRow?.count ?? 0,
+          page: options.page,
+          pageSize: options.pageSize
+        };
       }
     },
     sessions: {
@@ -79,6 +151,9 @@ export function createD1Store(db: D1Database): AppStore {
       },
       async delete(id) {
         await db.prepare("DELETE FROM auth_sessions WHERE id = ?").bind(id).run();
+      },
+      async deleteByUserId(userId) {
+        await db.prepare("DELETE FROM auth_sessions WHERE user_id = ?").bind(userId).run();
       }
     },
     invites: {

@@ -41,8 +41,8 @@ function ThemeIcon({ theme }: { theme: WorkspaceTheme }) {
   );
 }
 
-function buildUserDisplayName(email: string) {
-  return email.split("@")[0] || email;
+function buildUserDisplayName(user: SessionSummary["user"]) {
+  return user.name || user.email.split("@")[0] || user.email;
 }
 
 function RailIcon({ icon }: { icon: WorkspaceRailIcon }) {
@@ -93,7 +93,7 @@ export function AppLayout({
   const mobileDockRef = useRef<HTMLDivElement | null>(null);
   const railScrollRef = useRef<HTMLElement | null>(null);
   const mainScrollRef = useRef<HTMLDivElement | null>(null);
-  const userDisplayName = buildUserDisplayName(session.user.email);
+  const userDisplayName = buildUserDisplayName(session.user);
   const workspaceNavItems = shell.railSections.find((section) => section.title === "工作台")?.items ?? [];
   const settingsNavItems = shell.railSections.find((section) => section.title === "设置")?.items ?? [];
   const isSettingsActive = settingsNavItems.some((item) => item.id === shell.activePrimaryId);
@@ -248,7 +248,7 @@ export function AppLayout({
             {isUserMenuOpen ? (
               <div className="workspace-user-dropdown panel" role="menu">
                 <div className="workspace-user-dropdown-header" role="none">
-                  <strong>姓名：{userDisplayName}</strong>
+                  <strong>用户名：{userDisplayName}</strong>
                 </div>
                 <ButtonLink
                   className="workspace-user-dropdown-item"

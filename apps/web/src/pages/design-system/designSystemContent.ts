@@ -1404,16 +1404,16 @@ const heroUiInspiredComponentAdditions: Record<string, DesignSystemComponentDoc[
         "不要把关键危险操作隐藏在下拉里，危险动作应使用显式按钮和确认流程。"
       ],
       variants: [
-        "继承原生 select 受控/非受控能力，可配合 FormField 展示错误和帮助文案。",
+        "保留 value/defaultValue/onChange/name 等表单 API，可配合 FormField 展示错误和帮助文案。",
         "可用于紧凑 FilterBar 或普通表单，通过外层布局决定宽度。"
       ],
       anatomy: [
-        "SelectInput 保留原生 select 语义，内部只统一边框、图标、焦点和禁用态。",
+        "SelectInput 使用系统风格 combobox 触发器和自定义 listbox 面板，底层同步隐藏 select 以兼容表单提交。",
         "选项文案应业务可读，不要直接暴露后端枚举值。"
       ],
       accessibility: [
         "必须有可见 label 或 aria-label；默认选项应清楚表达“全部/请选择/未设置”。",
-        "禁用态需要保留解释，避免用户不知道为什么无法选择。"
+        "支持键盘打开、上下移动、选择与 Escape 关闭；禁用态需要保留解释，避免用户不知道为什么无法选择。"
       ],
       api: [
         createApiField("value / defaultValue", "string", "undefined", "控制当前选中项。"),

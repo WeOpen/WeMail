@@ -8,6 +8,7 @@ export function fetchSession() {
 
 export function registerWithInvite(payload: {
   email: FormDataEntryValue | null;
+  name: FormDataEntryValue | null;
   password: FormDataEntryValue | null;
   inviteCode: FormDataEntryValue | null;
 }) {

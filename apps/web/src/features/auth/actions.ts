@@ -2,6 +2,7 @@ import { loginWithPassword, logoutSession, registerWithInvite } from "./api";
 
 export async function registerWithInviteAction(payload: {
   email: FormDataEntryValue | null;
+  name: FormDataEntryValue | null;
   password: FormDataEntryValue | null;
   inviteCode: FormDataEntryValue | null;
 }) {
