@@ -1,16 +1,23 @@
+import type { MailDomainSummary } from "@wemail/shared";
+
 import type {
+  AccountSettingsRecord,
+  AnnouncementRecord,
   ApiKeyRecord,
   AppStore,
   AttachmentRecord,
   AuditEventRecord,
   FeatureToggles,
   InviteRecord,
+  MailSettingsRecord,
   MailboxRecord,
   PersistedMessageRecord,
   QuotaRecord,
   SessionRecord,
   TelegramSubscriptionRecord,
-  UserRecord
+  UserRecord,
+  WebhookDeliveryRecord,
+  WebhookEndpointRecord
 } from "../../core/bindings";
 
 function nowIso() {
@@ -41,7 +48,13 @@ export function createInMemoryStore(): AppStore {
   const telegramSubscriptions = new Map<string, TelegramSubscriptionRecord>();
   const quotas = new Map<string, QuotaRecord>();
   const settings = new Map<keyof FeatureToggles, boolean>();
+  let mailDomains: MailDomainSummary[] | null = null;
   const auditEvents: AuditEventRecord[] = [];
+  let accountSettingsRecord: AccountSettingsRecord | null = null;
+  let mailSettingsRecord: MailSettingsRecord | null = null;
+  const webhookEndpoints = new Map<string, WebhookEndpointRecord>();
+  const webhookDeliveries: WebhookDeliveryRecord[] = [];
+  const announcements: AnnouncementRecord[] = [];
 
   return {
     users: {
@@ -55,18 +68,82 @@ export function createInMemoryStore(): AppStore {
         return clone(users.get(id) ?? null);
       },
       async create(input) {
+        const createdAt = nowIso();
         const record: UserRecord = {
           id: crypto.randomUUID(),
           email: input.email,
+          name: input.name,
           passwordHash: input.passwordHash,
           role: input.role,
-          createdAt: nowIso()
+          status: "active",
+          createdAt,
+          updatedAt: createdAt
         };
         users.set(record.id, record);
         return clone(record);
       },
-      async list() {
-        return clone(Array.from(users.values()).sort((a, b) => a.email.localeCompare(b.email)));
+      async updateProfile(id, input) {
+        const record = users.get(id);
+        if (!record) return null;
+        record.name = input.name;
+        record.updatedAt = nowIso();
+        return clone(record);
+      },
+      async updateRole(id, role) {
+        const record = users.get(id);
+        if (!record) return null;
+        record.role = role;
+        record.updatedAt = nowIso();
+        return clone(record);
+      },
+      async updatePasswordHash(id, passwordHash) {
+        const record = users.get(id);
+        if (!record) return null;
+        record.passwordHash = passwordHash;
+        record.updatedAt = nowIso();
+        return clone(record);
+      },
+      async updateStatus(id, status) {
+        const record = users.get(id);
+        if (!record) return null;
+        record.status = status;
+        record.updatedAt = nowIso();
+        return clone(record);
+      },
+      async delete(id) {
+        if (!users.has(id)) return false;
+        users.delete(id);
+        quotas.delete(id);
+        telegramSubscriptions.delete(id);
+        for (const [sessionId, session] of sessions) {
+          if (session.userId === id) sessions.delete(sessionId);
+        }
+        for (const [keyId, key] of apiKeys) {
+          if (key.userId === id) apiKeys.delete(keyId);
+        }
+        return true;
+      },
+      async list(options) {
+        const normalizedSearch = options.search?.toLowerCase();
+        const filteredUsers = Array.from(users.values())
+          .filter((user) => {
+            const matchesSearch =
+              !normalizedSearch ||
+              user.email.toLowerCase().includes(normalizedSearch) ||
+              user.name.toLowerCase().includes(normalizedSearch);
+            const matchesRole = !options.role || user.role === options.role;
+            const matchesStatus = !options.status || user.status === options.status;
+            return matchesSearch && matchesRole && matchesStatus;
+          })
+          .sort((a, b) => a.email.localeCompare(b.email));
+        const startIndex = (options.page - 1) * options.pageSize;
+
+        return {
+          users: clone(filteredUsers.slice(startIndex, startIndex + options.pageSize)),
+          total: filteredUsers.length,
+          page: options.page,
+          pageSize: options.pageSize
+        };
       }
     },
     sessions: {
@@ -85,6 +162,11 @@ export function createInMemoryStore(): AppStore {
       },
       async delete(id) {
         sessions.delete(id);
+      },
+      async deleteByUserId(userId) {
+        for (const [sessionId, session] of sessions) {
+          if (session.userId === userId) sessions.delete(sessionId);
+        }
       }
     },
     invites: {
@@ -298,6 +380,15 @@ export function createInMemoryStore(): AppStore {
         return clone(next);
       }
     },
+    mailDomains: {
+      async list(defaults) {
+        return clone(mailDomains ?? defaults);
+      },
+      async saveAll(next) {
+        mailDomains = clone(next);
+        return clone(next);
+      }
+    },
     audit: {
       async record(event) {
         auditEvents.push({
@@ -310,6 +401,102 @@ export function createInMemoryStore(): AppStore {
         return auditEvents.filter(
           (entry) => entry.actorId === actorId && entry.eventType === eventType && entry.createdAt >= sinceIso
         ).length;
+      }
+    },
+    accountSettings: {
+      async get() {
+        return clone(accountSettingsRecord);
+      },
+      async save(record) {
+        accountSettingsRecord = {
+          id: "account_settings",
+          updatedAt: nowIso(),
+          ...record
+        };
+        return clone(accountSettingsRecord);
+      }
+    },
+    mailSettings: {
+      async get() {
+        return clone(mailSettingsRecord);
+      },
+      async save(record) {
+        mailSettingsRecord = {
+          id: "mail_settings",
+          updatedAt: nowIso(),
+          ...record
+        };
+        return clone(mailSettingsRecord);
+      }
+    },
+    webhookEndpoints: {
+      async listByUser(userId) {
+        return clone(Array.from(webhookEndpoints.values()).filter((entry) => entry.userId === userId));
+      },
+      async create(input) {
+        const now = nowIso();
+        const record = {
+          id: crypto.randomUUID(),
+          userId: input.userId,
+          name: input.name,
+          url: input.url,
+          eventsJson: input.eventsJson,
+          signingSecret: crypto.randomUUID().replaceAll("-", ""),
+          enabled: input.enabled,
+          createdAt: now,
+          updatedAt: now
+        };
+        webhookEndpoints.set(record.id, record);
+        return clone(record);
+      },
+      async update(id, userId, input) {
+        const existing = webhookEndpoints.get(id);
+        if (!existing || existing.userId !== userId) return null;
+        const next = {
+          ...existing,
+          name: input.name,
+          url: input.url,
+          eventsJson: input.eventsJson,
+          enabled: input.enabled,
+          updatedAt: nowIso()
+        };
+        webhookEndpoints.set(id, next);
+        return clone(next);
+      },
+      async delete(id, userId) {
+        const existing = webhookEndpoints.get(id);
+        if (existing?.userId === userId) webhookEndpoints.delete(id);
+      }
+    },
+    webhookDeliveries: {
+      async listByUser(userId) {
+        const endpointIds = new Set(Array.from(webhookEndpoints.values()).filter((entry) => entry.userId === userId).map((entry) => entry.id));
+        return clone(webhookDeliveries.filter((entry) => endpointIds.has(entry.endpointId)));
+      },
+      async record(input) {
+        const record = {
+          id: crypto.randomUUID(),
+          createdAt: nowIso(),
+          ...input
+        };
+        webhookDeliveries.push(record);
+        return clone(record);
+      }
+    },
+    announcements: {
+      async list() {
+        return clone([...announcements].sort((a, b) => b.publishedAt.localeCompare(a.publishedAt)));
+      },
+      async create(input) {
+        const now = nowIso();
+        const record = {
+          id: crypto.randomUUID(),
+          publishedAt: now,
+          updatedAt: now,
+          ...input
+        };
+        announcements.unshift(record);
+        return clone(record);
       }
     }
   };

@@ -23,7 +23,7 @@ describe("init local db script", () => {
       createdAt: "2026-04-14T00:00:00.000Z"
     });
 
-    expect(sql).toContain("INSERT OR IGNORE INTO invites");
+    expect(sql).toContain("INSERT OR IGNORE INTO user_invites");
     expect(sql).toContain("'invite-1'");
     expect(sql).toContain("'O''HARA'");
     expect(sql).toContain("'2026-04-14T00:00:00.000Z'");

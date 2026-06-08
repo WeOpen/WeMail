@@ -1,4 +1,5 @@
-﻿import { useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
+import { Ban, Clock3, KeyRound, ShieldCheck, type LucideIcon } from "lucide-react";
 
 import type { ApiKeySummary } from "@wemail/shared";
 import { Button } from "../../shared/button";
@@ -23,6 +24,8 @@ type RevealState = {
   prefix: string;
   secret: string;
 };
+
+const API_KEYS_PAGE_SIZE = 5;
 
 function formatDate(value: string | null) {
   if (!value) return "尚未使用";
@@ -52,6 +55,7 @@ export function ApiKeysPage({ apiKeys, onCreateApiKey, onRevokeApiKey }: ApiKeys
   const [isCreating, setIsCreating] = useState(false);
   const [pendingRevokeId, setPendingRevokeId] = useState<string | null>(null);
   const [copiedToken, setCopiedToken] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
   const [revealState, setRevealState] = useState<RevealState | null>(null);
 
   const summary = useMemo(() => {
@@ -105,44 +109,50 @@ export function ApiKeysPage({ apiKeys, onCreateApiKey, onRevokeApiKey }: ApiKeys
     window.setTimeout(() => setCopiedToken((current) => (current === token ? null : current)), 1500);
   };
 
+  const totalPages = Math.max(1, Math.ceil(apiKeys.length / API_KEYS_PAGE_SIZE));
+  const currentSafePage = Math.min(currentPage, totalPages);
+  const paginatedApiKeys = apiKeys.slice(
+    (currentSafePage - 1) * API_KEYS_PAGE_SIZE,
+    currentSafePage * API_KEYS_PAGE_SIZE
+  );
+  const pageStart = apiKeys.length === 0 ? 0 : (currentSafePage - 1) * API_KEYS_PAGE_SIZE + 1;
+  const pageEnd = Math.min(currentSafePage * API_KEYS_PAGE_SIZE, apiKeys.length);
+  const statCards: Array<{
+    detail: string;
+    icon: LucideIcon;
+    kicker: string;
+    value: number;
+  }> = [
+    { detail: "总数", icon: KeyRound, kicker: "总密钥", value: summary.totalKeys },
+    { detail: "可用", icon: ShieldCheck, kicker: "活跃密钥", value: summary.activeKeys },
+    { detail: "未使用", icon: Clock3, kicker: "从未使用", value: summary.unusedKeys },
+    { detail: "失效", icon: Ban, kicker: "已吊销", value: summary.revokedKeys }
+  ];
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
+
   return (
     <main className="workspace-grid api-keys-layout-grid">
       <section className="api-keys-top-stats" aria-label="API 密钥状态概览">
-        <MetricCard
-          className="panel workspace-card page-panel integration-side-card api-keys-stat-card"
-          detail="总数"
-          kicker="总密钥"
-          title="密钥总览"
-          value={summary.totalKeys}
-          valueSize="lg"
-        />
-
-        <MetricCard
-          className="panel workspace-card page-panel integration-side-card api-keys-stat-card"
-          detail="可用"
-          kicker="活跃密钥"
-          title="当前可用"
-          value={summary.activeKeys}
-          valueSize="lg"
-        />
-
-        <MetricCard
-          className="panel workspace-card page-panel integration-side-card api-keys-stat-card"
-          detail="未使用"
-          kicker="从未使用"
-          title="待接入"
-          value={summary.unusedKeys}
-          valueSize="lg"
-        />
-
-        <MetricCard
-          className="panel workspace-card page-panel integration-side-card api-keys-stat-card"
-          detail="失效"
-          kicker="已吊销"
-          title="不可用"
-          value={summary.revokedKeys}
-          valueSize="lg"
-        />
+        {statCards.map((card) => {
+          const StatIcon = card.icon;
+          return (
+            <MetricCard
+              className="panel workspace-card dashboard-kpi-card api-keys-stat-card"
+              detail={card.detail}
+              key={card.kicker}
+              kicker={card.kicker}
+              title=""
+              value={card.value}
+              valueSize="lg"
+              visualIcon={<StatIcon absoluteStrokeWidth aria-hidden="true" strokeWidth={1.7} />}
+            />
+          );
+        })}
       </section>
 
       <div className="api-keys-content-grid">
@@ -216,37 +226,28 @@ export function ApiKeysPage({ apiKeys, onCreateApiKey, onRevokeApiKey }: ApiKeys
 
           {apiKeys.length > 0 ? (
             <div className="integration-record-list" role="list">
-              {apiKeys.map((key) => {
-                const headerSnippet = `Authorization: Bearer ${key.prefix}...`;
-                return (
-                  <article className="integration-record-row" key={key.id} role="listitem">
-                    <div className="integration-record-copy">
-                      <strong>{key.label}</strong>
-                      <span>{key.prefix}</span>
-                    </div>
-                    <div className="integration-record-meta">
-                      <small>创建于 {formatDate(key.createdAt)}</small>
-                      <small>最近使用：{formatDate(key.lastUsedAt)}</small>
-                    </div>
-                    <span className="integration-status-pill">{getStatusLabel(key)}</span>
-                    <div className="integration-inline-actions">
-                      <Button
-                        onClick={() => void handleCopy(`header-${key.id}`, headerSnippet)}
-                        variant="primary"
-                      >
-                        {copiedToken === `header-${key.id}` ? "已复制示例" : "复制示例"}
-                      </Button>
-                      <Button
-                        disabled={Boolean(key.revokedAt) || pendingRevokeId === key.id}
-                        onClick={() => void handleRevoke(key.id)}
-                        variant="secondary"
-                      >
-                        {key.revokedAt ? "已吊销" : pendingRevokeId === key.id ? "吊销中..." : "吊销"}
-                      </Button>
-                    </div>
-                  </article>
-                );
-              })}
+              {paginatedApiKeys.map((key) => (
+                <article className="integration-record-row" key={key.id} role="listitem">
+                  <div className="integration-record-copy">
+                    <strong>{key.label}</strong>
+                    <span>{key.prefix}</span>
+                  </div>
+                  <div className="integration-record-meta">
+                    <small>创建于 {formatDate(key.createdAt)}</small>
+                    <small>最近使用：{formatDate(key.lastUsedAt)}</small>
+                  </div>
+                  <span className="integration-status-pill">{getStatusLabel(key)}</span>
+                  <div className="integration-inline-actions">
+                    <Button
+                      disabled={Boolean(key.revokedAt) || pendingRevokeId === key.id}
+                      onClick={() => void handleRevoke(key.id)}
+                      variant="secondary"
+                    >
+                      {key.revokedAt ? "已吊销" : pendingRevokeId === key.id ? "吊销中..." : "吊销"}
+                    </Button>
+                  </div>
+                </article>
+              ))}
             </div>
           ) : (
             <div className="integration-empty-state">
@@ -254,6 +255,32 @@ export function ApiKeysPage({ apiKeys, onCreateApiKey, onRevokeApiKey }: ApiKeys
               <p className="section-copy">创建后，你可以通过脚本、CLI 或外部系统安全地访问 WeMail API。</p>
             </div>
           )}
+
+          {apiKeys.length > API_KEYS_PAGE_SIZE ? (
+            <nav className="api-keys-pagination" aria-label="API 密钥分页">
+              <span>
+                {pageStart}-{pageEnd} / {apiKeys.length}
+              </span>
+              <div className="integration-inline-actions">
+                <Button
+                  disabled={currentSafePage === 1}
+                  onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+                  size="sm"
+                  variant="secondary"
+                >
+                  上一页
+                </Button>
+                <Button
+                  disabled={currentSafePage === totalPages}
+                  onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
+                  size="sm"
+                  variant="secondary"
+                >
+                  下一页
+                </Button>
+              </div>
+            </nav>
+          ) : null}
         </section>
 
         <section className="panel workspace-card page-panel integration-surface-card">

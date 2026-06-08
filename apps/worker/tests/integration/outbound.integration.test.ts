@@ -10,7 +10,7 @@ describe("worker outbound integration", () => {
     });
 
     const mailboxResponse = await app.request(
-      "/api/mailboxes",
+      "/api/accounts",
       {
         method: "POST",
         headers: {
@@ -45,7 +45,7 @@ describe("worker outbound integration", () => {
     );
 
     const response = await app.request(
-      "/api/outbound/send",
+      "/api/mail/send",
       {
         method: "POST",
         headers: {

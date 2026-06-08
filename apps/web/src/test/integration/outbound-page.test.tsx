@@ -33,7 +33,7 @@ function mockMailShell() {
     const requestBody =
       input instanceof Request ? await input.clone().text() : typeof init?.body === "string" ? init.body : "";
 
-    if (url.endsWith("/auth/session")) {
+    if (url.endsWith("/api/auth/session")) {
       return jsonResponse({
         user: { id: "member-1", email: "member@example.com", role: "member", createdAt: "2026-04-08T00:00:00.000Z" },
         featureToggles: {
@@ -45,19 +45,19 @@ function mockMailShell() {
       });
     }
 
-    if (url.endsWith("/api/mailboxes")) {
+    if (url.endsWith("/api/accounts")) {
       return jsonResponse({
         mailboxes: [{ id: "box-1", address: "ops@example.com", label: "Ops", createdAt: "2026-04-08T00:00:00.000Z" }]
       });
     }
 
-    if (url.endsWith("/api/messages?mailboxId=box-1")) return jsonResponse({ messages: [] });
-    if (url.endsWith("/api/outbound?mailboxId=box-1")) {
+    if (url.endsWith("/api/mail/messages?accountId=box-1")) return jsonResponse({ messages: [] });
+    if (url.endsWith("/api/mail/outbound?accountId=box-1")) {
       return jsonResponse({
         messages: outboundMessages
       });
     }
-    if (url.endsWith("/api/outbound/send")) {
+    if (url.endsWith("/api/mail/send")) {
       const body = JSON.parse(requestBody || "{}") as {
         mailboxId: string;
         toAddress: string;
@@ -77,11 +77,11 @@ function mockMailShell() {
       return jsonResponse({ ok: true });
     }
 
-    if (url.endsWith("/api/keys")) return jsonResponse({ keys: [] });
-    if (url.endsWith("/api/telegram")) return jsonResponse({ subscription: null });
-    if (url.endsWith("/admin/users")) return jsonResponse({ users: [] });
-    if (url.endsWith("/admin/invites")) return jsonResponse({ invites: [] });
-    if (url.endsWith("/admin/features")) {
+    if (url.endsWith("/api/api-keys")) return jsonResponse({ keys: [] });
+    if (url.endsWith("/api/telegram/subscription")) return jsonResponse({ subscription: null });
+    if (url.endsWith("/api/users")) return jsonResponse({ users: [] });
+    if (url.endsWith("/api/users/invites")) return jsonResponse({ invites: [] });
+    if (url.endsWith("/api/system/features")) {
       return jsonResponse({
         featureToggles: {
           aiEnabled: true,
@@ -91,7 +91,7 @@ function mockMailShell() {
         }
       });
     }
-    if (url.includes("/admin/quotas/")) {
+    if (/\/api\/users\/[^/]+\/quota/.test(url)) {
       return jsonResponse({
         quota: {
           userId: "member-1",
@@ -102,7 +102,7 @@ function mockMailShell() {
         }
       });
     }
-    if (url.endsWith("/admin/mailboxes")) return jsonResponse({ mailboxes: [] });
+    if (url.endsWith("/api/users/accounts")) return jsonResponse({ mailboxes: [] });
 
     return jsonResponse({});
   });

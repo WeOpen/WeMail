@@ -55,7 +55,37 @@ export interface DesignSystemGroupDoc {
   components: DesignSystemComponentDoc[];
 }
 
-export const designSystemGroups: DesignSystemGroupDoc[] = [
+function createHeroDocSections({
+  accessibility,
+  anatomy,
+  avoid,
+  usage,
+  variants
+}: {
+  accessibility: string[];
+  anatomy: string[];
+  avoid: string[];
+  usage: string[];
+  variants: string[];
+}): DesignSystemDocSection[] {
+  return [
+    { title: "适用场景", body: usage },
+    { title: "不适用场景", body: avoid },
+    { title: "状态与变体", body: variants },
+    { title: "交互示例", body: anatomy },
+    { title: "设计规范", body: accessibility }
+  ];
+}
+
+function createApiField(prop: string, type: string, defaultValue: string, description: string): DesignSystemApiField {
+  return { prop, type, defaultValue, description };
+}
+
+function createCodeSample(title: string, code: string): DesignSystemCodeSample {
+  return { title, code };
+}
+
+const baseDesignSystemGroups: DesignSystemGroupDoc[] = [
   {
     id: "foundations",
     title: "Foundations",
@@ -1096,3 +1126,857 @@ export const designSystemGroups: DesignSystemGroupDoc[] = [
     ]
   }
 ];
+
+type HeroComponentDocConfig = {
+  id: string;
+  title: string;
+  chineseTitle: string;
+  summary: string;
+  sectionIds: DesignSystemSectionId[];
+  usage: string[];
+  avoid: string[];
+  variants: string[];
+  anatomy: string[];
+  accessibility: string[];
+  api: DesignSystemApiField[];
+  codeSamples: DesignSystemCodeSample[];
+};
+
+function createHeroComponentDoc({
+  accessibility,
+  anatomy,
+  api,
+  avoid,
+  codeSamples,
+  id,
+  sectionIds,
+  summary,
+  title,
+  chineseTitle,
+  usage,
+  variants
+}: HeroComponentDocConfig): DesignSystemComponentDoc {
+  return {
+    id,
+    title,
+    chineseTitle,
+    summary,
+    sectionIds,
+    api,
+    codeSamples,
+    docSections: createHeroDocSections({
+      accessibility,
+      anatomy,
+      avoid,
+      usage,
+      variants
+    })
+  };
+}
+
+const heroUiInspiredComponentAdditions: Record<string, DesignSystemComponentDoc[]> = {
+  "content-actions": [
+    createHeroComponentDoc({
+      id: "avatar",
+      title: "Avatar",
+      chineseTitle: "头像",
+      summary: "展示用户、团队、服务账号或自动化身份的紧凑视觉标识。",
+      sectionIds: ["data-display"],
+      usage: [
+        "用于账号列表、评论署名、审计记录、团队成员摘要和弹层中的用户身份预览。",
+        "当页面需要在很小空间里区分个人、团队或系统身份时，Avatar 比纯文本邮箱更容易被快速扫描。"
+      ],
+      avoid: [
+        "不要把 Avatar 当作权限状态或风险等级使用；身份与状态应分别由 Avatar 与 Badge/Tag 表达。",
+        "如果缺少 name、alt 或 fallback 信息，应先补齐可读身份，不要只展示无意义的图片占位。"
+      ],
+      variants: [
+        "支持 xs、sm、md、lg、xl 尺寸，以及 circle 和 square 形状，用于列表密度、资料页和团队标识。",
+        "支持图片加载失败后的 fallback initials，确保头像资源不可用时仍能保留身份线索。"
+      ],
+      anatomy: [
+        "Avatar root 承接尺寸与形状，内部优先渲染 image，失败或缺失时切换为 fallback slot。",
+        "与 HeroUI Avatar 类似，业务页面只组合 src、alt、name、fallback，不在列表页临时拼接首字母逻辑。"
+      ],
+      accessibility: [
+        "图片头像必须给出 alt；纯装饰头像可交给相邻文本承担可读名称，但 fallback 不应成为唯一业务信息。",
+        "头像组需要配合可见姓名、邮箱或 aria-label，避免屏幕阅读器只读到重复的首字母。"
+      ],
+      api: [
+        createApiField("name", "string", "undefined", "用于生成 fallback initials，也是身份展示的语义来源。"),
+        createApiField("src", "string", "undefined", "头像图片地址；加载失败后自动回退到 fallback。"),
+        createApiField("size", '"xs" | "sm" | "md" | "lg" | "xl"', '"md"', "控制头像尺寸，匹配列表、卡片和详情页密度。")
+      ],
+      codeSamples: [
+        createCodeSample("基础头像", `<Avatar name="Will Xue" />\n<Avatar name="Ops Team" shape="square" />`),
+        createCodeSample("图片与 fallback", `<Avatar alt="QA Bot" fallback="QA" src="/avatars/qa.png" />`)
+      ]
+    }),
+    createHeroComponentDoc({
+      id: "table",
+      title: "Table",
+      chineseTitle: "表格",
+      summary: "展示账号、消息、API Key、审计日志等高密度结构化数据。",
+      sectionIds: ["data-display"],
+      usage: [
+        "用于字段明确、行列关系稳定、需要横向比较的数据列表，例如账号列表、外发历史和系统审计。",
+        "当数据需要排序、分页、状态标识或行级操作时，Table 应与 Badge、Button、Pagination 组合使用。"
+      ],
+      avoid: [
+        "不要用 Table 展示自由文本、营销内容或只有一两行的摘要；这类信息更适合 Card 或 KVList。",
+        "不要把表格单元格塞成复杂页面，超过两层交互时应切到详情页或抽屉。"
+      ],
+      variants: [
+        "TableContainer 支持 liquid 与 solid 表面，density 支持 compact、comfortable、spacious。",
+        "TableRow 支持 interactive 和 selected 状态，用于可点击列表和批量选择后的视觉反馈。"
+      ],
+      anatomy: [
+        "组合顺序固定为 TableContainer -> Table -> TableHead/TableBody -> TableRow -> TableHeaderCell/TableCell。",
+        "列宽、对齐、nowrap 等单元格行为集中在 cell props，避免业务页面各自写 table CSS。"
+      ],
+      accessibility: [
+        "表头必须使用 TableHeaderCell 和 scope，状态列需要保留文本或 aria-label，而不仅靠颜色。",
+        "行级点击需要保证键盘可达；如果行内已有按钮，应避免整行和按钮形成冲突点击目标。"
+      ],
+      api: [
+        createApiField("density", '"compact" | "comfortable" | "spacious"', '"comfortable"', "控制表格行高与内边距密度。"),
+        createApiField("variant", '"liquid" | "solid"', '"liquid"', "控制表格容器表面样式。"),
+        createApiField("isInteractive", "boolean", "false", "标记可点击或可聚焦的数据行。")
+      ],
+      codeSamples: [
+        createCodeSample("紧凑账号表", `<TableContainer density="compact">\n  <Table>\n    <TableHead><TableRow><TableHeaderCell>地址</TableHeaderCell></TableRow></TableHead>\n    <TableBody><TableRow><TableCell>ops@wemail.ai</TableCell></TableRow></TableBody>\n  </Table>\n</TableContainer>`)
+      ]
+    }),
+    createHeroComponentDoc({
+      id: "kv-list",
+      title: "KVList",
+      chineseTitle: "键值列表",
+      summary: "展示环境、配额、域名、开关状态等短字段摘要。",
+      sectionIds: ["data-display"],
+      usage: [
+        "用于详情页侧栏、弹层摘要、系统环境信息和只读配置块，让字段标签和值保持稳定对齐。",
+        "当字段数量不多但需要比普通正文更结构化时，KVList 比 Table 更轻。"
+      ],
+      avoid: [
+        "不要用 KVList 承载可编辑表单；需要输入、校验和提交时应使用 FormField。",
+        "不要把长段正文放进 value，否则会破坏键值扫描节奏。"
+      ],
+      variants: [
+        "density 支持 compact 和 comfortable，用于侧栏摘要与主内容详情两种密度。",
+        "每一项支持 hint 和 action slot，可展示默认标记、复制按钮或跳转入口。"
+      ],
+      anatomy: [
+        "KVList 使用 dl/dt/dd 结构，items 只描述 key、value、hint、action。",
+        "业务页面负责准备可读字段，组件负责统一字段密度、对齐和附加操作位置。"
+      ],
+      accessibility: [
+        "key 和 value 需要保持可读文本，不要只放图标；action 要有清晰名称。",
+        "列表用于摘要而非导航，除非 action 明确提供独立交互。"
+      ],
+      api: [
+        createApiField("items", "Array<{ key; value; hint?; action? }>", "[]", "定义键值列表所有字段。"),
+        createApiField("density", '"compact" | "comfortable"', '"comfortable"', "控制字段行的纵向密度。"),
+        createApiField("action", "ReactNode", "undefined", "为单个字段补充复制、跳转等轻量动作。")
+      ],
+      codeSamples: [
+        createCodeSample("环境摘要", `<KVList items={[{ key: "环境", value: "Prod" }, { key: "区域", value: "APAC", hint: "默认" }]} />`)
+      ]
+    }),
+    createHeroComponentDoc({
+      id: "metric-card",
+      title: "MetricCard",
+      chineseTitle: "指标卡",
+      summary: "展示关键 KPI、趋势说明和仪表盘核心数字。",
+      sectionIds: ["data-display"],
+      usage: [
+        "用于仪表盘顶部、管理端摘要和监控面板，让关键数值在复杂页面里有明确视觉优先级。",
+        "当数字需要附带 kicker、title、detail、caption 或 icon 时，MetricCard 能保持信息槽位一致。"
+      ],
+      avoid: [
+        "不要用指标卡展示普通段落或配置详情；它应该聚焦一个主要数值。",
+        "不要在同一屏放太多 hero tone 指标，否则用户会失去优先级判断。"
+      ],
+      variants: [
+        "tone 支持 default 和 hero，valueSize 支持 lg 与 xl，用于普通指标与关键指标。",
+        "caption 和 detail 分别表达趋势与解释，避免把所有辅助信息挤进 title。"
+      ],
+      anatomy: [
+        "MetricCard 的顺序为 kicker、title、value、detail、caption、visualIcon，适合固定视觉扫描路径。",
+        "它可以放在 PageLayout 或 Card grid 中，但不应再嵌套复杂交互。"
+      ],
+      accessibility: [
+        "title 和 value 必须共同表达指标含义，不能只显示数字。",
+        "趋势色需要有文字 caption，避免只靠绿色/红色传达升降。"
+      ],
+      api: [
+        createApiField("value", "ReactNode", "required", "指标主数值。"),
+        createApiField("tone", '"default" | "hero"', '"default"', "控制指标卡强调程度。"),
+        createApiField("caption", "ReactNode", "undefined", "展示趋势、周期或对比说明。")
+      ],
+      codeSamples: [
+        createCodeSample("仪表盘指标", `<MetricCard kicker="KPI" title="活跃账号" value="128" detail="较上周提升" caption="+8.4%" tone="hero" />`)
+      ]
+    }),
+    createHeroComponentDoc({
+      id: "empty-state",
+      title: "EmptyState",
+      chineseTitle: "空状态",
+      summary: "为空列表、权限受限、错误恢复和初始引导提供统一占位结构。",
+      sectionIds: ["surfaces-cards", "feedback-status"],
+      usage: [
+        "用于没有数据、没有权限、筛选无结果或首次使用时的解释和下一步操作。",
+        "当页面否则会只剩一片空白时，EmptyState 应给出原因、影响和可执行动作。"
+      ],
+      avoid: [
+        "不要把普通 loading 状态做成 EmptyState；短暂等待应使用 Skeleton 或 Spinner。",
+        "不要只写“暂无数据”，至少说明为什么为空以及用户能做什么。"
+      ],
+      variants: [
+        "variant 支持 default、error、no-access，对应普通空态、失败恢复和权限受限。",
+        "actions slot 用于放置主按钮或次按钮，但应控制在一到两个动作内。"
+      ],
+      anatomy: [
+        "EmptyState 包含 media、title、description、content、actions 五个槽位。",
+        "它通常作为列表容器的替代内容，而不是页面最外层布局。"
+      ],
+      accessibility: [
+        "组件输出 region，并通过 title/description 建立 aria 关联。",
+        "错误空态的恢复动作必须可聚焦，不能只依赖说明文字。"
+      ],
+      api: [
+        createApiField("title", "ReactNode", "required", "空状态标题。"),
+        createApiField("description", "ReactNode", "undefined", "解释当前为空的原因与影响。"),
+        createApiField("variant", '"default" | "error" | "no-access"', '"default"', "控制空状态语义。")
+      ],
+      codeSamples: [
+        createCodeSample("筛选无结果", `<EmptyState\n  title="暂无账号结果"\n  description="调整状态或创建人后会在这里刷新。"\n  actions={<Button variant="primary">新建筛选</Button>}\n/>`)
+      ]
+    })
+  ],
+  "forms-navigation-feedback": [
+    createHeroComponentDoc({
+      id: "form-field",
+      title: "FormField",
+      chineseTitle: "字段容器",
+      summary: "统一表单 label、description、message、required 和控件关联。",
+      sectionIds: ["form-inputs"],
+      usage: [
+        "用于所有需要 label、帮助文案、错误信息或必填标记的输入字段。",
+        "当一个输入需要描述或校验反馈时，应优先包进 FormField，而不是手写 label 和 message。"
+      ],
+      avoid: [
+        "不要把 FormField 当作页面布局 grid；它只负责单个字段的语义结构。",
+        "不要在 label 里放复杂交互，说明和动作应进入 description 或外层工具栏。"
+      ],
+      variants: [
+        "tone 支持 default、error、success，message 可表达校验结果。",
+        "required 标记只表达视觉和语义提示，业务校验仍在表单层处理。"
+      ],
+      anatomy: [
+        "FormField 由 label、description、control、message 组成，并自动关联 id 与 aria-describedby。",
+        "它能包裹 SearchInput、SelectInput、TextareaInput 等共享表单原语。"
+      ],
+      accessibility: [
+        "每个可编辑字段必须有可读 label；sr-only label 只适合筛选条等空间受限场景。",
+        "错误信息需要通过 message 进入 aria-describedby，而不是只靠红色边框。"
+      ],
+      api: [
+        createApiField("label", "ReactNode", "required", "字段可读名称。"),
+        createApiField("description", "ReactNode", "undefined", "字段帮助说明。"),
+        createApiField("message", "ReactNode", "undefined", "错误、成功或提示消息。")
+      ],
+      codeSamples: [
+        createCodeSample("带说明字段", `<FormField label="搜索账号" description="支持邮箱、域名或创建人">\n  <SearchInput aria-label="搜索账号" />\n</FormField>`)
+      ]
+    }),
+    createHeroComponentDoc({
+      id: "select-input",
+      title: "SelectInput",
+      chineseTitle: "选择输入",
+      summary: "用于单选下拉、状态筛选和较短枚举字段。",
+      sectionIds: ["form-inputs"],
+      usage: [
+        "用于角色、状态、域名、保留期等互斥枚举选择。",
+        "当候选项数量较少且不需要搜索时，SelectInput 比 MultiSelect 更直接。"
+      ],
+      avoid: [
+        "不要用 SelectInput 做多选；多标签筛选应使用 MultiSelect。",
+        "不要把关键危险操作隐藏在下拉里，危险动作应使用显式按钮和确认流程。"
+      ],
+      variants: [
+        "保留 value/defaultValue/onChange/name 等表单 API，可配合 FormField 展示错误和帮助文案。",
+        "可用于紧凑 FilterBar 或普通表单，通过外层布局决定宽度。"
+      ],
+      anatomy: [
+        "SelectInput 使用系统风格 combobox 触发器和自定义 listbox 面板，底层同步隐藏 select 以兼容表单提交。",
+        "选项文案应业务可读，不要直接暴露后端枚举值。"
+      ],
+      accessibility: [
+        "必须有可见 label 或 aria-label；默认选项应清楚表达“全部/请选择/未设置”。",
+        "支持键盘打开、上下移动、选择与 Escape 关闭；禁用态需要保留解释，避免用户不知道为什么无法选择。"
+      ],
+      api: [
+        createApiField("value / defaultValue", "string", "undefined", "控制当前选中项。"),
+        createApiField("disabled", "boolean", "false", "禁用选择器。"),
+        createApiField("children", "option[]", "required", "提供原生 option 列表。")
+      ],
+      codeSamples: [
+        createCodeSample("状态筛选", `<SelectInput aria-label="状态" defaultValue="all">\n  <option value="all">全部状态</option>\n  <option value="active">正常</option>\n</SelectInput>`)
+      ]
+    }),
+    createHeroComponentDoc({
+      id: "textarea-input",
+      title: "TextareaInput",
+      chineseTitle: "多行输入",
+      summary: "用于备注、说明、邮件正文和 Webhook payload 等多行文本。",
+      sectionIds: ["form-inputs"],
+      usage: [
+        "用于需要多行编辑、保留换行或输入较长说明的字段。",
+        "当文本会被保存、发送或复制时，应配合 FormField 给出范围、格式或风险说明。"
+      ],
+      avoid: [
+        "不要用 TextareaInput 展示只读长文档；只读内容更适合正文排版或代码块。",
+        "不要让用户在一个大文本框里配置复杂结构化数据，能拆成字段就拆成字段。"
+      ],
+      variants: [
+        "支持原生 value、defaultValue、readOnly、disabled 等状态。",
+        "高度由内容场景和外层样式控制，设计系统只保证基础可读性和焦点态。"
+      ],
+      anatomy: [
+        "TextareaInput 通常与 FormField 组合，FormField 提供 label、description、message。",
+        "在弹层中使用时，需要确认滚动区域不会遮挡底部操作。"
+      ],
+      accessibility: [
+        "多行输入必须明确用途；如果有长度限制或格式要求，放在 description 或 message。",
+        "readOnly 与 disabled 语义不同，展示系统生成内容时优先使用 readOnly。"
+      ],
+      api: [
+        createApiField("value / defaultValue", "string", "undefined", "控制文本内容。"),
+        createApiField("readOnly", "boolean", "false", "允许聚焦复制但不允许编辑。"),
+        createApiField("disabled", "boolean", "false", "完全禁用输入。")
+      ],
+      codeSamples: [
+        createCodeSample("备注字段", `<FormField label="内部备注" description="仅管理员可见">\n  <TextareaInput defaultValue="这个账号主要给 QA 使用。" />\n</FormField>`)
+      ]
+    }),
+    createHeroComponentDoc({
+      id: "switch",
+      title: "Switch",
+      chineseTitle: "开关",
+      summary: "表达启用/停用、开启/关闭等即时二元状态。",
+      sectionIds: ["selection-controls"],
+      usage: [
+        "用于通知、功能开关、策略启用状态等二元设置。",
+        "当切换结果可以即时保存或清楚表达时，Switch 比 Checkbox 更贴近用户预期。"
+      ],
+      avoid: [
+        "不要用 Switch 承担危险或不可逆操作；这类操作需要按钮和确认弹层。",
+        "不要把互斥选项做成多个 Switch，互斥选择应使用 Radio 或 Select。"
+      ],
+      variants: [
+        "支持 checked、defaultChecked、disabled 和 label。",
+        "可以放在设置卡片或表单字段中，但应保留明确说明。"
+      ],
+      anatomy: [
+        "Switch 由可点击 control 和 label 组成，状态通过 checked/unchecked 表达。",
+        "业务页面不应自行绘制滑块，只传递状态和变更回调。"
+      ],
+      accessibility: [
+        "必须有 label 或 aria-label；状态变化需要让用户知道会影响什么功能。",
+        "如果切换需要保存，加载和失败反馈应由相邻 Alert 或 toast 承接。"
+      ],
+      api: [
+        createApiField("checked / defaultChecked", "boolean", "false", "控制开关状态。"),
+        createApiField("label", "ReactNode", "undefined", "显示开关说明。"),
+        createApiField("disabled", "boolean", "false", "禁用开关。")
+      ],
+      codeSamples: [
+        createCodeSample("通知开关", `<Switch checked label="Telegram 通知" aria-label="Telegram 通知" />`)
+      ]
+    }),
+    createHeroComponentDoc({
+      id: "tabs",
+      title: "Tabs",
+      chineseTitle: "标签页",
+      summary: "在同一页面区域内切换平级内容视图。",
+      sectionIds: ["navigation-wayfinding"],
+      usage: [
+        "用于详情页局部视图、设置页分组和文档示例切换。",
+        "当多个内容面板平级、用户只需一次看一个面板时，Tabs 能减少页面长度。"
+      ],
+      avoid: [
+        "不要把主导航或跨页面跳转伪装成 Tabs；跨路由应使用导航链接。",
+        "不要在标签页里隐藏关键错误或必须完成的操作。"
+      ],
+      variants: [
+        "variant 支持 segmented 和 underline，orientation 支持 horizontal 和 vertical。",
+        "activationMode 支持 automatic 和 manual，适配轻量切换和复杂面板。"
+      ],
+      anatomy: [
+        "Tabs root 提供上下文，TabsList 包裹 TabsTrigger，TabsPanel 与 value 一一对应。",
+        "结构接近 HeroUI 的 compound component：root/list/trigger/panel 必须保持配对。"
+      ],
+      accessibility: [
+        "TabsList 输出 tablist，Trigger 输出 tab，Panel 输出 tabpanel，并自动关联 controls。",
+        "键盘方向键、Home、End 需要保持可用；禁用项不能进入正常焦点流。"
+      ],
+      api: [
+        createApiField("defaultValue / value", "string", "undefined", "控制当前标签值。"),
+        createApiField("variant", '"segmented" | "underline"', '"segmented"', "控制视觉样式。"),
+        createApiField("activationMode", '"automatic" | "manual"', '"automatic"', "控制聚焦时是否自动切换。")
+      ],
+      codeSamples: [
+        createCodeSample("分段标签", `<Tabs defaultValue="overview">\n  <TabsList aria-label="账号详情">\n    <TabsTrigger value="overview">概览</TabsTrigger>\n    <TabsTrigger value="activity">活动</TabsTrigger>\n  </TabsList>\n  <TabsPanel value="overview">概览内容</TabsPanel>\n</Tabs>`)
+      ]
+    }),
+    createHeroComponentDoc({
+      id: "pagination",
+      title: "Pagination",
+      chineseTitle: "分页",
+      summary: "用于长列表结果的页码切换、上一页和下一页导航。",
+      sectionIds: ["navigation-wayfinding"],
+      usage: [
+        "用于账号、消息、审计日志等结果数量较多但仍按页加载的列表。",
+        "当列表已经有总量、当前页和 pageSize 时，Pagination 提供统一页码结构。"
+      ],
+      avoid: [
+        "不要在只有一页或无限滚动场景强行显示分页。",
+        "不要让分页和筛选状态脱节，筛选变化后应回到第一页或给出明确结果。"
+      ],
+      variants: [
+        "siblings 控制当前页左右可见页码数量。",
+        "上一页/下一页会根据边界自动 disabled，中间过长页码折叠为 ellipsis。"
+      ],
+      anatomy: [
+        "Pagination root 输出 nav，内部 list/item/button 组成页码序列。",
+        "它只负责页码交互，不负责数据请求；业务层在 onChange 里刷新列表。"
+      ],
+      accessibility: [
+        "组件默认 aria-label 为“分页导航”，当前页使用 aria-current=\"page\"。",
+        "键盘支持方向键、Home、End 在页码按钮之间移动。"
+      ],
+      api: [
+        createApiField("page", "number", "required", "当前页。"),
+        createApiField("total", "number", "required", "结果总量。"),
+        createApiField("pageSize", "number", "required", "每页数量。")
+      ],
+      codeSamples: [
+        createCodeSample("列表分页", `<Pagination page={2} pageSize={20} total={120} onChange={setPage} />`)
+      ]
+    }),
+    createHeroComponentDoc({
+      id: "steps",
+      title: "Steps",
+      chineseTitle: "步骤",
+      summary: "展示多阶段流程、配置向导和发布检查进度。",
+      sectionIds: ["navigation-wayfinding"],
+      usage: [
+        "用于多步配置、上线检查、引导流程和需要展示当前阶段的任务。",
+        "当流程有明确顺序且用户需要知道已完成/当前/未完成阶段时，Steps 比普通列表更清晰。"
+      ],
+      avoid: [
+        "不要用 Steps 表示无顺序的功能清单。",
+        "不要在步骤标题里塞完整说明，长内容应放在 description 或正文区域。"
+      ],
+      variants: [
+        "currentStep 控制当前进度；StepItem 提供 step、title、description。",
+        "可以用于页面顶部进度，也可以作为设置页侧栏的流程摘要。"
+      ],
+      anatomy: [
+        "Steps root 管理当前步骤，StepsList 包裹多个 StepItem。",
+        "StepItem 的 title 负责扫描，description 负责补充上下文。"
+      ],
+      accessibility: [
+        "当前步骤需要通过文本和视觉共同表达，不能只靠色彩。",
+        "如果步骤可点击，必须额外提供按钮或链接语义；静态 Steps 不应假装可操作。"
+      ],
+      api: [
+        createApiField("currentStep", "number", "1", "当前流程步骤。"),
+        createApiField("StepItem.step", "number", "required", "步骤序号。"),
+        createApiField("StepItem.description", "ReactNode", "undefined", "步骤补充说明。")
+      ],
+      codeSamples: [
+        createCodeSample("发布流程", `<Steps currentStep={2}>\n  <StepsList>\n    <StepItem step={1} title="准备" />\n    <StepItem step={2} title="验证" />\n  </StepsList>\n</Steps>`)
+      ]
+    }),
+    createHeroComponentDoc({
+      id: "alert",
+      title: "Alert",
+      chineseTitle: "提示",
+      summary: "用于页内重要消息、风险警告、成功反馈和可关闭提醒。",
+      sectionIds: ["feedback-status"],
+      usage: [
+        "用于需要用户停下来阅读的状态变化，例如保存失败、配额风险、域名即将过期。",
+        "当反馈需要标题、正文、动作或关闭按钮时，Alert 比 Badge/Tag 更适合。"
+      ],
+      avoid: [
+        "不要用 Alert 展示每个普通状态，否则真正重要的信息会被稀释。",
+        "不要在 Alert 内放复杂表单；需要处理流程时应升级为 Overlay 或独立页面。"
+      ],
+      variants: [
+        "variant 支持 info、success、warning、error；appearance 支持 soft 与 outline。",
+        "actions slot 用于放置恢复、查看详情或重试操作。"
+      ],
+      anatomy: [
+        "Alert 包含 icon、title、body、actions、close button。",
+        "它应放在相关内容附近，让用户知道提示影响哪块区域。"
+      ],
+      accessibility: [
+        "默认 role 为 alert，非紧急提示可按场景调整 role。",
+        "可关闭提示需要明确 dismissLabel，并确保关闭后不会丢失关键状态信息。"
+      ],
+      api: [
+        createApiField("variant", '"info" | "success" | "warning" | "error"', '"info"', "控制提示语义。"),
+        createApiField("appearance", '"soft" | "outline"', '"soft"', "控制提示外观强度。"),
+        createApiField("actions", "ReactNode", "undefined", "提示内的轻量操作。")
+      ],
+      codeSamples: [
+        createCodeSample("风险提示", `<Alert title="域名即将过期" variant="warning">\n  请在 3 天内完成续费。\n</Alert>`)
+      ]
+    }),
+    createHeroComponentDoc({
+      id: "badge",
+      title: "Badge",
+      chineseTitle: "徽标",
+      summary: "展示短状态、计数、运行情况和轻量语义标识。",
+      sectionIds: ["feedback-status", "data-display"],
+      usage: [
+        "用于表格状态列、列表摘要、导航计数和配置状态。",
+        "当信息很短且不需要打断用户时，Badge 是比 Alert 更低强度的反馈。"
+      ],
+      avoid: [
+        "不要用 Badge 展示长句或操作按钮。",
+        "不要只靠颜色区分状态，文案必须能独立说明含义。"
+      ],
+      variants: [
+        "variant 支持 neutral、brand、info、success、warning、danger。",
+        "appearance 支持 soft 和 solid，size 支持 sm 与 md。"
+      ],
+      anatomy: [
+        "Badge 是单一 inline status slot，适合嵌入表格、卡片和工具栏。",
+        "它与 Tag 的区别是 Badge 偏状态，Tag 偏分类或标签。"
+      ],
+      accessibility: [
+        "动态状态可使用 statusRole=\"status\" 提供 polite 更新。",
+        "不要把 Badge 当成唯一可点击目标；需要操作时组合 Button 或 Link。"
+      ],
+      api: [
+        createApiField("variant", '"neutral" | "brand" | "info" | "success" | "warning" | "danger"', '"neutral"', "语义色。"),
+        createApiField("appearance", '"soft" | "solid"', '"soft"', "视觉强度。"),
+        createApiField("statusRole", '"none" | "status"', '"none"', "是否作为动态状态播报。")
+      ],
+      codeSamples: [
+        createCodeSample("表格状态", `<Badge variant="success" size="md">启用</Badge>\n<Badge variant="danger" size="md">阻塞</Badge>`)
+      ]
+    }),
+    createHeroComponentDoc({
+      id: "tag",
+      title: "Tag",
+      chineseTitle: "标签",
+      summary: "展示分类、筛选条件、能力标记和轻量上下文。",
+      sectionIds: ["feedback-status", "data-display"],
+      usage: [
+        "用于显示分类标签、筛选结果、功能标记和实体属性。",
+        "当内容更像“类别”而不是“状态”时，Tag 比 Badge 更合适。"
+      ],
+      avoid: [
+        "不要把 Tag 用作主要按钮；可移除标签需要另外提供明确 close 交互。",
+        "不要在同一行堆太多标签，超过可读范围应折叠或汇总。"
+      ],
+      variants: [
+        "支持 dot、icon、shape、size、variant，用于分类和强调。",
+        "shape 支持 rounded 与 pill，适配紧凑列表和营销式标记。"
+      ],
+      anatomy: [
+        "Tag 包含 optional dot、optional icon 和 label。",
+        "可与 MultiSelect、FilterBar 和 Table 状态列组合。"
+      ],
+      accessibility: [
+        "dot 和 icon 默认装饰，标签文字必须表达完整含义。",
+        "如果标签可删除，应使用按钮语义并提供 aria-label。"
+      ],
+      api: [
+        createApiField("variant", '"neutral" | "brand" | "info" | "success" | "warning" | "danger"', '"neutral"', "语义色。"),
+        createApiField("dot", "boolean", "false", "是否显示状态点。"),
+        createApiField("shape", '"rounded" | "pill"', '"pill"', "控制标签形状。")
+      ],
+      codeSamples: [
+        createCodeSample("分类标签", `<Tag dot variant="brand">新版</Tag>\n<Tag variant="info">合规</Tag>`)
+      ]
+    }),
+    createHeroComponentDoc({
+      id: "progress",
+      title: "Progress",
+      chineseTitle: "进度条",
+      summary: "展示同步、导入、扫描、配额使用等进度反馈。",
+      sectionIds: ["feedback-status"],
+      usage: [
+        "用于有明确完成比例的后台任务、批量操作、配额使用和导入流程。",
+        "当任务没有明确百分比时，使用 indeterminate 或 Spinner，而不是伪造进度。"
+      ],
+      avoid: [
+        "不要用 Progress 表示普通状态；状态更适合 Badge 或 Alert。",
+        "不要只显示进度条不解释任务名称，用户需要知道正在处理什么。"
+      ],
+      variants: [
+        "支持 determinate 和 indeterminate，size 支持 sm/md/lg，variant 支持语义色。",
+        "showValueLabel 可显示格式化后的百分比或配额文本。"
+      ],
+      anatomy: [
+        "Progress 包含 track、indicator 和 optional label。",
+        "外层负责提供 aria-label 或上下文标题，组件负责 role=progressbar。"
+      ],
+      accessibility: [
+        "确定进度需要 aria-valuenow/min/max；不确定进度不应输出误导性数值。",
+        "进度条应配合文本说明，避免用户只看到百分比却不知道任务。"
+      ],
+      api: [
+        createApiField("value", "number", "0", "当前进度值。"),
+        createApiField("max", "number", "100", "最大值。"),
+        createApiField("indeterminate", "boolean", "false", "是否为不确定进度。")
+      ],
+      codeSamples: [
+        createCodeSample("同步进度", `<Progress aria-label="同步进度" showValueLabel value={68} />`)
+      ]
+    }),
+    createHeroComponentDoc({
+      id: "skeleton",
+      title: "Skeleton",
+      chineseTitle: "骨架屏",
+      summary: "在内容加载前保持页面结构和视觉节奏。",
+      sectionIds: ["feedback-status", "typography-content"],
+      usage: [
+        "用于列表、卡片、正文和图表加载前的短暂占位。",
+        "当数据预计很快返回且页面结构稳定时，Skeleton 比 Spinner 更能减少布局跳动。"
+      ],
+      avoid: [
+        "不要让 Skeleton 长时间替代错误或空状态；加载失败后应切换到 Alert 或 EmptyState。",
+        "不要为未知结构生成复杂骨架，否则用户会误判页面内容。"
+      ],
+      variants: [
+        "shape 支持 rect、text、circle；rounded 支持多档圆角；animated 控制 shimmer。",
+        "announce 可把骨架作为 status 播报，默认作为装饰元素隐藏。"
+      ],
+      anatomy: [
+        "Skeleton 是轻量占位 primitive，宽高由 props 或容器控制。",
+        "多个 Skeleton 应组合成真实内容的大致轮廓，而不是随机灰条。"
+      ],
+      accessibility: [
+        "默认 aria-hidden，避免屏幕阅读器读到没有意义的占位。",
+        "需要播报加载时使用 announce，并给出清晰 label。"
+      ],
+      api: [
+        createApiField("shape", '"rect" | "text" | "circle"', '"rect"', "骨架形状。"),
+        createApiField("animated", "boolean", "false", "是否展示加载动画。"),
+        createApiField("announce", "boolean", "false", "是否作为加载状态播报。")
+      ],
+      codeSamples: [
+        createCodeSample("卡片骨架", `<Skeleton animated rounded width="100%" height={44} />\n<Skeleton shape="text" width="62%" />`)
+      ]
+    }),
+    createHeroComponentDoc({
+      id: "spinner",
+      title: "Spinner",
+      chineseTitle: "加载指示",
+      summary: "展示不确定时长的短暂加载、按钮内部等待和局部刷新。",
+      sectionIds: ["feedback-status", "typography-content"],
+      usage: [
+        "用于按钮加载态、局部刷新或无法估算进度的短任务。",
+        "当加载区域没有稳定结构可占位时，Spinner 比 Skeleton 更直接。"
+      ],
+      avoid: [
+        "不要在整页长时间只放 Spinner，应提供说明、超时反馈或重试操作。",
+        "不要在已经有明确进度值时使用 Spinner；此时应使用 Progress。"
+      ],
+      variants: [
+        "size 支持 xs、sm、md、lg；tone 支持 default、muted、accent、success、warning、danger。",
+        "decorative 可用于按钮内部装饰，showLabel 可展示“加载中”等文本。"
+      ],
+      anatomy: [
+        "Spinner 包含 indicator 和 optional label，外层决定它是在按钮内还是页面局部。",
+        "按钮加载态优先使用 Button 的 isLoading，独立区域才直接使用 Spinner。"
+      ],
+      accessibility: [
+        "非装饰 Spinner 输出 role=status 和 aria-live；装饰 Spinner 应设置 decorative。",
+        "显示 label 时文案要说明具体任务，例如“同步中”优于泛化“加载中”。"
+      ],
+      api: [
+        createApiField("size", '"xs" | "sm" | "md" | "lg"', '"md"', "加载指示尺寸。"),
+        createApiField("decorative", "boolean", "false", "是否隐藏给辅助技术。"),
+        createApiField("showLabel", "boolean", "false", "是否展示可见文本。")
+      ],
+      codeSamples: [
+        createCodeSample("局部加载", `<Spinner showLabel size="sm" label="同步中" />`)
+      ]
+    })
+  ],
+  "overlays-utilities": [
+    createHeroComponentDoc({
+      id: "tooltip",
+      title: "Tooltip",
+      chineseTitle: "提示气泡",
+      summary: "为图标按钮、术语和短提示提供 hover/focus 说明。",
+      sectionIds: ["overlays-utilities"],
+      usage: [
+        "用于解释图标按钮、缩写术语、禁用原因和短辅助说明。",
+        "当信息不是必须阅读、但能帮助理解当前控件时，Tooltip 是最低打扰的选择。"
+      ],
+      avoid: [
+        "不要把必须阅读的规则、错误或长文档放进 Tooltip。",
+        "不要依赖 Tooltip 作为移动端唯一说明，因为悬停触发不稳定。"
+      ],
+      variants: [
+        "支持 defaultOpen/open 受控状态，openDelay 控制 hover 延迟。",
+        "TooltipContent 支持 top/bottom side，后续可扩展 placement。"
+      ],
+      anatomy: [
+        "Tooltip root 包裹 TooltipTrigger 和 TooltipContent，通过 portal 渲染浮层。",
+        "Trigger 负责 hover、focus、Escape，Content 负责定位、文本和关闭语义。"
+      ],
+      accessibility: [
+        "打开时 Trigger 通过 aria-describedby 关联 Content。",
+        "Tooltip 内容应短促直接，最好一行内解释完。"
+      ],
+      api: [
+        createApiField("open / defaultOpen", "boolean", "false", "控制提示层打开状态。"),
+        createApiField("openDelay", "number", "120", "鼠标悬停打开延迟。"),
+        createApiField("TooltipContent.side", '"top" | "bottom"', '"top"', "浮层优先方向。")
+      ],
+      codeSamples: [
+        createCodeSample("图标提示", `<Tooltip>\n  <TooltipTrigger aria-label="显示说明">?</TooltipTrigger>\n  <TooltipContent>用于解释当前字段。</TooltipContent>\n</Tooltip>`)
+      ]
+    }),
+    createHeroComponentDoc({
+      id: "popover",
+      title: "Popover",
+      chineseTitle: "浮层面板",
+      summary: "承接上下文操作、轻量设置和局部说明面板。",
+      sectionIds: ["overlays-utilities"],
+      usage: [
+        "用于更多操作、快捷筛选、用户资料卡和不需要完整 Modal 的上下文面板。",
+        "当内容比 Tooltip 更丰富、但仍不应打断主流程时，Popover 是合适的中间层。"
+      ],
+      avoid: [
+        "不要在 Popover 里放长流程表单或危险确认；应升级为 OverlayDialog。",
+        "不要在同一个触发器上同时叠 Tooltip 和 Popover，先判断用户需要说明还是操作。"
+      ],
+      variants: [
+        "支持 controlled/open、defaultOpen、onOpenChange。",
+        "PopoverContent 支持 align start/center/end 与 side top/bottom。"
+      ],
+      anatomy: [
+        "Popover root 管理状态，PopoverTrigger 打开面板，PopoverContent 通过 portal 定位。",
+        "内容区应围绕当前触发器，不要变成第二个页面。"
+      ],
+      accessibility: [
+        "Trigger 使用 aria-haspopup=\"dialog\"、aria-expanded、aria-controls。",
+        "Escape 和点击外部会关闭，并把焦点返回触发器。"
+      ],
+      api: [
+        createApiField("open / defaultOpen", "boolean", "false", "控制浮层打开状态。"),
+        createApiField("onOpenChange", "(open: boolean) => void", "undefined", "打开状态变化回调。"),
+        createApiField("PopoverContent.align", '"start" | "center" | "end"', '"start"', "浮层与触发器的对齐方式。")
+      ],
+      codeSamples: [
+        createCodeSample("快捷面板", `<Popover>\n  <PopoverTrigger>打开快捷面板</PopoverTrigger>\n  <PopoverContent><Text size="md">这里放轻量操作。</Text></PopoverContent>\n</Popover>`)
+      ]
+    }),
+    createHeroComponentDoc({
+      id: "scroll-area",
+      title: "ScrollArea",
+      chineseTitle: "滚动区域",
+      summary: "为列表、弹层和预览面板提供稳定滚动容器。",
+      sectionIds: ["overlays-utilities", "layout-spacing"],
+      usage: [
+        "用于抽屉内部长列表、设计系统预览、日志片段和需要局部滚动的容器。",
+        "当局部内容可能超过可视区域但不应滚动整页时，应使用 ScrollArea。"
+      ],
+      avoid: [
+        "不要给每个卡片都套 ScrollArea，过多嵌套滚动会让用户迷路。",
+        "不要用 ScrollArea 掩盖信息架构问题；内容太多时优先拆分。"
+      ],
+      variants: [
+        "由 ScrollArea、ScrollAreaViewport、ScrollAreaScrollbar、ScrollAreaThumb 组合。",
+        "可配合 maxHeight 或容器高度控制滚动范围。"
+      ],
+      anatomy: [
+        "root 提供滚动上下文，viewport 承接内容，scrollbar/thumb 提供视觉滚动条。",
+        "它更像 HeroUI ScrollShadow/ScrollArea 的布局辅助，而不是业务组件。"
+      ],
+      accessibility: [
+        "可滚动区域需要 aria-label，特别是在页面里有多个滚动容器时。",
+        "不要阻断键盘滚动；内部交互元素应保持自然 Tab 顺序。"
+      ],
+      api: [
+        createApiField("ScrollAreaViewport", "HTMLDivElement props", "required", "承载实际可滚动内容。"),
+        createApiField("aria-label", "string", "recommended", "为滚动区域提供可读名称。"),
+        createApiField("ScrollAreaThumb", "ReactNode", "optional", "自定义滚动条 thumb。")
+      ],
+      codeSamples: [
+        createCodeSample("局部滚动", `<ScrollArea aria-label="日志预览">\n  <ScrollAreaViewport style={{ maxHeight: 160, overflow: "auto" }}>...</ScrollAreaViewport>\n  <ScrollAreaScrollbar><ScrollAreaThumb /></ScrollAreaScrollbar>\n</ScrollArea>`)
+      ]
+    })
+  ]
+};
+
+const heroUiInspiredCodeSamplesById: Record<string, DesignSystemCodeSample[]> = {
+  "copy-utility": [
+    createCodeSample("复制命令", `<CopyButton value="pnpm test:web">复制测试命令</CopyButton>`),
+    createCodeSample("复制链接", `<CopyButton copiedLabel="链接已复制" value="https://wemail.example/docs">\n  复制文档链接\n</CopyButton>`)
+  ],
+  card: [
+    createCodeSample("三段式卡片", `<Card>\n  <CardHeader>域名配额</CardHeader>\n  <CardBody>展示剩余可用量与说明</CardBody>\n  <CardFooter><Button variant="secondary">查看详情</Button></CardFooter>\n</Card>`),
+    createCodeSample("状态卡片", `<Card tone="warning" variant="status">\n  <CardBody>3 个账号需要复核。</CardBody>\n</Card>`)
+  ],
+  "data-display": [
+    createCodeSample("表格状态列", `<TableContainer density="compact">\n  <Table>\n    <TableBody>\n      <TableRow><TableCell>ops@wemail.ai</TableCell><TableCell><Badge variant="success">启用</Badge></TableCell></TableRow>\n    </TableBody>\n  </Table>\n</TableContainer>`),
+    createCodeSample("摘要组合", `<Avatar name="Ops Team" />\n<KVList items={[{ key: "环境", value: "Prod" }]} />\n<MetricCard title="活跃账号" value="128" />`)
+  ],
+  "design-tokens": [
+    createCodeSample("消费主题变量", `<section style={{ background: "var(--surface-muted)", color: "var(--text)" }}>\n  <Button variant="primary">使用品牌主色</Button>\n</section>`),
+    createCodeSample("表面层级", `<Card style={{ borderRadius: "var(--radius-card)", boxShadow: "var(--shadow-card)" }}>\n  统一 surface / radius / shadow token\n</Card>`)
+  ],
+  feedback: [
+    createCodeSample("状态反馈组合", `<Alert title="请先核对旧页面视觉回归" variant="warning">\n  design token 已切到共享入口。\n</Alert>\n<Badge variant="success">启用</Badge>\n<Progress aria-label="同步进度" value={68} />`),
+    createCodeSample("加载反馈", `<Spinner showLabel size="sm" label="同步中" />\n<Skeleton animated rounded width="100%" />`)
+  ],
+  "multi-select": [
+    createCodeSample("标签筛选", `<MultiSelect\n  aria-label="标签筛选"\n  defaultValue={["exceptions"]}\n  options={[{ label: "异常账号", value: "exceptions" }]}\n/>`)
+  ],
+  navigation: [
+    createCodeSample("路径与标签页", `<Breadcrumb><BreadcrumbList><BreadcrumbItem><BreadcrumbLink href="/accounts">账号</BreadcrumbLink></BreadcrumbItem></BreadcrumbList></Breadcrumb>\n<Tabs defaultValue="overview"><TabsList><TabsTrigger value="overview">概览</TabsTrigger></TabsList></Tabs>`),
+    createCodeSample("分页与步骤", `<Pagination page={2} pageSize={20} total={120} />\n<Steps currentStep={2}><StepsList><StepItem step={1} title="准备" /></StepsList></Steps>`)
+  ],
+  overlay: [
+    createCodeSample("对话框", `<OverlayDialog title="确认操作" onClose={handleClose} closeOnBackdrop>\n  <Text size="md">请确认本次变更。</Text>\n</OverlayDialog>`),
+    createCodeSample("抽屉", `<OverlayDrawer title="账号详情" width="lg" onClose={handleClose}>\n  <KVList items={items} />\n</OverlayDrawer>`)
+  ],
+  "page-layout": [
+    createCodeSample("页面骨架", `<Page>\n  <PageHeader title="账号列表" description="统一页面头部与操作区节奏。" />\n  <PageToolbar>筛选和批量操作</PageToolbar>\n  <PageBody hasSidebar><PageMain>主内容</PageMain><PageSidebar>摘要</PageSidebar></PageBody>\n</Page>`)
+  ],
+  "search-input": [
+    createCodeSample("搜索字段", `<FormField label="搜索账号" description="支持邮箱、域名或创建人">\n  <SearchInput aria-label="搜索账号" placeholder="搜索账号、域名或创建人" />\n</FormField>`)
+  ],
+  "selection-controls": [
+    createCodeSample("选择控件组", `<Switch aria-label="通知开关" checked label="通知开关" />\n<Checkbox defaultChecked label="仅看异常" />\n<Radio defaultChecked label="按域名汇总" name="summary" />`)
+  ],
+  "tooltip-popover": [
+    createCodeSample("提示与浮层", `<Tooltip><TooltipTrigger aria-label="显示提示">?</TooltipTrigger><TooltipContent>简短解释。</TooltipContent></Tooltip>\n<Popover><PopoverTrigger>打开快捷面板</PopoverTrigger><PopoverContent>轻量操作</PopoverContent></Popover>`)
+  ],
+  typography: [
+    createCodeSample("排版层级", `<Heading as="h1" size="display-md">Design token preview</Heading>\n<Text size="lg">统一正文节奏。</Text>\n<Muted size="caption">辅助说明</Muted>`),
+    createCodeSample("代码与快捷键", `<Code>--brand-500</Code>\n<Kbd keys={["Shift", "K"]} />`)
+  ]
+};
+
+export const designSystemGroups: DesignSystemGroupDoc[] = baseDesignSystemGroups.map((group) => ({
+  ...group,
+  overviewDescription:
+    group.id === "foundations"
+      ? `${group.overviewDescription} 页面结构参考 HeroUI React Components 的组件索引与详情页顺序，先看组件、再看 API、最后看真实预览。`
+      : group.overviewDescription,
+  components: [...group.components, ...(heroUiInspiredComponentAdditions[group.id] ?? [])].map((component) => ({
+    ...component,
+    codeSamples: component.codeSamples?.length ? component.codeSamples : heroUiInspiredCodeSamplesById[component.id]
+  }))
+}));

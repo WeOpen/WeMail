@@ -27,26 +27,41 @@
 pnpm install
 ```
 
-### 2. 启动前端开发服务器
+### 2. 启动本地开发服务
 
-当前仓库没有根级 `dev` 脚本，可直接在本目录启动 Vite：
+在仓库根目录执行：
 
 ```bash
-pnpm --dir apps/web exec vite --host 127.0.0.1 --port 5173
+pnpm dev
 ```
 
-默认开发地址可按 Vite 输出为准，常见为 `http://127.0.0.1:5173`。
+这会同时启动：
+
+- 前端 Vite 开发服务器：`http://127.0.0.1:5173`
+- Worker 本地服务：`http://127.0.0.1:8787`
+
+如果只需要启动前端，可以在仓库根目录执行：
+
+```bash
+pnpm dev:web
+```
+
+也可以在前端目录单独执行：
+
+```bash
+pnpm --dir apps/web run dev
+```
 
 说明：
 - 本地开发时，前端默认把 API 请求发到 `http://127.0.0.1:8787`
 - 也可以通过 `VITE_API_BASE_URL` 覆盖 API 基址
-- 因此需要同时启动 Worker 本地服务
+- 因此完整本地流程建议使用 `pnpm dev` 同时启动前后端
 - 若只启动前端不启动 Worker，注册、登录、邮箱等接口会失败
 
 ### 3. 启动 Worker 本地服务
 
 ```bash
-pnpm --dir apps/worker exec wrangler dev
+pnpm dev:worker
 ```
 
 常见本地地址为 `http://127.0.0.1:8787`。
@@ -63,7 +78,7 @@ pnpm typecheck
 pnpm build
 ```
 
-### 4. 运行 E2E
+### 5. 运行 E2E
 
 首次安装 Playwright 浏览器：
 

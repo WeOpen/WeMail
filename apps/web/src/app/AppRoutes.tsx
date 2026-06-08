@@ -9,10 +9,12 @@ import type {
   QuotaSummary,
   SessionSummary,
   TelegramSubscriptionSummary,
+  UserRole,
+  UserStatus,
   UserSummary
 } from "@wemail/shared";
 
-import type { InviteSummary } from "../features/admin/types";
+import type { AdminUsersQuery, InviteSummary } from "../features/admin/types";
 import type { OutboundHistoryItem } from "../features/inbox/types";
 import { AccountsListPage } from "../features/accounts/AccountsListPage";
 import { AccountsSettingsPage } from "../features/accounts/AccountsSettingsPage";
@@ -56,10 +58,21 @@ type AppRoutesProps = {
   };
   admin: {
     adminUsers: UserSummary[];
+    adminUsersTotal: number;
     adminInvites: InviteSummary[];
     adminQuota: QuotaSummary | null;
     adminFeatures: FeatureToggles | null;
     adminMailboxes: MailboxSummary[];
+    createUser: (payload: { email: string; name: string; password: string; role: UserRole }) => Promise<void>;
+    changeUserRoles: (userIds: string[], role: UserRole) => Promise<void>;
+    updateUser: (userId: string, payload: { name: string }) => Promise<void>;
+    resetUserPassword: (userId: string, password: string) => Promise<void>;
+    updateUserStatus: (userId: string, status: UserStatus) => Promise<void>;
+    deleteUser: (userId: string) => Promise<void>;
+    refreshAdminUsers: (query: AdminUsersQuery) => Promise<void>;
+    isLoadingUsers: boolean;
+    usersError: string | null;
+    suspendUsersOutbound: (userIds: string[]) => Promise<void>;
     createInvite: () => Promise<void>;
     disableInvite: (inviteId: string) => Promise<void>;
     selectQuotaUser: (userId: string) => Promise<void>;
@@ -123,9 +136,21 @@ export function AppRoutes({ session, inbox, selectedMessage, settings, admin, ap
     ) : (
       <UsersListRoutePage
         adminUsers={admin.adminUsers}
+        adminUsersTotal={admin.adminUsersTotal}
         adminQuota={admin.adminQuota}
+        currentUserId={session.user.id}
+        isLoadingUsers={admin.isLoadingUsers}
+        onBulkChangeRole={admin.changeUserRoles}
+        onBulkSuspendOutbound={admin.suspendUsersOutbound}
+        onCreateUser={admin.createUser}
+        onDeleteUser={admin.deleteUser}
+        onRefreshUsers={admin.refreshAdminUsers}
+        onResetUserPassword={admin.resetUserPassword}
         onSelectQuotaUser={admin.selectQuotaUser}
         onSubmitQuota={admin.submitQuota}
+        onUpdateUser={admin.updateUser}
+        onUpdateUserStatus={admin.updateUserStatus}
+        usersError={admin.usersError}
       />
     );
 
@@ -147,7 +172,7 @@ export function AppRoutes({ session, inbox, selectedMessage, settings, admin, ap
       />
     );
 
-  const dashboardPage = <DashboardPage />;
+  const dashboardPage = <DashboardPage canViewRoleCard={session.user.role === "admin"} />;
 
   const accountsListPage = <AccountsListPage />;
 
@@ -191,6 +216,7 @@ export function AppRoutes({ session, inbox, selectedMessage, settings, admin, ap
 
   const systemSettingsPage = (
     <SystemSettingsPage
+      canManageDomains={session.user.role === "admin"}
       resolvedTheme={appearance.theme}
       themePreference={appearance.themePreference}
       onSelectThemePreference={appearance.setThemePreference}
@@ -200,9 +226,11 @@ export function AppRoutes({ session, inbox, selectedMessage, settings, admin, ap
   const systemProfilePage = (
     <SystemProfilePage
       sessionSummary={{
+        name: session.user.name || session.user.email.split("@")[0] || session.user.email,
         email: session.user.email,
         role: session.user.role === "admin" ? "管理员" : "成员",
-        createdAtLabel: new Date(session.user.createdAt).toLocaleDateString("zh-CN")
+        createdAtLabel: new Date(session.user.createdAt).toLocaleDateString("zh-CN"),
+        updatedAtLabel: new Date(session.user.updatedAt || session.user.createdAt).toLocaleDateString("zh-CN")
       }}
     />
   );

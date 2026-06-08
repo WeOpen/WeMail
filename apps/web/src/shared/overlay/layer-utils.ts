@@ -15,6 +15,7 @@ type FloatingSide = "top" | "bottom";
 const PORTAL_ROOT_ID = "wemail-layer-root";
 const INERT_COUNT_ATTR = "data-wemail-inert-count";
 const PREV_ARIA_HIDDEN_ATTR = "data-wemail-prev-aria-hidden";
+let portalRootUsageCount = 0;
 
 function getPortalRoot() {
   let root = document.getElementById(PORTAL_ROOT_ID) as HTMLDivElement | null;
@@ -61,10 +62,12 @@ export function usePortalRoot() {
     if (typeof document === "undefined") return undefined;
 
     const root = getPortalRoot();
+    portalRootUsageCount += 1;
     setPortalRoot(root);
 
     return () => {
-      if (root.childElementCount === 0) {
+      portalRootUsageCount = Math.max(portalRootUsageCount - 1, 0);
+      if (portalRootUsageCount === 0 && root.childElementCount === 0) {
         root.remove();
       }
     };

@@ -1,6 +1,7 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { Button } from "../../shared/button";
+import { apiFetch } from "../../shared/api/client";
 import { CheckboxField, FormField, SelectInput, TextInput, TextareaInput } from "../../shared/form";
 import { mailSettingsMockData } from "./mailSettingsMockData";
 
@@ -47,6 +48,32 @@ export function MailSettingsPage() {
   const [workspaceSavedNotice, setWorkspaceSavedNotice] = useState(false);
   const [lastUpdatedLabel, setLastUpdatedLabel] = useState<string>(mailSettingsMockData.lastUpdatedLabel);
 
+  useEffect(() => {
+    let cancelled = false;
+    void apiFetch<{
+      settings?: {
+        senderRules: SenderRulesState;
+        routing: RoutingState;
+        workspaceDefaults: WorkspaceDefaultsState;
+        lastUpdatedLabel: string;
+      };
+    }>("/api/mail/settings")
+      .then((payload) => {
+        if (cancelled || !payload.settings) return;
+        setSenderDraft({ ...payload.settings.senderRules });
+        setSenderSaved({ ...payload.settings.senderRules });
+        setRoutingDraft({ ...payload.settings.routing });
+        setRoutingSaved({ ...payload.settings.routing });
+        setWorkspaceDraft({ ...payload.settings.workspaceDefaults });
+        setWorkspaceSaved({ ...payload.settings.workspaceDefaults });
+        setLastUpdatedLabel(payload.settings.lastUpdatedLabel);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const defaultRouteLabel = useMemo(
     () => options.defaultMailRoutes.find((route) => route.value === workspaceSaved.defaultMailRoute)?.label ?? workspaceSaved.defaultMailRoute,
     [workspaceSaved.defaultMailRoute]
@@ -63,20 +90,39 @@ export function MailSettingsPage() {
     setLastUpdatedLabel("刚刚更新");
   }
 
+  async function saveMailSettingsPatch(payload: Partial<{
+    senderRules: SenderRulesState;
+    routing: RoutingState;
+    workspaceDefaults: WorkspaceDefaultsState;
+  }>) {
+    try {
+      const result = await apiFetch<{ settings?: { lastUpdatedLabel: string } }>("/api/mail/settings", {
+        method: "PUT",
+        body: JSON.stringify(payload)
+      });
+      if (result.settings?.lastUpdatedLabel) setLastUpdatedLabel(result.settings.lastUpdatedLabel);
+    } catch {
+      // Keep the optimistic local state when the settings endpoint is unavailable in tests or preview data.
+    }
+  }
+
   function saveSenderRules() {
     setSenderSaved({ ...senderDraft });
+    void saveMailSettingsPatch({ senderRules: senderDraft });
     setSenderSavedNotice(true);
     markUpdated();
   }
 
   function saveRoutingRules() {
     setRoutingSaved({ ...routingDraft });
+    void saveMailSettingsPatch({ routing: routingDraft });
     setRoutingSavedNotice(true);
     markUpdated();
   }
 
   function saveWorkspaceDefaults() {
     setWorkspaceSaved({ ...workspaceDraft });
+    void saveMailSettingsPatch({ workspaceDefaults: workspaceDraft });
     setWorkspaceSavedNotice(true);
     markUpdated();
   }

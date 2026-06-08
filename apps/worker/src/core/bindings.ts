@@ -1,4 +1,4 @@
-import type { FeatureToggles } from "@wemail/shared";
+import type { FeatureToggles, MailDomainSummary, UserStatus } from "@wemail/shared";
 
 export type { FeatureToggles } from "@wemail/shared";
 
@@ -45,9 +45,27 @@ export type PersistedMessageRecord = {
 export type UserRecord = {
   id: string;
   email: string;
+  name: string;
   passwordHash: string;
   role: "admin" | "member";
+  status: UserStatus;
   createdAt: string;
+  updatedAt: string;
+};
+
+export type UserListOptions = {
+  page: number;
+  pageSize: number;
+  search?: string;
+  role?: UserRecord["role"];
+  status?: UserRecord["status"];
+};
+
+export type UserListResult = {
+  users: UserRecord[];
+  total: number;
+  page: number;
+  pageSize: number;
 };
 
 export type SessionRecord = {
@@ -112,18 +130,82 @@ export type AuditEventRecord = {
   createdAt: string;
 };
 
+export type AccountSettingsRecord = {
+  id: string;
+  creationJson: string;
+  lifecycleJson: string;
+  protectionJson: string;
+  updatedAt: string;
+};
+
+export type MailSettingsRecord = {
+  id: string;
+  senderRulesJson: string;
+  routingJson: string;
+  workspaceDefaultsJson: string;
+  updatedAt: string;
+};
+
+export type WebhookEndpointRecord = {
+  id: string;
+  userId: string;
+  name: string;
+  url: string;
+  eventsJson: string;
+  signingSecret: string;
+  enabled: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type WebhookDeliveryRecord = {
+  id: string;
+  endpointId: string;
+  eventType: string;
+  status: string;
+  statusCode: number | null;
+  durationMs: number | null;
+  errorText: string | null;
+  payloadJson: string;
+  createdAt: string;
+};
+
+export type AnnouncementRecord = {
+  id: string;
+  title: string;
+  summary: string;
+  type: string;
+  status: string;
+  audience: string;
+  priority: string;
+  authorUserId: string | null;
+  authorLabel: string;
+  tagsJson: string;
+  pinned: boolean;
+  startAt: string | null;
+  endAt: string | null;
+  publishedAt: string;
+  updatedAt: string;
+};
+
 export interface AppStore {
   users: {
     count: () => Promise<number>;
     findByEmail: (email: string) => Promise<UserRecord | null>;
     findById: (id: string) => Promise<UserRecord | null>;
-    create: (input: { email: string; passwordHash: string; role: UserRecord["role"] }) => Promise<UserRecord>;
-    list: () => Promise<UserRecord[]>;
+    create: (input: { email: string; name: string; passwordHash: string; role: UserRecord["role"] }) => Promise<UserRecord>;
+    updateProfile: (id: string, input: { name: string }) => Promise<UserRecord | null>;
+    updateRole: (id: string, role: UserRecord["role"]) => Promise<UserRecord | null>;
+    updatePasswordHash: (id: string, passwordHash: string) => Promise<UserRecord | null>;
+    updateStatus: (id: string, status: UserRecord["status"]) => Promise<UserRecord | null>;
+    delete: (id: string) => Promise<boolean>;
+    list: (options: UserListOptions) => Promise<UserListResult>;
   };
   sessions: {
     create: (input: { userId: string; expiresAt: string }) => Promise<SessionRecord>;
     findById: (id: string) => Promise<SessionRecord | null>;
     delete: (id: string) => Promise<void>;
+    deleteByUserId: (userId: string) => Promise<void>;
   };
   invites: {
     create: (input: { code: string; createdByUserId: string | null }) => Promise<InviteRecord>;
@@ -198,9 +280,35 @@ export interface AppStore {
     getFeatureToggles: (defaults: FeatureToggles) => Promise<FeatureToggles>;
     saveFeatureToggles: (toggles: FeatureToggles) => Promise<FeatureToggles>;
   };
+  mailDomains: {
+    list: (defaults: MailDomainSummary[]) => Promise<MailDomainSummary[]>;
+    saveAll: (domains: MailDomainSummary[]) => Promise<MailDomainSummary[]>;
+  };
   audit: {
     record: (event: Omit<AuditEventRecord, "id" | "createdAt">) => Promise<void>;
     countByActorSince: (actorId: string, eventType: string, sinceIso: string) => Promise<number>;
+  };
+  accountSettings: {
+    get: () => Promise<AccountSettingsRecord | null>;
+    save: (record: Omit<AccountSettingsRecord, "id" | "updatedAt">) => Promise<AccountSettingsRecord>;
+  };
+  mailSettings: {
+    get: () => Promise<MailSettingsRecord | null>;
+    save: (record: Omit<MailSettingsRecord, "id" | "updatedAt">) => Promise<MailSettingsRecord>;
+  };
+  webhookEndpoints: {
+    listByUser: (userId: string) => Promise<WebhookEndpointRecord[]>;
+    create: (input: { userId: string; name: string; url: string; eventsJson: string; enabled: boolean }) => Promise<WebhookEndpointRecord>;
+    update: (id: string, userId: string, input: { name: string; url: string; eventsJson: string; enabled: boolean }) => Promise<WebhookEndpointRecord | null>;
+    delete: (id: string, userId: string) => Promise<void>;
+  };
+  webhookDeliveries: {
+    listByUser: (userId: string) => Promise<WebhookDeliveryRecord[]>;
+    record: (input: Omit<WebhookDeliveryRecord, "id" | "createdAt">) => Promise<WebhookDeliveryRecord>;
+  };
+  announcements: {
+    list: () => Promise<AnnouncementRecord[]>;
+    create: (input: Omit<AnnouncementRecord, "id" | "publishedAt" | "updatedAt">) => Promise<AnnouncementRecord>;
   };
 }
 

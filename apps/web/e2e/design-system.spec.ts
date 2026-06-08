@@ -3,7 +3,7 @@ import { expect, test, type Page } from "@playwright/test";
 const snapshotUpdatesEnabled = process.env.PW_UPDATE_DESIGN_SYSTEM_SNAPSHOTS === "1";
 
 async function mockPublicSession(page: Page) {
-  await page.route("**/auth/session", async (route) => {
+  await page.route("**/api/auth/session", async (route) => {
     await route.fulfill({ status: 401, json: { error: "not authenticated" } });
   });
 }
@@ -30,7 +30,7 @@ test("shows the design system page as a sidebar-driven public docsite", async ({
   await visitDesignSystem(page, "light");
 
   const sidebarButtons = page.getByRole("navigation", { name: /design system sidebar/i }).getByRole("button");
-  await expect(sidebarButtons).toHaveCount(14);
+  await expect(sidebarButtons).toHaveCount(35);
   await expect(page.getByText("WeMail Design System v1")).toBeVisible();
   await expect(page.getByRole("button", { name: "打开对话框" })).toBeVisible();
   await expect(page.getByRole("button", { name: "打开抽屉" })).toBeVisible();

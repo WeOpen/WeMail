@@ -1,4 +1,5 @@
 export type UserRole = "admin" | "member";
+export type UserStatus = "active" | "disabled";
 
 export type ExtractionType =
   | "auth_code"
@@ -24,11 +25,24 @@ export type FeatureToggles = {
   mailboxCreationEnabled: boolean;
 };
 
+export type MailDomainSummary = {
+  domain: string;
+  allowedRoles: UserRole[];
+};
+
+export type MailDomainSettings = {
+  domains: MailDomainSummary[];
+  primaryDomain: string;
+};
+
 export type UserSummary = {
   id: string;
   email: string;
+  name: string;
   role: UserRole;
+  status: UserStatus;
   createdAt: string;
+  updatedAt: string;
 };
 
 export type SessionSummary = {

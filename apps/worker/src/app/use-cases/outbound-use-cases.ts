@@ -4,6 +4,7 @@ import type { AppBindings, AppStore } from "../../core/bindings";
 import { resolveAppConfig } from "../../core/config";
 import { buildResendClient } from "../../shared/mail";
 import { jsonError, recordAudit } from "../services/audit-service";
+import { getMailDomains } from "../services/config-service";
 import { getOwnedMailbox } from "../services/mailbox-access-service";
 import { refreshQuota } from "../services/quota-service";
 
@@ -39,11 +40,12 @@ export async function sendOutboundMessageUseCase(
   }
 
   const config = resolveAppConfig(context.env);
+  const [primaryDomain] = await getMailDomains(context.store, context.env);
   const resend = buildResendClient(config.integrations.resendApiKey);
   if (!resend) return jsonError("Resend not configured", 503);
 
   const result = await resend.sendEmail({
-    from: config.outbound.resendFrom ?? `${config.appName} <no-reply@${config.mailbox.domain}>`,
+    from: config.outbound.resendFrom ?? `${config.appName} <no-reply@${primaryDomain.domain}>`,
     to: payload.toAddress,
     subject: payload.subject,
     text: payload.bodyText

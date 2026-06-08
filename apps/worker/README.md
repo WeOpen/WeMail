@@ -49,10 +49,22 @@ cp apps/worker/.env.example apps/worker/.env
 
 ### 3. 启动 Worker 本地开发
 
-当前仓库未提供根级 `dev:worker` 脚本，可直接使用 Wrangler：
+在仓库根目录执行：
 
 ```bash
-pnpm --dir apps/worker exec wrangler dev
+pnpm dev:worker
+```
+
+如果需要同时启动前端和 Worker，可以执行：
+
+```bash
+pnpm dev
+```
+
+如果只想在后端目录单独启动，也可以：
+
+```bash
+pnpm --dir apps/worker run dev
 ```
 
 本地开发默认读取 `apps/worker/wrangler.toml` 中的本地配置，包括：

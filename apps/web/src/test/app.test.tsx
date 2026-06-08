@@ -155,17 +155,17 @@ describe("App", () => {
 
       const sidebar = await screen.findByRole("navigation", { name: "Design system sidebar" });
 
-      expect(screen.getByRole("heading", { level: 2, name: "使用说明" })).toBeInTheDocument();
+      expect(screen.getByRole("heading", { level: 2, name: "Usage" })).toBeInTheDocument();
       expect(screen.getByText(/品牌色、语义色、间距、圆角和阴影的统一定义/i)).toBeInTheDocument();
 
       fireEvent.click(within(sidebar).getByRole("button", { name: "Button" }));
-      expect(screen.getByRole("heading", { level: 2, name: "API 接口" })).toBeInTheDocument();
-      const apiSection = screen.getByRole("region", { name: "文档章节：API 接口" });
+      expect(screen.getByRole("heading", { level: 2, name: "API Reference" })).toBeInTheDocument();
+      const apiSection = screen.getByRole("region", { name: "文档章节：API Reference" });
       expect(within(apiSection).getByText("variant")).toBeInTheDocument();
       expect(within(apiSection).getAllByText(/primary/i).length).toBeGreaterThan(0);
 
       fireEvent.click(within(sidebar).getByRole("button", { name: "Card" }));
-      expect(screen.getByRole("heading", { level: 2, name: "设计规范" })).toBeInTheDocument();
+      expect(screen.getByRole("heading", { level: 2, name: "Accessibility" })).toBeInTheDocument();
       expect(screen.getByText(/卡片只负责建立信息边界，不应该再承担页面级布局职责/i)).toBeInTheDocument();
 
       fireEvent.click(within(sidebar).getByRole("button", { name: "SearchInput" }));
@@ -191,7 +191,7 @@ describe("App", () => {
       fireEvent.click(within(sidebar).getByRole("button", { name: "Button" }));
 
       const headings = screen.getAllByRole("heading").map((node) => node.textContent);
-      const requiredHeadings = ["真实示例", "API 接口", "使用说明"];
+      const requiredHeadings = ["Usage", "API Reference", "Examples"];
       const headingIndexes = requiredHeadings.map((heading) => headings.indexOf(heading));
 
       expect(headingIndexes.every((index) => index >= 0)).toBe(true);
@@ -210,8 +210,8 @@ describe("App", () => {
       const sidebar = await screen.findByRole("navigation", { name: "Design system sidebar" });
       fireEvent.click(within(sidebar).getByRole("button", { name: "Button" }));
 
-      expect(screen.getByRole("region", { name: "文档章节：API 接口" })).toBeInTheDocument();
-      expect(screen.getByRole("region", { name: "文档章节：设计规范" })).toBeInTheDocument();
+      expect(screen.getByRole("region", { name: "文档章节：API Reference" })).toBeInTheDocument();
+      expect(screen.getByRole("region", { name: "文档章节：Accessibility" })).toBeInTheDocument();
       expect(screen.getByRole("region", { name: "代码示例：Button" })).toBeInTheDocument();
     },
     10000
@@ -227,10 +227,10 @@ describe("App", () => {
       const sidebar = await screen.findByRole("navigation", { name: "Design system sidebar" });
       fireEvent.click(within(sidebar).getByRole("button", { name: "Button" }));
 
-      expect(screen.getByRole("heading", { level: 2, name: "真实示例" })).toBeInTheDocument();
-      expect(screen.getByRole("heading", { level: 2, name: "API 接口" })).toBeInTheDocument();
-      expect(screen.getByRole("heading", { level: 2, name: "使用说明" })).toBeInTheDocument();
-      expect(screen.getByRole("heading", { level: 2, name: "设计规范" })).toBeInTheDocument();
+      expect(screen.getByRole("heading", { level: 2, name: "Examples" })).toBeInTheDocument();
+      expect(screen.getByRole("heading", { level: 2, name: "API Reference" })).toBeInTheDocument();
+      expect(screen.getByRole("heading", { level: 2, name: "Usage" })).toBeInTheDocument();
+      expect(screen.getByRole("heading", { level: 2, name: "Accessibility" })).toBeInTheDocument();
       expect(screen.getByRole("region", { name: "代码示例：Button" })).toBeInTheDocument();
     },
     10000
@@ -423,7 +423,7 @@ describe("App", () => {
       vi.spyOn(globalThis, "fetch").mockImplementation((input) => {
         const url = typeof input === "string" ? input : input instanceof Request ? input.url : String(input);
 
-        if (url.endsWith("/auth/session")) {
+        if (url.endsWith("/api/auth/session")) {
           return jsonResponse({
             user: {
               id: "member-1",
@@ -440,12 +440,12 @@ describe("App", () => {
           });
         }
 
-        if (url.endsWith("/api/mailboxes")) return jsonResponse({ mailboxes: [] });
-        if (url.endsWith("/api/keys")) return jsonResponse({ keys: [] });
-        if (url.endsWith("/api/telegram")) return jsonResponse({ subscription: null });
-        if (url.endsWith("/admin/users")) return jsonResponse({ users: [] });
-        if (url.endsWith("/admin/invites")) return jsonResponse({ invites: [] });
-        if (url.endsWith("/admin/features")) {
+        if (url.endsWith("/api/accounts")) return jsonResponse({ mailboxes: [] });
+        if (url.endsWith("/api/api-keys")) return jsonResponse({ keys: [] });
+        if (url.endsWith("/api/telegram/subscription")) return jsonResponse({ subscription: null });
+        if (url.endsWith("/api/users")) return jsonResponse({ users: [] });
+        if (url.endsWith("/api/users/invites")) return jsonResponse({ invites: [] });
+        if (url.endsWith("/api/system/features")) {
           return jsonResponse({
             featureToggles: {
               aiEnabled: true,
@@ -455,7 +455,7 @@ describe("App", () => {
             }
           });
         }
-        if (url.includes("/admin/quotas/")) {
+        if (/\/api\/users\/[^/]+\/quota/.test(url)) {
           return jsonResponse({
             quota: {
               userId: "member-1",
@@ -466,7 +466,7 @@ describe("App", () => {
             }
           });
         }
-        if (url.endsWith("/admin/mailboxes")) return jsonResponse({ mailboxes: [] });
+        if (url.endsWith("/api/users/accounts")) return jsonResponse({ mailboxes: [] });
         return jsonResponse({});
       });
 
@@ -488,7 +488,7 @@ describe("App", () => {
       vi.spyOn(globalThis, "fetch").mockImplementation((input) => {
         const url = typeof input === "string" ? input : input instanceof Request ? input.url : String(input);
 
-        if (url.endsWith("/auth/session")) {
+        if (url.endsWith("/api/auth/session")) {
           return jsonResponse({
             user: {
               id: "member-1",
@@ -505,9 +505,9 @@ describe("App", () => {
           });
         }
 
-        if (url.endsWith("/api/mailboxes")) return jsonResponse({ mailboxes: [] });
-        if (url.endsWith("/api/keys")) return jsonResponse({ keys: [] });
-        if (url.endsWith("/api/telegram")) return jsonResponse({ subscription: null });
+        if (url.endsWith("/api/accounts")) return jsonResponse({ mailboxes: [] });
+        if (url.endsWith("/api/api-keys")) return jsonResponse({ keys: [] });
+        if (url.endsWith("/api/telegram/subscription")) return jsonResponse({ subscription: null });
         return jsonResponse({});
       });
 
@@ -532,7 +532,7 @@ describe("App", () => {
       vi.spyOn(globalThis, "fetch").mockImplementation((input) => {
         const url = typeof input === "string" ? input : input instanceof Request ? input.url : String(input);
 
-        if (url.endsWith("/auth/session")) {
+        if (url.endsWith("/api/auth/session")) {
           return jsonResponse({
             user: {
               id: "member-1",
@@ -549,9 +549,9 @@ describe("App", () => {
           });
         }
 
-        if (url.endsWith("/api/mailboxes")) return jsonResponse({ mailboxes: [] });
-        if (url.endsWith("/api/keys")) return jsonResponse({ keys: [] });
-        if (url.endsWith("/api/telegram")) return jsonResponse({ subscription: null });
+        if (url.endsWith("/api/accounts")) return jsonResponse({ mailboxes: [] });
+        if (url.endsWith("/api/api-keys")) return jsonResponse({ keys: [] });
+        if (url.endsWith("/api/telegram/subscription")) return jsonResponse({ subscription: null });
         return jsonResponse({});
       });
 
@@ -616,7 +616,7 @@ describe("App", () => {
       vi.spyOn(globalThis, "fetch").mockImplementation((input) => {
         const url = typeof input === "string" ? input : input instanceof Request ? input.url : String(input);
 
-        if (url.endsWith("/auth/session")) {
+        if (url.endsWith("/api/auth/session")) {
           return jsonResponse({
             user: {
               id: "admin-1",
@@ -633,10 +633,10 @@ describe("App", () => {
           });
         }
 
-        if (url.endsWith("/api/mailboxes")) return jsonResponse({ mailboxes: [] });
-        if (url.endsWith("/api/keys")) return jsonResponse({ keys: [] });
-        if (url.endsWith("/api/telegram")) return jsonResponse({ subscription: null });
-        if (url.endsWith("/admin/users")) {
+        if (url.endsWith("/api/accounts")) return jsonResponse({ mailboxes: [] });
+        if (url.endsWith("/api/api-keys")) return jsonResponse({ keys: [] });
+        if (url.endsWith("/api/telegram/subscription")) return jsonResponse({ subscription: null });
+        if (url.endsWith("/api/users")) {
           return jsonResponse({
             users: [
               {
@@ -648,8 +648,8 @@ describe("App", () => {
             ]
           });
         }
-        if (url.endsWith("/admin/invites")) return jsonResponse({ invites: [] });
-        if (url.endsWith("/admin/features")) {
+        if (url.endsWith("/api/users/invites")) return jsonResponse({ invites: [] });
+        if (url.endsWith("/api/system/features")) {
           return jsonResponse({
             featureToggles: {
               aiEnabled: true,
@@ -659,7 +659,7 @@ describe("App", () => {
             }
           });
         }
-        if (url.includes("/admin/quotas/")) {
+        if (/\/api\/users\/[^/]+\/quota/.test(url)) {
           return jsonResponse({
             quota: {
               userId: "admin-1",
@@ -670,7 +670,7 @@ describe("App", () => {
             }
           });
         }
-        if (url.endsWith("/admin/mailboxes")) {
+        if (url.endsWith("/api/users/accounts")) {
           return jsonResponse({
             mailboxes: [
               {
@@ -689,8 +689,8 @@ describe("App", () => {
 
       render(<App />);
 
-      expect(await screen.findByRole("heading", { name: /邀请码控制/i })).toBeInTheDocument();
-      expect(screen.getByRole("heading", { name: /邮箱总览/i })).toBeInTheDocument();
+      expect(await screen.findByRole("heading", { name: /邀请与入场/i })).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: /邮箱监管/i })).toBeInTheDocument();
       expect(screen.queryByLabelText(/工作台快速搜索/i)).not.toBeInTheDocument();
       expect(screen.getByLabelText(/WeMail logo/i)).toBeInTheDocument();
       expect(screen.getByRole("button", { name: /切换到浅色主题|切换到深色主题/i })).toHaveClass("ui-button", "ui-button-icon");
@@ -712,7 +712,7 @@ describe("App", () => {
         const url = typeof input === "string" ? input : input instanceof Request ? input.url : String(input);
         calls.set(url, (calls.get(url) ?? 0) + 1);
 
-        if (url.endsWith("/auth/session")) {
+        if (url.endsWith("/api/auth/session")) {
           return jsonResponse({
             user: {
               id: "admin-1",
@@ -729,16 +729,16 @@ describe("App", () => {
           });
         }
 
-        if (url.endsWith("/api/mailboxes")) return jsonResponse({ mailboxes: [] });
-        if (url.endsWith("/api/keys")) return jsonResponse({ keys: [] });
-        if (url.endsWith("/api/telegram")) return jsonResponse({ subscription: null });
-        if (url.endsWith("/admin/users")) {
+        if (url.endsWith("/api/accounts")) return jsonResponse({ mailboxes: [] });
+        if (url.endsWith("/api/api-keys")) return jsonResponse({ keys: [] });
+        if (url.endsWith("/api/telegram/subscription")) return jsonResponse({ subscription: null });
+        if (url.endsWith("/api/users")) {
           return jsonResponse({
             users: [{ id: "admin-1", email: "admin@example.com", role: "admin", createdAt: "2026-04-08T00:00:00.000Z" }]
           });
         }
-        if (url.endsWith("/admin/invites")) return jsonResponse({ invites: [] });
-        if (url.endsWith("/admin/features")) {
+        if (url.endsWith("/api/users/invites")) return jsonResponse({ invites: [] });
+        if (url.endsWith("/api/system/features")) {
           return jsonResponse({
             featureToggles: {
               aiEnabled: true,
@@ -748,7 +748,7 @@ describe("App", () => {
             }
           });
         }
-        if (url.includes("/admin/quotas/")) {
+        if (/\/api\/users\/[^/]+\/quota/.test(url)) {
           return jsonResponse({
             quota: {
               userId: "admin-1",
@@ -759,16 +759,16 @@ describe("App", () => {
             }
           });
         }
-        if (url.endsWith("/admin/mailboxes")) return jsonResponse({ mailboxes: [] });
+        if (url.endsWith("/api/users/accounts")) return jsonResponse({ mailboxes: [] });
         return jsonResponse({});
       });
 
       render(<App />);
-      expect(await screen.findByRole("heading", { name: /邀请码控制/i })).toBeInTheDocument();
+      expect(await screen.findByRole("heading", { name: /邀请与入场/i })).toBeInTheDocument();
 
       await waitFor(() => {
-        expect(calls.get("http://127.0.0.1:8787/auth/session") ?? 0).toBe(1);
-        expect(calls.get("http://127.0.0.1:8787/admin/users") ?? 0).toBe(1);
+        expect(calls.get("http://127.0.0.1:8787/api/auth/session") ?? 0).toBe(1);
+        expect(calls.get("http://127.0.0.1:8787/api/users") ?? 0).toBe(1);
       });
     },
     10000

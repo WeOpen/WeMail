@@ -32,21 +32,69 @@ describe("worker app", () => {
     });
 
     const response = await app.request(
-      "/auth/register",
+      "/api/auth/register",
       {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           email: "admin@example.com",
+          name: "Admin Example",
           password: "password123",
           inviteCode: invite.code
         })
       },
       env
     );
+    const registerPayload = (await response.json()) as {
+      user: { name: string; status: string; updatedAt: string; createdAt: string };
+    };
 
     expect(response.status).toBe(201);
     expect(response.headers.get("set-cookie")).toContain("wemail_session=");
+    expect(registerPayload.user).toMatchObject({
+      name: "Admin Example",
+      status: "active"
+    });
+    expect(registerPayload.user.updatedAt).toBe(registerPayload.user.createdAt);
+
+    const loginResponse = await app.request(
+      "/api/auth/login",
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          email: "admin@example.com",
+          password: "password123"
+        })
+      },
+      env
+    );
+    const loginPayload = (await loginResponse.json()) as {
+      user: { name: string; status: string; updatedAt: string };
+    };
+
+    expect(loginResponse.status).toBe(200);
+    expect(loginPayload.user).toMatchObject({
+      name: "Admin Example",
+      status: "active"
+    });
+
+    const sessionResponse = await app.request(
+      "/api/auth/session",
+      {
+        headers: { cookie: response.headers.get("set-cookie") ?? "" }
+      },
+      env
+    );
+    const sessionPayload = (await sessionResponse.json()) as {
+      user: { name: string; status: string; updatedAt: string };
+    };
+
+    expect(sessionResponse.status).toBe(200);
+    expect(sessionPayload.user).toMatchObject({
+      name: "Admin Example",
+      status: "active"
+    });
   });
 
   it("marks session cookies as secure when COOKIE_SECURE is enabled", async () => {
@@ -59,7 +107,7 @@ describe("worker app", () => {
     });
 
     const response = await app.request(
-      "/auth/register",
+      "/api/auth/register",
       {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -89,7 +137,7 @@ describe("worker app", () => {
 
     const before = Date.now();
     const response = await app.request(
-      "/auth/register",
+      "/api/auth/register",
       {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -119,7 +167,7 @@ describe("worker app", () => {
     const app = createApp({ store: createInMemoryStore() });
 
     const response = await app.request(
-      "/api/mailboxes",
+      "/api/accounts",
       {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -141,7 +189,7 @@ describe("worker app", () => {
     });
 
     const registerResponse = await app.request(
-      "/auth/register",
+      "/api/auth/register",
       {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -157,7 +205,7 @@ describe("worker app", () => {
     const cookie = registerResponse.headers.get("set-cookie") ?? "";
 
     const createResponse = await app.request(
-      "/api/mailboxes",
+      "/api/accounts",
       {
         method: "POST",
         headers: {
@@ -172,7 +220,7 @@ describe("worker app", () => {
     expect(createResponse.status).toBe(201);
 
     const listResponse = await app.request(
-      "/api/mailboxes",
+      "/api/accounts",
       {
         headers: { cookie }
       },
@@ -188,7 +236,7 @@ describe("worker app", () => {
     const app = createApp({ store: createInMemoryStore() });
 
     const response = await app.request(
-      "/auth/session",
+      "/api/auth/session",
       {
         method: "OPTIONS",
         headers: {

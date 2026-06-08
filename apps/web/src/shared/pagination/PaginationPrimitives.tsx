@@ -1,15 +1,21 @@
 import {
   forwardRef,
   type ButtonHTMLAttributes,
+  type ChangeEvent,
   type HTMLAttributes,
   type KeyboardEvent,
-  type ReactNode
+  type ReactNode,
+  useId
 } from "react";
+
+import { SelectInput } from "../form";
 
 type PaginationProps = Omit<HTMLAttributes<HTMLElement>, "onChange"> & {
   onChange?: (page: number) => void;
+  onPageSizeChange?: (pageSize: number) => void;
   page: number;
   pageSize: number;
+  pageSizeOptions?: readonly number[];
   siblings?: number;
   total: number;
 };
@@ -136,22 +142,32 @@ export const Pagination = forwardRef<HTMLElement, PaginationProps>(function Pagi
     "aria-label": ariaLabel = "分页导航",
     className,
     onChange,
+    onPageSizeChange,
     page,
     pageSize,
+    pageSizeOptions,
     siblings = 1,
     total,
     ...props
   },
   ref
 ) {
+  const pageSizeSelectId = useId();
   const pageCount = getPageCount(total, pageSize);
   const currentPage = clamp(page, 1, pageCount);
   const items = buildPaginationItems(pageCount, currentPage, siblings);
+  const hasPageSizeOptions = Boolean(pageSizeOptions?.length);
 
   function handlePageChange(nextPage: number) {
     const resolvedPage = clamp(nextPage, 1, pageCount);
     if (resolvedPage === currentPage) return;
     onChange?.(resolvedPage);
+  }
+
+  function handlePageSizeChange(event: ChangeEvent<HTMLSelectElement>) {
+    const nextPageSize = Number(event.currentTarget.value);
+    if (!Number.isFinite(nextPageSize)) return;
+    onPageSizeChange?.(nextPageSize);
   }
 
   function handleKeyDown(event: KeyboardEvent<HTMLUListElement>) {
@@ -172,10 +188,35 @@ export const Pagination = forwardRef<HTMLElement, PaginationProps>(function Pagi
     <nav
       {...props}
       aria-label={ariaLabel}
-      className={cx("ui-pagination", className)}
+      className={cx("ui-pagination", hasPageSizeOptions && "ui-pagination-with-meta", className)}
       data-state={pageCount <= 1 ? "single" : "ready"}
       ref={ref}
     >
+      {hasPageSizeOptions ? (
+        <div className="ui-pagination-meta">
+          <span className="ui-pagination-total">共 {total} 条</span>
+          <div className="ui-pagination-size">
+            <label className="ui-pagination-size-label" htmlFor={pageSizeSelectId}>
+              每页条数
+            </label>
+            <SelectInput
+              aria-label="每页条数"
+              className="ui-pagination-size-select"
+              disabled={!onPageSizeChange}
+              id={pageSizeSelectId}
+              onChange={handlePageSizeChange}
+              value={pageSize}
+            >
+              {pageSizeOptions?.map((option) => (
+                <option key={option} value={option}>
+                  {option}
+                </option>
+              ))}
+            </SelectInput>
+          </div>
+        </div>
+      ) : null}
+
       <ul className="ui-pagination-list" onKeyDown={handleKeyDown}>
         <li className="ui-pagination-item">
           <PaginationButton

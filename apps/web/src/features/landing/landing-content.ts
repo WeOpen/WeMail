@@ -46,7 +46,7 @@ export const workflowSteps = [
     number: "I",
     title: "创建或分配收件箱",
     description: "几秒内为测试流程、活动链路或具体成员分配一个邮箱入口，不需要手工切换域名、账号和转发规则。",
-    code: `POST /api/mailboxes
+    code: `POST /api/accounts
 {
   "label": "qa-signup"
 }
@@ -57,8 +57,8 @@ export const workflowSteps = [
     number: "II",
     title: "收信、查看并提取关键信息",
     description: "在同一界面查看正文、附件、提取结果和外发记录，QA、运营和支持团队能用同一份上下文推进处理。",
-    code: `GET /api/messages?mailboxId=<mailbox-id>
-GET /api/outbound?mailboxId=<mailbox-id>
+    code: `GET /api/mail/messages?accountId=<mailbox-id>
+GET /api/mail/outbound?accountId=<mailbox-id>
 
 // 前端在同一工作台读取收件、详情与外发历史`
   },
@@ -66,7 +66,7 @@ GET /api/outbound?mailboxId=<mailbox-id>
     number: "III",
     title: "集中治理访问与额度",
     description: "当流量变化或滥用风险出现时，统一在管理端调整邀请码、每日额度、功能开关和收件箱监管策略。",
-    code: `PATCH /admin/quotas/<user-id>
+    code: `PATCH /api/users/<user-id>/quota
 {
   "dailyLimit": 20,
   "disabled": false
@@ -119,19 +119,19 @@ export const certifications = ["邀请制", "额度可控", "功能开关", "收
 export const developerTabs = [
   {
     label: "创建收件箱",
-    code: `curl -X POST https://wemail.local/api/mailboxes \\
+    code: `curl -X POST https://wemail.local/api/accounts \\
   -H 'Authorization: Bearer <api-key>' \\
   -H 'Content-Type: application/json' \\
   -d '{"label":"qa-signup"}'`
   },
   {
     label: "读取消息",
-    code: `curl 'https://wemail.local/api/messages?mailboxId=<mailbox-id>' \\
+    code: `curl 'https://wemail.local/api/mail/messages?accountId=<mailbox-id>' \\
   -H 'Authorization: Bearer <api-key>'`
   },
   {
     label: "发送外发",
-    code: `curl -X POST https://wemail.local/api/outbound/send \\
+    code: `curl -X POST https://wemail.local/api/mail/send \\
   -H 'Authorization: Bearer <api-key>' \\
   -H 'Content-Type: application/json' \\
   -d '{"mailboxId":"<mailbox-id>","toAddress":"user@example.com","subject":"Test","bodyText":"Hello from WeMail"}'`

@@ -41,7 +41,7 @@ export async function registerUserAndGetCookie(options?: {
   });
 
   const response = await app.request(
-    "/auth/register",
+    "/api/auth/register",
     {
       method: "POST",
       headers: { "content-type": "application/json" },

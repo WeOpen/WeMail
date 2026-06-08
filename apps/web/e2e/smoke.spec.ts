@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 
 async function mockAuthenticatedMember(page: Page) {
-  await page.route("**/auth/session", async (route) => {
+  await page.route("**/api/auth/session", async (route) => {
     await route.fulfill({
       json: {
         user: {
@@ -20,14 +20,14 @@ async function mockAuthenticatedMember(page: Page) {
     });
   });
 
-  await page.route("**/api/mailboxes", async (route) =>
+  await page.route("**/api/accounts", async (route) =>
     route.fulfill({
       json: {
         mailboxes: [{ id: "box-1", address: "ops@example.com", label: "Ops", createdAt: "2026-04-08T00:00:00.000Z" }]
       }
     })
   );
-  await page.route("**/api/messages?mailboxId=box-1", async (route) =>
+  await page.route("**/api/mail/messages?accountId=box-1", async (route) =>
     route.fulfill({
       json: {
         messages: [
@@ -48,9 +48,9 @@ async function mockAuthenticatedMember(page: Page) {
       }
     })
   );
-  await page.route("**/api/outbound?mailboxId=box-1", async (route) => route.fulfill({ json: { messages: [] } }));
-  await page.route("**/api/keys", async (route) => route.fulfill({ json: { keys: [] } }));
-  await page.route("**/api/telegram", async (route) => route.fulfill({ json: { subscription: null } }));
+  await page.route("**/api/mail/outbound?accountId=box-1", async (route) => route.fulfill({ json: { messages: [] } }));
+  await page.route("**/api/api-keys", async (route) => route.fulfill({ json: { keys: [] } }));
+  await page.route("**/api/telegram/subscription", async (route) => route.fulfill({ json: { subscription: null } }));
 }
 
 test("shows the optimus-style landing page for signed-out users", async ({ page }) => {
@@ -80,7 +80,7 @@ test("keeps the next target when switching auth tabs", async ({ page }) => {
 
 test("restores the intended route after auth when next is present", async ({ page }) => {
   test.setTimeout(60000);
-  await page.route("**/auth/session", async (route) => {
+  await page.route("**/api/auth/session", async (route) => {
     await route.fulfill({
       json: {
         user: {
@@ -98,9 +98,9 @@ test("restores the intended route after auth when next is present", async ({ pag
       }
     });
   });
-  await page.route("**/api/mailboxes", async (route) => route.fulfill({ json: { mailboxes: [] } }));
-  await page.route("**/api/keys", async (route) => route.fulfill({ json: { keys: [] } }));
-  await page.route("**/api/telegram", async (route) => route.fulfill({ json: { subscription: null } }));
+  await page.route("**/api/accounts", async (route) => route.fulfill({ json: { mailboxes: [] } }));
+  await page.route("**/api/api-keys", async (route) => route.fulfill({ json: { keys: [] } }));
+  await page.route("**/api/telegram/subscription", async (route) => route.fulfill({ json: { subscription: null } }));
 
   await page.goto("/login?next=%2Fsettings");
   await expect(page.getByRole("heading", { name: /^API 密钥$/i })).toBeVisible();
@@ -207,7 +207,7 @@ test("shows the account settings policy center on its direct route for an authen
 
 test("shows the admin users workspace for an authenticated admin", async ({ page }) => {
   test.setTimeout(60000);
-  await page.route("**/auth/session", async (route) => {
+  await page.route("**/api/auth/session", async (route) => {
     await route.fulfill({
       json: {
         user: {
@@ -226,10 +226,10 @@ test("shows the admin users workspace for an authenticated admin", async ({ page
     });
   });
 
-  await page.route("**/api/mailboxes", async (route) => route.fulfill({ json: { mailboxes: [] } }));
-  await page.route("**/api/keys", async (route) => route.fulfill({ json: { keys: [] } }));
-  await page.route("**/api/telegram", async (route) => route.fulfill({ json: { subscription: null } }));
-  await page.route("**/admin/users", async (route) =>
+  await page.route("**/api/accounts", async (route) => route.fulfill({ json: { mailboxes: [] } }));
+  await page.route("**/api/api-keys", async (route) => route.fulfill({ json: { keys: [] } }));
+  await page.route("**/api/telegram/subscription", async (route) => route.fulfill({ json: { subscription: null } }));
+  await page.route("**/api/users", async (route) =>
     route.fulfill({
       json: {
         users: [
@@ -239,14 +239,14 @@ test("shows the admin users workspace for an authenticated admin", async ({ page
       }
     })
   );
-  await page.route("**/admin/invites", async (route) =>
+  await page.route("**/api/users/invites", async (route) =>
     route.fulfill({
       json: {
         invites: [{ id: "invite-1", code: "ALPHA-2026", createdAt: "2026-04-08T00:00:00.000Z", redeemedAt: null, disabledAt: null }]
       }
     })
   );
-  await page.route("**/admin/features", async (route) =>
+  await page.route("**/api/system/features", async (route) =>
     route.fulfill({
       json: {
         featureToggles: {
@@ -258,7 +258,7 @@ test("shows the admin users workspace for an authenticated admin", async ({ page
       }
     })
   );
-  await page.route("**/admin/quotas/**", async (route) =>
+  await page.route("**/api/users/**/quota", async (route) =>
     route.fulfill({
       json: {
         quota: {
@@ -271,7 +271,7 @@ test("shows the admin users workspace for an authenticated admin", async ({ page
       }
     })
   );
-  await page.route("**/admin/mailboxes", async (route) =>
+  await page.route("**/api/users/accounts", async (route) =>
     route.fulfill({
       json: {
         mailboxes: [{ id: "box-1", address: "ops@example.com", label: "Ops", createdAt: "2026-04-08T00:00:00.000Z" }]
@@ -293,7 +293,7 @@ test("shows the admin users workspace for an authenticated admin", async ({ page
 
 test("shows the admin dashboard mock board for an authenticated admin", async ({ page }) => {
   test.setTimeout(60000);
-  await page.route("**/auth/session", async (route) => {
+  await page.route("**/api/auth/session", async (route) => {
     await route.fulfill({
       json: {
         user: {
@@ -312,18 +312,18 @@ test("shows the admin dashboard mock board for an authenticated admin", async ({
     });
   });
 
-  await page.route("**/api/mailboxes", async (route) =>
+  await page.route("**/api/accounts", async (route) =>
     route.fulfill({
       json: {
         mailboxes: [{ id: "box-1", address: "ops@example.com", label: "Ops", createdAt: "2026-04-08T00:00:00.000Z" }]
       }
     })
   );
-  await page.route("**/api/messages?mailboxId=box-1", async (route) => route.fulfill({ json: { messages: [] } }));
-  await page.route("**/api/outbound?mailboxId=box-1", async (route) => route.fulfill({ json: { messages: [] } }));
-  await page.route("**/api/keys", async (route) => route.fulfill({ json: { keys: [] } }));
-  await page.route("**/api/telegram", async (route) => route.fulfill({ json: { subscription: null } }));
-  await page.route("**/admin/users", async (route) =>
+  await page.route("**/api/mail/messages?accountId=box-1", async (route) => route.fulfill({ json: { messages: [] } }));
+  await page.route("**/api/mail/outbound?accountId=box-1", async (route) => route.fulfill({ json: { messages: [] } }));
+  await page.route("**/api/api-keys", async (route) => route.fulfill({ json: { keys: [] } }));
+  await page.route("**/api/telegram/subscription", async (route) => route.fulfill({ json: { subscription: null } }));
+  await page.route("**/api/users", async (route) =>
     route.fulfill({
       json: {
         users: [
@@ -333,14 +333,14 @@ test("shows the admin dashboard mock board for an authenticated admin", async ({
       }
     })
   );
-  await page.route("**/admin/invites", async (route) =>
+  await page.route("**/api/users/invites", async (route) =>
     route.fulfill({
       json: {
         invites: [{ id: "invite-1", code: "ALPHA-2026", createdAt: "2026-04-08T00:00:00.000Z", redeemedAt: null, disabledAt: null }]
       }
     })
   );
-  await page.route("**/admin/features", async (route) =>
+  await page.route("**/api/system/features", async (route) =>
     route.fulfill({
       json: {
         featureToggles: {
@@ -352,7 +352,7 @@ test("shows the admin dashboard mock board for an authenticated admin", async ({
       }
     })
   );
-  await page.route("**/admin/quotas/**", async (route) =>
+  await page.route("**/api/users/**/quota", async (route) =>
     route.fulfill({
       json: {
         quota: {
@@ -365,7 +365,7 @@ test("shows the admin dashboard mock board for an authenticated admin", async ({
       }
     })
   );
-  await page.route("**/admin/mailboxes", async (route) =>
+  await page.route("**/api/users/accounts", async (route) =>
     route.fulfill({
       json: {
         mailboxes: [
@@ -377,15 +377,32 @@ test("shows the admin dashboard mock board for an authenticated admin", async ({
   );
 
   await page.goto("/dashboard");
-  await expect(page.getByRole("heading", { name: /今日收件/i })).toBeVisible();
-  await expect(page.getByRole("heading", { name: /近 7 天收发趋势/i })).toBeVisible();
-  await expect(page.getByRole("heading", { name: /邮箱状态分布/i })).toBeVisible();
-  await expect(page.getByRole("heading", { name: /重点资源概览/i })).toBeVisible();
+  await expect(page.getByText("今日收件")).toBeVisible();
+  await expect(page.getByText("今日发件")).toBeVisible();
+  await expect(page.getByText("API 密钥数")).toBeVisible();
+  await expect(page.getByText("投递端点")).toBeVisible();
+  await expect(page.getByText("已发布公告")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "趋势" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "账号" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "角色" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "增长" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "资源" })).toBeVisible();
+  await expect(page.getByRole("img", { name: "用户角色环形图" })).toBeVisible();
+  await expect(page.getByLabel("趋势周期").getByRole("tab", { name: "周" })).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByLabel("增长周期").getByRole("tab", { name: "周" })).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByText("新增账号")).toBeVisible();
+  await expect(page.getByText("新增邮箱")).toBeVisible();
+  await expect(page.getByText("可用邀请码")).toBeVisible();
+  await expect(page.getByText("默认配额池")).toBeVisible();
+  await expect(page.getByText("最近新增账号")).toHaveCount(0);
+  await expect(page.getByText(/收件较昨日增长/i)).toHaveCount(0);
+  await expect(page.getByText("测试邮箱")).toHaveCount(0);
+  await expect(page.getByText("活跃邮箱")).toHaveCount(0);
 });
 
 test("shows the announcements board for an authenticated member", async ({ page }) => {
   test.setTimeout(60000);
-  await page.route("**/auth/session", async (route) => {
+  await page.route("**/api/auth/session", async (route) => {
     await route.fulfill({
       json: {
         user: {
@@ -404,17 +421,17 @@ test("shows the announcements board for an authenticated member", async ({ page 
     });
   });
 
-  await page.route("**/api/mailboxes", async (route) =>
+  await page.route("**/api/accounts", async (route) =>
     route.fulfill({
       json: {
         mailboxes: [{ id: "box-1", address: "ops@example.com", label: "Ops", createdAt: "2026-04-08T00:00:00.000Z" }]
       }
     })
   );
-  await page.route("**/api/messages?mailboxId=box-1", async (route) => route.fulfill({ json: { messages: [] } }));
-  await page.route("**/api/outbound?mailboxId=box-1", async (route) => route.fulfill({ json: { messages: [] } }));
-  await page.route("**/api/keys", async (route) => route.fulfill({ json: { keys: [] } }));
-  await page.route("**/api/telegram", async (route) => route.fulfill({ json: { subscription: null } }));
+  await page.route("**/api/mail/messages?accountId=box-1", async (route) => route.fulfill({ json: { messages: [] } }));
+  await page.route("**/api/mail/outbound?accountId=box-1", async (route) => route.fulfill({ json: { messages: [] } }));
+  await page.route("**/api/api-keys", async (route) => route.fulfill({ json: { keys: [] } }));
+  await page.route("**/api/telegram/subscription", async (route) => route.fulfill({ json: { subscription: null } }));
 
   await page.goto("/announcements");
   await expect(page.getByRole("searchbox", { name: /公告搜索/i })).toBeVisible();
@@ -437,7 +454,7 @@ test("shows the announcements board for an authenticated member", async ({ page 
 
 test("shows the publish announcement button for an authenticated admin", async ({ page }) => {
   test.setTimeout(60000);
-  await page.route("**/auth/session", async (route) => {
+  await page.route("**/api/auth/session", async (route) => {
     await route.fulfill({
       json: {
         user: {
@@ -456,17 +473,17 @@ test("shows the publish announcement button for an authenticated admin", async (
     });
   });
 
-  await page.route("**/api/mailboxes", async (route) =>
+  await page.route("**/api/accounts", async (route) =>
     route.fulfill({
       json: {
         mailboxes: [{ id: "box-1", address: "ops@example.com", label: "Ops", createdAt: "2026-04-08T00:00:00.000Z" }]
       }
     })
   );
-  await page.route("**/api/messages?mailboxId=box-1", async (route) => route.fulfill({ json: { messages: [] } }));
-  await page.route("**/api/outbound?mailboxId=box-1", async (route) => route.fulfill({ json: { messages: [] } }));
-  await page.route("**/api/keys", async (route) => route.fulfill({ json: { keys: [] } }));
-  await page.route("**/api/telegram", async (route) => route.fulfill({ json: { subscription: null } }));
+  await page.route("**/api/mail/messages?accountId=box-1", async (route) => route.fulfill({ json: { messages: [] } }));
+  await page.route("**/api/mail/outbound?accountId=box-1", async (route) => route.fulfill({ json: { messages: [] } }));
+  await page.route("**/api/api-keys", async (route) => route.fulfill({ json: { keys: [] } }));
+  await page.route("**/api/telegram/subscription", async (route) => route.fulfill({ json: { subscription: null } }));
 
   await page.goto("/announcements");
   await expect(page.getByRole("button", { name: /发布公告/i })).toBeVisible();

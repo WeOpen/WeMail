@@ -20,9 +20,10 @@ describe("DesignSystemPage", () => {
     const sidebar = screen.getByRole("navigation", { name: "Design system sidebar" });
 
     expect(sidebar).toBeInTheDocument();
-    expect(within(sidebar).getAllByRole("button").length).toBeGreaterThan(10);
+    expect(within(sidebar).getAllByRole("button").length).toBeGreaterThan(20);
     expect(screen.getByRole("navigation", { name: "首页导航" })).toBeInTheDocument();
     expect(screen.getAllByRole("heading", { name: "Foundations" }).length).toBeGreaterThan(0);
+    expect(screen.getByText(/参考 HeroUI/)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "WeMail 首页" })).toBeInTheDocument();
   });
 
@@ -38,6 +39,9 @@ describe("DesignSystemPage", () => {
     expect(within(sidebar).queryByRole("button", { name: /概览/i })).not.toBeInTheDocument();
     expect(within(sidebar).getByRole("button", { name: "Button" })).toBeInTheDocument();
     expect(within(sidebar).getByRole("button", { name: "Card" })).toBeInTheDocument();
+    expect(within(sidebar).getByRole("button", { name: "Table" })).toBeInTheDocument();
+    expect(within(sidebar).getByRole("button", { name: "Alert" })).toBeInTheDocument();
+    expect(within(sidebar).getByRole("button", { name: "Tabs" })).toBeInTheDocument();
     expect(within(sidebar).getByRole("button", { name: "SearchInput" })).toBeInTheDocument();
   });
 
@@ -173,7 +177,7 @@ describe("DesignSystemPage", () => {
     expect(within(livePreviewSection as HTMLElement).getByRole("button", { name: "停用账号" })).toBeInTheDocument();
   });
 
-  it("renders component docs with examples first, then API, then usage guidance", () => {
+  it("renders component docs in a HeroUI-inspired structure", () => {
     render(
       <MemoryRouter>
         <DesignSystemPage />
@@ -183,11 +187,12 @@ describe("DesignSystemPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Button" }));
 
     const headings = screen.getAllByRole("heading").map((node) => node.textContent);
-    const expected = ["真实示例", "API 接口", "使用说明"];
+    const expected = ["Import", "Usage", "Variants", "Anatomy", "Accessibility", "API Reference", "Examples"];
     const indexes = expected.map((heading) => headings.indexOf(heading));
 
     expect(indexes.every((index) => index >= 0)).toBe(true);
     expect(indexes).toEqual([...indexes].sort((a, b) => a - b));
+    expect(screen.getByText(/HeroUI 的组件文档通常先给出 import/)).toBeInTheDocument();
   });
 
   it("renders a structured API table for a component", () => {
@@ -217,14 +222,17 @@ describe("DesignSystemPage", () => {
         fireEvent.click(screen.getByRole("button", { name: component.title }));
 
         expect(screen.getByRole("heading", { name: component.title })).toBeInTheDocument();
-        expect(screen.getByRole("region", { name: "文档章节：真实示例" })).toBeInTheDocument();
-        expect(screen.getByRole("region", { name: "文档章节：使用说明" })).toBeInTheDocument();
+        expect(screen.getByRole("region", { name: "文档章节：Import" })).toBeInTheDocument();
+        expect(screen.getByRole("region", { name: "文档章节：Usage" })).toBeInTheDocument();
+        expect(screen.getByRole("region", { name: "文档章节：Variants" })).toBeInTheDocument();
+        expect(screen.getByRole("region", { name: "文档章节：Anatomy" })).toBeInTheDocument();
+        expect(screen.getByRole("region", { name: "文档章节：Accessibility" })).toBeInTheDocument();
 
-        const apiSection = screen.getByRole("region", { name: "文档章节：API 接口" });
-        expect(within(apiSection).getByText("prop")).toBeInTheDocument();
-        expect(within(apiSection).getByText("type")).toBeInTheDocument();
-        expect(within(apiSection).getByText("default")).toBeInTheDocument();
-        expect(within(apiSection).getByText("description")).toBeInTheDocument();
+        const apiSection = screen.getByRole("region", { name: "文档章节：API Reference" });
+        expect(within(apiSection).getByRole("columnheader", { name: "prop" })).toBeInTheDocument();
+        expect(within(apiSection).getByRole("columnheader", { name: "type" })).toBeInTheDocument();
+        expect(within(apiSection).getByRole("columnheader", { name: "default" })).toBeInTheDocument();
+        expect(within(apiSection).getByRole("columnheader", { name: "description" })).toBeInTheDocument();
 
         expect(component.api?.length ?? 0).toBeGreaterThan(0);
         expect(component.docSections?.length ?? 0).toBeGreaterThan(0);

@@ -12,7 +12,7 @@ describe("system settings route integration", () => {
     vi.spyOn(globalThis, "fetch").mockImplementation((input) => {
       const url = typeof input === "string" ? input : input instanceof Request ? input.url : String(input);
 
-      if (url.endsWith("/auth/session")) {
+      if (url.endsWith("/api/auth/session")) {
         return jsonResponse({
           user: {
             id: "member-1",
@@ -29,12 +29,12 @@ describe("system settings route integration", () => {
         });
       }
 
-      if (url.endsWith("/api/mailboxes")) return jsonResponse({ mailboxes: [] });
-      if (url.endsWith("/api/keys")) return jsonResponse({ keys: [] });
-      if (url.endsWith("/api/telegram")) return jsonResponse({ subscription: null });
-      if (url.endsWith("/admin/users")) return jsonResponse({ users: [] });
-      if (url.endsWith("/admin/invites")) return jsonResponse({ invites: [] });
-      if (url.endsWith("/admin/features")) {
+      if (url.endsWith("/api/accounts")) return jsonResponse({ mailboxes: [] });
+      if (url.endsWith("/api/api-keys")) return jsonResponse({ keys: [] });
+      if (url.endsWith("/api/telegram/subscription")) return jsonResponse({ subscription: null });
+      if (url.endsWith("/api/users")) return jsonResponse({ users: [] });
+      if (url.endsWith("/api/users/invites")) return jsonResponse({ invites: [] });
+      if (url.endsWith("/api/system/features")) {
         return jsonResponse({
           featureToggles: {
             aiEnabled: true,
@@ -44,7 +44,7 @@ describe("system settings route integration", () => {
           }
         });
       }
-      if (url.includes("/admin/quotas/")) {
+      if (/\/api\/users\/[^/]+\/quota/.test(url)) {
         return jsonResponse({
           quota: {
             userId: "member-1",
@@ -55,7 +55,7 @@ describe("system settings route integration", () => {
           }
         });
       }
-      if (url.endsWith("/admin/mailboxes")) return jsonResponse({ mailboxes: [] });
+      if (url.endsWith("/api/users/accounts")) return jsonResponse({ mailboxes: [] });
 
       return jsonResponse({});
     });

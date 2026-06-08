@@ -12,9 +12,11 @@ describe("SystemProfilePage", () => {
     render(
       <SystemProfilePage
         sessionSummary={{
+          name: "WeMail Admin",
           email: "admin@example.com",
           role: "管理员",
-          createdAtLabel: "2026-04-08"
+          createdAtLabel: "2026-04-08",
+          updatedAtLabel: "2026-04-08"
         }}
       />
     );
@@ -29,9 +31,11 @@ describe("SystemProfilePage", () => {
     render(
       <SystemProfilePage
         sessionSummary={{
+          name: "WeMail Admin",
           email: "admin@example.com",
           role: "管理员",
-          createdAtLabel: "2026-04-08"
+          createdAtLabel: "2026-04-08",
+          updatedAtLabel: "2026-04-08"
         }}
       />
     );
@@ -66,9 +70,11 @@ describe("SystemProfilePage", () => {
     render(
       <SystemProfilePage
         sessionSummary={{
+          name: "WeMail Admin",
           email: "admin@example.com",
           role: "管理员",
-          createdAtLabel: "2026-04-08"
+          createdAtLabel: "2026-04-08",
+          updatedAtLabel: "2026-04-08"
         }}
       />
     );

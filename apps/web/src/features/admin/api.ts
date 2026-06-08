@@ -1,45 +1,98 @@
-import type { FeatureToggles, MailboxSummary, QuotaSummary, UserSummary } from "@wemail/shared";
+import type { FeatureToggles, MailboxSummary, QuotaSummary, UserRole, UserStatus, UserSummary } from "@wemail/shared";
 
 import { apiFetch } from "../../shared/api/client";
-import type { InviteSummary } from "./types";
+import type { AdminUsersPayload, AdminUsersQuery, InviteSummary } from "./types";
 
-export function fetchAdminUsers() {
-  return apiFetch<{ users: UserSummary[] }>("/admin/users");
+function buildAdminUsersPath(query?: AdminUsersQuery) {
+  if (!query) return "/api/users";
+
+  const params = new URLSearchParams({
+    page: String(query.page),
+    pageSize: String(query.pageSize)
+  });
+  if (query.search.trim()) params.set("search", query.search.trim());
+  if (query.role !== "all") params.set("role", query.role);
+  if (query.status !== "all") params.set("status", query.status);
+
+  return `/api/users?${params.toString()}`;
+}
+
+export function fetchAdminUsers(query?: AdminUsersQuery) {
+  return apiFetch<AdminUsersPayload>(buildAdminUsersPath(query));
+}
+
+export function createAdminUser(payload: { email: string; name: string; password: string; role: UserRole }) {
+  return apiFetch<{ user: UserSummary }>("/api/users", {
+    method: "POST",
+    body: JSON.stringify(payload)
+  });
+}
+
+export function updateAdminUserRole(userId: string, role: UserRole) {
+  return apiFetch<{ user: UserSummary }>(`/api/users/${userId}`, {
+    method: "PATCH",
+    body: JSON.stringify({ role })
+  });
+}
+
+export function updateAdminUser(userId: string, payload: { name: string }) {
+  return apiFetch<{ user: UserSummary }>(`/api/users/${userId}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload)
+  });
+}
+
+export function resetAdminUserPassword(userId: string, password: string) {
+  return apiFetch<{ user: UserSummary }>(`/api/users/${userId}/password`, {
+    method: "PATCH",
+    body: JSON.stringify({ password })
+  });
+}
+
+export function updateAdminUserStatus(userId: string, status: UserStatus) {
+  return apiFetch<{ user: UserSummary }>(`/api/users/${userId}/status`, {
+    method: "PATCH",
+    body: JSON.stringify({ status })
+  });
+}
+
+export function deleteAdminUser(userId: string) {
+  return apiFetch<{ ok: boolean }>(`/api/users/${userId}`, { method: "DELETE" });
 }
 
 export function fetchAdminInvites() {
-  return apiFetch<{ invites: InviteSummary[] }>("/admin/invites");
+  return apiFetch<{ invites: InviteSummary[] }>("/api/users/invites");
 }
 
 export function fetchAdminFeatures() {
-  return apiFetch<{ featureToggles: FeatureToggles }>("/admin/features");
+  return apiFetch<{ featureToggles: FeatureToggles }>("/api/system/features");
 }
 
 export function fetchAdminMailboxes() {
-  return apiFetch<{ mailboxes: MailboxSummary[] }>("/admin/mailboxes");
+  return apiFetch<{ mailboxes: MailboxSummary[] }>("/api/users/accounts");
 }
 
 export function fetchAdminQuota(userId: string) {
-  return apiFetch<{ quota: QuotaSummary }>(`/admin/quotas/${userId}`);
+  return apiFetch<{ quota: QuotaSummary }>(`/api/users/${userId}/quota`);
 }
 
 export function createInvite() {
-  return apiFetch("/admin/invites", { method: "POST" });
+  return apiFetch("/api/users/invites", { method: "POST" });
 }
 
 export function disableInvite(inviteId: string) {
-  return apiFetch(`/admin/invites/${inviteId}`, { method: "DELETE" });
+  return apiFetch(`/api/users/invites/${inviteId}`, { method: "DELETE" });
 }
 
 export function updateQuota(userId: string, payload: { dailyLimit: number; disabled: boolean }) {
-  return apiFetch(`/admin/quotas/${userId}`, {
+  return apiFetch<{ quota: QuotaSummary }>(`/api/users/${userId}/quota`, {
     method: "PATCH",
     body: JSON.stringify(payload)
   });
 }
 
 export function updateAdminFeatures(nextFeatureToggles: FeatureToggles) {
-  return apiFetch("/admin/features", {
+  return apiFetch("/api/system/features", {
     method: "PATCH",
     body: JSON.stringify(nextFeatureToggles)
   });

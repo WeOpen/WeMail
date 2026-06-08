@@ -39,7 +39,7 @@ describe("shared button primitives", () => {
         <ButtonLink size="lg" to="/register" variant="primary">
           开始注册
         </ButtonLink>
-        <ButtonAnchor href="/api/messages/1" size="sm" variant="secondary">
+        <ButtonAnchor href="/api/mail/messages/1" size="sm" variant="secondary">
           打开原始邮件
         </ButtonAnchor>
       </MemoryRouter>

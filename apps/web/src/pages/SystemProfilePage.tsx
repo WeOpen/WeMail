@@ -6,13 +6,17 @@ import { Page, PageHeader } from "../shared/page-layout";
 
 type SystemProfilePageProps = {
   sessionSummary: {
+    name: string;
     email: string;
     role: string;
     createdAtLabel: string;
+    updatedAtLabel: string;
   };
 };
 
 export function SystemProfilePage({ sessionSummary }: SystemProfilePageProps) {
+  const displayName = sessionSummary.name.trim() || sessionSummary.email.split("@")[0] || sessionSummary.email;
+
   return (
     <Page as="main" className="workspace-grid profile-settings-grid">
       <section className="panel workspace-card page-panel profile-settings-panel profile-settings-panel-identity">
@@ -23,9 +27,9 @@ export function SystemProfilePage({ sessionSummary }: SystemProfilePageProps) {
         />
 
         <div className="profile-identity-row">
-          <Avatar aria-label="当前用户头像" fallback="W" name="WeMail Admin" size="lg" />
+          <Avatar aria-label="当前用户头像" fallback={displayName.slice(0, 1)} name={displayName} size="lg" />
           <div className="profile-identity-copy">
-            <strong>WeMail Admin</strong>
+            <strong>{displayName}</strong>
             <span>{sessionSummary.email}</span>
             <small>{sessionSummary.role}</small>
           </div>
@@ -33,7 +37,7 @@ export function SystemProfilePage({ sessionSummary }: SystemProfilePageProps) {
 
         <div className="profile-form-grid">
           <FormField className="profile-field" label="显示名">
-            <TextInput aria-label="显示名" defaultValue="WeMail Admin" />
+            <TextInput aria-label="显示名" defaultValue={displayName} />
           </FormField>
           <FormField className="profile-field" label="个人简介">
             <TextareaInput aria-label="个人简介" defaultValue="Edge mail operations owner" rows={3} />
@@ -45,7 +49,8 @@ export function SystemProfilePage({ sessionSummary }: SystemProfilePageProps) {
             <KVList
               items={[
                 { key: "角色", value: sessionSummary.role },
-                { key: "创建时间", value: sessionSummary.createdAtLabel }
+                { key: "创建时间", value: sessionSummary.createdAtLabel },
+                { key: "更新时间", value: sessionSummary.updatedAtLabel }
               ]}
             />
           </div>

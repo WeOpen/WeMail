@@ -8,8 +8,11 @@ const session: SessionSummary = {
   user: {
     id: "user-1",
     email: "member@example.com",
+    name: "Member User",
     role: "member",
-    createdAt: "2026-04-08T00:00:00.000Z"
+    status: "active",
+    createdAt: "2026-04-08T00:00:00.000Z",
+    updatedAt: "2026-04-08T00:00:00.000Z"
   },
   featureToggles: {
     aiEnabled: true,

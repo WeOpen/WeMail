@@ -3,7 +3,7 @@ import type { FeatureToggles } from "@wemail/shared";
 import type { AppBindings, AppStore } from "../../core/bindings";
 import { jsonError, recordAudit } from "../services/audit-service";
 import { buildMailboxAddress } from "../services/address-service";
-import { getMailboxLimit } from "../services/config-service";
+import { getMailDomains, getMailDomainsForRole, getMailboxLimit } from "../services/config-service";
 import { getOwnedMailbox } from "../services/mailbox-access-service";
 
 type MailboxUseCaseContext = {
@@ -28,10 +28,16 @@ export async function createUserMailbox(
     return jsonError("Mailbox limit reached", 403);
   }
 
+  const user = await context.store.users.findById(payload.userId);
+  if (!user) return jsonError("User not found", 404);
+
+  const [primaryDomain] = getMailDomainsForRole(await getMailDomains(context.store, context.env), user.role);
+  if (!primaryDomain) return jsonError("No mail domain is available for this role", 403);
+
   const mailbox = await context.store.mailboxes.create({
     userId: payload.userId,
     label: payload.label,
-    address: buildMailboxAddress(context.env, payload.label)
+    address: buildMailboxAddress(primaryDomain.domain, payload.label)
   });
 
   await recordAudit(context.store, "user", payload.userId, "mailbox-create", {

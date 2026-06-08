@@ -39,10 +39,10 @@ export function MessageDetailPanel({ selectedMessage }: MessageDetailPanelProps)
           >
             复制验证码
           </Button>
-          <ButtonAnchor href={`/api/messages/${viewModel.id}`} rel="noreferrer" size="sm" target="_blank" variant="secondary">
+          <ButtonAnchor href={`/api/mail/messages/${viewModel.id}`} rel="noreferrer" size="sm" target="_blank" variant="secondary">
             打开原始邮件
           </ButtonAnchor>
-          <ButtonAnchor href={`/api/messages/${viewModel.id}`} rel="noreferrer" size="sm" target="_blank" variant="ghost">
+          <ButtonAnchor href={`/api/mail/messages/${viewModel.id}`} rel="noreferrer" size="sm" target="_blank" variant="ghost">
             查看提取 JSON
           </ButtonAnchor>
         </div>
@@ -60,7 +60,7 @@ export function MessageDetailPanel({ selectedMessage }: MessageDetailPanelProps)
       <pre className="message-body">{viewModel.bodyText}</pre>
       <div className="attachment-grid">
         {viewModel.attachments.map((attachment) => (
-          <a key={attachment.id} href={`/api/messages/${viewModel.id}/attachments/${attachment.id}`} target="_blank" rel="noreferrer">
+          <a key={attachment.id} href={`/api/mail/messages/${viewModel.id}/attachments/${attachment.id}`} target="_blank" rel="noreferrer">
             {attachment.filename}
             <small>{attachment.sizeLabel}</small>
           </a>

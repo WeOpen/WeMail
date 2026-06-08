@@ -1,9 +1,11 @@
 import {
   cloneElement,
+  Children,
   forwardRef,
   isValidElement,
   useEffect,
   useId,
+  useMemo,
   useRef,
   useState,
   type ChangeEvent,
@@ -12,11 +14,15 @@ import {
   type InputHTMLAttributes,
   type KeyboardEvent as ReactKeyboardEvent,
   type ReactNode,
+  type ReactElement,
   type Ref,
   type SelectHTMLAttributes,
   type TextareaHTMLAttributes
 } from "react";
-import { ChevronDown, Search, X } from "lucide-react";
+import { createPortal } from "react-dom";
+import { Check, ChevronDown, Search, X } from "lucide-react";
+
+import { useFloatingPosition, usePortalRoot } from "../overlay/layer-utils";
 
 type FormTone = "default" | "error" | "success";
 type FormCheckVariant = "inline" | "card";
@@ -72,6 +78,13 @@ type SearchInputProps = Omit<ComponentPropsWithoutRef<"input">, "type"> & {
   onClear?: () => void;
 };
 
+type SelectOptionRecord = {
+  disabled?: boolean;
+  label: ReactNode;
+  textValue: string;
+  value: string;
+};
+
 export type MultiSelectOption = {
   description?: ReactNode;
   disabled?: boolean;
@@ -118,6 +131,53 @@ function setNativeInputValue(input: HTMLInputElement, nextValue: string) {
   const descriptor = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value");
   descriptor?.set?.call(input, nextValue);
   input.dispatchEvent(new Event("input", { bubbles: true }));
+}
+
+function setNativeSelectValue(select: HTMLSelectElement, nextValue: string) {
+  const descriptor = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value");
+  descriptor?.set?.call(select, nextValue);
+  select.dispatchEvent(new Event("change", { bubbles: true }));
+}
+
+function getTextValue(node: ReactNode): string {
+  if (typeof node === "string" || typeof node === "number") {
+    return String(node);
+  }
+
+  if (Array.isArray(node)) {
+    return node.map(getTextValue).join("");
+  }
+
+  if (isValidElement<{ children?: ReactNode }>(node)) {
+    return getTextValue(node.props.children);
+  }
+
+  return "";
+}
+
+function getSelectOptions(children: ReactNode): SelectOptionRecord[] {
+  return Children.toArray(children)
+    .filter((child): child is ReactElement<ComponentPropsWithoutRef<"option">> => {
+      return isValidElement<ComponentPropsWithoutRef<"option">>(child) && child.type === "option";
+    })
+    .map((child) => {
+      const label = child.props.children;
+      const textValue = getTextValue(label);
+      const value = child.props.value === undefined ? textValue : String(child.props.value);
+
+      return {
+        disabled: child.props.disabled,
+        label,
+        textValue,
+        value
+      };
+    });
+}
+
+function normalizeSelectValue(value: SelectHTMLAttributes<HTMLSelectElement>["value"] | SelectHTMLAttributes<HTMLSelectElement>["defaultValue"]) {
+  if (Array.isArray(value)) return String(value[0] ?? "");
+  if (value === undefined || value === null) return undefined;
+  return String(value);
 }
 
 function renderFieldMeta(
@@ -220,7 +280,7 @@ function getMultiSelectSummary(selectedValues: string[], options: MultiSelectOpt
   ));
 }
 
-function moveFocus(optionRefs: Array<HTMLInputElement | null>, startIndex: number, step: 1 | -1) {
+function moveFocus(optionRefs: Array<HTMLElement | null>, startIndex: number, step: 1 | -1) {
   const total = optionRefs.length;
   let cursor = startIndex;
 
@@ -228,7 +288,7 @@ function moveFocus(optionRefs: Array<HTMLInputElement | null>, startIndex: numbe
     cursor = (cursor + step + total) % total;
     const next = optionRefs[cursor];
 
-    if (next && !next.disabled) {
+    if (next && !next.hasAttribute("disabled") && next.getAttribute("aria-disabled") !== "true") {
       next.focus();
       return;
     }
@@ -343,10 +403,233 @@ export const SearchInput = forwardRef<HTMLInputElement, SearchInputProps>(functi
 );
 
 export const SelectInput = forwardRef<HTMLSelectElement, SelectHTMLAttributes<HTMLSelectElement>>(function SelectInput(
-  { className, ...props },
+  {
+    "aria-describedby": ariaDescribedBy,
+    "aria-label": ariaLabel,
+    children,
+    className,
+    defaultValue,
+    disabled,
+    id,
+    name,
+    onChange,
+    required,
+    value,
+    ...props
+  },
   ref
 ) {
-  return <select {...props} className={cx("form-control", "form-select", className)} ref={ref} />;
+  const generatedId = useId();
+  const triggerId = id ?? generatedId;
+  const listboxId = `${triggerId}-listbox`;
+  const nativeSelectRef = useRef<HTMLSelectElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const optionRefs = useRef<Array<HTMLButtonElement | null>>([]);
+  const portalRoot = usePortalRoot();
+  const options = useMemo(() => getSelectOptions(children), [children]);
+  const fallbackValue = options[0]?.value ?? "";
+  const defaultSelectValue = normalizeSelectValue(defaultValue) ?? fallbackValue;
+  const isControlled = value !== undefined;
+  const [internalValue, setInternalValue] = useState(defaultSelectValue);
+  const [isOpen, setIsOpen] = useState(false);
+  const selectedValue = normalizeSelectValue(isControlled ? value : internalValue) ?? fallbackValue;
+  const selectedOption = options.find((option) => option.value === selectedValue) ?? options[0];
+  const { resolvedSide, style } = useFloatingPosition({
+    anchorRef: triggerRef,
+    contentRef: panelRef,
+    matchAnchorWidth: true,
+    open: isOpen,
+    preferredSide: "bottom"
+  });
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handlePointerDown = (event: MouseEvent) => {
+      const target = event.target;
+      if (!(target instanceof Node)) return;
+      if (triggerRef.current?.contains(target) || panelRef.current?.contains(target)) return;
+      setIsOpen(false);
+    };
+
+    document.addEventListener("mousedown", handlePointerDown);
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+    };
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const selectedIndex = options.findIndex((option) => option.value === selectedValue && !option.disabled);
+    const firstEnabledIndex = options.findIndex((option) => !option.disabled);
+    const focusIndex = selectedIndex >= 0 ? selectedIndex : firstEnabledIndex;
+
+    optionRefs.current[focusIndex]?.focus();
+  }, [isOpen, options, selectedValue]);
+
+  function closeListbox() {
+    setIsOpen(false);
+    triggerRef.current?.focus();
+  }
+
+  function commitValue(nextValue: string) {
+    if (!isControlled) {
+      setInternalValue(nextValue);
+    }
+
+    const nativeSelect = nativeSelectRef.current;
+    if (nativeSelect) {
+      setNativeSelectValue(nativeSelect, nextValue);
+    }
+
+    setIsOpen(false);
+    triggerRef.current?.focus();
+  }
+
+  function handleNativeChange(event: ChangeEvent<HTMLSelectElement>) {
+    if (!isControlled) {
+      setInternalValue(event.currentTarget.value);
+    }
+
+    onChange?.(event);
+  }
+
+  function handleTriggerKeyDown(event: ReactKeyboardEvent<HTMLButtonElement>) {
+    if (disabled) return;
+
+    if (event.key === "ArrowDown" || event.key === "ArrowUp" || event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      setIsOpen(true);
+    }
+  }
+
+  function handleOptionKeyDown(index: number) {
+    return (event: ReactKeyboardEvent<HTMLButtonElement>) => {
+      if (event.key === "ArrowDown") {
+        event.preventDefault();
+        moveFocus(optionRefs.current, index, 1);
+      }
+
+      if (event.key === "ArrowUp") {
+        event.preventDefault();
+        moveFocus(optionRefs.current, index, -1);
+      }
+
+      if (event.key === "Home") {
+        event.preventDefault();
+        optionRefs.current.find((option) => option && !option.disabled)?.focus();
+      }
+
+      if (event.key === "End") {
+        event.preventDefault();
+        [...optionRefs.current].reverse().find((option) => option && !option.disabled)?.focus();
+      }
+
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        const option = options[index];
+        if (!option || option.disabled) return;
+        commitValue(option.value);
+      }
+
+      if (event.key === "Escape") {
+        event.preventDefault();
+        closeListbox();
+      }
+    };
+  }
+
+  return (
+    <div className={cx("ui-select", disabled && "is-disabled")} data-state={isOpen ? "open" : "closed"}>
+      <button
+        aria-controls={listboxId}
+        aria-describedby={ariaDescribedBy}
+        aria-disabled={disabled ? "true" : undefined}
+        aria-expanded={isOpen}
+        aria-haspopup="listbox"
+        aria-label={ariaLabel}
+        aria-required={required ? "true" : undefined}
+        className={cx("form-control", "form-select", "ui-select-trigger", className)}
+        disabled={disabled}
+        id={triggerId}
+        onClick={() => setIsOpen((current) => !current)}
+        onKeyDown={handleTriggerKeyDown}
+        ref={triggerRef}
+        role="combobox"
+        type="button"
+      >
+        <span className={cx("ui-select-value", !selectedOption && "is-placeholder")}>
+          {selectedOption?.label ?? "请选择"}
+        </span>
+        <span aria-hidden="true" className="ui-select-icon">
+          <ChevronDown className="ui-select-chevron" size={16} strokeWidth={1.8} />
+        </span>
+      </button>
+
+      <select
+        {...props}
+        aria-hidden="true"
+        className="ui-select-native"
+        disabled={disabled}
+        name={name}
+        onChange={handleNativeChange}
+        ref={mergeRefs(ref, nativeSelectRef)}
+        required={required}
+        tabIndex={-1}
+        value={selectedValue}
+      >
+        {children}
+      </select>
+
+      {isOpen && portalRoot
+        ? createPortal(
+            <div
+              aria-label={typeof ariaLabel === "string" ? ariaLabel : undefined}
+              aria-labelledby={typeof ariaLabel === "string" ? undefined : triggerId}
+              className={cx("ui-select-panel", `ui-select-panel-side-${resolvedSide}`)}
+              data-side={resolvedSide}
+              id={listboxId}
+              ref={panelRef}
+              role="listbox"
+              style={style}
+            >
+              {options.map((option, index) => {
+                const isSelected = option.value === selectedValue;
+
+                return (
+                  <button
+                    aria-disabled={option.disabled ? "true" : undefined}
+                    aria-selected={isSelected}
+                    className="ui-select-option"
+                    data-state={isSelected ? "selected" : "idle"}
+                    disabled={option.disabled}
+                    key={option.value}
+                    onClick={() => {
+                      if (option.disabled) return;
+                      commitValue(option.value);
+                    }}
+                    onKeyDown={handleOptionKeyDown(index)}
+                    ref={(node) => {
+                      optionRefs.current[index] = node;
+                    }}
+                    role="option"
+                    type="button"
+                  >
+                    <span className="ui-select-option-label">{option.label}</span>
+                    <span aria-hidden="true" className="ui-select-option-check">
+                      {isSelected ? <Check size={15} strokeWidth={2} /> : null}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>,
+            portalRoot
+          )
+        : null}
+    </div>
+  );
 });
 
 export const TextareaInput = forwardRef<HTMLTextAreaElement, TextareaHTMLAttributes<HTMLTextAreaElement>>(function TextareaInput(
