@@ -25,18 +25,24 @@
    - `pnpm lint`
    - `pnpm build`
 2. 若改动触达关键用户流，再补跑 `pnpm test:e2e`。
-3. 确认 `apps/worker/wrangler.toml` 已配置：
+3. 确认版本与变更记录一致：
+   - 运行 `pnpm version:check`
+   - 根 `package.json` 的 `version` 是本次计划发布版本
+   - workspace `package.json` 版本与根版本一致
+   - `CHANGELOG.md` 已把 `[Unreleased]` 内容移动到对应 `## [X.Y.Z] - YYYY-MM-DD`
+   - release tag 使用 `vX.Y.Z`，且与根版本一致
+4. 确认 `apps/worker/wrangler.toml` 已配置：
    - `env.staging`
    - `env.production`
    - 对应 D1 database ID
    - 对应邮件域名
-4. 确认 Cloudflare 资源可用：
+5. 确认 Cloudflare 资源可用：
    - D1
    - Email Routing
    - Pages 项目
    - 可选的 R2 附件桶
    - 可选的 Rate Limiter / AI / Queues 绑定
-5. 确认本文档中的 secrets、绑定和发布步骤仍与实现一致。
+6. 确认本文档中的 secrets、绑定和发布步骤仍与实现一致。
 
 ## 3. Secrets 与绑定约定
 
@@ -109,15 +115,17 @@ pnpm exec wrangler secret put TELEGRAM_BOT_TOKEN --env production
 ## 4. 发布流程
 
 1. PR 合并前打正确 label。
-2. `release-drafter` 自动更新 GitHub draft release。
-3. 准备发版时运行 `.github/workflows/release.yml`。
-4. 人工检查 draft release，确认：
+2. 确认 PR 已更新根 `CHANGELOG.md` 的 `[Unreleased]`。
+3. `release-drafter` 自动更新 GitHub draft release。
+4. 准备发版时按 `docs/development-workflow.md` 的版本方案 bump 根版本、workspace 包版本，并整理 `CHANGELOG.md`。
+5. 运行 `.github/workflows/release.yml`。
+6. 人工检查 draft release，确认：
    - 是否覆盖主要功能变更
    - 是否遗漏 breaking change
    - 是否遗漏 Cloudflare 配置变化
    - 是否需要提醒管理员执行额外动作
-5. 先发 staging，完成冒烟后再发 production。
-6. production 成功后，再把草稿发布为正式 release。
+7. 先发 staging，完成冒烟后再发 production。
+8. production 成功后，再把草稿发布为正式 release。
 
 以下情况不能只依赖自动生成草稿，必须人工补充说明：
 
@@ -173,6 +181,7 @@ production 放行前，至少满足：
 - CI 为绿色
 - staging 已完成部署后冒烟
 - release draft 已人工检查
+- `CHANGELOG.md` 与发布版本一致
 - secrets / bindings 没有环境漂移
 - 回滚目标 commit 或 tag 已明确
 
