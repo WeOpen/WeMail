@@ -1,9 +1,24 @@
-import type { MailboxSummary, MessageSummary } from "@wemail/shared";
+import type { MailboxSummary, MessageSummary, MailboxDetail } from "@wemail/shared";
 
 type MailboxRecordLike = {
   id: string;
   address: string;
   label: string;
+  createdAt: string;
+};
+
+type MailboxDetailRecordLike = {
+  id: string;
+  address: string;
+  label: string;
+  status: string;
+  tags: string[];
+  createdBy: string | null;
+  createdByName: string | null;
+  lastActiveAt: string | null;
+  deletedAt: string | null;
+  messageCount: number;
+  outboundCount: number;
   createdAt: string;
 };
 
@@ -18,9 +33,33 @@ export function toMailboxSummary(record: MailboxRecordLike): MailboxSummary {
   };
 }
 
+export function toMailboxDetail(record: MailboxDetailRecordLike): MailboxDetail {
+  return {
+    id: record.id,
+    address: record.address,
+    label: record.label,
+    status: record.status as MailboxDetail["status"],
+    tags: record.tags,
+    createdBy: record.createdBy,
+    createdByName: record.createdByName,
+    lastActiveAt: record.lastActiveAt,
+    deletedAt: record.deletedAt,
+    messageCount: record.messageCount,
+    outboundCount: record.outboundCount,
+    createdAt: record.createdAt
+  };
+}
+
 export function toMailboxListResponse(records: MailboxRecordLike[]) {
   return {
     mailboxes: records.map(toMailboxSummary)
+  };
+}
+
+export function toMailboxDetailListResponse(result: { accounts: MailboxDetailRecordLike[]; total: number }) {
+  return {
+    accounts: result.accounts.map(toMailboxDetail),
+    total: result.total
   };
 }
 

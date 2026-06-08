@@ -1,4 +1,4 @@
-import type { UserRole, UserStatus, UserSummary } from "@wemail/shared";
+import type { MailboxSummary, UserRole, UserStatus, UserSummary } from "@wemail/shared";
 
 export type InviteStatus = "ready" | "redeemed" | "disabled";
 
@@ -24,4 +24,35 @@ export type AdminUsersPayload = {
   total: number;
   page: number;
   pageSize: number;
+};
+
+export type AdminSettingsListQuery = {
+  page: number;
+  pageSize: number;
+};
+
+export type AdminUserStats = {
+  active: number;
+  total: number;
+};
+
+export type AdminUserSettingsSummaryPayload = {
+  quotaUsers: UserSummary[];
+  stats: AdminUserStats;
+};
+
+export type AdminInvitesPayload = {
+  available: number;
+  invites: InviteSummary[];
+  page: number;
+  pageSize: number;
+  total: number;
+};
+
+export type AdminMailboxesPayload = {
+  latestMailbox: MailboxSummary | null;
+  mailboxes: MailboxSummary[];
+  page: number;
+  pageSize: number;
+  total: number;
 };

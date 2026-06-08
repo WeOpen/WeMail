@@ -14,6 +14,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Added the account list route data layer for server-backed filtering, pagination, export, create, update, and deletion workflows.
+- Added admin and account tests covering bulk account operations, hard deletion safeguards, and server-backed account list behavior.
+
+### Changed
+
+- Changed the release workflow to publish GitHub releases directly instead of creating draft releases.
+- Changed account and admin workspaces to use the expanded account management API data model.
+
 ## [0.1.1] - 2026-06-08
 
 ### Added

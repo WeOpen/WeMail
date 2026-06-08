@@ -5097,7 +5097,7 @@ button:disabled {
 }
 
 .accounts-list-filter-grid {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
 }
 
@@ -5119,6 +5119,12 @@ button:disabled {
 .accounts-list-quick-filters {
   flex-wrap: wrap;
   justify-content: flex-start;
+}
+
+.accounts-list-quick-filters .ui-button.is-active {
+  border-color: color-mix(in srgb, var(--accent) 50%, var(--border-strong));
+  background: color-mix(in srgb, var(--accent) 16%, var(--surface-elevated));
+  color: var(--text);
 }
 
 .accounts-list-table {
@@ -5236,13 +5242,11 @@ button:disabled {
 }
 
 .accounts-list-more-actions {
-  position: absolute;
-  top: calc(100% + 10px);
-  right: 0;
-  z-index: 3;
-  width: max-content;
+  width: 220px;
   min-width: 200px;
-  padding: 16px;
+  display: grid;
+  gap: 8px;
+  padding: 10px;
 }
 
 .accounts-list-row-action {
@@ -5648,7 +5652,7 @@ button:disabled {
     grid-column: 1;
     width: 100%;
     min-width: 0;
-    grid-template-columns: minmax(220px, 1.4fr) repeat(3, minmax(148px, 1fr));
+    grid-template-columns: minmax(220px, 1.4fr) repeat(2, minmax(148px, 1fr));
     overflow-x: auto;
     overflow-y: hidden;
     padding-bottom: 2px;
@@ -5703,11 +5707,6 @@ button:disabled {
     grid-column: auto;
   }
 
-  .accounts-list-more-actions {
-    position: static;
-    width: 100%;
-    margin-top: 12px;
-  }
 }
 
 @media (max-width: 1100px) {

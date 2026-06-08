@@ -10,6 +10,8 @@ import type {
   FeatureToggles,
   InviteRecord,
   MailSettingsRecord,
+  MailboxDetailRecord,
+  MailboxDetailListQuery,
   MailboxRecord,
   PersistedMessageRecord,
   QuotaRecord,
@@ -26,6 +28,34 @@ function nowIso() {
 
 function clone<T>(value: T) {
   return JSON.parse(JSON.stringify(value)) as T;
+}
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+function getSafePage(value: number) {
+  return Number.isFinite(value) && value > 0 ? Math.trunc(value) : 1;
+}
+
+function getSafePageSize(value: number) {
+  if (!Number.isFinite(value) || value < 1) return 10;
+  return Math.min(Math.trunc(value), 500);
+}
+
+function getActiveRangeDays(value: MailboxDetailListQuery["activeRange"]) {
+  switch (value) {
+    case "7d":
+      return 7;
+    case "30d":
+      return 30;
+    case "90d":
+      return 90;
+    default:
+      return null;
+  }
+}
+
+function getInactiveDays(value: number | undefined) {
+  return Number.isFinite(value) && value && value > 0 ? Math.trunc(value) : 30;
 }
 
 export function createInMemoryStore(): AppStore {
@@ -55,6 +85,25 @@ export function createInMemoryStore(): AppStore {
   const webhookEndpoints = new Map<string, WebhookEndpointRecord>();
   const webhookDeliveries: WebhookDeliveryRecord[] = [];
   const announcements: AnnouncementRecord[] = [];
+  function toMailboxDetailRecord(record: MailboxRecord): MailboxDetailRecord {
+    const user = users.get(record.userId);
+    return {
+      id: record.id,
+      userId: record.userId,
+      address: record.address,
+      label: record.label,
+      status: (record as MailboxRecord & { status?: MailboxDetailRecord["status"] }).status ?? "enabled",
+      tags: (record as MailboxRecord & { tags?: string[] }).tags ?? [],
+      createdBy: (record as MailboxRecord & { createdBy?: string | null }).createdBy ?? record.userId,
+      createdByName:
+        (record as MailboxRecord & { createdByName?: string | null }).createdByName ?? user?.name ?? null,
+      lastActiveAt: (record as MailboxRecord & { lastActiveAt?: string | null }).lastActiveAt ?? null,
+      deletedAt: (record as MailboxRecord & { deletedAt?: string | null }).deletedAt ?? null,
+      messageCount: Array.from(messages.values()).filter((message) => message.mailboxId === record.id).length,
+      outboundCount: outboundMessages.filter((message) => message.mailboxId === record.id).length,
+      createdAt: record.createdAt
+    };
+  }
 
   return {
     users: {
@@ -144,6 +193,13 @@ export function createInMemoryStore(): AppStore {
           page: options.page,
           pageSize: options.pageSize
         };
+      },
+      async summary() {
+        const allUsers = Array.from(users.values());
+        return {
+          active: allUsers.filter((user) => user.status === "active").length,
+          total: allUsers.length
+        };
       }
     },
     sessions: {
@@ -186,6 +242,9 @@ export function createInMemoryStore(): AppStore {
       async findByCode(code) {
         return clone(Array.from(invites.values()).find((entry) => entry.code === code) ?? null);
       },
+      async findById(id) {
+        return clone(invites.get(id) ?? null);
+      },
       async redeem(code, userId) {
         const invite = Array.from(invites.values()).find((entry) => entry.code === code);
         if (!invite) throw new Error("Invite not found");
@@ -195,7 +254,18 @@ export function createInMemoryStore(): AppStore {
         return clone(invite);
       },
       async list() {
-        return clone(Array.from(invites.values()));
+        return clone(Array.from(invites.values()).sort((a, b) => b.createdAt.localeCompare(a.createdAt)));
+      },
+      async listPage(options) {
+        const sortedInvites = Array.from(invites.values()).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+        const startIndex = (options.page - 1) * options.pageSize;
+        return clone({
+          available: sortedInvites.filter((invite) => !invite.redeemedAt && !invite.disabledAt).length,
+          invites: sortedInvites.slice(startIndex, startIndex + options.pageSize),
+          page: options.page,
+          pageSize: options.pageSize,
+          total: sortedInvites.length
+        });
       },
       async disable(id) {
         const invite = invites.get(id);
@@ -209,21 +279,106 @@ export function createInMemoryStore(): AppStore {
         return Array.from(mailboxes.values()).filter((entry) => entry.userId === userId).length;
       },
       async create(input) {
-        const record: MailboxRecord = {
+        const record: MailboxRecord & {
+          createdBy: string;
+          createdByName: string | null;
+          lastActiveAt: string | null;
+          status: MailboxDetailRecord["status"];
+        } = {
           id: crypto.randomUUID(),
           userId: input.userId,
           address: input.address,
           label: input.label,
+          status: "enabled",
+          createdBy: input.userId,
+          createdByName: users.get(input.userId)?.name ?? null,
+          lastActiveAt: input.lastActiveAt ?? null,
           createdAt: nowIso()
         };
         mailboxes.set(record.id, record);
         return clone(record);
       },
+      async update(id, input) {
+        const record = mailboxes.get(id);
+        if (!record) return null;
+        if (typeof input.label !== "undefined") record.label = input.label;
+        if (typeof input.status !== "undefined") {
+          (record as MailboxRecord & { status: MailboxDetailRecord["status"] }).status = input.status;
+          (record as MailboxRecord & { deletedAt?: string | null }).deletedAt =
+            input.status === "soft_deleted" ? nowIso() : null;
+        }
+        mailboxes.set(id, record);
+        return clone(toMailboxDetailRecord(record));
+      },
       async listByUser(userId) {
         return clone(Array.from(mailboxes.values()).filter((entry) => entry.userId === userId));
       },
+      async listAllWithDetails(query: MailboxDetailListQuery) {
+        let filtered = Array.from(mailboxes.values());
+
+        if (query.search) {
+          const searchLower = query.search.toLowerCase();
+          filtered = filtered.filter(
+            (m) =>
+              m.id.toLowerCase().includes(searchLower) ||
+              m.address.toLowerCase().includes(searchLower) ||
+              (users.get(m.userId)?.name ?? "").toLowerCase().includes(searchLower)
+          );
+        }
+
+        if (query.status && query.status !== "all") {
+          filtered = filtered.filter((m) => (m as any).status === query.status);
+        }
+
+        if (query.createdBy && query.createdBy !== "all") {
+          filtered = filtered.filter((m) => users.get(m.userId)?.name === query.createdBy);
+        }
+
+        const activeRangeDays = getActiveRangeDays(query.activeRange);
+        if (activeRangeDays) {
+          const cutoff = Date.now() - activeRangeDays * DAY_MS;
+          filtered = filtered.filter((m) => {
+            const lastActiveAt = (m as any).lastActiveAt as string | null | undefined;
+            if (!lastActiveAt) return false;
+            return new Date(lastActiveAt).getTime() >= cutoff;
+          });
+        }
+
+        if (query.quickFilter === "anomaly") {
+          filtered = filtered.filter((m) => ((m as any).status || "enabled") !== "enabled");
+        }
+
+        if (query.quickFilter === "inactive") {
+          const cutoff = Date.now() - getInactiveDays(query.inactiveDays) * DAY_MS;
+          filtered = filtered.filter((m) => {
+            const lastActiveAt = (m as any).lastActiveAt as string | null | undefined;
+            return !lastActiveAt || new Date(lastActiveAt).getTime() < cutoff;
+          });
+        }
+
+        const total = filtered.length;
+        const page = getSafePage(query.page);
+        const pageSize = getSafePageSize(query.pageSize);
+        const offset = (page - 1) * pageSize;
+        const paged = filtered.slice(offset, offset + pageSize);
+
+        const accounts = paged.map(toMailboxDetailRecord);
+
+        return clone({ accounts, total });
+      },
       async listAll() {
-        return clone(Array.from(mailboxes.values()));
+        return clone(Array.from(mailboxes.values()).sort((a, b) => b.createdAt.localeCompare(a.createdAt)));
+      },
+      async listPage(options) {
+        const sortedMailboxes = Array.from(mailboxes.values()).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+        const startIndex = (options.page - 1) * options.pageSize;
+        return clone({
+          latestMailbox: sortedMailboxes[0] ?? null,
+          mailboxes: sortedMailboxes.slice(startIndex, startIndex + options.pageSize),
+          page: options.page,
+          pageSize: options.pageSize,
+          total: sortedMailboxes.length
+        });
       },
       async findById(id) {
         return clone(mailboxes.get(id) ?? null);

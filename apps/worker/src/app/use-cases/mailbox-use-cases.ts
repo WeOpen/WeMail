@@ -1,6 +1,6 @@
-import type { FeatureToggles } from "@wemail/shared";
+import type { FeatureToggles, MailboxStatus } from "@wemail/shared";
 
-import type { AppBindings, AppStore } from "../../core/bindings";
+import type { AppBindings, AppStore, MailboxDetailListQuery } from "../../core/bindings";
 import { jsonError, recordAudit } from "../services/audit-service";
 import { buildMailboxAddress } from "../services/address-service";
 import { getMailDomains, getMailDomainsForRole, getMailboxLimit } from "../services/config-service";
@@ -14,6 +14,13 @@ type MailboxUseCaseContext = {
 
 export async function listUserMailboxes(context: MailboxUseCaseContext, userId: string) {
   return context.store.mailboxes.listByUser(userId);
+}
+
+export async function listAllMailboxesWithDetails(
+  context: MailboxUseCaseContext,
+  query: MailboxDetailListQuery
+) {
+  return context.store.mailboxes.listAllWithDetails(query);
 }
 
 export async function createUserMailbox(
@@ -56,6 +63,41 @@ export async function deleteUserMailbox(
 
   await context.store.mailboxes.delete(payload.mailboxId);
   await recordAudit(context.store, "user", payload.userId, "mailbox-delete", {
+    mailboxId: payload.mailboxId
+  });
+
+  return { ok: true };
+}
+
+export async function updateMailboxAsAdmin(
+  context: MailboxUseCaseContext,
+  payload: { actorUserId: string; mailboxId: string; label?: string; status?: MailboxStatus }
+) {
+  const mailbox = await context.store.mailboxes.update(payload.mailboxId, {
+    label: payload.label,
+    status: payload.status
+  });
+
+  if (!mailbox) return jsonError("Mailbox not found", 404);
+
+  await recordAudit(context.store, "user", payload.actorUserId, "mailbox-update", {
+    mailboxId: payload.mailboxId,
+    label: payload.label,
+    status: payload.status
+  });
+
+  return mailbox;
+}
+
+export async function deleteMailboxAsAdmin(
+  context: MailboxUseCaseContext,
+  payload: { actorUserId: string; mailboxId: string }
+) {
+  const mailbox = await context.store.mailboxes.findById(payload.mailboxId);
+  if (!mailbox) return jsonError("Mailbox not found", 404);
+
+  await context.store.mailboxes.delete(payload.mailboxId);
+  await recordAudit(context.store, "user", payload.actorUserId, "mailbox-delete", {
     mailboxId: payload.mailboxId
   });
 

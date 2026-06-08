@@ -440,11 +440,12 @@ describe("App", () => {
           });
         }
 
+        if (url.includes("/api/accounts/list?")) return jsonResponse({ accounts: [], total: 0 });
         if (url.endsWith("/api/accounts")) return jsonResponse({ mailboxes: [] });
         if (url.endsWith("/api/api-keys")) return jsonResponse({ keys: [] });
         if (url.endsWith("/api/telegram/subscription")) return jsonResponse({ subscription: null });
         if (url.endsWith("/api/users")) return jsonResponse({ users: [] });
-        if (url.endsWith("/api/users/invites")) return jsonResponse({ invites: [] });
+        if (url.includes("/api/users/invites")) return jsonResponse({ invites: [] });
         if (url.endsWith("/api/system/features")) {
           return jsonResponse({
             featureToggles: {
@@ -466,7 +467,7 @@ describe("App", () => {
             }
           });
         }
-        if (url.endsWith("/api/users/accounts")) return jsonResponse({ mailboxes: [] });
+        if (url.includes("/api/users/accounts")) return jsonResponse({ mailboxes: [] });
         return jsonResponse({});
       });
 
@@ -549,6 +550,55 @@ describe("App", () => {
           });
         }
 
+        if (url.includes("/api/accounts/list?")) {
+          return jsonResponse({
+            accounts: [
+              {
+                id: "acct-1",
+                address: "ops@example.com",
+                label: "ops",
+                status: "enabled",
+                tags: [],
+                createdBy: "member-1",
+                createdByName: "Member",
+                lastActiveAt: null,
+                deletedAt: null,
+                messageCount: 0,
+                outboundCount: 0,
+                createdAt: "2026-04-08T00:00:00.000Z"
+              },
+              {
+                id: "acct-2",
+                address: "growth@example.com",
+                label: "growth",
+                status: "disabled",
+                tags: [],
+                createdBy: "member-1",
+                createdByName: "Member",
+                lastActiveAt: null,
+                deletedAt: null,
+                messageCount: 0,
+                outboundCount: 0,
+                createdAt: "2026-04-09T00:00:00.000Z"
+              },
+              {
+                id: "acct-3",
+                address: "archive@example.com",
+                label: "archive",
+                status: "archived",
+                tags: [],
+                createdBy: "member-1",
+                createdByName: "Member",
+                lastActiveAt: null,
+                deletedAt: null,
+                messageCount: 0,
+                outboundCount: 0,
+                createdAt: "2026-04-10T00:00:00.000Z"
+              }
+            ],
+            total: 3
+          });
+        }
         if (url.endsWith("/api/accounts")) return jsonResponse({ mailboxes: [] });
         if (url.endsWith("/api/api-keys")) return jsonResponse({ keys: [] });
         if (url.endsWith("/api/telegram/subscription")) return jsonResponse({ subscription: null });
@@ -648,7 +698,7 @@ describe("App", () => {
             ]
           });
         }
-        if (url.endsWith("/api/users/invites")) return jsonResponse({ invites: [] });
+        if (url.includes("/api/users/invites")) return jsonResponse({ invites: [] });
         if (url.endsWith("/api/system/features")) {
           return jsonResponse({
             featureToggles: {
@@ -670,7 +720,7 @@ describe("App", () => {
             }
           });
         }
-        if (url.endsWith("/api/users/accounts")) {
+        if (url.includes("/api/users/accounts")) {
           return jsonResponse({
             mailboxes: [
               {
@@ -737,7 +787,7 @@ describe("App", () => {
             users: [{ id: "admin-1", email: "admin@example.com", role: "admin", createdAt: "2026-04-08T00:00:00.000Z" }]
           });
         }
-        if (url.endsWith("/api/users/invites")) return jsonResponse({ invites: [] });
+        if (url.includes("/api/users/invites")) return jsonResponse({ invites: [] });
         if (url.endsWith("/api/system/features")) {
           return jsonResponse({
             featureToggles: {
@@ -759,7 +809,7 @@ describe("App", () => {
             }
           });
         }
-        if (url.endsWith("/api/users/accounts")) return jsonResponse({ mailboxes: [] });
+        if (url.includes("/api/users/accounts")) return jsonResponse({ mailboxes: [] });
         return jsonResponse({});
       });
 

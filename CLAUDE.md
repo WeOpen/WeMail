@@ -5,14 +5,20 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Commands
 
 ```bash
+# Development servers
+pnpm dev                  # Run both Worker and Web in parallel
+pnpm dev:worker           # Worker only (Cloudflare Workers dev server)
+pnpm dev:web              # Web only (Vite dev server)
+
 # Development verification (run before committing)
 pnpm lint
 pnpm typecheck
 pnpm test
 pnpm build
 
-# Local D1 bootstrap (required before first Worker run / integration tests)
-pnpm db:init:worker
+# Local D1 database management
+pnpm db:init:worker       # Bootstrap local D1 (required before first Worker run)
+pnpm db:migrate:worker    # Run pending migrations on local D1
 
 # Targeted test runs
 pnpm test:worker          # Worker unit tests only
@@ -26,6 +32,9 @@ pnpm test:e2e:install     # Install Playwright Chromium browser
 # Run a single test file
 pnpm --dir apps/worker exec vitest run tests/path/to/file.test.ts
 pnpm --dir apps/web exec vitest run src/path/to/file.test.ts
+
+# OpenAPI spec generation
+pnpm openapi:generate     # Generate docs/openapi.yaml from code
 ```
 
 `pnpm lint|typecheck|test|build` all route through `scripts/run-task.mjs`, which
@@ -124,6 +133,14 @@ Not allowed: DOM operations, Cloudflare bindings, database logic, runtime-specif
 - Scheduled cleanup tasks via Cloudflare Cron Triggers
 - Deploy environments are split in `apps/worker/wrangler.toml`: `default` (local), `env.staging`, `env.production` — each points at its own D1 instance and vars
 - Feature flags live in wrangler vars (`ENABLE_AI`, `ENABLE_TELEGRAM`, `ENABLE_OUTBOUND`, `ENABLE_MAILBOX_CREATION`) and gate code paths; honor them when adding new behavior
+
+**Database migrations:**
+- Migration files live in `apps/worker/src/infrastructure/db/migrations/`
+- Naming: `0001-descriptive-name.sql`, `0002-another-change.sql` (sequential numbering)
+- Local: `pnpm db:migrate:worker` applies pending migrations
+- Remote: `wrangler d1 migrations apply <db-name> [--env staging|production]`
+- Always test migrations locally before deploying to staging/production
+- Schema changes must be backward-compatible during zero-downtime deployments
 
 ## Authoritative Docs
 

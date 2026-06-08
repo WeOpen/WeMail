@@ -1,4 +1,4 @@
-import type { FeatureToggles, MailDomainSummary, UserStatus } from "@wemail/shared";
+import type { FeatureToggles, MailDomainSummary, MailboxStatus, UserStatus } from "@wemail/shared";
 
 export type { FeatureToggles } from "@wemail/shared";
 
@@ -68,6 +68,32 @@ export type UserListResult = {
   pageSize: number;
 };
 
+export type UserSummaryStats = {
+  active: number;
+  total: number;
+};
+
+export type PageListOptions = {
+  page: number;
+  pageSize: number;
+};
+
+export type InviteListResult = {
+  available: number;
+  invites: InviteRecord[];
+  page: number;
+  pageSize: number;
+  total: number;
+};
+
+export type MailboxListResult = {
+  latestMailbox: MailboxRecord | null;
+  mailboxes: MailboxRecord[];
+  page: number;
+  pageSize: number;
+  total: number;
+};
+
 export type SessionRecord = {
   id: string;
   userId: string;
@@ -91,6 +117,38 @@ export type MailboxRecord = {
   address: string;
   label: string;
   createdAt: string;
+};
+
+export type MailboxDetailRecord = {
+  id: string;
+  userId: string;
+  address: string;
+  label: string;
+  status: string;
+  tags: string[];
+  createdBy: string | null;
+  createdByName: string | null;
+  lastActiveAt: string | null;
+  deletedAt: string | null;
+  messageCount: number;
+  outboundCount: number;
+  createdAt: string;
+};
+
+export type MailboxDetailListResult = {
+  accounts: MailboxDetailRecord[];
+  total: number;
+};
+
+export type MailboxDetailListQuery = {
+  page: number;
+  pageSize: number;
+  search?: string;
+  status?: string;
+  activeRange?: "7d" | "30d" | "90d";
+  createdBy?: string;
+  inactiveDays?: number;
+  quickFilter?: "anomaly" | "inactive";
 };
 
 export type ApiKeyRecord = {
@@ -200,6 +258,7 @@ export interface AppStore {
     updateStatus: (id: string, status: UserRecord["status"]) => Promise<UserRecord | null>;
     delete: (id: string) => Promise<boolean>;
     list: (options: UserListOptions) => Promise<UserListResult>;
+    summary: () => Promise<UserSummaryStats>;
   };
   sessions: {
     create: (input: { userId: string; expiresAt: string }) => Promise<SessionRecord>;
@@ -210,15 +269,20 @@ export interface AppStore {
   invites: {
     create: (input: { code: string; createdByUserId: string | null }) => Promise<InviteRecord>;
     findByCode: (code: string) => Promise<InviteRecord | null>;
+    findById: (id: string) => Promise<InviteRecord | null>;
     redeem: (code: string, userId: string) => Promise<InviteRecord>;
     list: () => Promise<InviteRecord[]>;
+    listPage: (options: PageListOptions) => Promise<InviteListResult>;
     disable: (id: string) => Promise<void>;
   };
   mailboxes: {
     countByUser: (userId: string) => Promise<number>;
-    create: (input: { userId: string; address: string; label: string }) => Promise<MailboxRecord>;
+    create: (input: { userId: string; address: string; label: string; lastActiveAt?: string | null }) => Promise<MailboxRecord>;
+    update: (id: string, input: { label?: string; status?: MailboxStatus }) => Promise<MailboxDetailRecord | null>;
     listByUser: (userId: string) => Promise<MailboxRecord[]>;
     listAll: () => Promise<MailboxRecord[]>;
+    listAllWithDetails: (query: MailboxDetailListQuery) => Promise<MailboxDetailListResult>;
+    listPage: (options: PageListOptions) => Promise<MailboxListResult>;
     findById: (id: string) => Promise<MailboxRecord | null>;
     findByAddress: (address: string) => Promise<MailboxRecord | null>;
     delete: (id: string) => Promise<void>;
