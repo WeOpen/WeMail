@@ -11,7 +11,7 @@ import type {
   UserSummary
 } from "@wemail/shared";
 
-import type { InviteSummary } from "../features/admin/types";
+import type { AdminUserStats, InviteSummary } from "../features/admin/types";
 import type { OutboundHistoryItem } from "../features/inbox/types";
 import { createToast, type WemailToastInput, type WemailToastRecord } from "../shared/toast";
 
@@ -31,10 +31,20 @@ type SessionScopedState = {
   telegram: TelegramSubscriptionSummary | null;
   adminUsers: UserSummary[];
   adminUsersTotal: number;
+  adminSettingsUsers: UserSummary[];
+  adminUserStats: AdminUserStats;
   adminInvites: InviteSummary[];
+  adminInvitesAvailable: number;
+  adminInvitesPage: number;
+  adminInvitesPageSize: number;
+  adminInvitesTotal: number;
   adminFeatures: FeatureToggles | null;
   adminQuota: QuotaSummary | null;
   adminMailboxes: MailboxSummary[];
+  adminLatestMailbox: MailboxSummary | null;
+  adminMailboxesPage: number;
+  adminMailboxesPageSize: number;
+  adminMailboxesTotal: number;
 };
 
 type AppState = SessionScopedState & {
@@ -51,9 +61,19 @@ type AdminDashboardState = {
   usersTotal: number;
   usersPage: number;
   usersPageSize: number;
+  settingsUsers: UserSummary[];
+  userStats: AdminUserStats;
   invites: InviteSummary[];
+  invitesAvailable: number;
+  invitesPage: number;
+  invitesPageSize: number;
+  invitesTotal: number;
   features: FeatureToggles;
+  latestMailbox: MailboxSummary | null;
   mailboxes: MailboxSummary[];
+  mailboxesPage: number;
+  mailboxesPageSize: number;
+  mailboxesTotal: number;
   quota: QuotaSummary | null;
 };
 
@@ -75,6 +95,21 @@ type AppActions = {
   setSettingsData: (apiKeys: ApiKeySummary[], telegram: TelegramSubscriptionSummary | null) => void;
   setAdminDashboard: (dashboard: AdminDashboardState) => void;
   setAdminUsers: (users: UserSummary[], total: number) => void;
+  setAdminUserSettingsSummary: (payload: { settingsUsers: UserSummary[]; userStats: AdminUserStats }) => void;
+  setAdminInvites: (payload: {
+    invites: InviteSummary[];
+    invitesAvailable: number;
+    invitesPage: number;
+    invitesPageSize: number;
+    invitesTotal: number;
+  }) => void;
+  setAdminMailboxes: (payload: {
+    latestMailbox: MailboxSummary | null;
+    mailboxes: MailboxSummary[];
+    mailboxesPage: number;
+    mailboxesPageSize: number;
+    mailboxesTotal: number;
+  }) => void;
   setAdminQuota: (adminQuota: QuotaSummary | null) => void;
   setAdminFeatures: (adminFeatures: FeatureToggles) => void;
 };
@@ -112,10 +147,20 @@ function createSessionScopedState(): SessionScopedState {
     telegram: null,
     adminUsers: [],
     adminUsersTotal: 0,
+    adminSettingsUsers: [],
+    adminUserStats: { active: 0, total: 0 },
     adminInvites: [],
+    adminInvitesAvailable: 0,
+    adminInvitesPage: 1,
+    adminInvitesPageSize: 5,
+    adminInvitesTotal: 0,
     adminFeatures: null,
     adminQuota: null,
-    adminMailboxes: []
+    adminMailboxes: [],
+    adminLatestMailbox: null,
+    adminMailboxesPage: 1,
+    adminMailboxesPageSize: 5,
+    adminMailboxesTotal: 0
   };
 }
 
@@ -164,12 +209,43 @@ export const useAppStore = create<AppStore>()((set) => ({
     set({
       adminUsers: dashboard.users,
       adminUsersTotal: dashboard.usersTotal,
+      adminSettingsUsers: dashboard.settingsUsers,
+      adminUserStats: dashboard.userStats,
       adminInvites: dashboard.invites,
+      adminInvitesAvailable: dashboard.invitesAvailable,
+      adminInvitesPage: dashboard.invitesPage,
+      adminInvitesPageSize: dashboard.invitesPageSize,
+      adminInvitesTotal: dashboard.invitesTotal,
       adminFeatures: dashboard.features,
       adminMailboxes: dashboard.mailboxes,
+      adminLatestMailbox: dashboard.latestMailbox,
+      adminMailboxesPage: dashboard.mailboxesPage,
+      adminMailboxesPageSize: dashboard.mailboxesPageSize,
+      adminMailboxesTotal: dashboard.mailboxesTotal,
       adminQuota: dashboard.quota
     }),
   setAdminUsers: (adminUsers, adminUsersTotal) => set({ adminUsers, adminUsersTotal }),
+  setAdminUserSettingsSummary: (payload) =>
+    set({
+      adminSettingsUsers: payload.settingsUsers,
+      adminUserStats: payload.userStats
+    }),
+  setAdminInvites: (payload) =>
+    set({
+      adminInvites: payload.invites,
+      adminInvitesAvailable: payload.invitesAvailable,
+      adminInvitesPage: payload.invitesPage,
+      adminInvitesPageSize: payload.invitesPageSize,
+      adminInvitesTotal: payload.invitesTotal
+    }),
+  setAdminMailboxes: (payload) =>
+    set({
+      adminLatestMailbox: payload.latestMailbox,
+      adminMailboxes: payload.mailboxes,
+      adminMailboxesPage: payload.mailboxesPage,
+      adminMailboxesPageSize: payload.mailboxesPageSize,
+      adminMailboxesTotal: payload.mailboxesTotal
+    }),
   setAdminQuota: (adminQuota) => set({ adminQuota }),
   setAdminFeatures: (adminFeatures) => set({ adminFeatures })
 }));

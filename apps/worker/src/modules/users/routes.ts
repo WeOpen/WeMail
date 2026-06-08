@@ -7,6 +7,7 @@ import { toInviteListItem } from "../../app/routes/dto/admin-dto";
 import {
   parseUserPasswordResetRequest,
   parseQuotaUpdateRequest,
+  parseSettingsListQuery,
   parseUserListQuery,
   parseUserCreateRequest,
   parseUserStatusUpdateRequest,
@@ -17,6 +18,7 @@ import {
   createInviteUseCase,
   deleteUserUseCase,
   disableInviteUseCase,
+  getAdminUserSettingsSummary,
   getQuotaUseCase,
   listAdminInvites,
   listAdminMailboxes,
@@ -45,6 +47,8 @@ export function registerUsersRoutes(app: Hono<AppContext>) {
   });
 
   app.get("/api/users", async (c) => c.json(await listAdminUsers(getAppServices(c), parseUserListQuery(c.req.url))));
+
+  app.get("/api/users/summary", async (c) => c.json(await getAdminUserSettingsSummary(getAppServices(c))));
 
   app.post("/api/users", async (c) => {
     const payload = await parseUserCreateRequest(c.req.raw);
@@ -98,11 +102,13 @@ export function registerUsersRoutes(app: Hono<AppContext>) {
     return c.json(result);
   });
 
-  app.get("/api/users/invites", async (c) =>
-    c.json({
-      invites: (await listAdminInvites(getAppServices(c))).map(toInviteListItem)
-    })
-  );
+  app.get("/api/users/invites", async (c) => {
+    const payload = await listAdminInvites(getAppServices(c), parseSettingsListQuery(c.req.url));
+    return c.json({
+      ...payload,
+      invites: payload.invites.map(toInviteListItem)
+    });
+  });
 
   app.post("/api/users/invites", async (c) => {
     const user = requireUser(c)!;
@@ -112,7 +118,9 @@ export function registerUsersRoutes(app: Hono<AppContext>) {
 
   app.delete("/api/users/invites/:id", async (c) => {
     const user = requireUser(c)!;
-    return c.json(await disableInviteUseCase(getAppServices(c), { actorUserId: user.id, inviteId: c.req.param("id") }));
+    const result = await disableInviteUseCase(getAppServices(c), { actorUserId: user.id, inviteId: c.req.param("id") });
+    if (result instanceof Response) return result;
+    return c.json(result);
   });
 
   app.get("/api/users/:userId/quota", async (c) =>
@@ -135,5 +143,7 @@ export function registerUsersRoutes(app: Hono<AppContext>) {
     });
   });
 
-  app.get("/api/users/accounts", async (c) => c.json({ mailboxes: await listAdminMailboxes(getAppServices(c)) }));
+  app.get("/api/users/accounts", async (c) =>
+    c.json(await listAdminMailboxes(getAppServices(c), parseSettingsListQuery(c.req.url)))
+  );
 }

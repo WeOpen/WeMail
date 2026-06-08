@@ -16,8 +16,16 @@ import {
   updateFeatureTogglesAction,
   updateQuotaAction
 } from "./actions";
-import { queryAdminDashboard, queryAdminUsers, queryQuota } from "./queries";
-import type { AdminUsersQuery } from "./types";
+import {
+  ADMIN_SETTINGS_PAGE_SIZE,
+  queryAdminDashboard,
+  queryAdminInvites,
+  queryAdminMailboxes,
+  queryAdminUserSettingsSummary,
+  queryAdminUsers,
+  queryQuota
+} from "./queries";
+import type { AdminSettingsListQuery, AdminUsersQuery } from "./types";
 
 const DEFAULT_ADMIN_USERS_QUERY: AdminUsersQuery = {
   page: 1,
@@ -28,6 +36,10 @@ const DEFAULT_ADMIN_USERS_QUERY: AdminUsersQuery = {
 };
 
 const USERS_LOAD_ERROR = "用户列表加载失败，请稍后重试。";
+const DEFAULT_ADMIN_SETTINGS_QUERY: AdminSettingsListQuery = {
+  page: 1,
+  pageSize: ADMIN_SETTINGS_PAGE_SIZE
+};
 
 type UseAdminDataOptions = {
   session: SessionSummary | null;
@@ -37,17 +49,32 @@ type UseAdminDataOptions = {
 export function useAdminData({ session, onToast }: UseAdminDataOptions) {
   const adminUsers = useAppStore((state) => state.adminUsers);
   const adminUsersTotal = useAppStore((state) => state.adminUsersTotal);
+  const adminSettingsUsers = useAppStore((state) => state.adminSettingsUsers);
+  const adminUserStats = useAppStore((state) => state.adminUserStats);
   const adminInvites = useAppStore((state) => state.adminInvites);
+  const adminInvitesAvailable = useAppStore((state) => state.adminInvitesAvailable);
+  const adminInvitesPage = useAppStore((state) => state.adminInvitesPage);
+  const adminInvitesPageSize = useAppStore((state) => state.adminInvitesPageSize);
+  const adminInvitesTotal = useAppStore((state) => state.adminInvitesTotal);
   const adminFeatures = useAppStore((state) => state.adminFeatures);
   const adminQuota = useAppStore((state) => state.adminQuota);
   const adminMailboxes = useAppStore((state) => state.adminMailboxes);
+  const adminLatestMailbox = useAppStore((state) => state.adminLatestMailbox);
+  const adminMailboxesPage = useAppStore((state) => state.adminMailboxesPage);
+  const adminMailboxesPageSize = useAppStore((state) => state.adminMailboxesPageSize);
+  const adminMailboxesTotal = useAppStore((state) => state.adminMailboxesTotal);
   const setAdminDashboard = useAppStore((state) => state.setAdminDashboard);
   const setAdminUsers = useAppStore((state) => state.setAdminUsers);
+  const setAdminUserSettingsSummary = useAppStore((state) => state.setAdminUserSettingsSummary);
+  const setAdminInvites = useAppStore((state) => state.setAdminInvites);
+  const setAdminMailboxes = useAppStore((state) => state.setAdminMailboxes);
   const setAdminQuota = useAppStore((state) => state.setAdminQuota);
   const setAdminFeatures = useAppStore((state) => state.setAdminFeatures);
   const [isLoadingUsers, setIsLoadingUsers] = useState(false);
   const [usersError, setUsersError] = useState<string | null>(null);
   const lastUsersQuery = useRef<AdminUsersQuery>(DEFAULT_ADMIN_USERS_QUERY);
+  const lastInvitesQuery = useRef<AdminSettingsListQuery>(DEFAULT_ADMIN_SETTINGS_QUERY);
+  const lastMailboxesQuery = useRef<AdminSettingsListQuery>(DEFAULT_ADMIN_SETTINGS_QUERY);
 
   const refreshAdminUsers = useCallback(
     async (query: AdminUsersQuery = lastUsersQuery.current) => {
@@ -81,19 +108,42 @@ export function useAdminData({ session, onToast }: UseAdminDataOptions) {
     }
   }, [session, setAdminDashboard]);
 
+  const refreshAdminSettingsSummary = useCallback(async () => {
+    if (session?.user.role !== "admin") return;
+    setAdminUserSettingsSummary(await queryAdminUserSettingsSummary());
+  }, [session, setAdminUserSettingsSummary]);
+
+  const refreshAdminInvites = useCallback(
+    async (query: AdminSettingsListQuery = lastInvitesQuery.current) => {
+      if (session?.user.role !== "admin") return;
+      lastInvitesQuery.current = query;
+      setAdminInvites(await queryAdminInvites(query));
+    },
+    [session, setAdminInvites]
+  );
+
+  const refreshAdminMailboxes = useCallback(
+    async (query: AdminSettingsListQuery = lastMailboxesQuery.current) => {
+      if (session?.user.role !== "admin") return;
+      lastMailboxesQuery.current = query;
+      setAdminMailboxes(await queryAdminMailboxes(query));
+    },
+    [session, setAdminMailboxes]
+  );
+
   const createInvite = useCallback(async () => {
     await createInviteAction();
     onToast({ message: "邀请码已创建。", tone: "success" });
-    await refreshAdminData();
-  }, [onToast, refreshAdminData]);
+    await refreshAdminInvites(DEFAULT_ADMIN_SETTINGS_QUERY);
+  }, [onToast, refreshAdminInvites]);
 
   const createUser = useCallback(
     async (payload: { email: string; name: string; password: string; role: UserRole }) => {
       await createAdminUserAction(payload);
       onToast({ message: "用户已创建。", tone: "success" });
-      await refreshAdminUsers();
+      await Promise.all([refreshAdminUsers(), refreshAdminSettingsSummary()]);
     },
-    [onToast, refreshAdminUsers]
+    [onToast, refreshAdminSettingsSummary, refreshAdminUsers]
   );
 
   const changeUserRoles = useCallback(
@@ -109,9 +159,9 @@ export function useAdminData({ session, onToast }: UseAdminDataOptions) {
     async (userId: string, payload: { name: string }) => {
       await updateAdminUserAction(userId, payload);
       onToast({ message: "用户资料已更新。", tone: "success" });
-      await refreshAdminUsers();
+      await Promise.all([refreshAdminUsers(), refreshAdminSettingsSummary()]);
     },
-    [onToast, refreshAdminUsers]
+    [onToast, refreshAdminSettingsSummary, refreshAdminUsers]
   );
 
   const resetUserPassword = useCallback(
@@ -127,18 +177,18 @@ export function useAdminData({ session, onToast }: UseAdminDataOptions) {
     async (userId: string, status: UserStatus) => {
       await updateAdminUserStatusAction(userId, status);
       onToast({ message: status === "disabled" ? "用户已停用。" : "用户已启用。", tone: "success" });
-      await refreshAdminUsers();
+      await Promise.all([refreshAdminUsers(), refreshAdminSettingsSummary()]);
     },
-    [onToast, refreshAdminUsers]
+    [onToast, refreshAdminSettingsSummary, refreshAdminUsers]
   );
 
   const deleteUser = useCallback(
     async (userId: string) => {
       await deleteAdminUserAction(userId);
       onToast({ message: "用户已删除。", tone: "success" });
-      await refreshAdminUsers();
+      await Promise.all([refreshAdminUsers(), refreshAdminSettingsSummary()]);
     },
-    [onToast, refreshAdminUsers]
+    [onToast, refreshAdminSettingsSummary, refreshAdminUsers]
   );
 
   const suspendUsersOutbound = useCallback(
@@ -162,9 +212,9 @@ export function useAdminData({ session, onToast }: UseAdminDataOptions) {
     async (inviteId: string) => {
       await disableInviteAction(inviteId);
       onToast({ message: "邀请码已停用。", tone: "info" });
-      await refreshAdminData();
+      await refreshAdminInvites();
     },
-    [onToast, refreshAdminData]
+    [onToast, refreshAdminInvites]
   );
 
   const selectQuotaUser = useCallback(async (userId: string) => {
@@ -188,8 +238,8 @@ export function useAdminData({ session, onToast }: UseAdminDataOptions) {
 
   const toggleFeatures = useCallback(
     async (nextFeatureToggles: FeatureToggles) => {
-      await updateFeatureTogglesAction(nextFeatureToggles);
-      setAdminFeatures(nextFeatureToggles);
+      const payload = await updateFeatureTogglesAction(nextFeatureToggles);
+      setAdminFeatures(payload.featureToggles);
       onToast({ message: "功能开关已更新。", tone: "success" });
     },
     [onToast, setAdminFeatures]
@@ -198,12 +248,24 @@ export function useAdminData({ session, onToast }: UseAdminDataOptions) {
   return {
     adminUsers,
     adminUsersTotal,
+    adminSettingsUsers,
+    adminUserStats,
     adminInvites,
+    adminInvitesAvailable,
+    adminInvitesPage,
+    adminInvitesPageSize,
+    adminInvitesTotal,
     adminFeatures,
     adminQuota,
     adminMailboxes,
+    adminLatestMailbox,
+    adminMailboxesPage,
+    adminMailboxesPageSize,
+    adminMailboxesTotal,
     refreshAdminData,
     refreshAdminUsers,
+    refreshAdminInvites,
+    refreshAdminMailboxes,
     isLoadingUsers,
     usersError,
     createUser,

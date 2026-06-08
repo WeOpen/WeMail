@@ -7,22 +7,46 @@ import { Pagination } from "../../shared/pagination";
 
 type MailboxOversightPanelProps = {
   adminMailboxes: MailboxSummary[];
+  latestMailbox?: MailboxSummary | null;
+  mailboxesPage?: number;
+  mailboxesPageSize?: number;
+  mailboxesTotal?: number;
+  onMailboxPageChange?: (page: number) => Promise<void>;
 };
 
 const MAILBOX_PAGE_SIZE = 5;
 
-export function MailboxOversightPanel({ adminMailboxes }: MailboxOversightPanelProps) {
-  const [currentPage, setCurrentPage] = useState(1);
-  const latestMailbox = [...adminMailboxes].sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0] ?? null;
-  const pageCount = Math.max(1, Math.ceil(adminMailboxes.length / MAILBOX_PAGE_SIZE));
+export function MailboxOversightPanel({
+  adminMailboxes,
+  latestMailbox,
+  mailboxesPage,
+  mailboxesPageSize,
+  mailboxesTotal,
+  onMailboxPageChange
+}: MailboxOversightPanelProps) {
+  const [localPage, setLocalPage] = useState(1);
+  const isRemotePaged = Boolean(onMailboxPageChange);
+  const pageSize = mailboxesPageSize ?? MAILBOX_PAGE_SIZE;
+  const total = mailboxesTotal ?? adminMailboxes.length;
+  const currentPage = mailboxesPage ?? localPage;
+  const currentLatestMailbox = latestMailbox ?? [...adminMailboxes].sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0] ?? null;
+  const pageCount = Math.max(1, Math.ceil(total / pageSize));
   const safePage = Math.min(currentPage, pageCount);
-  const visibleMailboxes = adminMailboxes.slice((safePage - 1) * MAILBOX_PAGE_SIZE, safePage * MAILBOX_PAGE_SIZE);
+  const visibleMailboxes = isRemotePaged ? adminMailboxes : adminMailboxes.slice((safePage - 1) * pageSize, safePage * pageSize);
 
   useEffect(() => {
-    if (currentPage > pageCount) {
-      setCurrentPage(pageCount);
+    if (!isRemotePaged && localPage > pageCount) {
+      setLocalPage(pageCount);
     }
-  }, [currentPage, pageCount]);
+  }, [isRemotePaged, localPage, pageCount]);
+
+  function handlePageChange(page: number) {
+    if (onMailboxPageChange) {
+      void onMailboxPageChange(page);
+      return;
+    }
+    setLocalPage(page);
+  }
 
   return (
     <section className="panel workspace-card page-panel users-settings-panel">
@@ -32,13 +56,13 @@ export function MailboxOversightPanel({ adminMailboxes }: MailboxOversightPanelP
           <h2>邮箱监管</h2>
           <p className="section-copy">查看当前系统中所有邮箱的标签与地址信息。</p>
         </div>
-        <Badge variant={adminMailboxes.length > 0 ? "info" : "neutral"}>共 {adminMailboxes.length} 个</Badge>
+        <Badge variant={total > 0 ? "info" : "neutral"}>共 {total} 个</Badge>
       </div>
-      {latestMailbox ? (
+      {currentLatestMailbox ? (
         <div className="users-mailbox-summary">
           <span>最近创建</span>
-          <strong>{latestMailbox.label}</strong>
-          <small>{latestMailbox.createdAt.slice(0, 10)}</small>
+          <strong>{currentLatestMailbox.label}</strong>
+          <small>{currentLatestMailbox.createdAt.slice(0, 10)}</small>
         </div>
       ) : null}
       <div className="stack-list workspace-stack-list users-settings-list" role="list">
@@ -51,17 +75,17 @@ export function MailboxOversightPanel({ adminMailboxes }: MailboxOversightPanelP
             </div>
           </div>
         ))}
-        {adminMailboxes.length === 0 ? <p className="empty-state">当前还没有可见的邮箱记录。</p> : null}
+        {total === 0 ? <p className="empty-state">当前还没有可见的邮箱记录。</p> : null}
       </div>
-      {adminMailboxes.length > MAILBOX_PAGE_SIZE ? (
+      {total > pageSize ? (
         <Pagination
           aria-label="邮箱分页"
           className="users-settings-pagination"
-          onChange={setCurrentPage}
+          onChange={handlePageChange}
           page={safePage}
-          pageSize={MAILBOX_PAGE_SIZE}
+          pageSize={pageSize}
           siblings={0}
-          total={adminMailboxes.length}
+          total={total}
         />
       ) : null}
     </section>

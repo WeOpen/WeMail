@@ -1,7 +1,14 @@
-import type { FeatureToggles, MailboxSummary, QuotaSummary, UserRole, UserStatus, UserSummary } from "@wemail/shared";
+import type { FeatureToggles, QuotaSummary, UserRole, UserStatus, UserSummary } from "@wemail/shared";
 
 import { apiFetch } from "../../shared/api/client";
-import type { AdminUsersPayload, AdminUsersQuery, InviteSummary } from "./types";
+import type {
+  AdminInvitesPayload,
+  AdminMailboxesPayload,
+  AdminSettingsListQuery,
+  AdminUserSettingsSummaryPayload,
+  AdminUsersPayload,
+  AdminUsersQuery
+} from "./types";
 
 function buildAdminUsersPath(query?: AdminUsersQuery) {
   if (!query) return "/api/users";
@@ -17,8 +24,21 @@ function buildAdminUsersPath(query?: AdminUsersQuery) {
   return `/api/users?${params.toString()}`;
 }
 
+function buildAdminSettingsListPath(path: string, query: AdminSettingsListQuery) {
+  const params = new URLSearchParams({
+    page: String(query.page),
+    pageSize: String(query.pageSize)
+  });
+
+  return `${path}?${params.toString()}`;
+}
+
 export function fetchAdminUsers(query?: AdminUsersQuery) {
   return apiFetch<AdminUsersPayload>(buildAdminUsersPath(query));
+}
+
+export function fetchAdminUserSummary() {
+  return apiFetch<AdminUserSettingsSummaryPayload>("/api/users/summary");
 }
 
 export function createAdminUser(payload: { email: string; name: string; password: string; role: UserRole }) {
@@ -60,16 +80,16 @@ export function deleteAdminUser(userId: string) {
   return apiFetch<{ ok: boolean }>(`/api/users/${userId}`, { method: "DELETE" });
 }
 
-export function fetchAdminInvites() {
-  return apiFetch<{ invites: InviteSummary[] }>("/api/users/invites");
+export function fetchAdminInvites(query: AdminSettingsListQuery) {
+  return apiFetch<AdminInvitesPayload>(buildAdminSettingsListPath("/api/users/invites", query));
 }
 
 export function fetchAdminFeatures() {
   return apiFetch<{ featureToggles: FeatureToggles }>("/api/system/features");
 }
 
-export function fetchAdminMailboxes() {
-  return apiFetch<{ mailboxes: MailboxSummary[] }>("/api/users/accounts");
+export function fetchAdminMailboxes(query: AdminSettingsListQuery) {
+  return apiFetch<AdminMailboxesPayload>(buildAdminSettingsListPath("/api/users/accounts", query));
 }
 
 export function fetchAdminQuota(userId: string) {
@@ -92,7 +112,7 @@ export function updateQuota(userId: string, payload: { dailyLimit: number; disab
 }
 
 export function updateAdminFeatures(nextFeatureToggles: FeatureToggles) {
-  return apiFetch("/api/system/features", {
+  return apiFetch<{ featureToggles: FeatureToggles }>("/api/system/features", {
     method: "PATCH",
     body: JSON.stringify(nextFeatureToggles)
   });

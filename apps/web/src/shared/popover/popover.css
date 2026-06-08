@@ -16,7 +16,7 @@
 
 .ui-popover-content {
   position: absolute;
-  z-index: 35;
+  z-index: 80;
   min-width: 14rem;
   border: 1px solid var(--border-subtle, rgba(15, 23, 42, 0.12));
   border-radius: var(--radius-lg, 16px);
@@ -27,22 +27,22 @@
 }
 
 .ui-popover-side-bottom {
-  top: calc(100% + 0.5rem);
+  bottom: auto;
 }
 
 .ui-popover-side-top {
-  bottom: calc(100% + 0.5rem);
+  bottom: auto;
 }
 
 .ui-popover-align-start {
-  left: 0;
+  right: auto;
 }
 
 .ui-popover-align-center {
-  left: 50%;
-  transform: translateX(-50%);
+  right: auto;
+  transform: none;
 }
 
 .ui-popover-align-end {
-  right: 0;
+  right: auto;
 }

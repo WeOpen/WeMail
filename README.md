@@ -17,6 +17,8 @@ pnpm test
 pnpm typecheck
 pnpm lint
 pnpm build
+pnpm version:check
+pnpm version:sync
 ```
 
 ### 按范围运行
@@ -37,6 +39,7 @@ pnpm test:e2e
 - `docs/development-workflow.md`：开发协作流程
 - `docs/testing-strategy.md`：测试与验证策略
 - `docs/deploy-runbook.md`：发布、部署与回滚手册
+- `CHANGELOG.md`：项目级版本与变更记录
 
 ## 📝 什么内容适合放进 docs
 
