@@ -8,8 +8,13 @@ import type { InviteStatus, InviteSummary } from "./types";
 
 type InvitePanelProps = {
   adminInvites: InviteSummary[];
+  invitesAvailable?: number;
+  invitesPage?: number;
+  invitesPageSize?: number;
+  invitesTotal?: number;
   onCreateInvite: () => Promise<void>;
   onDisableInvite: (inviteId: string) => Promise<void>;
+  onInvitePageChange?: (page: number) => Promise<void>;
 };
 
 const INVITE_PAGE_SIZE = 5;
@@ -27,18 +32,39 @@ function getInviteBadgeVariant(status: InviteStatus) {
   return "warning";
 }
 
-export function InvitePanel({ adminInvites, onCreateInvite, onDisableInvite }: InvitePanelProps) {
-  const [currentPage, setCurrentPage] = useState(1);
-  const availableInvites = adminInvites.filter((invite) => getInviteStatus(invite) === "ready").length;
-  const pageCount = Math.max(1, Math.ceil(adminInvites.length / INVITE_PAGE_SIZE));
+export function InvitePanel({
+  adminInvites,
+  invitesAvailable,
+  invitesPage,
+  invitesPageSize,
+  invitesTotal,
+  onCreateInvite,
+  onDisableInvite,
+  onInvitePageChange
+}: InvitePanelProps) {
+  const [localPage, setLocalPage] = useState(1);
+  const isRemotePaged = Boolean(onInvitePageChange);
+  const pageSize = invitesPageSize ?? INVITE_PAGE_SIZE;
+  const total = invitesTotal ?? adminInvites.length;
+  const availableInvites = invitesAvailable ?? adminInvites.filter((invite) => getInviteStatus(invite) === "ready").length;
+  const currentPage = invitesPage ?? localPage;
+  const pageCount = Math.max(1, Math.ceil(total / pageSize));
   const safePage = Math.min(currentPage, pageCount);
-  const visibleInvites = adminInvites.slice((safePage - 1) * INVITE_PAGE_SIZE, safePage * INVITE_PAGE_SIZE);
+  const visibleInvites = isRemotePaged ? adminInvites : adminInvites.slice((safePage - 1) * pageSize, safePage * pageSize);
 
   useEffect(() => {
-    if (currentPage > pageCount) {
-      setCurrentPage(pageCount);
+    if (!isRemotePaged && localPage > pageCount) {
+      setLocalPage(pageCount);
     }
-  }, [currentPage, pageCount]);
+  }, [isRemotePaged, localPage, pageCount]);
+
+  function handlePageChange(page: number) {
+    if (onInvitePageChange) {
+      void onInvitePageChange(page);
+      return;
+    }
+    setLocalPage(page);
+  }
 
   return (
     <section className="panel workspace-card page-panel users-settings-panel">
@@ -54,7 +80,7 @@ export function InvitePanel({ adminInvites, onCreateInvite, onDisableInvite }: I
       </div>
       <div className="users-settings-section-meta">
         <span>可用 {availableInvites}</span>
-        <span>总计 {adminInvites.length}</span>
+        <span>总计 {total}</span>
       </div>
       <div className="stack-list workspace-stack-list users-settings-list" role="list">
         {visibleInvites.map((invite) => {
@@ -85,17 +111,17 @@ export function InvitePanel({ adminInvites, onCreateInvite, onDisableInvite }: I
             </div>
           );
         })}
-        {adminInvites.length === 0 ? <p className="empty-state">当前没有可用邀请码，创建一个以邀请新成员。</p> : null}
+        {total === 0 ? <p className="empty-state">当前没有可用邀请码，创建一个以邀请新成员。</p> : null}
       </div>
-      {adminInvites.length > INVITE_PAGE_SIZE ? (
+      {total > pageSize ? (
         <Pagination
           aria-label="邀请码分页"
           className="users-settings-pagination"
-          onChange={setCurrentPage}
+          onChange={handlePageChange}
           page={safePage}
-          pageSize={INVITE_PAGE_SIZE}
+          pageSize={pageSize}
           siblings={0}
-          total={adminInvites.length}
+          total={total}
         />
       ) : null}
     </section>

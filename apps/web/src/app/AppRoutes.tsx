@@ -14,9 +14,9 @@ import type {
   UserSummary
 } from "@wemail/shared";
 
-import type { AdminUsersQuery, InviteSummary } from "../features/admin/types";
+import type { AdminUserStats, AdminUsersQuery, InviteSummary } from "../features/admin/types";
 import type { OutboundHistoryItem } from "../features/inbox/types";
-import { AccountsListPage } from "../features/accounts/AccountsListPage";
+import { AccountsListRoutePage } from "../features/accounts/AccountsListRoutePage";
 import { AccountsSettingsPage } from "../features/accounts/AccountsSettingsPage";
 import { OutboundPage } from "../features/outbound/OutboundPage";
 import { ApiKeysPage } from "../features/settings/ApiKeysPage";
@@ -59,10 +59,20 @@ type AppRoutesProps = {
   admin: {
     adminUsers: UserSummary[];
     adminUsersTotal: number;
+    adminSettingsUsers: UserSummary[];
+    adminUserStats: AdminUserStats;
     adminInvites: InviteSummary[];
+    adminInvitesAvailable: number;
+    adminInvitesPage: number;
+    adminInvitesPageSize: number;
+    adminInvitesTotal: number;
     adminQuota: QuotaSummary | null;
     adminFeatures: FeatureToggles | null;
     adminMailboxes: MailboxSummary[];
+    adminLatestMailbox: MailboxSummary | null;
+    adminMailboxesPage: number;
+    adminMailboxesPageSize: number;
+    adminMailboxesTotal: number;
     createUser: (payload: { email: string; name: string; password: string; role: UserRole }) => Promise<void>;
     changeUserRoles: (userIds: string[], role: UserRole) => Promise<void>;
     updateUser: (userId: string, payload: { name: string }) => Promise<void>;
@@ -75,6 +85,8 @@ type AppRoutesProps = {
     suspendUsersOutbound: (userIds: string[]) => Promise<void>;
     createInvite: () => Promise<void>;
     disableInvite: (inviteId: string) => Promise<void>;
+    refreshAdminInvites: (query: { page: number; pageSize: number }) => Promise<void>;
+    refreshAdminMailboxes: (query: { page: number; pageSize: number }) => Promise<void>;
     selectQuotaUser: (userId: string) => Promise<void>;
     submitQuota: (event: FormEvent<HTMLFormElement>, userId: string) => Promise<void>;
     toggleFeatures: (nextFeatureToggles: FeatureToggles) => Promise<void>;
@@ -161,11 +173,23 @@ export function AppRoutes({ session, inbox, selectedMessage, settings, admin, ap
       <UsersGlobalSettingsPage
         adminFeatures={admin.adminFeatures}
         adminInvites={admin.adminInvites}
+        adminInvitesAvailable={admin.adminInvitesAvailable}
+        adminInvitesPage={admin.adminInvitesPage}
+        adminInvitesPageSize={admin.adminInvitesPageSize}
+        adminInvitesTotal={admin.adminInvitesTotal}
+        adminLatestMailbox={admin.adminLatestMailbox}
         adminMailboxes={admin.adminMailboxes}
+        adminMailboxesPage={admin.adminMailboxesPage}
+        adminMailboxesPageSize={admin.adminMailboxesPageSize}
+        adminMailboxesTotal={admin.adminMailboxesTotal}
         adminQuota={admin.adminQuota}
+        adminSettingsUsers={admin.adminSettingsUsers}
+        adminUserStats={admin.adminUserStats}
         adminUsers={admin.adminUsers}
         onCreateInvite={admin.createInvite}
         onDisableInvite={admin.disableInvite}
+        onInvitePageChange={(page) => admin.refreshAdminInvites({ page, pageSize: admin.adminInvitesPageSize })}
+        onMailboxPageChange={(page) => admin.refreshAdminMailboxes({ page, pageSize: admin.adminMailboxesPageSize })}
         onSelectQuotaUser={admin.selectQuotaUser}
         onSubmitQuota={admin.submitQuota}
         onToggleFeatures={admin.toggleFeatures}
@@ -174,7 +198,7 @@ export function AppRoutes({ session, inbox, selectedMessage, settings, admin, ap
 
   const dashboardPage = <DashboardPage canViewRoleCard={session.user.role === "admin"} />;
 
-  const accountsListPage = <AccountsListPage />;
+  const accountsListPage = <AccountsListRoutePage />;
 
   const accountsSettingsPage = <AccountsSettingsPage />;
 

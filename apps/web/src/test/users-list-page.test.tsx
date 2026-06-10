@@ -124,11 +124,21 @@ describe("UsersListPage", () => {
   });
 
   it("renders the directory-style users list with search, filters, and one compact action entry per row", () => {
-    renderUsersList();
+    const onRetryUsers = vi.fn();
+    renderUsersList({ onRetryUsers });
 
     expect(screen.getByText("用户中心")).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "管理成员目录" })).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "导出" })).toHaveClass("ui-button-secondary");
+    const headerActions = screen.getByText("用户中心").closest("section")!.querySelector(".workspace-topbar-actions");
+    expect(headerActions).not.toBeNull();
+    expect(within(headerActions as HTMLElement).getAllByRole("button").map((button) => button.textContent)).toEqual([
+      "刷新",
+      "导出"
+    ]);
+    expect(screen.getByRole("button", { name: "刷新" })).toHaveClass("ui-button-secondary");
+    fireEvent.click(screen.getByRole("button", { name: "刷新" }));
+    expect(onRetryUsers).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("button", { name: "导出" })).toHaveClass("ui-button-primary");
     expect(screen.getByRole("button", { name: "新增用户" })).toHaveClass("ui-button-primary");
     expect(screen.getByRole("table")).toHaveClass("ui-table");
     expect(screen.getByRole("columnheader", { name: "用户名" })).toBeInTheDocument();

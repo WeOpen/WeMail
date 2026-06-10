@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
-import { Download, Edit3, KeyRound, MoreHorizontal, Plus, Power, PowerOff, Trash2 } from "lucide-react";
+import { Download, Edit3, KeyRound, MoreHorizontal, Plus, Power, PowerOff, RefreshCw, Trash2 } from "lucide-react";
 
 import type { QuotaSummary, UserRole, UserStatus, UserSummary } from "@wemail/shared";
 
@@ -461,7 +461,17 @@ export function UsersListPage({
         <PageHeader
           actions={
             <div className="workspace-topbar-actions">
-              <Button leadingIcon={<Download aria-hidden="true" />} onClick={() => onExportUsers(filteredUsers)} variant="secondary">
+              <Button
+                disabled={!onRetryUsers || isLoadingUsers}
+                isLoading={isLoadingUsers}
+                leadingIcon={<RefreshCw aria-hidden="true" />}
+                loadingLabel="刷新中"
+                onClick={onRetryUsers}
+                variant="secondary"
+              >
+                刷新
+              </Button>
+              <Button leadingIcon={<Download aria-hidden="true" />} onClick={() => onExportUsers(filteredUsers)} variant="primary">
                 导出
               </Button>
             </div>

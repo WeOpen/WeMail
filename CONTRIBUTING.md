@@ -15,6 +15,7 @@
 - 不要直接在 `main` 上做长期开发
 - 先确认目录职责，再写代码
 - 结构变更必须同步更新 README / docs
+- 每次提交都必须同步更新根目录 `CHANGELOG.md`
 - 优先小步修改，保持 diff 可审查
 - 不要把生成产物、缓存目录、临时日志提交进仓库
 
@@ -42,7 +43,9 @@ pnpm lint
 pnpm build
 ```
 
-其他评审要求、文档联动规则、补充验证范围，以 `docs/development-workflow.md` 和 `docs/testing-strategy.md` 为准。
+提交前还要确认根目录 `CHANGELOG.md` 已记录本次提交对应的 `[Unreleased]` 或 release 变更。
+
+其他评审要求、版本规则、文档联动规则、补充验证范围，以 `docs/development-workflow.md` 和 `docs/testing-strategy.md` 为准。
 
 ## Pull Request 要求
 

@@ -7,6 +7,7 @@
 - `constants`
 - `extraction`
 - `index`
+- `version`
 
 ## 🚫 不放什么
 - 面向单一应用的业务实现

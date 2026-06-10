@@ -51,7 +51,7 @@ describe("admin dashboard integration", () => {
             ]
           });
         }
-        if (url.endsWith("/api/users/invites")) {
+        if (url.includes("/api/users/invites")) {
           return jsonResponse({
             invites: [
               { id: "invite-1", code: "ALPHA-2026", createdAt: "2026-04-08T00:00:00.000Z", redeemedAt: null, disabledAt: null }
@@ -79,7 +79,7 @@ describe("admin dashboard integration", () => {
             }
           });
         }
-        if (url.endsWith("/api/users/accounts")) {
+        if (url.includes("/api/users/accounts")) {
           return jsonResponse({
             mailboxes: [
               { id: "box-1", address: "ops@example.com", label: "Ops", createdAt: "2026-04-08T00:00:00.000Z" }

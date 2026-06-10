@@ -27,6 +27,7 @@
 
 ### 发布与运维
 - `deploy-runbook.md`
+- `../CHANGELOG.md`：项目级版本与变更记录
 
 ## ✅ 放什么
 - 稳定的项目级规范
@@ -44,4 +45,5 @@
 ## 🔄 维护要求
 - 改代码结构时同步更新目录 README 与相关 docs
 - 改 workflow / deploy / secrets / 发布流程时同步更新对应总文档
+- 每次提交同步更新根目录 `CHANGELOG.md`
 - 文档统一使用 UTF-8、LF，并保持标题、术语、目录名与仓库一致

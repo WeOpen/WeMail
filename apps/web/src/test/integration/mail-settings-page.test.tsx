@@ -32,7 +32,7 @@ function mockMailShell() {
     if (url.endsWith("/api/api-keys")) return jsonResponse({ keys: [] });
     if (url.endsWith("/api/telegram/subscription")) return jsonResponse({ subscription: { chatId: "123456", enabled: true } });
     if (url.endsWith("/api/users")) return jsonResponse({ users: [] });
-    if (url.endsWith("/api/users/invites")) return jsonResponse({ invites: [] });
+    if (url.includes("/api/users/invites")) return jsonResponse({ invites: [] });
     if (url.endsWith("/api/system/features")) {
       return jsonResponse({
         featureToggles: {
@@ -54,7 +54,7 @@ function mockMailShell() {
         }
       });
     }
-    if (url.endsWith("/api/users/accounts")) return jsonResponse({ mailboxes: [] });
+    if (url.includes("/api/users/accounts")) return jsonResponse({ mailboxes: [] });
 
     return jsonResponse({});
   });

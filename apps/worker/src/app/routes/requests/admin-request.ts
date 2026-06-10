@@ -9,6 +9,7 @@ import {
 import type { UserRole, UserStatus } from "@wemail/shared";
 
 const USER_PAGE_SIZE_OPTIONS = new Set([10, 20, 50]);
+const SETTINGS_PAGE_SIZE_OPTIONS = new Set([5, 10, 20, 50]);
 
 function parsePositiveInt(value: string | null, fallback: number) {
   const next = Number(value);
@@ -35,6 +36,17 @@ export function parseUserListQuery(url: string) {
     search: search.length > 0 ? search : undefined,
     role: parseUserRoleFilter(params.get("role")),
     status: parseUserStatusFilter(params.get("status"))
+  };
+}
+
+export function parseSettingsListQuery(url: string) {
+  const params = new URL(url).searchParams;
+  const page = parsePositiveInt(params.get("page"), 1);
+  const requestedPageSize = parsePositiveInt(params.get("pageSize"), 5);
+
+  return {
+    page,
+    pageSize: SETTINGS_PAGE_SIZE_OPTIONS.has(requestedPageSize) ? requestedPageSize : 5
   };
 }
 

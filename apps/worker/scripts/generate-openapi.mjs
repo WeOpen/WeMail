@@ -1,4 +1,4 @@
-import { writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -10,6 +10,8 @@ import * as users from "../src/modules/users/openapi.mjs";
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(scriptDir, "../../..");
+const packageJson = JSON.parse(readFileSync(resolve(repoRoot, "package.json"), "utf8"));
+const projectVersion = packageJson.version;
 
 const modules = [auth, integrations, accounts, mail, users];
 
@@ -17,7 +19,7 @@ const spec = {
   openapi: "3.1.0",
   info: {
     title: "WeMail 菜单化后端 API",
-    version: "2.0.0",
+    version: projectVersion,
     description:
       "WeMail 后端 API 已按管理后台左侧菜单分组。旧 /auth、/admin、/api/mailboxes、/api/messages、/api/outbound、/api/keys、/api/telegram 路径不再保留。"
   },

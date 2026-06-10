@@ -1,6 +1,6 @@
 {
   "name": "wemail",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "type": "module",
   "packageManager": "pnpm@10.18.2",
@@ -12,6 +12,8 @@
     "typecheck": "node scripts/run-task.mjs typecheck",
     "test": "node scripts/run-task.mjs test",
     "build": "node scripts/run-task.mjs build",
+    "version:sync": "node scripts/version.mjs sync",
+    "version:check": "node scripts/version.mjs check",
     "db:init:worker": "pnpm --dir apps/worker run db:init:local",
     "db:migrate:worker": "pnpm --dir apps/worker run db:migrate:local",
     "test:worker": "node scripts/run-task.mjs test --filter worker",

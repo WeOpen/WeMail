@@ -55,7 +55,7 @@ describe("announcements integration", () => {
             users: [{ id: "admin-1", email: "admin@example.com", role: "admin", createdAt: "2026-04-08T00:00:00.000Z" }]
           });
         }
-        if (url.endsWith("/api/users/invites")) return jsonResponse({ invites: [] });
+        if (url.includes("/api/users/invites")) return jsonResponse({ invites: [] });
         if (url.includes("/api/system/features")) {
           return jsonResponse({
             featureToggles: {
@@ -77,7 +77,7 @@ describe("announcements integration", () => {
             }
           });
         }
-        if (url.endsWith("/api/users/accounts")) return jsonResponse({ mailboxes: [] });
+        if (url.includes("/api/users/accounts")) return jsonResponse({ mailboxes: [] });
 
         return jsonResponse({});
       });

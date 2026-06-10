@@ -1,6 +1,6 @@
 import type { UserRole, UserStatus } from "@wemail/shared";
 
-import type { AppBindings, AppStore, UserListOptions, UserRecord } from "../../core/bindings";
+import type { AppBindings, AppStore, PageListOptions, UserListOptions, UserRecord } from "../../core/bindings";
 import { hashPassword } from "../../shared/auth";
 import { jsonError, recordAudit } from "../services/audit-service";
 import { getOutboundLimit } from "../services/config-service";
@@ -17,6 +17,19 @@ export async function listAdminUsers(context: AdminUseCaseContext, options: User
     total: result.total,
     page: result.page,
     pageSize: result.pageSize
+  };
+}
+
+export async function getAdminUserSettingsSummary(context: AdminUseCaseContext) {
+  const stats = await context.store.users.summary();
+  const quotaUsers = await context.store.users.list({
+    page: 1,
+    pageSize: Math.max(stats.total, 1)
+  });
+
+  return {
+    quotaUsers: quotaUsers.users.map(toAdminUserSummary),
+    stats
   };
 }
 
@@ -139,12 +152,12 @@ export async function deleteUserUseCase(
   return { ok: true };
 }
 
-export async function listAdminInvites(context: AdminUseCaseContext) {
-  return context.store.invites.list();
+export async function listAdminInvites(context: AdminUseCaseContext, options: PageListOptions) {
+  return context.store.invites.listPage(options);
 }
 
-export async function listAdminMailboxes(context: AdminUseCaseContext) {
-  return context.store.mailboxes.listAll();
+export async function listAdminMailboxes(context: AdminUseCaseContext, options: PageListOptions) {
+  return context.store.mailboxes.listPage(options);
 }
 
 export async function createInviteUseCase(context: AdminUseCaseContext, actorUserId: string) {
@@ -158,6 +171,11 @@ export async function disableInviteUseCase(
   context: AdminUseCaseContext,
   payload: { actorUserId: string; inviteId: string }
 ) {
+  const invite = await context.store.invites.findById(payload.inviteId);
+  if (!invite) return jsonError("Invite not found", 404);
+  if (invite.redeemedAt) return jsonError("Invite already redeemed", 409);
+  if (invite.disabledAt) return jsonError("Invite already disabled", 409);
+
   await context.store.invites.disable(payload.inviteId);
   await recordAudit(context.store, "user", payload.actorUserId, "invite-disable", {
     inviteId: payload.inviteId

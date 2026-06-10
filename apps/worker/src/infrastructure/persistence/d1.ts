@@ -1,9 +1,43 @@
 import type { MailDomainSummary, UserRole, UserStatus } from "@wemail/shared";
 
-import type { AppStore, AttachmentRecord, QuotaRecord } from "../../core/bindings";
+import type {
+  AppStore,
+  AttachmentRecord,
+  MailboxDetailListQuery,
+  MailboxDetailRecord,
+  QuotaRecord
+} from "../../core/bindings";
 
 function nowIso() {
   return new Date().toISOString();
+}
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+function getSafePage(value: number) {
+  return Number.isFinite(value) && value > 0 ? Math.trunc(value) : 1;
+}
+
+function getSafePageSize(value: number) {
+  if (!Number.isFinite(value) || value < 1) return 10;
+  return Math.min(Math.trunc(value), 500);
+}
+
+function getActiveRangeDays(value: MailboxDetailListQuery["activeRange"]) {
+  switch (value) {
+    case "7d":
+      return 7;
+    case "30d":
+      return 30;
+    case "90d":
+      return 90;
+    default:
+      return null;
+  }
+}
+
+function getInactiveDays(value: number | undefined) {
+  return Number.isFinite(value) && value && value > 0 ? Math.trunc(value) : 30;
 }
 
 function toBool(value: unknown) {
@@ -38,7 +72,76 @@ function toUserRecord(row: any) {
   };
 }
 
+function toInviteRecord(row: any) {
+  return {
+    id: row.id,
+    code: row.code,
+    createdByUserId: row.created_by_user_id,
+    redeemedByUserId: row.redeemed_by_user_id,
+    redeemedAt: row.redeemed_at,
+    disabledAt: row.disabled_at,
+    createdAt: row.created_at
+  };
+}
+
+function toMailboxRecord(row: any) {
+  return {
+    id: row.id,
+    userId: row.user_id,
+    address: row.address,
+    label: row.label,
+    createdAt: row.created_at
+  };
+}
+
+function toMailboxDetailRecord(row: any): MailboxDetailRecord {
+  return {
+    id: row.id,
+    userId: row.user_id,
+    address: row.address,
+    label: row.label,
+    status: row.status || "enabled",
+    tags: JSON.parse(row.tags_json || "[]"),
+    createdBy: row.created_by_user_id,
+    createdByName: row.created_by_name,
+    lastActiveAt: row.last_active_at,
+    deletedAt: row.deleted_at,
+    messageCount: Number(row.message_count || 0),
+    outboundCount: Number(row.outbound_count || 0),
+    createdAt: row.created_at
+  };
+}
+
 export function createD1Store(db: D1Database): AppStore {
+  async function findMailboxDetailById(id: string) {
+    const row = await db
+      .prepare(
+        `
+          SELECT
+            a.id,
+            a.user_id,
+            a.address,
+            a.label,
+            a.status,
+            a.tags_json,
+            a.created_by_user_id,
+            a.last_active_at,
+            a.deleted_at,
+            a.created_at,
+            u.name as created_by_name,
+            (SELECT COUNT(*) FROM mail_messages WHERE account_id = a.id) as message_count,
+            (SELECT COUNT(*) FROM mail_outbound_messages WHERE account_id = a.id) as outbound_count
+          FROM accounts a
+          LEFT JOIN users u ON a.created_by_user_id = u.id
+          WHERE a.id = ?
+        `
+      )
+      .bind(id)
+      .first<any>();
+
+    return row ? toMailboxDetailRecord(row) : null;
+  }
+
   return {
     users: {
       async count() {
@@ -133,6 +236,17 @@ export function createD1Store(db: D1Database): AppStore {
           page: options.page,
           pageSize: options.pageSize
         };
+      },
+      async summary() {
+        const row = await db
+          .prepare(
+            "SELECT count(*) AS total, sum(CASE WHEN status = 'active' THEN 1 ELSE 0 END) AS active FROM users"
+          )
+          .first<{ active: number | null; total: number }>();
+        return {
+          active: row?.active ?? 0,
+          total: row?.total ?? 0
+        };
       }
     },
     sessions: {
@@ -178,17 +292,11 @@ export function createD1Store(db: D1Database): AppStore {
       },
       async findByCode(code) {
         const row = await db.prepare("SELECT * FROM user_invites WHERE code = ?").bind(code).first<any>();
-        return row
-          ? {
-              id: row.id,
-              code: row.code,
-              createdByUserId: row.created_by_user_id,
-              redeemedByUserId: row.redeemed_by_user_id,
-              redeemedAt: row.redeemed_at,
-              disabledAt: row.disabled_at,
-              createdAt: row.created_at
-            }
-          : null;
+        return row ? toInviteRecord(row) : null;
+      },
+      async findById(id) {
+        const row = await db.prepare("SELECT * FROM user_invites WHERE id = ?").bind(id).first<any>();
+        return row ? toInviteRecord(row) : null;
       },
       async redeem(code, userId) {
         const redeemedAt = nowIso();
@@ -200,15 +308,27 @@ export function createD1Store(db: D1Database): AppStore {
       },
       async list() {
         const result = await db.prepare("SELECT * FROM user_invites ORDER BY created_at DESC").all();
-        return (result.results ?? []).map((row: any) => ({
-          id: row.id,
-          code: row.code,
-          createdByUserId: row.created_by_user_id,
-          redeemedByUserId: row.redeemed_by_user_id,
-          redeemedAt: row.redeemed_at,
-          disabledAt: row.disabled_at,
-          createdAt: row.created_at
-        }));
+        return (result.results ?? []).map(toInviteRecord);
+      },
+      async listPage(options) {
+        const totalRow = await db.prepare("SELECT count(*) AS count FROM user_invites").first<{ count: number }>();
+        const availableRow = await db
+          .prepare(
+            "SELECT count(*) AS count FROM user_invites WHERE redeemed_at IS NULL AND disabled_at IS NULL"
+          )
+          .first<{ count: number }>();
+        const result = await db
+          .prepare("SELECT * FROM user_invites ORDER BY created_at DESC LIMIT ? OFFSET ?")
+          .bind(options.pageSize, (options.page - 1) * options.pageSize)
+          .all();
+
+        return {
+          available: availableRow?.count ?? 0,
+          invites: (result.results ?? []).map(toInviteRecord),
+          page: options.page,
+          pageSize: options.pageSize,
+          total: totalRow?.count ?? 0
+        };
       },
       async disable(id) {
         await db.prepare("UPDATE user_invites SET disabled_at = ? WHERE id = ?").bind(nowIso(), id).run();
@@ -226,42 +346,144 @@ export function createD1Store(db: D1Database): AppStore {
         const id = crypto.randomUUID();
         const createdAt = nowIso();
         await db
-          .prepare("INSERT INTO accounts (id, user_id, address, label, created_at) VALUES (?, ?, ?, ?, ?)")
-          .bind(id, input.userId, input.address, input.label, createdAt)
+          .prepare(
+            "INSERT INTO accounts (id, user_id, address, label, status, tags_json, created_by_user_id, last_active_at, created_at) VALUES (?, ?, ?, ?, 'enabled', '[]', ?, ?, ?)"
+          )
+          .bind(id, input.userId, input.address, input.label, input.userId, input.lastActiveAt ?? null, createdAt)
           .run();
         return { id, userId: input.userId, address: input.address, label: input.label, createdAt };
       },
+      async update(id, input) {
+        const assignments: string[] = [];
+        const bindings: unknown[] = [];
+
+        if (typeof input.label !== "undefined") {
+          assignments.push("label = ?");
+          bindings.push(input.label);
+        }
+
+        if (typeof input.status !== "undefined") {
+          assignments.push("status = ?");
+          bindings.push(input.status);
+          assignments.push("deleted_at = ?");
+          bindings.push(input.status === "soft_deleted" ? nowIso() : null);
+        }
+
+        if (assignments.length === 0) return findMailboxDetailById(id);
+
+        await db
+          .prepare(`UPDATE accounts SET ${assignments.join(", ")} WHERE id = ?`)
+          .bind(...bindings, id)
+          .run();
+        return findMailboxDetailById(id);
+      },
       async listByUser(userId) {
         const result = await db.prepare("SELECT * FROM accounts WHERE user_id = ? ORDER BY created_at DESC").bind(userId).all();
-        return (result.results ?? []).map((row: any) => ({
-          id: row.id,
-          userId: row.user_id,
-          address: row.address,
-          label: row.label,
-          createdAt: row.created_at
-        }));
+        return (result.results ?? []).map(toMailboxRecord);
+      },
+      async listAllWithDetails(query: MailboxDetailListQuery) {
+        const page = getSafePage(query.page);
+        const pageSize = getSafePageSize(query.pageSize);
+        const offset = (page - 1) * pageSize;
+        const whereConditions: string[] = [];
+        const bindings: any[] = [];
+
+        if (query.search) {
+          whereConditions.push("(a.id LIKE ? OR a.address LIKE ? OR u.name LIKE ?)");
+          const searchPattern = `%${query.search}%`;
+          bindings.push(searchPattern, searchPattern, searchPattern);
+        }
+
+        if (query.status && query.status !== "all") {
+          whereConditions.push("a.status = ?");
+          bindings.push(query.status);
+        }
+
+        if (query.createdBy && query.createdBy !== "all") {
+          whereConditions.push("u.name = ?");
+          bindings.push(query.createdBy);
+        }
+
+        const activeRangeDays = getActiveRangeDays(query.activeRange);
+        if (activeRangeDays) {
+          whereConditions.push("a.last_active_at IS NOT NULL AND a.last_active_at >= ?");
+          bindings.push(new Date(Date.now() - activeRangeDays * DAY_MS).toISOString());
+        }
+
+        if (query.quickFilter === "anomaly") {
+          whereConditions.push("a.status <> 'enabled'");
+        }
+
+        if (query.quickFilter === "inactive") {
+          whereConditions.push("(a.last_active_at IS NULL OR a.last_active_at < ?)");
+          bindings.push(new Date(Date.now() - getInactiveDays(query.inactiveDays) * DAY_MS).toISOString());
+        }
+
+        const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(" AND ")}` : "";
+
+        const countQuery = `
+          SELECT COUNT(*) as count
+          FROM accounts a
+          LEFT JOIN users u ON a.created_by_user_id = u.id
+          ${whereClause}
+        `;
+        const countResult = await db.prepare(countQuery).bind(...bindings).first<{ count: number }>();
+        const total = countResult?.count ?? 0;
+
+        const dataQuery = `
+          SELECT
+            a.id,
+            a.user_id,
+            a.address,
+            a.label,
+            a.status,
+            a.tags_json,
+            a.created_by_user_id,
+            a.last_active_at,
+            a.deleted_at,
+            a.created_at,
+            u.name as created_by_name,
+            (SELECT COUNT(*) FROM mail_messages WHERE account_id = a.id) as message_count,
+            (SELECT COUNT(*) FROM mail_outbound_messages WHERE account_id = a.id) as outbound_count
+          FROM accounts a
+          LEFT JOIN users u ON a.created_by_user_id = u.id
+          ${whereClause}
+          ORDER BY a.created_at DESC
+          LIMIT ? OFFSET ?
+        `;
+        const dataResult = await db.prepare(dataQuery).bind(...bindings, pageSize, offset).all();
+
+        const accounts = (dataResult.results ?? []).map(toMailboxDetailRecord);
+
+        return { accounts, total };
       },
       async listAll() {
         const result = await db.prepare("SELECT * FROM accounts ORDER BY created_at DESC").all();
-        return (result.results ?? []).map((row: any) => ({
-          id: row.id,
-          userId: row.user_id,
-          address: row.address,
-          label: row.label,
-          createdAt: row.created_at
-        }));
+        return (result.results ?? []).map(toMailboxRecord);
+      },
+      async listPage(options) {
+        const totalRow = await db.prepare("SELECT count(*) AS count FROM accounts").first<{ count: number }>();
+        const latestRow = await db.prepare("SELECT * FROM accounts ORDER BY created_at DESC LIMIT 1").first<any>();
+        const result = await db
+          .prepare("SELECT * FROM accounts ORDER BY created_at DESC LIMIT ? OFFSET ?")
+          .bind(options.pageSize, (options.page - 1) * options.pageSize)
+          .all();
+
+        return {
+          latestMailbox: latestRow ? toMailboxRecord(latestRow) : null,
+          mailboxes: (result.results ?? []).map(toMailboxRecord),
+          page: options.page,
+          pageSize: options.pageSize,
+          total: totalRow?.count ?? 0
+        };
       },
       async findById(id) {
         const row = await db.prepare("SELECT * FROM accounts WHERE id = ?").bind(id).first<any>();
-        return row
-          ? { id: row.id, userId: row.user_id, address: row.address, label: row.label, createdAt: row.created_at }
-          : null;
+        return row ? toMailboxRecord(row) : null;
       },
       async findByAddress(address) {
         const row = await db.prepare("SELECT * FROM accounts WHERE address = ?").bind(address).first<any>();
-        return row
-          ? { id: row.id, userId: row.user_id, address: row.address, label: row.label, createdAt: row.created_at }
-          : null;
+        return row ? toMailboxRecord(row) : null;
       },
       async delete(id) {
         await db.prepare("DELETE FROM accounts WHERE id = ?").bind(id).run();

@@ -50,10 +50,27 @@ export type SessionSummary = {
   featureToggles: FeatureToggles;
 };
 
+export type MailboxStatus = "enabled" | "disabled" | "archived" | "soft_deleted";
+
 export type MailboxSummary = {
   id: string;
   address: string;
   label: string;
+  createdAt: string;
+};
+
+export type MailboxDetail = {
+  id: string;
+  address: string;
+  label: string;
+  status: MailboxStatus;
+  tags: string[];
+  createdBy: string | null;
+  createdByName: string | null;
+  lastActiveAt: string | null;
+  deletedAt: string | null;
+  messageCount: number;
+  outboundCount: number;
   createdAt: string;
 };
 
