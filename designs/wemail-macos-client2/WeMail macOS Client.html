@@ -1,0 +1,1433 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>WeMail macOS Client - High Fidelity Prototype</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #f2f0eb;
+        --ink: #161615;
+        --muted: #66635d;
+        --quiet: #8c887f;
+        --line: rgba(24, 23, 21, 0.12);
+        --line-strong: rgba(24, 23, 21, 0.18);
+        --panel: rgba(255, 255, 255, 0.74);
+        --panel-solid: #fffdf8;
+        --panel-deep: rgba(248, 246, 239, 0.92);
+        --shadow: 0 24px 70px rgba(45, 38, 24, 0.22);
+        --small-shadow: 0 10px 32px rgba(45, 38, 24, 0.14);
+        --accent: #11796f;
+        --accent-strong: #075d56;
+        --accent-soft: rgba(17, 121, 111, 0.12);
+        --code: #0b6d7c;
+        --code-soft: rgba(11, 109, 124, 0.12);
+        --link: #7b4e0f;
+        --link-soft: rgba(169, 107, 22, 0.14);
+        --danger: #a33b2f;
+        --danger-soft: rgba(163, 59, 47, 0.12);
+        --purple: #6b5a9b;
+        --purple-soft: rgba(107, 90, 155, 0.14);
+        --radius-sm: 8px;
+        --radius-md: 14px;
+        --radius-lg: 22px;
+        --font: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", sans-serif;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        min-height: 100%;
+      }
+
+      body {
+        margin: 0;
+        background:
+          radial-gradient(circle at 12% 6%, rgba(255, 255, 255, 0.86) 0 18%, transparent 31%),
+          linear-gradient(135deg, #eee7dd 0%, #e1e9e6 28%, #d9ded7 52%, #ece1d1 74%, #f3eee6 100%);
+        color: var(--ink);
+        font-family: var(--font);
+        letter-spacing: 0;
+      }
+
+      button,
+      input {
+        font: inherit;
+      }
+
+      button {
+        appearance: none;
+        border: 0;
+        cursor: pointer;
+      }
+
+      .page {
+        display: grid;
+        grid-template-columns: minmax(720px, 1fr) 392px;
+        gap: 28px;
+        min-height: 100vh;
+        padding: 28px;
+      }
+
+      .stage {
+        position: relative;
+        min-height: calc(100vh - 56px);
+        border: 1px solid rgba(255, 255, 255, 0.62);
+        border-radius: 26px;
+        overflow: hidden;
+        background:
+          linear-gradient(120deg, rgba(239, 245, 241, 0.94), rgba(249, 242, 229, 0.92)),
+          linear-gradient(180deg, #efe6d8 0%, #dfe8e4 100%);
+        box-shadow: var(--shadow);
+      }
+
+      .stage::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background:
+          linear-gradient(135deg, transparent 0 38%, rgba(13, 92, 83, 0.08) 38% 42%, transparent 42% 100%),
+          linear-gradient(38deg, transparent 0 54%, rgba(125, 84, 21, 0.09) 54% 57%, transparent 57% 100%);
+        pointer-events: none;
+      }
+
+      .desktop {
+        position: relative;
+        z-index: 1;
+        min-height: calc(100vh - 56px);
+      }
+
+      .menu-bar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        height: 34px;
+        padding: 0 14px;
+        background: rgba(250, 250, 248, 0.54);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.5);
+        backdrop-filter: blur(30px) saturate(1.22);
+        -webkit-backdrop-filter: blur(30px) saturate(1.22);
+        font-size: 13px;
+        color: rgba(22, 22, 21, 0.82);
+      }
+
+      .menu-left,
+      .menu-right {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        min-width: 0;
+      }
+
+      .apple-mark {
+        width: 14px;
+        height: 14px;
+        display: grid;
+        place-items: center;
+        font-size: 16px;
+        line-height: 1;
+      }
+
+      .menu-item {
+        white-space: nowrap;
+      }
+
+      .menu-item.strong {
+        font-weight: 700;
+      }
+
+      .wemail-menu-pill {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        height: 24px;
+        padding: 0 9px;
+        border-radius: 7px;
+        background: rgba(255, 255, 255, 0.72);
+        box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.82), 0 1px 6px rgba(31, 28, 21, 0.09);
+        color: var(--ink);
+      }
+
+      .status-dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 999px;
+        background: var(--accent);
+        box-shadow: 0 0 0 3px rgba(17, 121, 111, 0.16);
+      }
+
+      .status-dot.waiting {
+        background: #bd7c17;
+        box-shadow: 0 0 0 3px rgba(189, 124, 23, 0.18);
+      }
+
+      .status-dot.new {
+        background: #0c7180;
+        box-shadow: 0 0 0 3px rgba(12, 113, 128, 0.18);
+      }
+
+      .window-stack {
+        position: absolute;
+        left: clamp(28px, 5vw, 68px);
+        right: clamp(360px, 35vw, 510px);
+        bottom: clamp(34px, 6vw, 76px);
+        min-width: 360px;
+        height: 318px;
+        border-radius: 16px;
+        background: rgba(255, 255, 255, 0.5);
+        border: 1px solid rgba(255, 255, 255, 0.74);
+        box-shadow: 0 28px 80px rgba(60, 50, 34, 0.16);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        overflow: hidden;
+      }
+
+      .window-titlebar {
+        height: 38px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 14px;
+        border-bottom: 1px solid rgba(31, 28, 23, 0.08);
+        background: rgba(255, 255, 255, 0.34);
+      }
+
+      .traffic {
+        display: flex;
+        gap: 8px;
+      }
+
+      .traffic span {
+        width: 11px;
+        height: 11px;
+        border-radius: 50%;
+      }
+
+      .traffic span:nth-child(1) {
+        background: #ff5f57;
+      }
+
+      .traffic span:nth-child(2) {
+        background: #febc2e;
+      }
+
+      .traffic span:nth-child(3) {
+        background: #28c840;
+      }
+
+      .browser-lines {
+        display: grid;
+        gap: 12px;
+        padding: 22px;
+      }
+
+      .browser-line {
+        height: 11px;
+        border-radius: 4px;
+        background: rgba(28, 27, 23, 0.08);
+      }
+
+      .browser-line.short {
+        width: 42%;
+      }
+
+      .browser-line.mid {
+        width: 74%;
+      }
+
+      .browser-card {
+        display: grid;
+        gap: 12px;
+        margin-top: 10px;
+        padding: 16px;
+        border: 1px solid rgba(31, 28, 23, 0.09);
+        border-radius: 12px;
+        background: rgba(255, 255, 255, 0.48);
+      }
+
+      .popover-anchor {
+        position: absolute;
+        top: 34px;
+        right: clamp(34px, 5vw, 74px);
+        width: min(420px, calc(100vw - 80px));
+      }
+
+      .popover-caret {
+        width: 16px;
+        height: 16px;
+        margin-left: auto;
+        margin-right: 58px;
+        margin-bottom: -8px;
+        transform: rotate(45deg);
+        background: rgba(255, 255, 255, 0.78);
+        border-left: 1px solid rgba(255, 255, 255, 0.8);
+        border-top: 1px solid rgba(255, 255, 255, 0.8);
+        backdrop-filter: blur(28px);
+        -webkit-backdrop-filter: blur(28px);
+      }
+
+      .popover {
+        border-radius: 18px;
+        background: rgba(255, 255, 255, 0.76);
+        border: 1px solid rgba(255, 255, 255, 0.78);
+        box-shadow: 0 34px 88px rgba(38, 32, 22, 0.24), inset 0 1px 0 rgba(255, 255, 255, 0.74);
+        backdrop-filter: blur(34px) saturate(1.22);
+        -webkit-backdrop-filter: blur(34px) saturate(1.22);
+        overflow: hidden;
+      }
+
+      .popover-top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 14px;
+        padding: 16px 16px 12px;
+        border-bottom: 1px solid rgba(35, 32, 26, 0.08);
+      }
+
+      .app-lockup {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        min-width: 0;
+      }
+
+      .app-icon {
+        width: 34px;
+        height: 34px;
+        display: grid;
+        place-items: center;
+        border-radius: 9px;
+        background: linear-gradient(145deg, #0d6f65, #1f988c);
+        color: #fff;
+        font-weight: 800;
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.34), 0 8px 22px rgba(17, 121, 111, 0.26);
+      }
+
+      .app-lockup h1 {
+        margin: 0;
+        font-size: 15px;
+        line-height: 1.18;
+      }
+
+      .app-lockup p {
+        margin: 2px 0 0;
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .icon-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .icon-button {
+        width: 30px;
+        height: 30px;
+        display: grid;
+        place-items: center;
+        border-radius: 8px;
+        color: rgba(23, 22, 20, 0.72);
+        background: rgba(255, 255, 255, 0.48);
+        box-shadow: inset 0 0 0 1px rgba(31, 28, 23, 0.08);
+      }
+
+      .icon-button:hover,
+      .pill-button:hover,
+      .copy-action:hover {
+        background: rgba(255, 255, 255, 0.78);
+      }
+
+      .mailbox-strip {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 10px;
+        align-items: center;
+        padding: 13px 16px;
+        border-bottom: 1px solid rgba(35, 32, 26, 0.08);
+      }
+
+      .mailbox {
+        min-width: 0;
+      }
+
+      .mailbox small {
+        display: block;
+        color: var(--quiet);
+        font-size: 11px;
+        margin-bottom: 4px;
+      }
+
+      .mailbox strong {
+        display: block;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        font-size: 14px;
+      }
+
+      .pill-button {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 7px;
+        min-height: 32px;
+        padding: 0 11px;
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.52);
+        color: var(--ink);
+        box-shadow: inset 0 0 0 1px rgba(31, 28, 23, 0.08);
+        font-size: 12px;
+        font-weight: 650;
+        white-space: nowrap;
+      }
+
+      .pill-button.primary {
+        background: var(--ink);
+        color: #fff;
+        box-shadow: none;
+      }
+
+      .pill-button.primary:hover {
+        background: #2a2927;
+      }
+
+      .wait-card {
+        margin: 14px 16px 0;
+        padding: 12px;
+        border: 1px solid rgba(31, 28, 23, 0.08);
+        border-radius: 12px;
+        background: rgba(250, 249, 245, 0.7);
+      }
+
+      .wait-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+      }
+
+      .wait-title {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 13px;
+        font-weight: 700;
+      }
+
+      .switch {
+        position: relative;
+        width: 42px;
+        height: 24px;
+        border-radius: 999px;
+        background: rgba(31, 28, 23, 0.18);
+        box-shadow: inset 0 0 0 1px rgba(31, 28, 23, 0.07);
+        transition: background 180ms ease;
+      }
+
+      .switch::after {
+        content: "";
+        position: absolute;
+        top: 3px;
+        left: 3px;
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        background: #fff;
+        box-shadow: 0 2px 7px rgba(32, 28, 22, 0.24);
+        transition: transform 180ms ease;
+      }
+
+      .switch.on {
+        background: var(--accent);
+      }
+
+      .switch.on::after {
+        transform: translateX(18px);
+      }
+
+      .progress-shell {
+        height: 6px;
+        margin-top: 11px;
+        border-radius: 999px;
+        background: rgba(31, 28, 23, 0.1);
+        overflow: hidden;
+      }
+
+      .progress-bar {
+        width: 46%;
+        height: 100%;
+        border-radius: 999px;
+        background: linear-gradient(90deg, #bd7c17, #11796f);
+        transition: width 260ms ease;
+      }
+
+      .wait-meta {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-top: 8px;
+        color: var(--quiet);
+        font-size: 11px;
+      }
+
+      .hero-card {
+        display: grid;
+        gap: 12px;
+        margin: 14px 16px;
+        padding: 15px;
+        border-radius: 14px;
+        background: var(--panel-solid);
+        border: 1px solid rgba(31, 28, 23, 0.09);
+        box-shadow: 0 14px 38px rgba(38, 32, 22, 0.1);
+      }
+
+      .hero-card.link-mode .code-display {
+        color: var(--link);
+      }
+
+      .hero-top {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 14px;
+      }
+
+      .label-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        width: fit-content;
+        min-height: 24px;
+        padding: 0 8px;
+        border-radius: 7px;
+        font-size: 11px;
+        font-weight: 760;
+        color: var(--code);
+        background: var(--code-soft);
+      }
+
+      .label-chip.link {
+        color: var(--link);
+        background: var(--link-soft);
+      }
+
+      .code-display {
+        margin: 8px 0 0;
+        font-size: clamp(30px, 4vw, 42px);
+        line-height: 0.95;
+        font-weight: 780;
+        letter-spacing: 0.08em;
+        color: var(--code);
+        font-variant-numeric: tabular-nums;
+      }
+
+      .message-source {
+        display: grid;
+        gap: 3px;
+        min-width: 0;
+        margin-top: 8px;
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .message-source strong {
+        color: var(--ink);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .quick-actions {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+      }
+
+      .quick-actions .pill-button {
+        height: 36px;
+      }
+
+      .message-tabs {
+        display: flex;
+        gap: 7px;
+        padding: 0 16px 10px;
+      }
+
+      .tab {
+        min-height: 28px;
+        padding: 0 10px;
+        border-radius: 8px;
+        background: transparent;
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 680;
+      }
+
+      .tab.active {
+        color: var(--ink);
+        background: rgba(255, 255, 255, 0.6);
+        box-shadow: inset 0 0 0 1px rgba(31, 28, 23, 0.08);
+      }
+
+      .message-list {
+        display: grid;
+        gap: 8px;
+        max-height: 210px;
+        overflow: auto;
+        padding: 0 16px 16px;
+      }
+
+      .message-item {
+        display: grid;
+        grid-template-columns: auto 1fr auto;
+        gap: 10px;
+        align-items: center;
+        min-height: 54px;
+        padding: 9px 10px;
+        border-radius: 11px;
+        background: rgba(255, 255, 255, 0.42);
+        box-shadow: inset 0 0 0 1px rgba(31, 28, 23, 0.06);
+      }
+
+      .message-item.active {
+        background: rgba(17, 121, 111, 0.1);
+        box-shadow: inset 0 0 0 1px rgba(17, 121, 111, 0.18);
+      }
+
+      .message-mark {
+        width: 30px;
+        height: 30px;
+        display: grid;
+        place-items: center;
+        border-radius: 8px;
+        color: var(--code);
+        background: var(--code-soft);
+        font-weight: 800;
+        font-size: 12px;
+      }
+
+      .message-mark.link {
+        color: var(--link);
+        background: var(--link-soft);
+      }
+
+      .message-text {
+        display: grid;
+        gap: 3px;
+        min-width: 0;
+        text-align: left;
+      }
+
+      .message-text strong,
+      .message-text span {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .message-text strong {
+        font-size: 12px;
+      }
+
+      .message-text span {
+        color: var(--muted);
+        font-size: 11px;
+      }
+
+      .copy-action {
+        min-width: 54px;
+        height: 28px;
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.56);
+        color: var(--ink);
+        font-size: 11px;
+        font-weight: 720;
+        box-shadow: inset 0 0 0 1px rgba(31, 28, 23, 0.07);
+      }
+
+      .settings-panel {
+        display: none;
+        padding: 14px 16px 16px;
+        border-top: 1px solid rgba(35, 32, 26, 0.08);
+      }
+
+      .settings-grid {
+        display: grid;
+        gap: 8px;
+      }
+
+      .setting-row {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 12px;
+        align-items: center;
+        min-height: 44px;
+        padding: 8px 10px;
+        border-radius: 10px;
+        background: rgba(255, 255, 255, 0.44);
+        box-shadow: inset 0 0 0 1px rgba(31, 28, 23, 0.06);
+      }
+
+      .setting-row strong {
+        display: block;
+        font-size: 12px;
+      }
+
+      .setting-row small {
+        color: var(--quiet);
+        font-size: 11px;
+      }
+
+      .state-settings .hero-card,
+      .state-settings .message-tabs,
+      .state-settings .message-list {
+        display: none;
+      }
+
+      .state-settings .settings-panel {
+        display: block;
+      }
+
+      .notification {
+        position: absolute;
+        z-index: 4;
+        top: 56px;
+        left: clamp(52px, 5vw, 84px);
+        width: 344px;
+        transform: translateY(-10px);
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 180ms ease, transform 180ms ease;
+      }
+
+      .notification.visible {
+        transform: translateY(0);
+        opacity: 1;
+      }
+
+      .notification-card {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        gap: 11px;
+        padding: 13px;
+        border-radius: 15px;
+        background: rgba(253, 252, 249, 0.82);
+        border: 1px solid rgba(255, 255, 255, 0.84);
+        box-shadow: 0 20px 58px rgba(39, 32, 22, 0.2);
+        backdrop-filter: blur(28px) saturate(1.2);
+        -webkit-backdrop-filter: blur(28px) saturate(1.2);
+      }
+
+      .notification h3 {
+        margin: 0;
+        font-size: 13px;
+      }
+
+      .notification p {
+        margin: 3px 0 9px;
+        color: var(--muted);
+        font-size: 12px;
+        line-height: 1.35;
+      }
+
+      .notification-actions {
+        display: flex;
+        gap: 8px;
+      }
+
+      .toast {
+        position: absolute;
+        z-index: 5;
+        left: 50%;
+        bottom: 42px;
+        transform: translate(-50%, 14px);
+        opacity: 0;
+        min-height: 36px;
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        padding: 0 13px;
+        border-radius: 999px;
+        background: rgba(23, 22, 20, 0.88);
+        color: #fff;
+        box-shadow: 0 14px 38px rgba(20, 18, 14, 0.28);
+        backdrop-filter: blur(18px);
+        -webkit-backdrop-filter: blur(18px);
+        font-size: 12px;
+        font-weight: 680;
+        transition: opacity 160ms ease, transform 160ms ease;
+      }
+
+      .toast.visible {
+        opacity: 1;
+        transform: translate(-50%, 0);
+      }
+
+      .side {
+        display: grid;
+        align-content: start;
+        gap: 16px;
+      }
+
+      .brief {
+        padding: 22px;
+        border-radius: 20px;
+        background: rgba(255, 255, 255, 0.58);
+        border: 1px solid rgba(255, 255, 255, 0.66);
+        box-shadow: var(--small-shadow);
+        backdrop-filter: blur(24px) saturate(1.1);
+        -webkit-backdrop-filter: blur(24px) saturate(1.1);
+      }
+
+      .brief h2,
+      .brief h3 {
+        margin: 0;
+      }
+
+      .brief h2 {
+        font-size: 24px;
+        line-height: 1.06;
+      }
+
+      .brief p {
+        margin: 10px 0 0;
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.55;
+      }
+
+      .mini-kicker {
+        margin: 0 0 9px;
+        color: var(--accent-strong);
+        font-size: 11px;
+        font-weight: 780;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+      }
+
+      .control-card {
+        padding: 14px;
+        border-radius: 16px;
+        background: rgba(255, 255, 255, 0.56);
+        border: 1px solid rgba(255, 255, 255, 0.68);
+        box-shadow: var(--small-shadow);
+        backdrop-filter: blur(24px) saturate(1.1);
+        -webkit-backdrop-filter: blur(24px) saturate(1.1);
+      }
+
+      .segment-title {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        margin-bottom: 10px;
+      }
+
+      .segment-title h3 {
+        font-size: 14px;
+      }
+
+      .segmented {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 7px;
+      }
+
+      .state-button {
+        min-height: 42px;
+        border-radius: 10px;
+        background: rgba(255, 255, 255, 0.54);
+        color: var(--muted);
+        box-shadow: inset 0 0 0 1px rgba(31, 28, 23, 0.07);
+        font-size: 12px;
+        font-weight: 740;
+      }
+
+      .state-button.active {
+        color: #fff;
+        background: var(--ink);
+        box-shadow: none;
+      }
+
+      .spec-list {
+        display: grid;
+        gap: 9px;
+        margin-top: 12px;
+      }
+
+      .spec-item {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        gap: 10px;
+        align-items: start;
+        min-height: 42px;
+        padding: 10px;
+        border-radius: 12px;
+        background: rgba(255, 255, 255, 0.42);
+        box-shadow: inset 0 0 0 1px rgba(31, 28, 23, 0.06);
+      }
+
+      .spec-token {
+        width: 24px;
+        height: 24px;
+        display: grid;
+        place-items: center;
+        border-radius: 7px;
+        background: var(--accent-soft);
+        color: var(--accent-strong);
+        font-size: 12px;
+        font-weight: 800;
+      }
+
+      .spec-item strong {
+        display: block;
+        font-size: 12px;
+      }
+
+      .spec-item span {
+        display: block;
+        margin-top: 3px;
+        color: var(--muted);
+        font-size: 11px;
+        line-height: 1.42;
+      }
+
+      .api-map {
+        display: grid;
+        gap: 8px;
+        margin-top: 12px;
+      }
+
+      .api-row {
+        display: grid;
+        grid-template-columns: 92px 1fr;
+        gap: 8px;
+        padding: 9px 10px;
+        border-radius: 10px;
+        background: rgba(255, 255, 255, 0.44);
+        box-shadow: inset 0 0 0 1px rgba(31, 28, 23, 0.06);
+        font-size: 11px;
+      }
+
+      .api-row code {
+        color: var(--accent-strong);
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        font-size: 10px;
+      }
+
+      .api-row span {
+        color: var(--muted);
+        min-width: 0;
+        overflow-wrap: anywhere;
+      }
+
+      .footer-note {
+        padding: 14px 16px;
+        border-radius: 16px;
+        background: rgba(22, 22, 21, 0.86);
+        color: rgba(255, 255, 255, 0.88);
+        box-shadow: 0 18px 52px rgba(20, 18, 14, 0.2);
+        font-size: 12px;
+        line-height: 1.55;
+      }
+
+      .footer-note strong {
+        color: #fff;
+      }
+
+      .state-waiting .status-dot {
+        background: #bd7c17;
+        box-shadow: 0 0 0 3px rgba(189, 124, 23, 0.18);
+      }
+
+      .state-waiting .progress-bar {
+        width: 78%;
+      }
+
+      .state-waiting .switch {
+        background: var(--accent);
+      }
+
+      .state-waiting .switch::after {
+        transform: translateX(18px);
+      }
+
+      .state-new .notification {
+        opacity: 1;
+        transform: translateY(0);
+      }
+
+      .state-new .status-dot {
+        background: #0c7180;
+        box-shadow: 0 0 0 3px rgba(12, 113, 128, 0.18);
+      }
+
+      .state-idle .progress-bar {
+        width: 18%;
+        background: var(--accent);
+      }
+
+      .state-idle .switch {
+        background: rgba(31, 28, 23, 0.18);
+      }
+
+      .state-idle .switch::after {
+        transform: translateX(0);
+      }
+
+      @media (max-width: 1180px) {
+        .page {
+          grid-template-columns: 1fr;
+        }
+
+        .stage {
+          min-height: 820px;
+        }
+
+        .desktop {
+          min-height: 820px;
+        }
+
+        .side {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .brief:first-child,
+        .footer-note {
+          grid-column: 1 / -1;
+        }
+      }
+
+      @media (max-width: 760px) {
+        .page {
+          padding: 12px;
+          gap: 14px;
+        }
+
+        .stage {
+          border-radius: 18px;
+          min-height: 760px;
+        }
+
+        .desktop {
+          min-height: 760px;
+        }
+
+        .menu-left .menu-item:not(.strong),
+        .window-stack {
+          display: none;
+        }
+
+        .popover-anchor {
+          left: 12px;
+          right: 12px;
+          width: auto;
+        }
+
+        .notification {
+          left: 14px;
+          right: 14px;
+          width: auto;
+        }
+
+        .side {
+          grid-template-columns: 1fr;
+        }
+
+        .quick-actions {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="page">
+      <section class="stage state-new" data-screen-label="macos-menu-bar-prototype" id="stage">
+        <div class="desktop">
+          <div class="menu-bar">
+            <div class="menu-left">
+              <div class="apple-mark">●</div>
+              <div class="menu-item strong">WeMail</div>
+              <div class="menu-item">文件</div>
+              <div class="menu-item">邮箱</div>
+              <div class="menu-item">窗口</div>
+            </div>
+            <div class="menu-right">
+              <div class="wemail-menu-pill">
+                <span class="status-dot" id="menubarDot"></span>
+                <span id="menubarLabel">482193</span>
+              </div>
+              <div class="menu-item">Wi-Fi</div>
+              <div class="menu-item" id="clockLabel">周三 10:24</div>
+            </div>
+          </div>
+
+          <div class="window-stack" aria-hidden="true">
+            <div class="window-titlebar">
+              <div class="traffic"><span></span><span></span><span></span></div>
+              <span style="font-size: 12px; color: rgba(24,23,21,.52);">Safari - checkout.example</span>
+            </div>
+            <div class="browser-lines">
+              <div class="browser-line short"></div>
+              <div class="browser-line mid"></div>
+              <div class="browser-card">
+                <div class="browser-line" style="width: 86%;"></div>
+                <div class="browser-line" style="width: 66%;"></div>
+                <div class="browser-line" style="width: 52%;"></div>
+              </div>
+              <div class="browser-line" style="width: 39%;"></div>
+            </div>
+          </div>
+
+          <div class="notification visible" id="notification">
+            <div class="notification-card">
+              <div class="app-icon">W</div>
+              <div>
+                <h3>WeMail 识别到验证码</h3>
+                <p>来自 Stripe 的邮件包含验证码 482193，可直接复制到当前注册流程。</p>
+                <div class="notification-actions">
+                  <button class="pill-button primary" data-copy="482193">复制验证码</button>
+                  <button class="pill-button" id="dismissNotification">稍后</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="popover-anchor">
+            <div class="popover-caret"></div>
+            <article class="popover" id="popover">
+              <header class="popover-top">
+                <div class="app-lockup">
+                  <div class="app-icon">W</div>
+                  <div>
+                    <h1>WeMail</h1>
+                    <p id="syncStatus">刚刚收到 1 封新邮件</p>
+                  </div>
+                </div>
+                <div class="icon-row">
+                  <button class="icon-button" title="刷新" id="refreshButton">↻</button>
+                  <button class="icon-button" title="设置" data-state="settings">⌘</button>
+                </div>
+              </header>
+
+              <section class="mailbox-strip">
+                <div class="mailbox">
+                  <small>当前临时邮箱</small>
+                  <strong>signup-aqua-27@wemail.dev</strong>
+                </div>
+                <button class="pill-button" data-copy="signup-aqua-27@wemail.dev">复制邮箱</button>
+              </section>
+
+              <section class="wait-card">
+                <div class="wait-head">
+                  <div class="wait-title">
+                    <span class="status-dot waiting"></span>
+                    <span id="waitTitle">等待验证码模式</span>
+                  </div>
+                  <button class="switch on" id="waitSwitch" aria-label="切换等待验证码模式"></button>
+                </div>
+                <div class="progress-shell"><div class="progress-bar"></div></div>
+                <div class="wait-meta">
+                  <span id="pollingLabel">每 5 秒刷新，剩余 01:42</span>
+                  <span>超时后自动降频</span>
+                </div>
+              </section>
+
+              <section class="hero-card" id="heroCard">
+                <div class="hero-top">
+                  <div>
+                    <span class="label-chip" id="heroChip">验证码</span>
+                    <div class="code-display" id="heroValue">482193</div>
+                    <div class="message-source">
+                      <strong id="heroFrom">Stripe 登录验证</strong>
+                      <span id="heroMeta">2 秒前 · 已由服务端 extraction 识别</span>
+                    </div>
+                  </div>
+                  <button class="copy-action" data-copy="482193" id="heroCopy">复制</button>
+                </div>
+                <div class="quick-actions">
+                  <button class="pill-button primary" data-copy="482193" id="primaryAction">复制验证码</button>
+                  <button class="pill-button" id="secondaryAction">查看邮件</button>
+                </div>
+              </section>
+
+              <nav class="message-tabs" aria-label="消息筛选">
+                <button class="tab active">全部</button>
+                <button class="tab">验证码</button>
+                <button class="tab">链接</button>
+              </nav>
+
+              <section class="message-list">
+                <button class="message-item active">
+                  <span class="message-mark">#</span>
+                  <span class="message-text">
+                    <strong>Stripe 登录验证</strong>
+                    <span>验证码 482193 · 2 秒前</span>
+                  </span>
+                  <span class="copy-action">复制</span>
+                </button>
+                <button class="message-item">
+                  <span class="message-mark link">↗</span>
+                  <span class="message-text">
+                    <strong>GitHub device verification</strong>
+                    <span>识别到 auth link · 6 分钟前</span>
+                  </span>
+                  <span class="copy-action">打开</span>
+                </button>
+                <button class="message-item">
+                  <span class="message-mark link">↗</span>
+                  <span class="message-text">
+                    <strong>Notion workspace invite</strong>
+                    <span>服务链接 · 17 分钟前</span>
+                  </span>
+                  <span class="copy-action">复制</span>
+                </button>
+              </section>
+
+              <section class="settings-panel">
+                <div class="settings-grid">
+                  <div class="setting-row">
+                    <div>
+                      <strong>登录凭据</strong>
+                      <small>Token 存储在 macOS Keychain</small>
+                    </div>
+                    <span class="label-chip">安全</span>
+                  </div>
+                  <div class="setting-row">
+                    <div>
+                      <strong>刷新策略</strong>
+                      <small>等待模式 5 秒，后台 90 秒</small>
+                    </div>
+                    <button class="pill-button">调整</button>
+                  </div>
+                  <div class="setting-row">
+                    <div>
+                      <strong>隐私边界</strong>
+                      <small>不读取剪贴板，不扫描浏览器页面</small>
+                    </div>
+                    <span class="label-chip link">本地</span>
+                  </div>
+                  <div class="setting-row">
+                    <div>
+                      <strong>连接</strong>
+                      <small>api.wemail.dev · 已认证</small>
+                    </div>
+                    <button class="pill-button">退出</button>
+                  </div>
+                </div>
+              </section>
+            </article>
+          </div>
+
+          <div class="toast" id="toast">已复制到剪贴板</div>
+        </div>
+      </section>
+
+      <aside class="side" data-screen-label="design-notes">
+        <section class="brief">
+          <p class="mini-kicker">High-fidelity direction</p>
+          <h2>菜单栏里的验证码雷达</h2>
+          <p>客户端把 WeMail 的临时邮箱能力压缩成一个系统级小工具：常驻、低打扰、收到验证码时立刻可复制，识别链接时立刻可打开。</p>
+        </section>
+
+        <section class="control-card">
+          <div class="segment-title">
+            <h3>状态演示</h3>
+            <span class="label-chip">Interactive</span>
+          </div>
+          <div class="segmented" id="stateControls">
+            <button class="state-button" data-state="idle">空闲</button>
+            <button class="state-button" data-state="waiting">等待中</button>
+            <button class="state-button active" data-state="new">新验证码</button>
+            <button class="state-button" data-state="settings">设置</button>
+          </div>
+        </section>
+
+        <section class="brief">
+          <p class="mini-kicker">MVP behavior</p>
+          <div class="spec-list">
+            <div class="spec-item">
+              <span class="spec-token">1</span>
+              <div><strong>服务端提取优先</strong><span>直接展示现有邮件 `extraction` 结果，客户端仅做离线兜底。</span></div>
+            </div>
+            <div class="spec-item">
+              <span class="spec-token">2</span>
+              <div><strong>等待验证码模式</strong><span>2-5 分钟高频刷新，收到目标邮件或超时后回到低频后台轮询。</span></div>
+            </div>
+            <div class="spec-item">
+              <span class="spec-token">3</span>
+              <div><strong>一键动作</strong><span>复制邮箱、复制验证码、打开 auth link 都在 1-2 次点击内完成。</span></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="brief">
+          <p class="mini-kicker">API mapping</p>
+          <div class="api-map">
+            <div class="api-row"><code>GET</code><span>/api/auth/session</span></div>
+            <div class="api-row"><code>GET</code><span>/api/accounts</span></div>
+            <div class="api-row"><code>GET</code><span>/api/mail/messages?accountId=...</span></div>
+            <div class="api-row"><code>GET</code><span>/api/mail/messages/:id</span></div>
+          </div>
+        </section>
+
+        <section class="footer-note">
+          <strong>设计取舍：</strong>第一版避免完整邮件客户端化。Web 端继续承载管理、详情和发送能力；macOS 端只把系统层面的“等、识别、复制、打开”做到极致。
+        </section>
+      </aside>
+    </main>
+
+    <script>
+      const stage = document.getElementById("stage");
+      const toast = document.getElementById("toast");
+      const notification = document.getElementById("notification");
+      const stateButtons = Array.from(document.querySelectorAll("[data-state]"));
+      const controlButtons = Array.from(document.querySelectorAll(".state-button"));
+      const menubarLabel = document.getElementById("menubarLabel");
+      const syncStatus = document.getElementById("syncStatus");
+      const waitTitle = document.getElementById("waitTitle");
+      const pollingLabel = document.getElementById("pollingLabel");
+      const heroCard = document.getElementById("heroCard");
+      const heroChip = document.getElementById("heroChip");
+      const heroValue = document.getElementById("heroValue");
+      const heroFrom = document.getElementById("heroFrom");
+      const heroMeta = document.getElementById("heroMeta");
+      const heroCopy = document.getElementById("heroCopy");
+      const primaryAction = document.getElementById("primaryAction");
+      const waitSwitch = document.getElementById("waitSwitch");
+
+      let toastTimer = null;
+
+      const states = {
+        idle: {
+          className: "state-idle",
+          menu: "WeMail",
+          sync: "后台同步 · 90 秒后刷新",
+          wait: "等待验证码模式",
+          polling: "后台低频刷新，点击开启高频等待",
+          chip: "最近验证码",
+          value: "482193",
+          from: "Stripe 登录验证",
+          meta: "13 分钟前 · 保留最近可用结果",
+          action: "复制最近验证码",
+          copy: "482193",
+          notify: false,
+          linkMode: false,
+          switchOn: false
+        },
+        waiting: {
+          className: "state-waiting",
+          menu: "等待中",
+          sync: "正在等待新验证码",
+          wait: "等待验证码模式",
+          polling: "每 5 秒刷新，剩余 01:42",
+          chip: "等待中",
+          value: "READY",
+          from: "signup-aqua-27@wemail.dev",
+          meta: "复制邮箱后可直接粘贴到注册表单",
+          action: "复制邮箱",
+          copy: "signup-aqua-27@wemail.dev",
+          notify: false,
+          linkMode: false,
+          switchOn: true
+        },
+        new: {
+          className: "state-new",
+          menu: "482193",
+          sync: "刚刚收到 1 封新邮件",
+          wait: "等待验证码模式",
+          polling: "每 5 秒刷新，剩余 01:42",
+          chip: "验证码",
+          value: "482193",
+          from: "Stripe 登录验证",
+          meta: "2 秒前 · 已由服务端 extraction 识别",
+          action: "复制验证码",
+          copy: "482193",
+          notify: true,
+          linkMode: false,
+          switchOn: true
+        },
+        settings: {
+          className: "state-settings",
+          menu: "设置",
+          sync: "偏好设置",
+          wait: "刷新与隐私",
+          polling: "Keychain、轮询频率和通知权限",
+          chip: "Auth link",
+          value: "OPEN",
+          from: "GitHub device verification",
+          meta: "识别到登录链接 · 6 分钟前",
+          action: "打开链接",
+          copy: "https://github.com/login/device",
+          notify: false,
+          linkMode: true,
+          switchOn: false
+        }
+      };
+
+      function setState(name) {
+        const state = states[name] || states.new;
+        stage.className = `stage ${state.className}`;
+        menubarLabel.textContent = state.menu;
+        syncStatus.textContent = state.sync;
+        waitTitle.textContent = state.wait;
+        pollingLabel.textContent = state.polling;
+        heroChip.textContent = state.chip;
+        heroChip.classList.toggle("link", state.linkMode);
+        heroValue.textContent = state.value;
+        heroFrom.textContent = state.from;
+        heroMeta.textContent = state.meta;
+        primaryAction.textContent = state.action;
+        primaryAction.dataset.copy = state.copy;
+        heroCopy.dataset.copy = state.copy;
+        heroCard.classList.toggle("link-mode", state.linkMode);
+        notification.classList.toggle("visible", state.notify);
+        waitSwitch.classList.toggle("on", state.switchOn);
+        controlButtons.forEach((button) => button.classList.toggle("active", button.dataset.state === name));
+      }
+
+      function showToast(text) {
+        toast.textContent = text;
+        toast.classList.add("visible");
+        window.clearTimeout(toastTimer);
+        toastTimer = window.setTimeout(() => toast.classList.remove("visible"), 1400);
+      }
+
+      document.addEventListener("click", (event) => {
+        const stateButton = event.target.closest("[data-state]");
+        if (stateButton) {
+          setState(stateButton.dataset.state);
+          return;
+        }
+
+        const copyButton = event.target.closest("[data-copy]");
+        if (copyButton) {
+          showToast(`已复制 ${copyButton.dataset.copy}`);
+        }
+      });
+
+      document.getElementById("refreshButton").addEventListener("click", () => {
+        showToast("已刷新收件箱");
+      });
+
+      document.getElementById("dismissNotification").addEventListener("click", () => {
+        notification.classList.remove("visible");
+      });
+
+      document.getElementById("secondaryAction").addEventListener("click", () => {
+        showToast("已打开邮件详情");
+      });
+
+      waitSwitch.addEventListener("click", () => {
+        const isOn = waitSwitch.classList.contains("on");
+        setState(isOn ? "idle" : "waiting");
+      });
+    </script>
+  </body>
+</html>
