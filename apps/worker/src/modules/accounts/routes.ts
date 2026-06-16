@@ -1,54 +1,30 @@
 import type { Hono } from "hono";
-import type { MailboxStatus } from "@wemail/shared";
+import {
+  parseAccountBulkDeletePayload,
+  parseAccountPolicyRecord,
+  parseAccountPolicyUpdatePayload,
+  toPersistableAccountPolicy,
+  type MailboxStatus
+} from "@wemail/shared";
 
 import type { AppContext } from "../../app/context";
 import { getAppServices, requireSessionAuth, requireUser } from "../../app/context";
 import { jsonError, recordAudit } from "../../app/services/audit-service";
+import { CACHE_KEYS, CACHE_TTL_SECONDS, cachedJson, deleteCacheKeys } from "../../app/services/cache-service";
 import { toMailboxCreateResponse, toMailboxListResponse, toMailboxDetailListResponse } from "../../app/routes/dto/mailbox-dto";
 import { parseMailboxCreateRequest } from "../../app/routes/requests/mailbox-request";
 import {
+  applyInactiveMailboxLifecycle,
+  bulkDeleteMailboxesAsAdmin,
   createUserMailbox,
   deleteMailboxAsAdmin,
   deleteUserMailbox,
+  listAvailableMailboxDomains,
   listAllMailboxesWithDetails,
+  listSelectableMailboxesPage,
   listUserMailboxes,
   updateMailboxAsAdmin
 } from "../../app/use-cases/mailbox-use-cases";
-
-const defaultAccountPolicy = {
-  creation: {
-    defaultTagsEnabled: true,
-    defaultTags: "运营, 高优先级",
-    allowCreationOverride: true,
-    defaultStatus: "启用",
-    requireCreatorNote: false
-  },
-  lifecycle: {
-    inactiveDays: 30,
-    inactiveAction: "自动归档",
-    softDeleteRetentionDays: 30,
-    allowHardDelete: false,
-    requireSoftDeleteBeforeHardDelete: true
-  },
-  protection: {
-    confirmStandardBulkActions: true,
-    standardBulkLimit: 100,
-    requireDangerPhrase: true,
-    hardDeleteLimit: 20,
-    auditLoggingEnabled: true
-  },
-  lastUpdatedLabel: "尚未更新"
-};
-
-function parseAccountPolicy(record: Awaited<ReturnType<AppContext["Variables"]["store"]["accountSettings"]["get"]>>) {
-  if (!record) return defaultAccountPolicy;
-  return {
-    creation: JSON.parse(record.creationJson),
-    lifecycle: JSON.parse(record.lifecycleJson),
-    protection: JSON.parse(record.protectionJson),
-    lastUpdatedLabel: record.updatedAt
-  };
-}
 
 const mailboxStatuses = new Set<MailboxStatus>(["enabled", "disabled", "archived", "soft_deleted"]);
 const accountActiveRanges = new Set(["7d", "30d", "90d"]);
@@ -67,14 +43,20 @@ function parseAccountListPageSize(value: string | undefined) {
   return 10;
 }
 
+function parseUserMailboxPageSize(value: string | undefined) {
+  const parsed = parsePositiveInteger(value, 10);
+  if (parsed > 50) return 50;
+  return parsed;
+}
+
 function parseAccountActiveRange(value: string | undefined) {
   return value && accountActiveRanges.has(value) ? (value as "7d" | "30d" | "90d") : undefined;
 }
 
 function getInactiveDaysFromPolicy(record: Awaited<ReturnType<AppContext["Variables"]["store"]["accountSettings"]["get"]>>) {
-  const policy = parseAccountPolicy(record);
+  const policy = parseAccountPolicyRecord(record);
   const inactiveDays = Number(policy.lifecycle?.inactiveDays);
-  return Number.isFinite(inactiveDays) && inactiveDays > 0 ? Math.trunc(inactiveDays) : defaultAccountPolicy.lifecycle.inactiveDays;
+  return Number.isFinite(inactiveDays) && inactiveDays > 0 ? Math.trunc(inactiveDays) : 30;
 }
 
 function parseMailboxUpdatePayload(input: unknown) {
@@ -108,7 +90,24 @@ export function registerAccountsRoutes(app: Hono<AppContext>) {
   app.get("/api/accounts", async (c) => {
     const user = requireUser(c);
     if (!user) return jsonError("Authentication required", 401);
+    const hasListQuery = Boolean(c.req.query("page") || c.req.query("pageSize") || c.req.query("search"));
+    if (hasListQuery) {
+      const result = await listSelectableMailboxesPage(getAppServices(c), user, {
+        page: parsePositiveInteger(c.req.query("page"), 1),
+        pageSize: parseUserMailboxPageSize(c.req.query("pageSize")),
+        search: c.req.query("search") ?? ""
+      });
+      return c.json(toMailboxListResponse(result, { includeCreator: user.role === "admin" }));
+    }
     return c.json(toMailboxListResponse(await listUserMailboxes(getAppServices(c), user.id)));
+  });
+
+  app.get("/api/accounts/domains", async (c) => {
+    const user = requireUser(c);
+    if (!user) return jsonError("Authentication required", 401);
+    const result = await listAvailableMailboxDomains(getAppServices(c), user.id);
+    if (result instanceof Response) return result;
+    return c.json(result);
   });
 
   app.get("/api/accounts/list", async (c) => {
@@ -122,7 +121,13 @@ export function registerAccountsRoutes(app: Hono<AppContext>) {
     const activeRange = parseAccountActiveRange(c.req.query("activeRange"));
     const createdBy = c.req.query("createdBy") || "all";
     const quickFilter = c.req.query("quickFilter") || undefined;
-    const inactiveDays = getInactiveDaysFromPolicy(await c.get("store").accountSettings.get());
+    const policyRecord = await c.get("store").accountSettings.get();
+    const accountPolicy = parseAccountPolicyRecord(policyRecord);
+    const inactiveDays = getInactiveDaysFromPolicy(policyRecord);
+
+    if (policyRecord) {
+      await applyInactiveMailboxLifecycle(getAppServices(c), accountPolicy);
+    }
 
     const result = await listAllMailboxesWithDetails(getAppServices(c), {
       page,
@@ -141,10 +146,43 @@ export function registerAccountsRoutes(app: Hono<AppContext>) {
   app.post("/api/accounts", async (c) => {
     const user = requireUser(c);
     if (!user) return jsonError("Authentication required", 401);
-    const { label: safeLabel } = await parseMailboxCreateRequest(c.req.raw);
-    const mailbox = await createUserMailbox(getAppServices(c), { userId: user.id, label: safeLabel });
+
+    let payload: Awaited<ReturnType<typeof parseMailboxCreateRequest>>;
+    try {
+      payload = await parseMailboxCreateRequest(c.req.raw);
+    } catch (error) {
+      return jsonError(error instanceof Error ? error.message : "Invalid request", 400);
+    }
+
+    const mailbox = await createUserMailbox(getAppServices(c), {
+      userId: user.id,
+      label: payload.label,
+      domain: payload.domain,
+      creatorNote: payload.creatorNote,
+      status: payload.status,
+      tags: payload.tags
+    });
     if (mailbox instanceof Response) return mailbox;
     return c.json(toMailboxCreateResponse(mailbox), 201);
+  });
+
+  app.post("/api/accounts/bulk-delete", async (c) => {
+    const user = requireUser(c);
+    if (!user || user.role !== "admin" || !requireSessionAuth(c)) return jsonError("Admin session required", 403);
+
+    let payload: ReturnType<typeof parseAccountBulkDeletePayload>;
+    try {
+      payload = parseAccountBulkDeletePayload(await c.req.json());
+    } catch (error) {
+      return jsonError(error instanceof Error ? error.message : "Invalid request", 400);
+    }
+
+    const result = await bulkDeleteMailboxesAsAdmin(getAppServices(c), {
+      actorUserId: user.id,
+      ...payload
+    });
+    if (result instanceof Response) return result;
+    return c.json(result);
   });
 
   app.patch("/api/accounts/:id", async (c) => {
@@ -181,25 +219,33 @@ export function registerAccountsRoutes(app: Hono<AppContext>) {
   app.get("/api/accounts/settings", async (c) => {
     const user = requireUser(c);
     if (!user) return jsonError("Authentication required", 401);
-    return c.json({ policy: parseAccountPolicy(await c.get("store").accountSettings.get()) });
+    const policy = await cachedJson(c.env.CACHE, CACHE_KEYS.accountPolicy, CACHE_TTL_SECONDS.settings, async () =>
+      parseAccountPolicyRecord(await c.get("store").accountSettings.get())
+    );
+    return c.json({ policy });
   });
 
   app.put("/api/accounts/settings", async (c) => {
     const user = requireUser(c);
     if (!user || user.role !== "admin" || !requireSessionAuth(c)) return jsonError("Admin session required", 403);
-    const payload = (await c.req.json()) as Partial<typeof defaultAccountPolicy>;
-    const current = parseAccountPolicy(await c.get("store").accountSettings.get());
-    const next = {
-      creation: payload.creation ?? current.creation,
-      lifecycle: payload.lifecycle ?? current.lifecycle,
-      protection: payload.protection ?? current.protection
-    };
+    const current = parseAccountPolicyRecord(await c.get("store").accountSettings.get());
+    let payload: ReturnType<typeof parseAccountPolicyUpdatePayload>;
+    try {
+      payload = parseAccountPolicyUpdatePayload(await c.req.json(), current);
+    } catch (error) {
+      return jsonError(error instanceof Error ? error.message : "Invalid request", 400);
+    }
+
+    const next = toPersistableAccountPolicy(payload, current);
     const record = await c.get("store").accountSettings.save({
       creationJson: JSON.stringify(next.creation),
       lifecycleJson: JSON.stringify(next.lifecycle),
       protectionJson: JSON.stringify(next.protection)
     });
-    await recordAudit(c.get("store"), "user", user.id, "account-settings-update", {});
-    return c.json({ policy: parseAccountPolicy(record) });
+    await recordAudit(c.get("store"), "user", user.id, "account-settings-update", {
+      sections: Object.keys(payload)
+    });
+    await deleteCacheKeys(c.env.CACHE, [CACHE_KEYS.accountPolicy]);
+    return c.json({ policy: parseAccountPolicyRecord(record) });
   });
 }

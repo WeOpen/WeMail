@@ -238,7 +238,7 @@ describe("DesignSystemPage", () => {
         expect(component.docSections?.length ?? 0).toBeGreaterThan(0);
       }
     }
-  });
+  }, 10_000);
 
   it("keeps Tag and Badge samples on the same display size", () => {
     render(

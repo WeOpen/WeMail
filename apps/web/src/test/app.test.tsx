@@ -526,6 +526,55 @@ describe("App", () => {
   );
 
   it(
+    "routes authenticated members into the grouped API interface catalog",
+    async () => {
+      window.history.pushState({}, "", "/api-keys/interfaces");
+      vi.restoreAllMocks();
+      vi.spyOn(globalThis, "fetch").mockImplementation((input) => {
+        const url = typeof input === "string" ? input : input instanceof Request ? input.url : String(input);
+
+        if (url.endsWith("/api/auth/session")) {
+          return jsonResponse({
+            user: {
+              id: "member-1",
+              email: "member@example.com",
+              role: "member",
+              createdAt: "2026-04-08T00:00:00.000Z"
+            },
+            featureToggles: {
+              aiEnabled: true,
+              telegramEnabled: true,
+              outboundEnabled: true,
+              mailboxCreationEnabled: true
+            }
+          });
+        }
+
+        if (url.endsWith("/api/accounts")) return jsonResponse({ mailboxes: [] });
+        if (url.endsWith("/api/api-keys")) return jsonResponse({ keys: [] });
+        if (url.endsWith("/api/telegram/overview")) return jsonResponse({ overview: null });
+        return jsonResponse({});
+      });
+
+      render(<App />);
+
+      expect(await screen.findByRole("heading", { name: /^API 接口$/i })).toBeInTheDocument();
+      expect(screen.getByRole("navigation", { name: "API 密钥 二级菜单" })).toBeInTheDocument();
+      expect(screen.getByRole("tab", { name: "API 密钥" })).toHaveAttribute("aria-selected", "false");
+      expect(screen.getByRole("tab", { name: "API 接口" })).toHaveAttribute("aria-selected", "true");
+      expect(screen.getByLabelText("接口总数")).toHaveTextContent("69");
+      expect(screen.getByRole("heading", { name: "邮件" })).toBeInTheDocument();
+      expect(screen.getByLabelText("GET /api/mail/messages/:messageId/attachments/:attachmentId")).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: "用户管理" })).toBeInTheDocument();
+      expect(screen.getByLabelText("PATCH /api/users/:userId/quota")).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: "API 密钥" })).toBeInTheDocument();
+      expect(screen.getByLabelText("DELETE /api/api-keys/:id")).toBeInTheDocument();
+      expect(screen.getByLabelText("POST /api/telegram/link-code")).toBeInTheDocument();
+    },
+    10000
+  );
+
+  it(
     "routes authenticated members into the account list workspace instead of the old placeholder",
     async () => {
       window.history.pushState({}, "", "/accounts/list");

@@ -38,6 +38,8 @@ const adminInvites: InviteSummary[] = [
 
 const adminQuota: QuotaSummary = {
   userId: "admin-1",
+  apiDailyLimit: 20000,
+  apiCallsToday: 12,
   dailyLimit: 20,
   sendsToday: 0,
   disabled: false,
@@ -146,6 +148,8 @@ describe("UsersGlobalSettingsPage", () => {
     expect(within(quotaTarget).getByText("Admin User")).toBeInTheDocument();
     expect(within(quotaTarget).getByText("admin@example.com")).toBeInTheDocument();
     expect(within(quotaTarget).getByText("0 / 20")).toBeInTheDocument();
+    expect(within(quotaTarget).getByText("12 / 20000")).toBeInTheDocument();
+    expect(screen.getByRole("spinbutton", { name: "API 每日调用上限" })).toHaveValue(20000);
   });
 
   it("sizes the feature status badge to cover its enabled summary", () => {

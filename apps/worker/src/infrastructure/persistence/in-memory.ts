@@ -1,8 +1,18 @@
-import type { MailDomainSummary } from "@wemail/shared";
+import {
+  applyDictionaryItemUpdate,
+  buildDictionaryCatalog,
+  findDefaultDictionaryItem,
+  type DictionaryItemSummary,
+  type MailDomainSummary,
+  type MessageFilter,
+  type MessageListSummary,
+  type OutboundListStatus
+} from "@wemail/shared";
 
 import type {
   AccountSettingsRecord,
   AnnouncementRecord,
+  AnnouncementReceiptRecord,
   ApiKeyRecord,
   AppStore,
   AttachmentRecord,
@@ -13,14 +23,22 @@ import type {
   MailboxDetailRecord,
   MailboxDetailListQuery,
   MailboxRecord,
+  OutboundMessageRecord,
   PersistedMessageRecord,
   QuotaRecord,
   SessionRecord,
+  UserPreferencesRecord,
   TelegramSubscriptionRecord,
   UserRecord,
   WebhookDeliveryRecord,
   WebhookEndpointRecord
 } from "../../core/bindings";
+import {
+  filterAnnouncements,
+  getAnnouncementSummary,
+  getFeaturedAnnouncements,
+  paginateAnnouncements
+} from "../../shared/announcements";
 
 function nowIso() {
   return new Date().toISOString();
@@ -58,33 +76,110 @@ function getInactiveDays(value: number | undefined) {
   return Number.isFinite(value) && value && value > 0 ? Math.trunc(value) : 30;
 }
 
+function parseMessageExtraction(record: PersistedMessageRecord) {
+  return JSON.parse(record.extractionJson) as { type?: string; value?: string; label?: string };
+}
+
+function matchesMessageFilter(record: PersistedMessageRecord, filter: MessageFilter = "all") {
+  const extraction = parseMessageExtraction(record);
+  if (filter === "code") return extraction.type === "auth_code";
+  if (filter === "link") return extraction.type !== "auth_code" && extraction.type !== "none";
+  if (filter === "attachment") return record.attachmentCount > 0;
+  if (filter === "unparsed") return extraction.type === "none";
+  return true;
+}
+
+type StoredMailboxRecord = MailboxRecord & {
+  createdBy: string;
+  createdByName: string | null;
+  deletedAt?: string | null;
+  lastActiveAt: string | null;
+  status: MailboxDetailRecord["status"];
+  tags: string[];
+};
+
+function matchesMessageSearch(record: PersistedMessageRecord, searchValue?: string) {
+  const normalizedSearch = searchValue?.trim().toLowerCase();
+  if (!normalizedSearch) return true;
+
+  const extraction = parseMessageExtraction(record);
+  return [
+    record.toAddress ?? "",
+    record.fromAddress,
+    record.subject,
+    record.previewText,
+    record.bodyText,
+    extraction.value ?? "",
+    extraction.label ?? ""
+  ]
+    .join(" ")
+    .toLowerCase()
+    .includes(normalizedSearch);
+}
+
+function summarizeMessageRecords(records: PersistedMessageRecord[]): MessageListSummary {
+  return {
+    messageCount: records.length,
+    extractionCount: records.filter((record) => {
+      const extraction = parseMessageExtraction(record);
+      return extraction.type !== "none" && Boolean(extraction.value?.trim());
+    }).length,
+    attachmentCount: records.reduce((sum, record) => sum + record.attachmentCount, 0)
+  };
+}
+
+function matchesOutboundSearch(record: OutboundMessageRecord, searchValue?: string) {
+  const normalizedSearch = searchValue?.trim().toLowerCase();
+  if (!normalizedSearch) return true;
+
+  return [
+    record.fromAddress,
+    record.toAddress,
+    record.subject,
+    record.bodyText,
+    record.errorText ?? "",
+    record.providerMessageId ?? "",
+    record.requestPayloadJson,
+    record.responsePayloadJson ?? ""
+  ]
+    .join(" ")
+    .toLowerCase()
+    .includes(normalizedSearch);
+}
+
+function matchesOutboundStatus(record: OutboundMessageRecord, status: OutboundListStatus = "all") {
+  if (status === "sent") return record.status === "sent";
+  if (status === "failed") return record.status === "failed";
+  return true;
+}
+
 export function createInMemoryStore(): AppStore {
   const users = new Map<string, UserRecord>();
+  const userPreferences = new Map<string, UserPreferencesRecord>();
   const sessions = new Map<string, SessionRecord>();
   const invites = new Map<string, InviteRecord>();
-  const mailboxes = new Map<string, MailboxRecord>();
+  const mailboxes = new Map<string, StoredMailboxRecord>();
   const messages = new Map<string, PersistedMessageRecord>();
   const attachments = new Map<string, AttachmentRecord[]>();
-  const outboundMessages: Array<{
-    id: string;
-    mailboxId: string;
-    toAddress: string;
-    subject: string;
-    status: "sent" | "failed";
-    errorText: string | null;
-    createdAt: string;
-  }> = [];
+  const outboundMessages: OutboundMessageRecord[] = [];
   const apiKeys = new Map<string, ApiKeyRecord>();
   const telegramSubscriptions = new Map<string, TelegramSubscriptionRecord>();
   const quotas = new Map<string, QuotaRecord>();
   const settings = new Map<keyof FeatureToggles, boolean>();
   let mailDomains: MailDomainSummary[] | null = null;
+  const dictionaryItems = new Map<string, DictionaryItemSummary>();
   const auditEvents: AuditEventRecord[] = [];
   let accountSettingsRecord: AccountSettingsRecord | null = null;
   let mailSettingsRecord: MailSettingsRecord | null = null;
   const webhookEndpoints = new Map<string, WebhookEndpointRecord>();
   const webhookDeliveries: WebhookDeliveryRecord[] = [];
   const announcements: AnnouncementRecord[] = [];
+  const announcementReceipts: AnnouncementReceiptRecord[] = [];
+
+  function dictionaryItemKey(groupKey: string, value: string) {
+    return `${groupKey}\u0000${value}`;
+  }
+
   function toMailboxDetailRecord(record: MailboxRecord): MailboxDetailRecord {
     const user = users.get(record.userId);
     return {
@@ -109,6 +204,9 @@ export function createInMemoryStore(): AppStore {
     users: {
       async count() {
         return users.size;
+      },
+      async countActiveByRole(role) {
+        return Array.from(users.values()).filter((user) => user.status === "active" && (!role || user.role === role)).length;
       },
       async findByEmail(email) {
         return clone(Array.from(users.values()).find((entry) => entry.email === email) ?? null);
@@ -162,6 +260,7 @@ export function createInMemoryStore(): AppStore {
       async delete(id) {
         if (!users.has(id)) return false;
         users.delete(id);
+        userPreferences.delete(id);
         quotas.delete(id);
         telegramSubscriptions.delete(id);
         for (const [sessionId, session] of sessions) {
@@ -200,6 +299,19 @@ export function createInMemoryStore(): AppStore {
           active: allUsers.filter((user) => user.status === "active").length,
           total: allUsers.length
         };
+      }
+    },
+    userPreferences: {
+      async getByUserId(userId) {
+        return clone(userPreferences.get(userId) ?? null);
+      },
+      async save(record) {
+        const next: UserPreferencesRecord = {
+          ...record,
+          updatedAt: nowIso()
+        };
+        userPreferences.set(record.userId, next);
+        return clone(next);
       }
     },
     sessions: {
@@ -276,7 +388,9 @@ export function createInMemoryStore(): AppStore {
     },
     mailboxes: {
       async countByUser(userId) {
-        return Array.from(mailboxes.values()).filter((entry) => entry.userId === userId).length;
+        return Array.from(mailboxes.values()).filter(
+          (entry) => entry.userId === userId && entry.status !== "soft_deleted"
+        ).length;
       },
       async create(input) {
         const record: MailboxRecord & {
@@ -284,12 +398,14 @@ export function createInMemoryStore(): AppStore {
           createdByName: string | null;
           lastActiveAt: string | null;
           status: MailboxDetailRecord["status"];
+          tags: string[];
         } = {
           id: crypto.randomUUID(),
           userId: input.userId,
           address: input.address,
           label: input.label,
-          status: "enabled",
+          status: input.status ?? "enabled",
+          tags: input.tags ?? [],
           createdBy: input.userId,
           createdByName: users.get(input.userId)?.name ?? null,
           lastActiveAt: input.lastActiveAt ?? null,
@@ -307,6 +423,15 @@ export function createInMemoryStore(): AppStore {
           (record as MailboxRecord & { deletedAt?: string | null }).deletedAt =
             input.status === "soft_deleted" ? nowIso() : null;
         }
+        if (typeof input.deletedAt !== "undefined") {
+          (record as MailboxRecord & { deletedAt?: string | null }).deletedAt = input.deletedAt;
+        }
+        if (typeof input.lastActiveAt !== "undefined") {
+          (record as MailboxRecord & { lastActiveAt?: string | null }).lastActiveAt = input.lastActiveAt;
+        }
+        if (typeof input.tags !== "undefined") {
+          (record as MailboxRecord & { tags: string[] }).tags = input.tags;
+        }
         mailboxes.set(id, record);
         return clone(toMailboxDetailRecord(record));
       },
@@ -321,6 +446,7 @@ export function createInMemoryStore(): AppStore {
           filtered = filtered.filter(
             (m) =>
               m.id.toLowerCase().includes(searchLower) ||
+              m.label.toLowerCase().includes(searchLower) ||
               m.address.toLowerCase().includes(searchLower) ||
               (users.get(m.userId)?.name ?? "").toLowerCase().includes(searchLower)
           );
@@ -383,8 +509,18 @@ export function createInMemoryStore(): AppStore {
       async findById(id) {
         return clone(mailboxes.get(id) ?? null);
       },
+      async findDetailById(id) {
+        const record = mailboxes.get(id);
+        return record ? clone(toMailboxDetailRecord(record)) : null;
+      },
       async findByAddress(address) {
-        return clone(Array.from(mailboxes.values()).find((entry) => entry.address === address) ?? null);
+        return clone(
+          Array.from(mailboxes.values()).find(
+            (entry) =>
+              entry.address === address &&
+              ((entry as MailboxRecord & { status?: MailboxDetailRecord["status"] }).status ?? "enabled") !== "soft_deleted"
+          ) ?? null
+        );
       },
       async delete(id) {
         mailboxes.delete(id);
@@ -398,6 +534,35 @@ export function createInMemoryStore(): AppStore {
         };
         messages.set(record.id, record);
         return clone(record);
+      },
+      async listForMailboxes(query) {
+        if (query.mailboxIds.length === 0 && !query.includeUnmatched) {
+          return {
+            messages: [],
+            page: getSafePage(query.page),
+            pageSize: getSafePageSize(query.pageSize),
+            summary: summarizeMessageRecords([]),
+            total: 0
+          };
+        }
+
+        const mailboxIds = new Set(query.mailboxIds);
+        const filteredMessages = Array.from(messages.values())
+          .filter((entry) => mailboxIds.has(entry.mailboxId) || (query.includeUnmatched && entry.mailboxId.startsWith("unmatched:")))
+          .filter((entry) => matchesMessageFilter(entry, query.filter))
+          .filter((entry) => matchesMessageSearch(entry, query.search))
+          .sort((a, b) => b.receivedAt.localeCompare(a.receivedAt));
+        const page = getSafePage(query.page);
+        const pageSize = getSafePageSize(query.pageSize);
+        const startIndex = (page - 1) * pageSize;
+
+        return clone({
+          messages: filteredMessages.slice(startIndex, startIndex + pageSize),
+          page,
+          pageSize,
+          summary: summarizeMessageRecords(filteredMessages),
+          total: filteredMessages.length
+        });
       },
       async listByMailbox(mailboxId) {
         return clone(
@@ -432,18 +597,38 @@ export function createInMemoryStore(): AppStore {
     },
     outboundMessages: {
       async create(input) {
-        outboundMessages.push({
+        const record = {
           id: crypto.randomUUID(),
-          mailboxId: input.mailboxId,
-          toAddress: input.toAddress,
-          subject: input.subject,
-          status: input.status,
-          errorText: input.errorText,
+          ...input,
           createdAt: nowIso()
+        };
+        outboundMessages.push(record);
+        return clone(record);
+      },
+      async listByMailbox(query) {
+        const searchedMessages = outboundMessages
+          .filter((entry) => entry.mailboxId === query.mailboxId)
+          .filter((entry) => matchesOutboundSearch(entry, query.search))
+          .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+        const filteredMessages = searchedMessages.filter((entry) => matchesOutboundStatus(entry, query.status));
+        const page = getSafePage(query.page);
+        const pageSize = getSafePageSize(query.pageSize);
+        const startIndex = (page - 1) * pageSize;
+
+        return clone({
+          messages: filteredMessages.slice(startIndex, startIndex + pageSize),
+          page,
+          pageSize,
+          summary: {
+            totalCount: searchedMessages.length,
+            sentCount: searchedMessages.filter((entry) => entry.status === "sent").length,
+            failedCount: searchedMessages.filter((entry) => entry.status === "failed").length
+          },
+          total: filteredMessages.length
         });
       },
-      async listByMailbox(mailboxId) {
-        return clone(outboundMessages.filter((entry) => entry.mailboxId === mailboxId));
+      async findById(id) {
+        return clone(outboundMessages.find((entry) => entry.id === id) ?? null);
       }
     },
     apiKeys: {
@@ -501,11 +686,13 @@ export function createInMemoryStore(): AppStore {
       }
     },
     quotas: {
-      async getByUserId(userId, fallbackLimit) {
+      async getByUserId(userId, fallbackLimit, fallbackApiDailyLimit) {
         const existing = quotas.get(userId);
         if (existing) return clone(existing);
         const next: QuotaRecord = {
           userId,
+          apiDailyLimit: fallbackApiDailyLimit,
+          apiCallsToday: 0,
           dailyLimit: fallbackLimit,
           sendsToday: 0,
           disabled: false,
@@ -513,6 +700,54 @@ export function createInMemoryStore(): AppStore {
         };
         quotas.set(userId, next);
         return clone(next);
+      },
+      async consumeApiCall(userId, fallbackLimit, fallbackApiDailyLimit) {
+        const quota = quotas.get(userId) ?? {
+          userId,
+          apiDailyLimit: fallbackApiDailyLimit,
+          apiCallsToday: 0,
+          dailyLimit: fallbackLimit,
+          sendsToday: 0,
+          disabled: false,
+          updatedAt: nowIso()
+        };
+        const today = new Date().toISOString().slice(0, 10);
+        if (quota.updatedAt.slice(0, 10) !== today) {
+          quota.sendsToday = 0;
+          quota.apiCallsToday = 0;
+        }
+        if (quota.apiCallsToday >= quota.apiDailyLimit) {
+          quotas.set(userId, clone(quota));
+          return null;
+        }
+        quota.apiCallsToday += 1;
+        quota.updatedAt = nowIso();
+        quotas.set(userId, clone(quota));
+        return clone(quota);
+      },
+      async consumeOutboundSend(userId, fallbackLimit, fallbackApiDailyLimit) {
+        const quota = quotas.get(userId) ?? {
+          userId,
+          apiDailyLimit: fallbackApiDailyLimit,
+          apiCallsToday: 0,
+          dailyLimit: fallbackLimit,
+          sendsToday: 0,
+          disabled: false,
+          updatedAt: nowIso()
+        };
+        const today = new Date().toISOString().slice(0, 10);
+        if (quota.updatedAt.slice(0, 10) !== today) {
+          quota.sendsToday = 0;
+          quota.apiCallsToday = 0;
+        }
+        if (quota.disabled || quota.sendsToday >= quota.dailyLimit) {
+          quotas.set(userId, clone(quota));
+          return null;
+        }
+        quota.sendsToday += 1;
+        quota.updatedAt = nowIso();
+        quotas.set(userId, clone(quota));
+        return clone(quota);
       },
       async save(quota) {
         quotas.set(quota.userId, clone(quota));
@@ -544,6 +779,29 @@ export function createInMemoryStore(): AppStore {
         return clone(next);
       }
     },
+    dictionaries: {
+      async listGroups(groupKeys, options) {
+        return clone(
+          buildDictionaryCatalog({
+            groupKeys,
+            includeDisabled: options?.includeDisabled,
+            items: Array.from(dictionaryItems.values())
+          })
+        );
+      },
+      async updateItem(groupKey, value, input) {
+        const key = dictionaryItemKey(groupKey, value);
+        const existing = dictionaryItems.get(key) ?? findDefaultDictionaryItem(groupKey, value);
+        if (!existing) return null;
+        const next = applyDictionaryItemUpdate(existing, {
+          ...input,
+          metadata: typeof input.metadata === "undefined" ? existing.metadata : input.metadata
+        });
+        next.updatedAt = nowIso();
+        dictionaryItems.set(key, clone(next));
+        return clone(next);
+      }
+    },
     audit: {
       async record(event) {
         auditEvents.push({
@@ -556,6 +814,15 @@ export function createInMemoryStore(): AppStore {
         return auditEvents.filter(
           (entry) => entry.actorId === actorId && entry.eventType === eventType && entry.createdAt >= sinceIso
         ).length;
+      },
+      async listByActorAndTypes(actorId, eventTypes, limit) {
+        const eventTypeSet = new Set(eventTypes);
+        return clone(
+          auditEvents
+            .filter((entry) => entry.actorId === actorId && eventTypeSet.has(entry.eventType))
+            .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+            .slice(0, limit)
+        );
       }
     },
     accountSettings: {
@@ -588,6 +855,18 @@ export function createInMemoryStore(): AppStore {
       async listByUser(userId) {
         return clone(Array.from(webhookEndpoints.values()).filter((entry) => entry.userId === userId));
       },
+      async listByUserPage(userId, options) {
+        const sorted = Array.from(webhookEndpoints.values())
+          .filter((entry) => entry.userId === userId)
+          .sort((left, right) => Date.parse(right.createdAt) - Date.parse(left.createdAt));
+        const startIndex = (options.page - 1) * options.pageSize;
+        return {
+          endpoints: clone(sorted.slice(startIndex, startIndex + options.pageSize)),
+          total: sorted.length,
+          page: options.page,
+          pageSize: options.pageSize
+        };
+      },
       async create(input) {
         const now = nowIso();
         const record = {
@@ -618,9 +897,25 @@ export function createInMemoryStore(): AppStore {
         webhookEndpoints.set(id, next);
         return clone(next);
       },
+      async rotateSecret(id, userId) {
+        const existing = webhookEndpoints.get(id);
+        if (!existing || existing.userId !== userId) return null;
+        const next = {
+          ...existing,
+          signingSecret: crypto.randomUUID().replaceAll("-", ""),
+          updatedAt: nowIso()
+        };
+        webhookEndpoints.set(id, next);
+        return clone(next);
+      },
       async delete(id, userId) {
         const existing = webhookEndpoints.get(id);
-        if (existing?.userId === userId) webhookEndpoints.delete(id);
+        if (existing?.userId === userId) {
+          webhookEndpoints.delete(id);
+          for (let index = webhookDeliveries.length - 1; index >= 0; index -= 1) {
+            if (webhookDeliveries[index].endpointId === id) webhookDeliveries.splice(index, 1);
+          }
+        }
       }
     },
     webhookDeliveries: {
@@ -628,11 +923,31 @@ export function createInMemoryStore(): AppStore {
         const endpointIds = new Set(Array.from(webhookEndpoints.values()).filter((entry) => entry.userId === userId).map((entry) => entry.id));
         return clone(webhookDeliveries.filter((entry) => endpointIds.has(entry.endpointId)));
       },
+      async listByUserPage(userId, query) {
+        const endpointIds = new Set(Array.from(webhookEndpoints.values()).filter((entry) => entry.userId === userId).map((entry) => entry.id));
+        const filtered = webhookDeliveries
+          .filter((entry) => endpointIds.has(entry.endpointId))
+          .filter((entry) => !query.endpointId || entry.endpointId === query.endpointId)
+          .filter((entry) => !query.status || query.status === "all" || entry.status === query.status)
+          .sort((left, right) => Date.parse(right.createdAt) - Date.parse(left.createdAt));
+        const startIndex = (query.page - 1) * query.pageSize;
+        return clone({
+          deliveries: filtered.slice(startIndex, startIndex + query.pageSize),
+          total: filtered.length,
+          page: query.page,
+          pageSize: query.pageSize
+        });
+      },
+      async findByUser(id, userId) {
+        const endpointIds = new Set(Array.from(webhookEndpoints.values()).filter((entry) => entry.userId === userId).map((entry) => entry.id));
+        return clone(webhookDeliveries.find((entry) => entry.id === id && endpointIds.has(entry.endpointId)) ?? null);
+      },
       async record(input) {
+        const { createdAt, id, ...recordInput } = input;
         const record = {
-          id: crypto.randomUUID(),
-          createdAt: nowIso(),
-          ...input
+          id: id ?? crypto.randomUUID(),
+          createdAt: createdAt ?? nowIso(),
+          ...recordInput
         };
         webhookDeliveries.push(record);
         return clone(record);
@@ -640,7 +955,22 @@ export function createInMemoryStore(): AppStore {
     },
     announcements: {
       async list() {
-        return clone([...announcements].sort((a, b) => b.publishedAt.localeCompare(a.publishedAt)));
+        return clone([...announcements].sort((a, b) => Number(b.pinned) - Number(a.pinned) || b.publishedAt.localeCompare(a.publishedAt)));
+      },
+      async listPage(options) {
+        const filteredAnnouncements = filterAnnouncements([...announcements], options);
+        return {
+          announcements: clone(paginateAnnouncements(filteredAnnouncements, options)),
+          total: filteredAnnouncements.length,
+          page: options.page,
+          pageSize: options.pageSize
+        };
+      },
+      async listFeatured(options) {
+        return clone(getFeaturedAnnouncements([...announcements], options));
+      },
+      async summary(options) {
+        return getAnnouncementSummary([...announcements], options);
       },
       async create(input) {
         const now = nowIso();
@@ -652,6 +982,51 @@ export function createInMemoryStore(): AppStore {
         };
         announcements.unshift(record);
         return clone(record);
+      },
+      async find(id) {
+        return clone(announcements.find((announcement) => announcement.id === id) ?? null);
+      },
+      async update(id, input) {
+        const announcement = announcements.find((record) => record.id === id);
+        if (!announcement) return null;
+        Object.assign(announcement, input, { updatedAt: nowIso() });
+        return clone(announcement);
+      },
+      async delete(id) {
+        const index = announcements.findIndex((announcement) => announcement.id === id);
+        if (index < 0) return false;
+        announcements.splice(index, 1);
+        for (let receiptIndex = announcementReceipts.length - 1; receiptIndex >= 0; receiptIndex -= 1) {
+          if (announcementReceipts[receiptIndex]?.announcementId === id) {
+            announcementReceipts.splice(receiptIndex, 1);
+          }
+        }
+        return true;
+      },
+      async acknowledge(announcementId, userId) {
+        const acknowledgedAt = nowIso();
+        const existing = announcementReceipts.find(
+          (receipt) => receipt.announcementId === announcementId && receipt.userId === userId
+        );
+        if (existing) {
+          existing.acknowledgedAt = acknowledgedAt;
+          return clone(existing);
+        }
+        const receipt = { announcementId, userId, acknowledgedAt };
+        announcementReceipts.push(receipt);
+        return clone(receipt);
+      },
+      async listReceiptsByUser(userId, announcementIds) {
+        const idSet = new Set(announcementIds);
+        return clone(announcementReceipts.filter((receipt) => receipt.userId === userId && idSet.has(receipt.announcementId)));
+      },
+      async countReceipts(announcementIds) {
+        const idSet = new Set(announcementIds);
+        return announcementReceipts.reduce<Record<string, number>>((counts, receipt) => {
+          if (!idSet.has(receipt.announcementId)) return counts;
+          counts[receipt.announcementId] = (counts[receipt.announcementId] ?? 0) + 1;
+          return counts;
+        }, {});
       }
     }
   };

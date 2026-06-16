@@ -5,7 +5,7 @@
 ## ✅ 放什么
 - `AuthPage`
 - `InboxPage`
-- `SettingsPage`
+- `SystemSettingsPage`、`UsersGlobalSettingsPage` 等路由级页面
 - `AdminPage`
 
 ## 🚫 不放什么

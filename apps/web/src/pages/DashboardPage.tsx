@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ResponsiveBar } from "@nivo/bar";
 import { ResponsiveLine } from "@nivo/line";
 import { ResponsivePie } from "@nivo/pie";
@@ -6,13 +6,9 @@ import { Inbox, KeyRound, Megaphone, Send, Webhook as WebhookIcon, type LucideIc
 
 import { useWorkspaceTheme } from "../app/useWorkspaceTheme";
 import {
-  dashboardAccountDistribution,
-  dashboardGrowth,
-  dashboardKpis,
-  dashboardResources,
-  dashboardTrend,
-  dashboardUserRoles
-} from "../features/dashboard/dashboardMockData";
+  fetchDashboard,
+  type DashboardPayload
+} from "../features/dashboard/api";
 import { nivoTheme } from "../shared/chart";
 import { MetricCard } from "../shared/metric-card";
 
@@ -33,40 +29,30 @@ type DashboardRange = (typeof TREND_RANGE_OPTIONS)[number]["value"];
 type DashboardPageProps = {
   canViewRoleCard?: boolean;
 };
-const TREND_RANGE_POINTS = {
-  week: dashboardTrend,
-  month: [
-    { day: "第 1 周", inbound: 41800, outbound: 3840 },
-    { day: "第 2 周", inbound: 46240, outbound: 4210 },
-    { day: "第 3 周", inbound: 49360, outbound: 4630 },
-    { day: "第 4 周", inbound: 52880, outbound: 4910 }
+const emptyDashboard: DashboardPayload = {
+  kpis: [
+    { kicker: "今日收件", label: "收件总量", value: "0", detail: "暂无收件数据", change: "较昨日 0" },
+    { kicker: "今日发件", label: "发件总量", value: "0", detail: "暂无发件数据", change: "失败重试 0 次" },
+    { kicker: "API 密钥数", label: "活跃密钥", value: "0", detail: "0 个正在使用", change: "0 个待轮换" },
+    { kicker: "Webhook", label: "投递端点", value: "0", detail: "0 个正常投递", change: "失败重试 0 次" },
+    { kicker: "公告", label: "已发布公告", value: "0", detail: "0 条正在展示", change: "本周发布 0 条" }
   ],
-  year: [
-    { day: "1 月", inbound: 168000, outbound: 14800 },
-    { day: "2 月", inbound: 182400, outbound: 16320 },
-    { day: "3 月", inbound: 196800, outbound: 17840 },
-    { day: "4 月", inbound: 214200, outbound: 19120 },
-    { day: "5 月", inbound: 228600, outbound: 20480 },
-    { day: "6 月", inbound: 241800, outbound: 21960 }
-  ]
-} satisfies Record<DashboardRange, typeof dashboardTrend>;
-const GROWTH_RANGE_POINTS = {
-  week: dashboardGrowth,
-  month: [
-    { label: "第 1 周", accounts: 8, mailboxes: 26 },
-    { label: "第 2 周", accounts: 12, mailboxes: 34 },
-    { label: "第 3 周", accounts: 10, mailboxes: 31 },
-    { label: "第 4 周", accounts: 14, mailboxes: 39 }
-  ],
-  year: [
-    { label: "1 月", accounts: 24, mailboxes: 91 },
-    { label: "2 月", accounts: 31, mailboxes: 118 },
-    { label: "3 月", accounts: 28, mailboxes: 104 },
-    { label: "4 月", accounts: 36, mailboxes: 132 },
-    { label: "5 月", accounts: 42, mailboxes: 148 },
-    { label: "6 月", accounts: 39, mailboxes: 137 }
-  ]
-} satisfies Record<DashboardRange, typeof dashboardGrowth>;
+  trend: {
+    week: [],
+    month: [],
+    year: []
+  },
+  accountDistribution: [],
+  accountTotal: 0,
+  resources: [],
+  growth: {
+    week: [],
+    month: [],
+    year: []
+  },
+  userRoles: [],
+  userTotal: 0
+};
 
 function resolveDashboardTone(tone: string, contrastColor: string, theme: string) {
   if (tone === "#111827") return contrastColor;
@@ -79,32 +65,47 @@ export function DashboardPage({ canViewRoleCard = false }: DashboardPageProps) {
   const contrastColor = theme === "dark" ? "#f5f5f5" : "#111827";
   const [trendRange, setTrendRange] = useState<DashboardRange>("week");
   const [growthRange, setGrowthRange] = useState<DashboardRange>("week");
+  const [dashboard, setDashboard] = useState<DashboardPayload>(emptyDashboard);
+
+  useEffect(() => {
+    let cancelled = false;
+    void fetchDashboard()
+      .then((payload) => {
+        if (!cancelled) setDashboard(payload);
+      })
+      .catch(() => {
+        if (!cancelled) setDashboard(emptyDashboard);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const accountDistribution = useMemo(
     () =>
-      dashboardAccountDistribution.map((slice) => ({
+      dashboard.accountDistribution.map((slice) => ({
         ...slice,
         tone: resolveDashboardTone(slice.tone, contrastColor, theme)
       })),
-    [contrastColor, theme]
+    [contrastColor, dashboard.accountDistribution, theme]
   );
 
   const userRoles = useMemo(
     () =>
-      dashboardUserRoles.map((role) => ({
+      dashboard.userRoles.map((role) => ({
         ...role,
         tone: resolveDashboardTone(role.tone, contrastColor, theme)
       })),
-    [contrastColor, theme]
+    [contrastColor, dashboard.userRoles, theme]
   );
 
   const resources = useMemo(
     () =>
-      dashboardResources.map((resource) => ({
+      dashboard.resources.map((resource) => ({
         ...resource,
         tone: resolveDashboardTone(resource.tone, contrastColor, theme)
       })),
-    [contrastColor, theme]
+    [contrastColor, dashboard.resources, theme]
   );
 
   const trendData = useMemo(
@@ -112,15 +113,15 @@ export function DashboardPage({ canViewRoleCard = false }: DashboardPageProps) {
       {
         id: "收件量",
         color: INBOUND_COLOR,
-        data: TREND_RANGE_POINTS[trendRange].map((point) => ({ x: point.day, y: point.inbound }))
+        data: dashboard.trend[trendRange].map((point) => ({ x: point.day, y: point.inbound }))
       },
       {
         id: "发件量",
         color: contrastColor,
-        data: TREND_RANGE_POINTS[trendRange].map((point) => ({ x: point.day, y: point.outbound }))
+        data: dashboard.trend[trendRange].map((point) => ({ x: point.day, y: point.outbound }))
       }
     ],
-    [contrastColor, trendRange]
+    [contrastColor, dashboard.trend, trendRange]
   );
 
   const distributionData = useMemo(
@@ -149,12 +150,12 @@ export function DashboardPage({ canViewRoleCard = false }: DashboardPageProps) {
     () => ({ accounts: contrastColor, mailboxes: INBOUND_COLOR }),
     [contrastColor]
   );
-  const growthData = useMemo(() => GROWTH_RANGE_POINTS[growthRange].map((point) => ({ ...point })), [growthRange]);
+  const growthData = useMemo(() => dashboard.growth[growthRange].map((point) => ({ ...point })), [dashboard.growth, growthRange]);
 
   return (
     <main className="workspace-grid dashboard-grid">
       <section className="dashboard-kpi-grid" aria-label="仪表盘核心指标">
-        {dashboardKpis.map((kpi, index) => {
+        {dashboard.kpis.map((kpi, index) => {
           const KpiIcon = KPI_ICONS[index] ?? Inbox;
           return (
             <MetricCard
@@ -252,7 +253,7 @@ export function DashboardPage({ canViewRoleCard = false }: DashboardPageProps) {
                   theme={nivoTheme}
                 />
                 <div className="dashboard-donut-center">
-                  <strong>89</strong>
+                  <strong>{dashboard.accountTotal}</strong>
                   <span>总账号</span>
                 </div>
               </div>
@@ -375,7 +376,7 @@ export function DashboardPage({ canViewRoleCard = false }: DashboardPageProps) {
                   theme={nivoTheme}
                 />
                 <div className="dashboard-donut-center">
-                  <strong>89</strong>
+                  <strong>{dashboard.userTotal}</strong>
                   <span>总用户</span>
                 </div>
               </div>

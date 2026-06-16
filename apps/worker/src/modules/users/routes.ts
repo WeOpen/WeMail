@@ -130,6 +130,7 @@ export function registerUsersRoutes(app: Hono<AppContext>) {
   app.patch("/api/users/:userId/quota", async (c) => {
     const existing = await getQuotaUseCase(getAppServices(c), c.req.param("userId"));
     const payload = await parseQuotaUpdateRequest(c.req.raw, {
+      apiDailyLimit: existing.apiDailyLimit,
       dailyLimit: existing.dailyLimit,
       disabled: existing.disabled
     });
@@ -137,6 +138,7 @@ export function registerUsersRoutes(app: Hono<AppContext>) {
       quota: await updateQuotaUseCase(getAppServices(c), {
         actorUserId: requireUser(c)!.id,
         userId: existing.userId,
+        apiDailyLimit: payload.apiDailyLimit,
         dailyLimit: payload.dailyLimit,
         disabled: payload.disabled
       })

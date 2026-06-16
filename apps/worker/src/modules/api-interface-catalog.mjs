@@ -1,0 +1,500 @@
+export const apiInterfaceGroups = [
+  {
+    id: "auth",
+    kicker: "会话边界",
+    title: "认证",
+    description: "注册、登录、退出和当前会话探测。",
+    endpoints: [
+      {
+        method: "POST",
+        path: "/api/auth/register",
+        title: "注册账号",
+        description: "使用邀请码创建新用户。",
+        access: "公开",
+        example: { requestBody: { email: "new.user@example.com", password: "Passw0rd!", inviteCode: "INVITE-2026" } }
+      },
+      {
+        method: "POST",
+        path: "/api/auth/login",
+        title: "登录",
+        description: "创建浏览器会话 Cookie。",
+        access: "公开",
+        example: { requestBody: { email: "member@example.com", password: "Passw0rd!" } }
+      },
+      {
+        method: "POST",
+        path: "/api/auth/logout",
+        title: "退出登录",
+        description: "清除当前会话。",
+        access: "登录用户",
+        example: { requestBody: null }
+      },
+      { method: "GET", path: "/api/auth/session", title: "当前会话", description: "读取当前用户与功能开关。", access: "登录用户" }
+    ]
+  },
+  {
+    id: "dashboard",
+    kicker: "工作台",
+    title: "仪表盘",
+    description: "首页聚合指标与最近状态。",
+    endpoints: [
+      { method: "GET", path: "/api/dashboard", title: "仪表盘摘要", description: "聚合账号、邮件、配额和功能状态。", access: "登录用户" }
+    ]
+  },
+  {
+    id: "accounts",
+    kicker: "邮箱身份",
+    title: "账号",
+    description: "邮箱账号列表、创建、生命周期和账号策略。",
+    endpoints: [
+      { method: "GET", path: "/api/accounts", title: "我的账号", description: "读取当前用户可用邮箱账号。", access: "登录用户" },
+      { method: "GET", path: "/api/accounts/domains", title: "可用域名", description: "读取当前角色可创建账号的域名。", access: "登录用户" },
+      {
+        method: "GET",
+        path: "/api/accounts/list",
+        title: "账号列表",
+        description: "分页、搜索和筛选邮箱账号。",
+        access: "登录用户",
+        example: { queryParameters: { page: "1", pageSize: "20", search: "project", status: "active" } }
+      },
+      {
+        method: "POST",
+        path: "/api/accounts",
+        title: "创建账号",
+        description: "按策略创建新的邮箱账号。",
+        access: "登录用户",
+        example: { requestBody: { localPart: "project", domain: "example.com", label: "项目收件箱" } }
+      },
+      {
+        method: "POST",
+        path: "/api/accounts/bulk-delete",
+        title: "批量删除账号",
+        description: "软删或彻底删除多个账号。",
+        access: "管理员",
+        example: { requestBody: { mailboxIds: ["mailbox_123"], deleteMode: "soft" } }
+      },
+      {
+        method: "PATCH",
+        path: "/api/accounts/:id",
+        title: "更新账号",
+        description: "修改标签、状态和备注。",
+        access: "登录用户",
+        example: { requestBody: { label: "订单通知", note: "临时项目", status: "active" } }
+      },
+      { method: "DELETE", path: "/api/accounts/:id", title: "删除账号", description: "删除指定邮箱账号。", access: "登录用户" },
+      { method: "GET", path: "/api/accounts/settings", title: "账号策略", description: "读取账号创建与生命周期策略。", access: "管理员" },
+      {
+        method: "PUT",
+        path: "/api/accounts/settings",
+        title: "保存账号策略",
+        description: "更新账号创建、生命周期和保护策略。",
+        access: "管理员",
+        example: { requestBody: { mailboxCreationEnabled: true, defaultQuota: 20, protectedDomains: ["example.com"] } }
+      }
+    ]
+  },
+  {
+    id: "mail",
+    kicker: "邮件流",
+    title: "邮件",
+    description: "收件、详情、附件、外发记录和邮件策略。",
+    endpoints: [
+      {
+        method: "GET",
+        path: "/api/mail/messages",
+        title: "邮件列表",
+        description: "查询收件箱消息列表。",
+        access: "登录用户",
+        example: { queryParameters: { accountId: "mailbox_123", page: "1", pageSize: "20", unread: "false" } }
+      },
+      { method: "GET", path: "/api/mail/messages/:id", title: "邮件详情", description: "读取单封邮件正文和元数据。", access: "登录用户" },
+      {
+        method: "GET",
+        path: "/api/mail/messages/:messageId/attachments/:attachmentId",
+        title: "下载附件",
+        description: "从 R2 读取指定附件。",
+        access: "登录用户"
+      },
+      {
+        method: "GET",
+        path: "/api/mail/outbound",
+        title: "发件记录",
+        description: "分页查询外发邮件历史。",
+        access: "登录用户",
+        example: { queryParameters: { page: "1", pageSize: "20", status: "sent" } }
+      },
+      { method: "GET", path: "/api/mail/outbound/:id", title: "发件详情", description: "读取外发邮件详情与异常信息。", access: "登录用户" },
+      {
+        method: "POST",
+        path: "/api/mail/send",
+        title: "发送邮件",
+        description: "通过选定邮箱账号发送邮件。",
+        access: "登录用户",
+        example: {
+          requestBody: {
+            accountId: "mailbox_123",
+            subject: "测试邮件",
+            text: "Hello from WeMail",
+            to: ["recipient@example.com"]
+          }
+        }
+      },
+      { method: "GET", path: "/api/mail/settings", title: "邮件设置", description: "读取发件与工作台偏好。", access: "登录用户" },
+      {
+        method: "PUT",
+        path: "/api/mail/settings",
+        title: "保存邮件设置",
+        description: "更新发件、路由、通知和工作台策略。",
+        access: "管理员",
+        example: { requestBody: { dailySendLimit: 100, defaultSenderName: "WeMail", outboundEnabled: true } }
+      }
+    ]
+  },
+  {
+    id: "users",
+    kicker: "管理域",
+    title: "用户管理",
+    description: "后台用户、邀请、状态、配额和账号治理。",
+    endpoints: [
+      {
+        method: "GET",
+        path: "/api/users",
+        title: "用户列表",
+        description: "分页查询后台用户。",
+        access: "管理员",
+        example: { queryParameters: { page: "1", pageSize: "20", role: "member", search: "will" } }
+      },
+      { method: "GET", path: "/api/users/summary", title: "用户设置摘要", description: "读取配额设置页所需汇总。", access: "管理员" },
+      {
+        method: "POST",
+        path: "/api/users",
+        title: "创建用户",
+        description: "管理员直接创建用户。",
+        access: "管理员",
+        example: { requestBody: { email: "member@example.com", name: "成员", role: "member" } }
+      },
+      {
+        method: "PATCH",
+        path: "/api/users/:userId",
+        title: "更新用户资料",
+        description: "修改用户名称等资料。",
+        access: "管理员",
+        example: { requestBody: { name: "Will", role: "member" } }
+      },
+      {
+        method: "PATCH",
+        path: "/api/users/:userId/password",
+        title: "重置用户密码",
+        description: "管理员设置新密码。",
+        access: "管理员",
+        example: { requestBody: { password: "NewPassw0rd!" } }
+      },
+      {
+        method: "PATCH",
+        path: "/api/users/:userId/status",
+        title: "更新用户状态",
+        description: "启用或停用用户。",
+        access: "管理员",
+        example: { requestBody: { status: "active" } }
+      },
+      { method: "DELETE", path: "/api/users/:userId", title: "删除用户", description: "删除用户及关联资源。", access: "管理员" },
+      {
+        method: "GET",
+        path: "/api/users/invites",
+        title: "邀请码列表",
+        description: "分页读取邀请码。",
+        access: "管理员",
+        example: { queryParameters: { page: "1", pageSize: "20", status: "active" } }
+      },
+      {
+        method: "POST",
+        path: "/api/users/invites",
+        title: "创建邀请码",
+        description: "生成新的注册邀请码。",
+        access: "管理员",
+        example: { requestBody: { count: 3, expiresInDays: 7, role: "member" } }
+      },
+      { method: "DELETE", path: "/api/users/invites/:id", title: "停用邀请码", description: "禁用指定邀请码。", access: "管理员" },
+      { method: "GET", path: "/api/users/:userId/quota", title: "用户配额", description: "读取指定用户发件配额。", access: "管理员" },
+      {
+        method: "PATCH",
+        path: "/api/users/:userId/quota",
+        title: "更新用户配额",
+        description: "调整发件限制与停用状态。",
+        access: "管理员",
+        example: { requestBody: { dailySendLimit: 100, mailboxLimit: 20 } }
+      },
+      {
+        method: "GET",
+        path: "/api/users/accounts",
+        title: "用户账号视图",
+        description: "读取用户关联邮箱账号。",
+        access: "管理员",
+        example: { queryParameters: { userId: "user_123", page: "1", pageSize: "20" } }
+      }
+    ]
+  },
+  {
+    id: "api-keys",
+    kicker: "程序访问",
+    title: "API 密钥",
+    description: "用于脚本、CLI 和服务端任务的个人访问凭证。",
+    endpoints: [
+      { method: "GET", path: "/api/api-keys", title: "密钥列表", description: "读取当前用户 API 密钥摘要。", access: "登录用户" },
+      {
+        method: "POST",
+        path: "/api/api-keys",
+        title: "创建密钥",
+        description: "创建并一次性返回完整密钥。",
+        access: "登录用户",
+        example: { requestBody: { label: "个人 CLI" } }
+      },
+      { method: "DELETE", path: "/api/api-keys/:id", title: "吊销密钥", description: "立即吊销指定 API 密钥。", access: "登录用户" }
+    ]
+  },
+  {
+    id: "webhook",
+    kicker: "事件出口",
+    title: "Webhook",
+    description: "端点配置、投递记录和事件订阅。",
+    endpoints: [
+      { method: "GET", path: "/api/webhook/endpoints", title: "端点列表", description: "读取当前用户 Webhook 端点。", access: "登录用户" },
+      {
+        method: "POST",
+        path: "/api/webhook/endpoints",
+        title: "创建端点",
+        description: "新增 Webhook 投递端点。",
+        access: "登录用户",
+        example: { requestBody: { enabled: true, events: ["mail.received"], url: "https://example.com/webhooks/wemail" } }
+      },
+      {
+        method: "PUT",
+        path: "/api/webhook/endpoints/:id",
+        title: "更新端点",
+        description: "修改端点 URL、事件和状态。",
+        access: "登录用户",
+        example: { requestBody: { enabled: true, events: ["mail.received", "mail.sent"], url: "https://example.com/webhooks/wemail" } }
+      },
+      {
+        method: "POST",
+        path: "/api/webhook/endpoints/:id/test",
+        title: "发送测试事件",
+        description: "向指定 Webhook 端点发送测试投递。",
+        access: "登录用户",
+        example: { requestBody: null }
+      },
+      {
+        method: "POST",
+        path: "/api/webhook/endpoints/:id/secret",
+        title: "轮换签名密钥",
+        description: "为指定 Webhook 端点生成新的签名密钥。",
+        access: "登录用户",
+        example: { requestBody: null }
+      },
+      { method: "DELETE", path: "/api/webhook/endpoints/:id", title: "删除端点", description: "删除指定 Webhook 端点。", access: "登录用户" },
+      {
+        method: "GET",
+        path: "/api/webhook/deliveries",
+        title: "投递日志",
+        description: "读取 Webhook 投递历史。",
+        access: "登录用户",
+        example: { queryParameters: { endpointId: "wh_123", page: "1", pageSize: "20" } }
+      },
+      { method: "GET", path: "/api/webhook/deliveries/:id", title: "投递详情", description: "读取单条 Webhook 投递记录。", access: "登录用户" },
+      {
+        method: "POST",
+        path: "/api/webhook/deliveries/:id/retry",
+        title: "重试投递",
+        description: "重新发送失败的 Webhook 投递。",
+        access: "登录用户",
+        example: { requestBody: null }
+      }
+    ]
+  },
+  {
+    id: "telegram",
+    kicker: "通知链路",
+    title: "Telegram",
+    description: "Telegram 绑定、订阅和测试通知。",
+    endpoints: [
+      { method: "GET", path: "/api/telegram/overview", title: "通知概览", description: "读取 Telegram 配置与事件能力。", access: "登录用户" },
+      { method: "GET", path: "/api/telegram/subscription", title: "订阅状态", description: "读取当前用户订阅。", access: "登录用户" },
+      {
+        method: "GET",
+        path: "/api/telegram/deliveries",
+        title: "投递记录",
+        description: "读取 Telegram 测试与通知投递记录。",
+        access: "登录用户",
+        example: { queryParameters: { page: "1", pageSize: "20" } }
+      },
+      {
+        method: "POST",
+        path: "/api/telegram/link-code",
+        title: "创建绑定码",
+        description: "生成用于 Telegram 机器人绑定的短期验证码。",
+        access: "登录用户",
+        example: { requestBody: null }
+      },
+      {
+        method: "POST",
+        path: "/api/telegram/webhook",
+        title: "Telegram Webhook",
+        description: "接收 Telegram Bot 回调并完成绑定事件处理。",
+        access: "签名校验",
+        example: {
+          headers: ["X-Telegram-Bot-Api-Secret-Token: <secret>", "Content-Type: application/json"],
+          requestBody: {
+            message: {
+              chat: { id: 123456789 },
+              text: "/start wm_abcdefghijklmnop"
+            },
+            update_id: 100001
+          }
+        }
+      },
+      {
+        method: "PUT",
+        path: "/api/telegram/subscription",
+        title: "保存订阅",
+        description: "更新 Chat ID 与启用状态。",
+        access: "登录用户",
+        example: { requestBody: { chatId: "123456789", enabled: true, events: ["mail.received"] } }
+      },
+      {
+        method: "POST",
+        path: "/api/telegram/test-message",
+        title: "测试通知",
+        description: "发送一条 Telegram 测试消息。",
+        access: "登录用户",
+        example: { requestBody: null }
+      }
+    ]
+  },
+  {
+    id: "system",
+    kicker: "平台配置",
+    title: "系统",
+    description: "健康检查、功能开关、域名配置和字典目录。",
+    endpoints: [
+      { method: "GET", path: "/api/system/health", title: "健康检查", description: "返回服务状态和功能开关。", access: "公开" },
+      { method: "GET", path: "/api/system/features", title: "功能开关", description: "读取平台功能开关。", access: "管理员" },
+      {
+        method: "PATCH",
+        path: "/api/system/features",
+        title: "更新功能开关",
+        description: "保存平台功能开关。",
+        access: "管理员",
+        example: { requestBody: { aiEnabled: true, mailboxCreationEnabled: true, outboundEnabled: true, telegramEnabled: true } }
+      },
+      { method: "GET", path: "/api/system/domains", title: "邮箱域名", description: "读取允许创建邮箱的域名。", access: "管理员" },
+      {
+        method: "PATCH",
+        path: "/api/system/domains",
+        title: "更新邮箱域名",
+        description: "保存域名与角色权限。",
+        access: "管理员",
+        example: { requestBody: { domains: ["example.com"], memberDomains: ["example.com"] } }
+      },
+      {
+        method: "GET",
+        path: "/api/dictionaries",
+        title: "字典目录",
+        description: "读取系统字典分组和启用项，可按 groupKey 过滤。",
+        access: "登录用户",
+        example: { queryParameters: { groups: "announcement.status,mailbox.status", includeDisabled: "false" } }
+      },
+      {
+        method: "PATCH",
+        path: "/api/dictionaries/:groupKey/items/:value",
+        title: "更新字典项",
+        description: "更新字典项展示文案、排序、启用状态或元数据。",
+        access: "管理员",
+        example: {
+          pathParameters: { groupKey: "announcement.type", value: "运营通知" },
+          requestBody: { enabled: false, label: "运营通知" }
+        }
+      }
+    ]
+  },
+  {
+    id: "profile",
+    kicker: "个人偏好",
+    title: "个人资料",
+    description: "当前用户资料和偏好设置。",
+    endpoints: [
+      { method: "GET", path: "/api/profile", title: "个人资料", description: "读取个人资料与偏好。", access: "登录用户" },
+      {
+        method: "PATCH",
+        path: "/api/profile",
+        title: "保存个人资料",
+        description: "更新个人资料或工作台偏好。",
+        access: "登录用户",
+        example: { requestBody: { dashboardDensity: "comfortable", name: "Will", timezone: "Asia/Shanghai" } }
+      }
+    ]
+  },
+  {
+    id: "announcements",
+    kicker: "运营消息",
+    title: "公告",
+    description: "公告读取、签收与管理员发布维护。",
+    endpoints: [
+      {
+        method: "GET",
+        path: "/api/announcements",
+        title: "公告列表",
+        description: "按当前用户可见范围读取公告、置顶公告、状态统计、签收状态和签收统计。",
+        access: "登录用户",
+        example: { queryParameters: { page: "1", pageSize: "10", q: "维护", scope: "manage", status: "已发布", time: "30d", type: "维护通知" } }
+      },
+      {
+        method: "GET",
+        path: "/api/announcements/:id",
+        title: "公告详情",
+        description: "读取当前用户可见的单条公告详情，管理员可使用管理视图查看全部公告。",
+        access: "登录用户",
+        example: { pathParameters: { id: "announcement-id" }, queryParameters: { scope: "manage" } }
+      },
+      {
+        method: "POST",
+        path: "/api/announcements",
+        title: "发布公告",
+        description: "创建新的工作台公告。",
+        access: "管理员",
+        example: {
+          requestBody: {
+            endAt: "2026-06-20T11:30",
+            pinned: true,
+            startAt: "2026-06-20T09:00",
+            summary: "今晚 23:00 进行短暂维护",
+            title: "维护通知"
+          }
+        }
+      },
+      {
+        method: "PATCH",
+        path: "/api/announcements/:id",
+        title: "修改公告",
+        description: "更新公告内容、发布时间窗口、置顶状态或归档状态。",
+        access: "管理员",
+        example: { pathParameters: { id: "announcement-id" }, requestBody: { status: "已归档", title: "维护通知更新" } }
+      },
+      {
+        method: "DELETE",
+        path: "/api/announcements/:id",
+        title: "删除公告",
+        description: "删除公告并移除对应签收记录。",
+        access: "管理员",
+        example: { pathParameters: { id: "announcement-id" } }
+      },
+      {
+        method: "POST",
+        path: "/api/announcements/:id/receipt",
+        title: "签收公告",
+        description: "记录当前登录用户已查看并签收公告。",
+        access: "登录用户",
+        example: { pathParameters: { id: "announcement-id" }, requestBody: null }
+      }
+    ]
+  }
+];

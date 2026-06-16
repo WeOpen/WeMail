@@ -17,9 +17,42 @@ describe("dashboard integration", () => {
   });
 
   it(
-    "renders the admin dashboard with KPI cards and charts instead of the placeholder page",
+    "renders the admin dashboard from the dashboard API",
     async () => {
       window.history.pushState({}, "", "/dashboard");
+      const dashboardPayload = {
+        kpis: [
+          { kicker: "接口收件", label: "实时收件", value: "3", detail: "来自后端消息表", change: "较昨日 +3" },
+          { kicker: "接口发件", label: "实时发件", value: "2", detail: "平均成功率 50%", change: "失败重试 1 次" },
+          { kicker: "接口密钥", label: "活跃密钥", value: "1", detail: "1 个正在使用", change: "0 个待轮换" },
+          { kicker: "接口 Webhook", label: "投递端点", value: "1", detail: "1 个正常投递", change: "失败重试 1 次" },
+          { kicker: "接口公告", label: "已发布公告", value: "1", detail: "1 条正在展示", change: "本周发布 1 条" }
+        ],
+        trend: {
+          week: [{ day: "今天", inbound: 3, outbound: 2 }],
+          month: [{ day: "本月", inbound: 3, outbound: 2 }],
+          year: [{ day: "今年", inbound: 3, outbound: 2 }]
+        },
+        accountDistribution: [
+          { label: "活跃账号", value: 67, tone: "#111827" },
+          { label: "暂停账号", value: 33, tone: "#ff7a00" }
+        ],
+        accountTotal: 3,
+        resources: [
+          { label: "接口邀请码", value: "4 个", detail: "本周新建 2 个", progress: 80, tone: "#111827" },
+          { label: "接口配额池", value: "20 / 天", detail: "当前已用 8", progress: 40, tone: "#ff7a00" }
+        ],
+        growth: {
+          week: [{ label: "今天", accounts: 1, mailboxes: 2 }],
+          month: [{ label: "本月", accounts: 1, mailboxes: 2 }],
+          year: [{ label: "今年", accounts: 1, mailboxes: 2 }]
+        },
+        userRoles: [
+          { label: "管理员", value: 50, tone: "#111827" },
+          { label: "成员", value: 50, tone: "#ff7a00" }
+        ],
+        userTotal: 2
+      };
       vi.spyOn(globalThis, "fetch").mockImplementation((input) => {
         const url = typeof input === "string" ? input : input instanceof Request ? input.url : String(input);
 
@@ -39,6 +72,7 @@ describe("dashboard integration", () => {
             }
           });
         }
+        if (url.endsWith("/api/dashboard")) return jsonResponse(dashboardPayload);
 
         if (url.endsWith("/api/accounts")) {
           return jsonResponse({
@@ -97,9 +131,12 @@ describe("dashboard integration", () => {
 
       render(<App />);
 
-      expect(await screen.findByText("今日收件")).toBeInTheDocument();
-      expect(screen.getByText("今日发件")).toBeInTheDocument();
-      expect(screen.getByText("API 密钥数")).toBeInTheDocument();
+      expect(await screen.findByText("接口收件")).toBeInTheDocument();
+      expect(screen.getByText("接口发件")).toBeInTheDocument();
+      expect(screen.getByText("接口密钥")).toBeInTheDocument();
+      expect(screen.getByText("接口 Webhook")).toBeInTheDocument();
+      expect(screen.getByText("接口公告")).toBeInTheDocument();
+      expect(screen.getByText("来自后端消息表")).toBeInTheDocument();
       expect(screen.getByText("投递端点")).toBeInTheDocument();
       expect(screen.getByText("已发布公告")).toBeInTheDocument();
       expect(screen.getByRole("heading", { name: "趋势" })).toBeInTheDocument();
@@ -113,8 +150,9 @@ describe("dashboard integration", () => {
       expect(within(screen.getByLabelText("增长周期")).getByRole("tab", { name: "月" })).toBeInTheDocument();
       expect(screen.getByText("新增账号")).toBeInTheDocument();
       expect(screen.getByText("新增邮箱")).toBeInTheDocument();
-      expect(screen.getByText("可用邀请码")).toBeInTheDocument();
-      expect(screen.getByText("默认配额池")).toBeInTheDocument();
+      expect(screen.getByText("接口邀请码")).toBeInTheDocument();
+      expect(screen.getByText("接口配额池")).toBeInTheDocument();
+      expect(screen.queryByText("今日收件")).not.toBeInTheDocument();
       expect(screen.queryByText("最近新增账号")).not.toBeInTheDocument();
       expect(screen.queryByText(/收件较昨日增长/i)).not.toBeInTheDocument();
       expect(screen.queryByText("测试邮箱")).not.toBeInTheDocument();
@@ -144,6 +182,24 @@ describe("dashboard integration", () => {
             outboundEnabled: true,
             mailboxCreationEnabled: true
           }
+        });
+      }
+      if (url.endsWith("/api/dashboard")) {
+        return jsonResponse({
+          kpis: [
+            { kicker: "接口收件", label: "实时收件", value: "0", detail: "暂无收件", change: "较昨日 0" },
+            { kicker: "接口发件", label: "实时发件", value: "0", detail: "暂无发件", change: "失败重试 0 次" },
+            { kicker: "接口密钥", label: "活跃密钥", value: "0", detail: "0 个正在使用", change: "0 个待轮换" },
+            { kicker: "接口 Webhook", label: "投递端点", value: "0", detail: "0 个正常投递", change: "失败重试 0 次" },
+            { kicker: "接口公告", label: "已发布公告", value: "0", detail: "0 条正在展示", change: "本周发布 0 条" }
+          ],
+          trend: { week: [], month: [], year: [] },
+          accountDistribution: [],
+          accountTotal: 0,
+          resources: [],
+          growth: { week: [], month: [], year: [] },
+          userRoles: [],
+          userTotal: 0
         });
       }
 

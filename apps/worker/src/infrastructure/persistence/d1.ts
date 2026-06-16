@@ -1,12 +1,33 @@
-import type { MailDomainSummary, UserRole, UserStatus } from "@wemail/shared";
+import {
+  applyDictionaryItemUpdate,
+  buildDictionaryCatalog,
+  findDefaultDictionaryGroup,
+  findDefaultDictionaryItem,
+  type DictionaryGroupSummary,
+  type DictionaryItemSummary,
+  type MailDomainSummary,
+  type UserRole,
+  type UserStatus
+} from "@wemail/shared";
 
 import type {
+  AnnouncementRecord,
+  AnnouncementReceiptRecord,
   AppStore,
   AttachmentRecord,
   MailboxDetailListQuery,
   MailboxDetailRecord,
-  QuotaRecord
+  OutboundMessageRecord,
+  PersistedMessageRecord,
+  QuotaRecord,
+  UserPreferencesRecord
 } from "../../core/bindings";
+import {
+  filterAnnouncements,
+  getAnnouncementSummary,
+  getFeaturedAnnouncements,
+  paginateAnnouncements
+} from "../../shared/announcements";
 
 function nowIso() {
   return new Date().toISOString();
@@ -54,8 +75,94 @@ function parseAllowedRoles(value: string | null | undefined): UserRole[] {
   return roles.filter((role): role is UserRole => role === "admin" || role === "member");
 }
 
+function toDictionaryGroup(row: any): DictionaryGroupSummary {
+  return {
+    groupKey: row.group_key,
+    label: row.label,
+    description: row.description,
+    isSystem: toBool(row.is_system),
+    version: Number(row.version || 1),
+    updatedAt: row.updated_at
+  };
+}
+
+function toDictionaryItem(row: any): DictionaryItemSummary {
+  return {
+    groupKey: row.group_key,
+    value: row.value,
+    label: row.label,
+    description: row.description,
+    sortOrder: Number(row.sort_order || 0),
+    enabled: toBool(row.enabled),
+    metadata: parseJson<Record<string, unknown>>(row.metadata_json, {}),
+    updatedAt: row.updated_at
+  };
+}
+
 function parseUserStatus(value: unknown): UserStatus {
   return value === "disabled" || value === "outbound_disabled" ? "disabled" : "active";
+}
+
+function toMessageRecord(row: any): PersistedMessageRecord {
+  return {
+    id: row.id,
+    mailboxId: row.account_id,
+    toAddress: row.to_address ?? null,
+    fromAddress: row.from_address,
+    subject: row.subject,
+    previewText: row.preview_text,
+    bodyText: row.body_text,
+    extractionJson: row.extraction_json,
+    oversizeStatus: row.oversize_status,
+    attachmentCount: Number(row.attachment_count),
+    receivedAt: row.received_at,
+    expiresAt: row.expires_at
+  };
+}
+
+function toAnnouncementRecord(row: any): AnnouncementRecord {
+  return {
+    id: row.id,
+    title: row.title,
+    summary: row.summary,
+    type: row.type,
+    status: row.status,
+    audience: row.audience,
+    priority: row.priority,
+    authorUserId: row.author_user_id,
+    authorLabel: row.author_label,
+    tagsJson: row.tags_json,
+    pinned: toBool(row.pinned),
+    startAt: row.start_at,
+    endAt: row.end_at,
+    publishedAt: row.published_at,
+    updatedAt: row.updated_at
+  };
+}
+
+function toAnnouncementReceiptRecord(row: any): AnnouncementReceiptRecord {
+  return {
+    announcementId: row.announcement_id,
+    userId: row.user_id,
+    acknowledgedAt: row.acknowledged_at
+  };
+}
+
+function toOutboundMessageRecord(row: any): OutboundMessageRecord {
+  return {
+    id: row.id,
+    mailboxId: row.account_id,
+    fromAddress: row.from_address ?? "",
+    toAddress: row.to_address,
+    subject: row.subject,
+    bodyText: row.body_text ?? "",
+    status: row.status === "failed" ? "failed" : "sent",
+    errorText: row.error_text,
+    providerMessageId: row.provider_message_id ?? null,
+    requestPayloadJson: row.request_payload_json ?? "{}",
+    responsePayloadJson: row.response_payload_json ?? null,
+    createdAt: row.created_at
+  };
 }
 
 function toUserRecord(row: any) {
@@ -69,6 +176,19 @@ function toUserRecord(row: any) {
     status: parseUserStatus(row.status),
     createdAt: row.created_at,
     updatedAt: row.updated_at || row.created_at
+  };
+}
+
+function toUserPreferencesRecord(row: any): UserPreferencesRecord {
+  return {
+    userId: row.user_id,
+    bio: row.bio || "",
+    locale: row.locale || "zh-CN",
+    timezone: row.timezone || "Asia/Shanghai",
+    dateFormat: row.date_format || "yyyy-mm-dd",
+    landingPage: row.landing_page || "/dashboard",
+    density: row.density || "comfortable",
+    updatedAt: row.updated_at
   };
 }
 
@@ -148,6 +268,13 @@ export function createD1Store(db: D1Database): AppStore {
         const result = await db.prepare("SELECT count(*) AS count FROM users").first<{ count: number }>();
         return result?.count ?? 0;
       },
+      async countActiveByRole(role) {
+        const statement = role
+          ? db.prepare("SELECT count(*) AS count FROM users WHERE status = 'active' AND role = ?").bind(role)
+          : db.prepare("SELECT count(*) AS count FROM users WHERE status = 'active'");
+        const result = await statement.first<{ count: number }>();
+        return result?.count ?? 0;
+      },
       async findByEmail(email) {
         const row = await db.prepare("SELECT * FROM users WHERE email = ?").bind(email).first<any>();
         return row ? toUserRecord(row) : null;
@@ -199,6 +326,7 @@ export function createD1Store(db: D1Database): AppStore {
         await db.prepare("DELETE FROM user_send_quotas WHERE user_id = ?").bind(id).run();
         await db.prepare("DELETE FROM api_keys WHERE user_id = ?").bind(id).run();
         await db.prepare("DELETE FROM telegram_subscriptions WHERE user_id = ?").bind(id).run();
+        await db.prepare("DELETE FROM user_preferences WHERE user_id = ?").bind(id).run();
         await db.prepare("DELETE FROM users WHERE id = ?").bind(id).run();
         return true;
       },
@@ -246,6 +374,34 @@ export function createD1Store(db: D1Database): AppStore {
         return {
           active: row?.active ?? 0,
           total: row?.total ?? 0
+        };
+      }
+    },
+    userPreferences: {
+      async getByUserId(userId) {
+        const row = await db.prepare("SELECT * FROM user_preferences WHERE user_id = ?").bind(userId).first<any>();
+        return row ? toUserPreferencesRecord(row) : null;
+      },
+      async save(record) {
+        const updatedAt = nowIso();
+        await db
+          .prepare(
+            "INSERT OR REPLACE INTO user_preferences (user_id, bio, locale, timezone, date_format, landing_page, density, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+          )
+          .bind(
+            record.userId,
+            record.bio,
+            record.locale,
+            record.timezone,
+            record.dateFormat,
+            record.landingPage,
+            record.density,
+            updatedAt
+          )
+          .run();
+        return {
+          ...record,
+          updatedAt
         };
       }
     },
@@ -337,7 +493,7 @@ export function createD1Store(db: D1Database): AppStore {
     mailboxes: {
       async countByUser(userId) {
         const result = await db
-          .prepare("SELECT count(*) AS count FROM accounts WHERE user_id = ?")
+          .prepare("SELECT count(*) AS count FROM accounts WHERE user_id = ? AND status != 'soft_deleted'")
           .bind(userId)
           .first<{ count: number }>();
         return result?.count ?? 0;
@@ -347,9 +503,19 @@ export function createD1Store(db: D1Database): AppStore {
         const createdAt = nowIso();
         await db
           .prepare(
-            "INSERT INTO accounts (id, user_id, address, label, status, tags_json, created_by_user_id, last_active_at, created_at) VALUES (?, ?, ?, ?, 'enabled', '[]', ?, ?, ?)"
+            "INSERT INTO accounts (id, user_id, address, label, status, tags_json, created_by_user_id, last_active_at, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
           )
-          .bind(id, input.userId, input.address, input.label, input.userId, input.lastActiveAt ?? null, createdAt)
+          .bind(
+            id,
+            input.userId,
+            input.address,
+            input.label,
+            input.status ?? "enabled",
+            JSON.stringify(input.tags ?? []),
+            input.userId,
+            input.lastActiveAt ?? null,
+            createdAt
+          )
           .run();
         return { id, userId: input.userId, address: input.address, label: input.label, createdAt };
       },
@@ -367,6 +533,21 @@ export function createD1Store(db: D1Database): AppStore {
           bindings.push(input.status);
           assignments.push("deleted_at = ?");
           bindings.push(input.status === "soft_deleted" ? nowIso() : null);
+        }
+
+        if (typeof input.deletedAt !== "undefined") {
+          assignments.push("deleted_at = ?");
+          bindings.push(input.deletedAt);
+        }
+
+        if (typeof input.lastActiveAt !== "undefined") {
+          assignments.push("last_active_at = ?");
+          bindings.push(input.lastActiveAt);
+        }
+
+        if (typeof input.tags !== "undefined") {
+          assignments.push("tags_json = ?");
+          bindings.push(JSON.stringify(input.tags));
         }
 
         if (assignments.length === 0) return findMailboxDetailById(id);
@@ -389,9 +570,9 @@ export function createD1Store(db: D1Database): AppStore {
         const bindings: any[] = [];
 
         if (query.search) {
-          whereConditions.push("(a.id LIKE ? OR a.address LIKE ? OR u.name LIKE ?)");
+          whereConditions.push("(a.id LIKE ? OR a.label LIKE ? OR a.address LIKE ? OR u.name LIKE ?)");
           const searchPattern = `%${query.search}%`;
-          bindings.push(searchPattern, searchPattern, searchPattern);
+          bindings.push(searchPattern, searchPattern, searchPattern, searchPattern);
         }
 
         if (query.status && query.status !== "all") {
@@ -481,8 +662,14 @@ export function createD1Store(db: D1Database): AppStore {
         const row = await db.prepare("SELECT * FROM accounts WHERE id = ?").bind(id).first<any>();
         return row ? toMailboxRecord(row) : null;
       },
+      async findDetailById(id) {
+        return findMailboxDetailById(id);
+      },
       async findByAddress(address) {
-        const row = await db.prepare("SELECT * FROM accounts WHERE address = ?").bind(address).first<any>();
+        const row = await db
+          .prepare("SELECT * FROM accounts WHERE address = ? AND status <> 'soft_deleted'")
+          .bind(address)
+          .first<any>();
         return row ? toMailboxRecord(row) : null;
       },
       async delete(id) {
@@ -494,11 +681,12 @@ export function createD1Store(db: D1Database): AppStore {
         const id = crypto.randomUUID();
         await db
           .prepare(
-            "INSERT INTO mail_messages (id, account_id, from_address, subject, preview_text, body_text, extraction_json, oversize_status, attachment_count, received_at, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+            "INSERT INTO mail_messages (id, account_id, to_address, from_address, subject, preview_text, body_text, extraction_json, oversize_status, attachment_count, received_at, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
           )
           .bind(
             id,
             input.mailboxId,
+            input.toAddress ?? null,
             input.fromAddress,
             input.subject,
             input.previewText,
@@ -512,58 +700,102 @@ export function createD1Store(db: D1Database): AppStore {
           .run();
         return { id, ...input };
       },
+      async listForMailboxes(query) {
+        const mailboxIds = Array.from(new Set(query.mailboxIds)).filter(Boolean);
+        const page = getSafePage(query.page);
+        const pageSize = getSafePageSize(query.pageSize);
+
+        if (mailboxIds.length === 0 && !query.includeUnmatched) {
+          return {
+            messages: [],
+            page,
+            pageSize,
+            summary: { messageCount: 0, extractionCount: 0, attachmentCount: 0 },
+            total: 0
+          };
+        }
+
+        const bindings: unknown[] = [];
+        const scopeConditions: string[] = [];
+
+        if (mailboxIds.length > 0) {
+          scopeConditions.push(`account_id IN (${mailboxIds.map(() => "?").join(", ")})`);
+          bindings.push(...mailboxIds);
+        }
+        if (query.includeUnmatched) {
+          scopeConditions.push("account_id LIKE 'unmatched:%'");
+        }
+
+        const whereConditions = [`(${scopeConditions.join(" OR ")})`];
+        const search = query.search?.trim();
+
+        if (search) {
+          const searchLike = `%${search}%`;
+          whereConditions.push(
+            "(to_address LIKE ? COLLATE NOCASE OR from_address LIKE ? COLLATE NOCASE OR subject LIKE ? COLLATE NOCASE OR preview_text LIKE ? COLLATE NOCASE OR body_text LIKE ? COLLATE NOCASE OR extraction_json LIKE ? COLLATE NOCASE)"
+          );
+          bindings.push(searchLike, searchLike, searchLike, searchLike, searchLike, searchLike);
+        }
+
+        if (query.filter === "code") {
+          whereConditions.push("json_extract(extraction_json, '$.type') = 'auth_code'");
+        }
+        if (query.filter === "link") {
+          whereConditions.push("json_extract(extraction_json, '$.type') NOT IN ('auth_code', 'none')");
+        }
+        if (query.filter === "attachment") {
+          whereConditions.push("attachment_count > 0");
+        }
+        if (query.filter === "unparsed") {
+          whereConditions.push("json_extract(extraction_json, '$.type') = 'none'");
+        }
+
+        const whereClause = `WHERE ${whereConditions.join(" AND ")}`;
+        const totalRow = await db
+          .prepare(`SELECT COUNT(*) AS count FROM mail_messages ${whereClause}`)
+          .bind(...bindings)
+          .first<{ count: number }>();
+        const summaryRow = await db
+          .prepare(
+            `SELECT
+              COUNT(*) AS message_count,
+              COALESCE(SUM(CASE WHEN json_extract(extraction_json, '$.type') <> 'none' AND trim(COALESCE(json_extract(extraction_json, '$.value'), '')) <> '' THEN 1 ELSE 0 END), 0) AS extraction_count,
+              COALESCE(SUM(attachment_count), 0) AS attachment_count
+            FROM mail_messages ${whereClause}`
+          )
+          .bind(...bindings)
+          .first<{ message_count: number; extraction_count: number; attachment_count: number }>();
+        const result = await db
+          .prepare(`SELECT * FROM mail_messages ${whereClause} ORDER BY received_at DESC LIMIT ? OFFSET ?`)
+          .bind(...bindings, pageSize, (page - 1) * pageSize)
+          .all();
+
+        return {
+          messages: (result.results ?? []).map(toMessageRecord),
+          page,
+          pageSize,
+          summary: {
+            messageCount: Number(summaryRow?.message_count ?? 0),
+            extractionCount: Number(summaryRow?.extraction_count ?? 0),
+            attachmentCount: Number(summaryRow?.attachment_count ?? 0)
+          },
+          total: Number(totalRow?.count ?? 0)
+        };
+      },
       async listByMailbox(mailboxId) {
         const result = await db
           .prepare("SELECT * FROM mail_messages WHERE account_id = ? ORDER BY received_at DESC")
           .bind(mailboxId)
           .all();
-        return (result.results ?? []).map((row: any) => ({
-          id: row.id,
-          mailboxId: row.account_id,
-          fromAddress: row.from_address,
-          subject: row.subject,
-          previewText: row.preview_text,
-          bodyText: row.body_text,
-          extractionJson: row.extraction_json,
-          oversizeStatus: row.oversize_status,
-          attachmentCount: Number(row.attachment_count),
-          receivedAt: row.received_at,
-          expiresAt: row.expires_at
-        }));
+        return (result.results ?? []).map(toMessageRecord);
       },
       async findById(id) {
         const row = await db.prepare("SELECT * FROM mail_messages WHERE id = ?").bind(id).first<any>();
-        return row
-          ? {
-              id: row.id,
-              mailboxId: row.account_id,
-              fromAddress: row.from_address,
-              subject: row.subject,
-              previewText: row.preview_text,
-              bodyText: row.body_text,
-              extractionJson: row.extraction_json,
-              oversizeStatus: row.oversize_status,
-              attachmentCount: Number(row.attachment_count),
-              receivedAt: row.received_at,
-              expiresAt: row.expires_at
-            }
-          : null;
+        return row ? toMessageRecord(row) : null;
       },
       async listExpired(beforeIso) {
         const result = await db.prepare("SELECT * FROM mail_messages WHERE expires_at <= ?").bind(beforeIso).all();
-        return (result.results ?? []).map((row: any) => ({
-          id: row.id,
-          mailboxId: row.account_id,
-          fromAddress: row.from_address,
-          subject: row.subject,
-          previewText: row.preview_text,
-          bodyText: row.body_text,
-          extractionJson: row.extraction_json,
-          oversizeStatus: row.oversize_status,
-          attachmentCount: Number(row.attachment_count),
-          receivedAt: row.received_at,
-          expiresAt: row.expires_at
-        }));
+        return (result.results ?? []).map(toMessageRecord);
       },
       async deleteMany(ids) {
         if (ids.length === 0) return;
@@ -626,35 +858,91 @@ export function createD1Store(db: D1Database): AppStore {
     },
     outboundMessages: {
       async create(input) {
+        const id = crypto.randomUUID();
+        const createdAt = nowIso();
         await db
           .prepare(
-            "INSERT INTO mail_outbound_messages (id, account_id, to_address, subject, status, error_text, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)"
+            "INSERT INTO mail_outbound_messages (id, account_id, from_address, to_address, subject, body_text, status, error_text, provider_message_id, request_payload_json, response_payload_json, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
           )
           .bind(
-            crypto.randomUUID(),
+            id,
             input.mailboxId,
+            input.fromAddress,
             input.toAddress,
             input.subject,
+            input.bodyText,
             input.status,
             input.errorText,
-            nowIso()
+            input.providerMessageId,
+            input.requestPayloadJson,
+            input.responsePayloadJson,
+            createdAt
           )
           .run();
+        return {
+          id,
+          createdAt,
+          ...input
+        };
       },
-      async listByMailbox(mailboxId) {
+      async listByMailbox(query) {
+        const page = getSafePage(query.page);
+        const pageSize = getSafePageSize(query.pageSize);
+        const baseBindings: unknown[] = [query.mailboxId];
+        const baseConditions = ["account_id = ?"];
+        const search = query.search?.trim();
+
+        if (search) {
+          const searchLike = `%${search}%`;
+          baseConditions.push(
+            "(from_address LIKE ? COLLATE NOCASE OR to_address LIKE ? COLLATE NOCASE OR subject LIKE ? COLLATE NOCASE OR body_text LIKE ? COLLATE NOCASE OR error_text LIKE ? COLLATE NOCASE OR provider_message_id LIKE ? COLLATE NOCASE OR request_payload_json LIKE ? COLLATE NOCASE OR response_payload_json LIKE ? COLLATE NOCASE)"
+          );
+          baseBindings.push(searchLike, searchLike, searchLike, searchLike, searchLike, searchLike, searchLike, searchLike);
+        }
+
+        const filteredConditions = [...baseConditions];
+        const filteredBindings = [...baseBindings];
+        if (query.status === "sent" || query.status === "failed") {
+          filteredConditions.push("status = ?");
+          filteredBindings.push(query.status);
+        }
+
+        const baseWhereClause = `WHERE ${baseConditions.join(" AND ")}`;
+        const filteredWhereClause = `WHERE ${filteredConditions.join(" AND ")}`;
+        const totalRow = await db
+          .prepare(`SELECT COUNT(*) AS count FROM mail_outbound_messages ${filteredWhereClause}`)
+          .bind(...filteredBindings)
+          .first<{ count: number }>();
+        const summaryRow = await db
+          .prepare(
+            `SELECT
+              COUNT(*) AS total_count,
+              COALESCE(SUM(CASE WHEN status = 'sent' THEN 1 ELSE 0 END), 0) AS sent_count,
+              COALESCE(SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END), 0) AS failed_count
+            FROM mail_outbound_messages ${baseWhereClause}`
+          )
+          .bind(...baseBindings)
+          .first<{ total_count: number; sent_count: number; failed_count: number }>();
         const result = await db
-          .prepare("SELECT * FROM mail_outbound_messages WHERE account_id = ? ORDER BY created_at DESC")
-          .bind(mailboxId)
+          .prepare(`SELECT * FROM mail_outbound_messages ${filteredWhereClause} ORDER BY created_at DESC LIMIT ? OFFSET ?`)
+          .bind(...filteredBindings, pageSize, (page - 1) * pageSize)
           .all();
-        return (result.results ?? []).map((row: any) => ({
-          id: row.id,
-          mailboxId: row.account_id,
-          toAddress: row.to_address,
-          subject: row.subject,
-          status: row.status,
-          errorText: row.error_text,
-          createdAt: row.created_at
-        }));
+
+        return {
+          messages: (result.results ?? []).map(toOutboundMessageRecord),
+          page,
+          pageSize,
+          summary: {
+            totalCount: Number(summaryRow?.total_count ?? 0),
+            sentCount: Number(summaryRow?.sent_count ?? 0),
+            failedCount: Number(summaryRow?.failed_count ?? 0)
+          },
+          total: Number(totalRow?.count ?? 0)
+        };
+      },
+      async findById(id) {
+        const row = await db.prepare("SELECT * FROM mail_outbound_messages WHERE id = ?").bind(id).first<any>();
+        return row ? toOutboundMessageRecord(row) : null;
       }
     },
     apiKeys: {
@@ -750,36 +1038,107 @@ export function createD1Store(db: D1Database): AppStore {
       }
     },
     quotas: {
-      async getByUserId(userId, fallbackLimit) {
+      async getByUserId(userId, fallbackLimit, fallbackApiDailyLimit) {
         const row = await db.prepare("SELECT * FROM user_send_quotas WHERE user_id = ?").bind(userId).first<any>();
         if (!row) {
           const next: QuotaRecord = {
             userId,
+            apiDailyLimit: fallbackApiDailyLimit,
+            apiCallsToday: 0,
             dailyLimit: fallbackLimit,
             sendsToday: 0,
             disabled: false,
             updatedAt: nowIso()
           };
           await db
-            .prepare("INSERT INTO user_send_quotas (user_id, daily_limit, sends_today, disabled, updated_at) VALUES (?, ?, ?, ?, ?)")
-            .bind(userId, next.dailyLimit, next.sendsToday, 0, next.updatedAt)
+            .prepare(
+              "INSERT INTO user_send_quotas (user_id, daily_limit, sends_today, api_daily_limit, api_calls_today, disabled, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)"
+            )
+            .bind(userId, next.dailyLimit, next.sendsToday, next.apiDailyLimit, next.apiCallsToday, 0, next.updatedAt)
             .run();
           return next;
         }
         return {
           userId: row.user_id,
+          apiDailyLimit: Number(row.api_daily_limit ?? fallbackApiDailyLimit),
+          apiCallsToday: Number(row.api_calls_today ?? 0),
           dailyLimit: Number(row.daily_limit),
           sendsToday: Number(row.sends_today),
           disabled: toBool(row.disabled),
           updatedAt: row.updated_at
         };
       },
+      async consumeApiCall(userId, fallbackLimit, fallbackApiDailyLimit) {
+        const now = nowIso();
+        const today = now.slice(0, 10);
+        await db
+          .prepare(
+            "INSERT OR IGNORE INTO user_send_quotas (user_id, daily_limit, sends_today, api_daily_limit, api_calls_today, disabled, updated_at) VALUES (?, ?, 0, ?, 0, 0, ?)"
+          )
+          .bind(userId, fallbackLimit, fallbackApiDailyLimit, now)
+          .run();
+
+        const result = await db
+          .prepare(
+            `
+            UPDATE user_send_quotas
+            SET
+              sends_today = CASE WHEN substr(updated_at, 1, 10) != ? THEN 0 ELSE sends_today END,
+              api_calls_today = CASE WHEN substr(updated_at, 1, 10) != ? THEN 1 ELSE api_calls_today + 1 END,
+              updated_at = ?
+            WHERE user_id = ?
+              AND (CASE WHEN substr(updated_at, 1, 10) != ? THEN 0 ELSE api_calls_today END) < api_daily_limit
+          `
+          )
+          .bind(today, today, now, userId, today)
+          .run();
+
+        if (Number(result.meta.changes ?? 0) === 0) return null;
+        return this.getByUserId(userId, fallbackLimit, fallbackApiDailyLimit);
+      },
+      async consumeOutboundSend(userId, fallbackLimit, fallbackApiDailyLimit) {
+        const now = nowIso();
+        const today = now.slice(0, 10);
+        await db
+          .prepare(
+            "INSERT OR IGNORE INTO user_send_quotas (user_id, daily_limit, sends_today, api_daily_limit, api_calls_today, disabled, updated_at) VALUES (?, ?, 0, ?, 0, 0, ?)"
+          )
+          .bind(userId, fallbackLimit, fallbackApiDailyLimit, now)
+          .run();
+
+        const result = await db
+          .prepare(
+            `
+            UPDATE user_send_quotas
+            SET
+              sends_today = CASE WHEN substr(updated_at, 1, 10) != ? THEN 1 ELSE sends_today + 1 END,
+              api_calls_today = CASE WHEN substr(updated_at, 1, 10) != ? THEN 0 ELSE api_calls_today END,
+              updated_at = ?
+            WHERE user_id = ?
+              AND disabled = 0
+              AND (CASE WHEN substr(updated_at, 1, 10) != ? THEN 0 ELSE sends_today END) < daily_limit
+          `
+          )
+          .bind(today, today, now, userId, today)
+          .run();
+
+        if (Number(result.meta.changes ?? 0) === 0) return null;
+        return this.getByUserId(userId, fallbackLimit, fallbackApiDailyLimit);
+      },
       async save(quota) {
         await db
           .prepare(
-            "INSERT OR REPLACE INTO user_send_quotas (user_id, daily_limit, sends_today, disabled, updated_at) VALUES (?, ?, ?, ?, ?)"
+            "INSERT OR REPLACE INTO user_send_quotas (user_id, daily_limit, sends_today, api_daily_limit, api_calls_today, disabled, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)"
           )
-          .bind(quota.userId, quota.dailyLimit, quota.sendsToday, quota.disabled ? 1 : 0, quota.updatedAt)
+          .bind(
+            quota.userId,
+            quota.dailyLimit,
+            quota.sendsToday,
+            quota.apiDailyLimit,
+            quota.apiCallsToday,
+            quota.disabled ? 1 : 0,
+            quota.updatedAt
+          )
           .run();
       }
     },
@@ -833,6 +1192,59 @@ export function createD1Store(db: D1Database): AppStore {
         return domains;
       }
     },
+    dictionaries: {
+      async listGroups(groupKeys, options) {
+        const [groupResult, itemResult] = await Promise.all([
+          db.prepare("SELECT * FROM dictionary_groups").all(),
+          db.prepare("SELECT * FROM dictionary_items").all()
+        ]);
+
+        return buildDictionaryCatalog({
+          groupKeys,
+          groups: (groupResult.results ?? []).map(toDictionaryGroup),
+          includeDisabled: options?.includeDisabled,
+          items: (itemResult.results ?? []).map(toDictionaryItem)
+        });
+      },
+      async updateItem(groupKey, value, input) {
+        const existingRow = await db
+          .prepare("SELECT * FROM dictionary_items WHERE group_key = ? AND value = ?")
+          .bind(groupKey, value)
+          .first<any>();
+        const existing = existingRow ? toDictionaryItem(existingRow) : findDefaultDictionaryItem(groupKey, value);
+        if (!existing) return null;
+
+        const group = findDefaultDictionaryGroup(groupKey);
+        if (group) {
+          await db
+            .prepare(
+              "INSERT OR IGNORE INTO dictionary_groups (group_key, label, description, is_system, version, updated_at) VALUES (?, ?, ?, ?, ?, ?)"
+            )
+            .bind(group.groupKey, group.label, group.description, group.isSystem ? 1 : 0, group.version, nowIso())
+            .run();
+        }
+
+        const next = applyDictionaryItemUpdate(existing, input);
+        const updatedAt = nowIso();
+        await db
+          .prepare(
+            "INSERT OR REPLACE INTO dictionary_items (id, group_key, value, label, description, sort_order, enabled, metadata_json, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
+          )
+          .bind(
+            existingRow?.id ?? crypto.randomUUID(),
+            groupKey,
+            value,
+            next.label,
+            next.description,
+            next.sortOrder,
+            next.enabled ? 1 : 0,
+            JSON.stringify(next.metadata),
+            updatedAt
+          )
+          .run();
+        return { ...next, updatedAt };
+      }
+    },
     audit: {
       async record(event) {
         await db
@@ -850,6 +1262,24 @@ export function createD1Store(db: D1Database): AppStore {
           .bind(actorId, eventType, sinceIso)
           .first<{ count: number }>();
         return result?.count ?? 0;
+      },
+      async listByActorAndTypes(actorId, eventTypes, limit) {
+        if (eventTypes.length === 0) return [];
+        const placeholders = eventTypes.map(() => "?").join(", ");
+        const result = await db
+          .prepare(
+            `SELECT * FROM system_audit_events WHERE actor_id = ? AND event_type IN (${placeholders}) ORDER BY created_at DESC LIMIT ?`
+          )
+          .bind(actorId, ...eventTypes, limit)
+          .all<any>();
+        return (result.results ?? []).map((row) => ({
+          id: row.id,
+          actorType: row.actor_type,
+          actorId: row.actor_id,
+          eventType: row.event_type,
+          payloadJson: row.payload_json,
+          createdAt: row.created_at
+        }));
       }
     },
     accountSettings: {
@@ -918,6 +1348,32 @@ export function createD1Store(db: D1Database): AppStore {
           updatedAt: row.updated_at
         }));
       },
+      async listByUserPage(userId, options) {
+        const totalRow = await db
+          .prepare("SELECT count(*) AS count FROM webhook_endpoints WHERE user_id = ?")
+          .bind(userId)
+          .first<{ count: number }>();
+        const result = await db
+          .prepare("SELECT * FROM webhook_endpoints WHERE user_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?")
+          .bind(userId, options.pageSize, (options.page - 1) * options.pageSize)
+          .all();
+        return {
+          endpoints: (result.results ?? []).map((row: any) => ({
+            id: row.id,
+            userId: row.user_id,
+            name: row.name,
+            url: row.url,
+            eventsJson: row.events_json,
+            signingSecret: row.signing_secret,
+            enabled: toBool(row.enabled),
+            createdAt: row.created_at,
+            updatedAt: row.updated_at
+          })),
+          total: Number(totalRow?.count ?? 0),
+          page: options.page,
+          pageSize: options.pageSize
+        };
+      },
       async create(input) {
         const now = nowIso();
         const record = {
@@ -959,7 +1415,19 @@ export function createD1Store(db: D1Database): AppStore {
           .run();
         return (await this.listByUser(userId)).find((endpoint) => endpoint.id === id) ?? null;
       },
+      async rotateSecret(id, userId) {
+        const updatedAt = nowIso();
+        const signingSecret = crypto.randomUUID().replaceAll("-", "");
+        await db
+          .prepare("UPDATE webhook_endpoints SET signing_secret = ?, updated_at = ? WHERE id = ? AND user_id = ?")
+          .bind(signingSecret, updatedAt, id, userId)
+          .run();
+        return (await this.listByUser(userId)).find((endpoint) => endpoint.id === id) ?? null;
+      },
       async delete(id, userId) {
+        const existing = (await this.listByUser(userId)).find((endpoint) => endpoint.id === id);
+        if (!existing) return;
+        await db.prepare("DELETE FROM webhook_deliveries WHERE endpoint_id = ?").bind(id).run();
         await db.prepare("DELETE FROM webhook_endpoints WHERE id = ? AND user_id = ?").bind(id, userId).run();
       }
     },
@@ -980,14 +1448,77 @@ export function createD1Store(db: D1Database): AppStore {
           durationMs: row.duration_ms === null ? null : Number(row.duration_ms),
           errorText: row.error_text,
           payloadJson: row.payload_json,
+          responseText: row.response_text ?? null,
           createdAt: row.created_at
         }));
       },
+      async listByUserPage(userId, query) {
+        const filters = ["e.user_id = ?"];
+        const bindings: Array<number | string> = [userId];
+        if (query.endpointId) {
+          filters.push("d.endpoint_id = ?");
+          bindings.push(query.endpointId);
+        }
+        if (query.status && query.status !== "all") {
+          filters.push("d.status = ?");
+          bindings.push(query.status);
+        }
+        const whereClause = filters.join(" AND ");
+        const totalRow = await db
+          .prepare(`SELECT count(*) AS count FROM webhook_deliveries d INNER JOIN webhook_endpoints e ON e.id = d.endpoint_id WHERE ${whereClause}`)
+          .bind(...bindings)
+          .first<{ count: number }>();
+        const result = await db
+          .prepare(
+            `SELECT d.* FROM webhook_deliveries d INNER JOIN webhook_endpoints e ON e.id = d.endpoint_id WHERE ${whereClause} ORDER BY d.created_at DESC LIMIT ? OFFSET ?`
+          )
+          .bind(...bindings, query.pageSize, (query.page - 1) * query.pageSize)
+          .all();
+        return {
+          deliveries: (result.results ?? []).map((row: any) => ({
+            id: row.id,
+            endpointId: row.endpoint_id,
+            eventType: row.event_type,
+            status: row.status,
+            statusCode: row.status_code === null ? null : Number(row.status_code),
+            durationMs: row.duration_ms === null ? null : Number(row.duration_ms),
+            errorText: row.error_text,
+            payloadJson: row.payload_json,
+            responseText: row.response_text ?? null,
+            createdAt: row.created_at
+          })),
+          total: Number(totalRow?.count ?? 0),
+          page: query.page,
+          pageSize: query.pageSize
+        };
+      },
+      async findByUser(id, userId) {
+        const row = await db
+          .prepare(
+            "SELECT d.* FROM webhook_deliveries d INNER JOIN webhook_endpoints e ON e.id = d.endpoint_id WHERE d.id = ? AND e.user_id = ?"
+          )
+          .bind(id, userId)
+          .first<any>();
+        if (!row) return null;
+        return {
+          id: row.id,
+          endpointId: row.endpoint_id,
+          eventType: row.event_type,
+          status: row.status,
+          statusCode: row.status_code === null ? null : Number(row.status_code),
+          durationMs: row.duration_ms === null ? null : Number(row.duration_ms),
+          errorText: row.error_text,
+          payloadJson: row.payload_json,
+          responseText: row.response_text ?? null,
+          createdAt: row.created_at
+        };
+      },
       async record(input) {
-        const record = { id: crypto.randomUUID(), createdAt: nowIso(), ...input };
+        const { createdAt, id, ...recordInput } = input;
+        const record = { id: id ?? crypto.randomUUID(), createdAt: createdAt ?? nowIso(), ...recordInput };
         await db
           .prepare(
-            "INSERT INTO webhook_deliveries (id, endpoint_id, event_type, status, status_code, duration_ms, error_text, payload_json, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
+            "INSERT INTO webhook_deliveries (id, endpoint_id, event_type, status, status_code, duration_ms, error_text, payload_json, response_text, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
           )
           .bind(
             record.id,
@@ -998,6 +1529,7 @@ export function createD1Store(db: D1Database): AppStore {
             record.durationMs,
             record.errorText,
             record.payloadJson,
+            record.responseText,
             record.createdAt
           )
           .run();
@@ -1006,24 +1538,32 @@ export function createD1Store(db: D1Database): AppStore {
     },
     announcements: {
       async list() {
-        const result = await db.prepare("SELECT * FROM announcements ORDER BY published_at DESC").all();
-        return (result.results ?? []).map((row: any) => ({
-          id: row.id,
-          title: row.title,
-          summary: row.summary,
-          type: row.type,
-          status: row.status,
-          audience: row.audience,
-          priority: row.priority,
-          authorUserId: row.author_user_id,
-          authorLabel: row.author_label,
-          tagsJson: row.tags_json,
-          pinned: toBool(row.pinned),
-          startAt: row.start_at,
-          endAt: row.end_at,
-          publishedAt: row.published_at,
-          updatedAt: row.updated_at
-        }));
+        const result = await db.prepare("SELECT * FROM announcements ORDER BY pinned DESC, published_at DESC").all();
+        return (result.results ?? []).map(toAnnouncementRecord);
+      },
+      async listPage(options) {
+        const page = getSafePage(options.page);
+        const pageSize = getSafePageSize(options.pageSize);
+        const result = await db.prepare("SELECT * FROM announcements").all();
+        const filteredAnnouncements = filterAnnouncements((result.results ?? []).map(toAnnouncementRecord), {
+          ...options,
+          page,
+          pageSize
+        });
+        return {
+          announcements: paginateAnnouncements(filteredAnnouncements, { ...options, page, pageSize }),
+          total: filteredAnnouncements.length,
+          page,
+          pageSize
+        };
+      },
+      async listFeatured(options) {
+        const result = await db.prepare("SELECT * FROM announcements").all();
+        return getFeaturedAnnouncements((result.results ?? []).map(toAnnouncementRecord), options);
+      },
+      async summary(options) {
+        const result = await db.prepare("SELECT * FROM announcements").all();
+        return getAnnouncementSummary((result.results ?? []).map(toAnnouncementRecord), options);
       },
       async create(input) {
         const now = nowIso();
@@ -1051,6 +1591,76 @@ export function createD1Store(db: D1Database): AppStore {
           )
           .run();
         return record;
+      },
+      async find(id) {
+        const row = await db.prepare("SELECT * FROM announcements WHERE id = ?").bind(id).first();
+        return row ? toAnnouncementRecord(row) : null;
+      },
+      async update(id, input) {
+        const existing = await db.prepare("SELECT * FROM announcements WHERE id = ?").bind(id).first();
+        if (!existing) return null;
+        const current = toAnnouncementRecord(existing);
+        const record = {
+          ...current,
+          ...input,
+          updatedAt: nowIso()
+        };
+        await db
+          .prepare(
+            "UPDATE announcements SET title = ?, summary = ?, type = ?, status = ?, audience = ?, priority = ?, tags_json = ?, pinned = ?, start_at = ?, end_at = ?, updated_at = ? WHERE id = ?"
+          )
+          .bind(
+            record.title,
+            record.summary,
+            record.type,
+            record.status,
+            record.audience,
+            record.priority,
+            record.tagsJson,
+            record.pinned ? 1 : 0,
+            record.startAt,
+            record.endAt,
+            record.updatedAt,
+            id
+          )
+          .run();
+        return record;
+      },
+      async delete(id) {
+        await db.prepare("DELETE FROM announcement_receipts WHERE announcement_id = ?").bind(id).run();
+        const result = await db.prepare("DELETE FROM announcements WHERE id = ?").bind(id).run();
+        return Number(result.meta.changes ?? 0) > 0;
+      },
+      async acknowledge(announcementId, userId) {
+        const acknowledgedAt = nowIso();
+        await db
+          .prepare(
+            "INSERT INTO announcement_receipts (announcement_id, user_id, acknowledged_at) VALUES (?, ?, ?) ON CONFLICT(announcement_id, user_id) DO UPDATE SET acknowledged_at = excluded.acknowledged_at"
+          )
+          .bind(announcementId, userId, acknowledgedAt)
+          .run();
+        return { announcementId, userId, acknowledgedAt };
+      },
+      async listReceiptsByUser(userId, announcementIds) {
+        if (announcementIds.length === 0) return [];
+        const placeholders = announcementIds.map(() => "?").join(", ");
+        const result = await db
+          .prepare(`SELECT * FROM announcement_receipts WHERE user_id = ? AND announcement_id IN (${placeholders})`)
+          .bind(userId, ...announcementIds)
+          .all();
+        return (result.results ?? []).map(toAnnouncementReceiptRecord);
+      },
+      async countReceipts(announcementIds) {
+        if (announcementIds.length === 0) return {};
+        const placeholders = announcementIds.map(() => "?").join(", ");
+        const result = await db
+          .prepare(`SELECT announcement_id, COUNT(*) AS signed FROM announcement_receipts WHERE announcement_id IN (${placeholders}) GROUP BY announcement_id`)
+          .bind(...announcementIds)
+          .all<{ announcement_id: string; signed: number }>();
+        return (result.results ?? []).reduce<Record<string, number>>((counts, row) => {
+          counts[row.announcement_id] = Number(row.signed ?? 0);
+          return counts;
+        }, {});
       }
     }
   };

@@ -2,18 +2,21 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 
 import { registerMenuModules } from "../modules/register-modules";
+import { resolveAppConfig } from "../core/config";
 import type { AppContext } from "./context";
 import { jsonError } from "./services/audit-service";
+import { consumeApiCallQuota } from "./services/quota-service";
 import { getUserFromApiKey, getUserFromSession, resolveFeatureToggles } from "./services/session-service";
 import { resolveStore } from "./services/store-service";
 import { processInboundEmail, runCleanup } from "./runtime";
 
-function resolveCorsOrigin(origin?: string) {
-  if (!origin) return "*";
+function resolveCorsOrigin(env: AppContext["Bindings"], origin?: string) {
+  if (!origin) return undefined;
   if (origin === "http://127.0.0.1:5173" || origin === "http://localhost:5173") {
     return origin;
   }
-  return "*";
+  const { allowedOrigins } = resolveAppConfig(env).cors;
+  return allowedOrigins.includes(origin) ? origin : undefined;
 }
 
 export function createApp(options?: { store?: AppContext["Variables"]["store"] }) {
@@ -21,7 +24,7 @@ export function createApp(options?: { store?: AppContext["Variables"]["store"] }
   app.use(
     "*",
     cors({
-      origin: (origin) => resolveCorsOrigin(origin),
+      origin: (origin, c) => resolveCorsOrigin(c.env, origin),
       credentials: true
     })
   );
@@ -36,6 +39,11 @@ export function createApp(options?: { store?: AppContext["Variables"]["store"] }
     c.set("featureToggles", featureToggles);
     c.set("user", sessionUser ?? apiKeyUser);
     c.set("authMode", sessionUser ? "session" : apiKeyUser ? "apiKey" : "anonymous");
+
+    if (apiKeyUser) {
+      const quota = await consumeApiCallQuota(store, c.env, apiKeyUser.id);
+      if (quota instanceof Response) return quota;
+    }
 
     if (c.env.RATE_LIMITER) {
       const ip = c.req.header("cf-connecting-ip") ?? "local";

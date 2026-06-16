@@ -73,7 +73,71 @@ const spec = {
           "application/json": {
             schema: {
               type: "object",
-              properties: { label: { type: "string" } }
+              properties: {
+                label: { type: "string" },
+                domain: { type: "string", description: "系统设置中配置且当前用户角色可用的邮箱域名" },
+                creatorNote: { type: "string", description: "账号策略要求备注时必填" },
+                status: { type: "string", enum: ["enabled", "disabled", "archived"] },
+                tags: { type: "array", items: { type: "string" } }
+              }
+            }
+          }
+        }
+      },
+      AccountBulkDeleteRequest: {
+        required: true,
+        content: {
+          "application/json": {
+            schema: {
+              type: "object",
+              required: ["accountIds", "mode"],
+              properties: {
+                accountIds: { type: "array", items: { type: "string" }, minItems: 1 },
+                mode: { type: "string", enum: ["soft", "hard"] },
+                confirmationPhrase: { type: "string", description: "策略要求危险确认词时填写 DELETE n ACCOUNTS" }
+              }
+            }
+          }
+        }
+      },
+      AccountSettingsUpdateRequest: {
+        required: true,
+        content: {
+          "application/json": {
+            schema: {
+              type: "object",
+              properties: {
+                creation: {
+                  type: "object",
+                  properties: {
+                    defaultTagsEnabled: { type: "boolean" },
+                    defaultTags: { type: "string" },
+                    allowCreationOverride: { type: "boolean" },
+                    defaultStatus: { type: "string", enum: ["enabled", "disabled", "archived"] },
+                    requireCreatorNote: { type: "boolean" }
+                  }
+                },
+                lifecycle: {
+                  type: "object",
+                  properties: {
+                    inactiveDays: { type: "integer", minimum: 1 },
+                    inactiveAction: { type: "string", enum: ["mark", "disable", "archive"] },
+                    softDeleteRetentionDays: { type: "integer", minimum: 1 },
+                    allowHardDelete: { type: "boolean" },
+                    requireSoftDeleteBeforeHardDelete: { type: "boolean" }
+                  }
+                },
+                protection: {
+                  type: "object",
+                  properties: {
+                    confirmStandardBulkActions: { type: "boolean" },
+                    standardBulkLimit: { type: "integer", minimum: 1 },
+                    requireDangerPhrase: { type: "boolean" },
+                    hardDeleteLimit: { type: "integer", minimum: 1 },
+                    auditLoggingEnabled: { type: "boolean" }
+                  }
+                }
+              }
             }
           }
         }

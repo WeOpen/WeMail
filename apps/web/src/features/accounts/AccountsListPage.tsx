@@ -9,7 +9,7 @@ import {
   RefreshCw,
   Trash2
 } from "lucide-react";
-import type { MailboxDetail, MailboxStatus } from "@wemail/shared";
+import type { MailDomainSummary, MailboxDetail, MailboxStatus } from "@wemail/shared";
 
 import { Badge } from "../../shared/badge";
 import { Button } from "../../shared/button";
@@ -35,10 +35,13 @@ type AccountsActiveRange = "all" | "7d" | "30d" | "90d";
 
 type AccountsListPageProps = {
   accounts: MailboxDetail[];
+  availableDomains: MailDomainSummary[];
   total: number;
   page: number;
   pageSize: number;
   isLoading?: boolean;
+  isLoadingDomains?: boolean;
+  requireCreatorNote?: boolean;
   activeRange: AccountsActiveRange;
   error?: string | null;
   searchValue: string;
@@ -51,7 +54,7 @@ type AccountsListPageProps = {
   onQuickFilterChange: (value: AccountsQuickFilter) => void;
   onPageChange: (page: number) => void;
   onPageSizeChange: (pageSize: number) => void;
-  onCreateAccount: (label: string) => Promise<void>;
+  onCreateAccount: (payload: { label: string; domain: string; creatorNote?: string }) => Promise<void>;
   onDeleteAccount: (accountId: string) => Promise<void>;
   onExportAccounts: () => void;
   onRefresh: () => void;
@@ -170,10 +173,13 @@ function AccountActionMenu({ account, onDelete, onEdit, onToggleStatus }: Accoun
 
 export function AccountsListPage({
   accounts,
+  availableDomains,
   total,
   page,
   pageSize,
   isLoading,
+  isLoadingDomains,
+  requireCreatorNote = false,
   activeRange,
   error,
   searchValue,
@@ -197,6 +203,8 @@ export function AccountsListPage({
   const [isHardDeleteDialogOpen, setIsHardDeleteDialogOpen] = useState(false);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [newAccountLabel, setNewAccountLabel] = useState("");
+  const [newAccountDomain, setNewAccountDomain] = useState("");
+  const [newAccountNote, setNewAccountNote] = useState("");
   const [editingAccount, setEditingAccount] = useState<MailboxDetail | null>(null);
   const [editingLabel, setEditingLabel] = useState("");
   const [deletingAccount, setDeletingAccount] = useState<MailboxDetail | null>(null);
@@ -215,6 +223,13 @@ export function AccountsListPage({
   const selectedAccountsWithMailHistory = selectedAccounts.filter(
     (account) => account.messageCount > 0 || account.outboundCount > 0
   ).length;
+  const canCreateAccount =
+    Boolean(newAccountLabel.trim()) &&
+    Boolean(newAccountDomain) &&
+    (!requireCreatorNote || Boolean(newAccountNote.trim())) &&
+    !isCreating &&
+    !isLoadingDomains;
+  const domainPlaceholderLabel = isLoadingDomains ? "加载域名中" : availableDomains.length === 0 ? "暂无可用域名" : "请选择域名";
 
   useEffect(() => {
     setConfirmationPhrase("");
@@ -249,19 +264,27 @@ export function AccountsListPage({
 
   function closeCreateDialog() {
     setNewAccountLabel("");
+    setNewAccountDomain("");
+    setNewAccountNote("");
     setIsCreateDialogOpen(false);
   }
 
   function openCreateDialog() {
     setNewAccountLabel("");
+    setNewAccountDomain("");
+    setNewAccountNote("");
     setIsCreateDialogOpen(true);
   }
 
   async function handleCreateAccount() {
-    if (!newAccountLabel.trim() || isCreating) return;
+    if (!canCreateAccount) return;
     setIsCreating(true);
     try {
-      await onCreateAccount(newAccountLabel.trim());
+      await onCreateAccount({
+        label: newAccountLabel.trim(),
+        domain: newAccountDomain,
+        ...(requireCreatorNote ? { creatorNote: newAccountNote.trim() } : {})
+      });
       closeCreateDialog();
     } finally {
       setIsCreating(false);
@@ -575,21 +598,52 @@ export function AccountsListPage({
       {isCreateDialogOpen ? (
         <OverlayDialog closeLabel="关闭新建账号" eyebrow="新建账号" onClose={closeCreateDialog} title="创建新账号">
           <>
-            <p className="section-copy">请输入账号标签，系统将自动生成邮箱地址。</p>
-            <FormField label="账号标签">
+            <p className="section-copy">填写账号标签并选择可用域名，系统将生成邮箱地址。</p>
+            <FormField label="账号标签" required>
               <TextInput
                 aria-label="账号标签"
                 onChange={(event) => setNewAccountLabel(event.target.value)}
                 placeholder="例如：ops、admin、support"
+                required
                 type="text"
                 value={newAccountLabel}
               />
             </FormField>
+            <FormField label="邮箱域名" required>
+              <SelectInput
+                aria-label="邮箱域名"
+                disabled={isLoadingDomains || availableDomains.length === 0}
+                onChange={(event) => setNewAccountDomain(event.target.value)}
+                required
+                value={newAccountDomain}
+              >
+                <option disabled value="">
+                  {domainPlaceholderLabel}
+                </option>
+                {availableDomains.map((domain) => (
+                  <option key={domain.domain} value={domain.domain}>
+                    {domain.domain}
+                  </option>
+                ))}
+              </SelectInput>
+            </FormField>
+            {requireCreatorNote ? (
+              <FormField label="用途备注" required>
+                <TextInput
+                  aria-label="用途备注"
+                  onChange={(event) => setNewAccountNote(event.target.value)}
+                  placeholder="例如：市场活动回收、客服收件"
+                  required
+                  type="text"
+                  value={newAccountNote}
+                />
+              </FormField>
+            ) : null}
             <div className="workspace-dialog-actions">
               <Button onClick={closeCreateDialog} variant="secondary">
                 取消
               </Button>
-              <Button disabled={!newAccountLabel.trim() || isCreating} onClick={handleCreateAccount} variant="primary">
+              <Button disabled={!canCreateAccount} onClick={handleCreateAccount} variant="primary">
                 {isCreating ? "创建中..." : "创建账号"}
               </Button>
             </div>

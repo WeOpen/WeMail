@@ -1,8 +1,12 @@
+import { parseAccountPolicyRecord } from "@wemail/shared";
+
 import type { AppBindings, AppStore, MailboxRecord } from "../core/bindings";
 import { resolveAppConfig } from "../core/config";
-import { buildExtraction, buildTelegramClient, createPreview, maybeRunAiFallback, parseRawEmail } from "../shared/mail";
+import { buildExtraction, createPreview, maybeRunAiFallback, parseRawEmail } from "../shared/mail";
 import { recordAudit } from "./services/audit-service";
 import { defaultFeatureToggles } from "./services/config-service";
+import { sendTelegramNotification } from "./services/telegram-service";
+import { sendWebhookEventToUser } from "./services/webhook-service";
 
 function retentionDays(env: AppBindings) {
   return resolveAppConfig(env).message.retentionDays;
@@ -20,26 +24,27 @@ function aiFallbackLimit(env: AppBindings) {
   return resolveAppConfig(env).ai.fallbackLimit;
 }
 
+function normalizeRecipientAddress(address: string) {
+  return address.trim().toLowerCase();
+}
+
+function buildUnmatchedMailboxId(address: string) {
+  return `unmatched:${normalizeRecipientAddress(address)}`;
+}
+
 async function getFeatureToggles(store: AppStore, env: AppBindings) {
   return store.settings.getFeatureToggles(defaultFeatureToggles(env));
 }
 
-async function processInboundForMailbox(
-  store: AppStore,
+function collectAcceptedAttachments(
   env: AppBindings,
-  mailbox: MailboxRecord,
-  parsed: {
-    fromAddress: string;
-    subject: string;
-    text: string;
-    attachments: Array<{ filename: string; contentType: string; data: Uint8Array; size: number }>;
-  }
+  attachments: Array<{ filename: string; contentType: string; data: Uint8Array; size: number }>
 ) {
   let totalAttachmentBytes = 0;
   let oversizeStatus: string | null = null;
-  const acceptedAttachments = [];
+  const acceptedAttachments: Array<{ filename: string; contentType: string; data: Uint8Array; size: number }> = [];
 
-  for (const attachment of parsed.attachments) {
+  for (const attachment of attachments) {
     totalAttachmentBytes += attachment.size;
     if (attachment.size > attachmentLimit(env) || totalAttachmentBytes > totalAttachmentLimit(env)) {
       oversizeStatus = "rejected_oversize_attachment";
@@ -48,6 +53,73 @@ async function processInboundForMailbox(
     acceptedAttachments.push(attachment);
   }
 
+  return { acceptedAttachments, oversizeStatus };
+}
+
+async function saveInboundMessage(
+  store: AppStore,
+  env: AppBindings,
+  input: {
+    mailboxId: string;
+    toAddress: string;
+    parsed: {
+      fromAddress: string;
+      subject: string;
+      text: string;
+      attachments: Array<{ filename: string; contentType: string; data: Uint8Array; size: number }>;
+    };
+    extraction: ReturnType<typeof buildExtraction>;
+  }
+) {
+  const { acceptedAttachments, oversizeStatus } = collectAcceptedAttachments(env, input.parsed.attachments);
+  const expiresAt = new Date(Date.now() + retentionDays(env) * 24 * 60 * 60 * 1000).toISOString();
+  const message = await store.messages.create({
+    mailboxId: input.mailboxId,
+    toAddress: input.toAddress,
+    fromAddress: input.parsed.fromAddress,
+    subject: input.parsed.subject,
+    previewText: createPreview(input.parsed.text),
+    bodyText: input.parsed.text.slice(0, 10_000),
+    extractionJson: JSON.stringify(input.extraction),
+    oversizeStatus,
+    attachmentCount: acceptedAttachments.length,
+    receivedAt: new Date().toISOString(),
+    expiresAt
+  });
+
+  const attachmentRecords = acceptedAttachments.map((attachment) => ({
+    id: crypto.randomUUID(),
+    filename: attachment.filename,
+    contentType: attachment.contentType,
+    size: attachment.size,
+    key: `attachments/${input.mailboxId}/${message.id}/${attachment.filename}`
+  }));
+
+  await store.attachments.createMany(message.id, attachmentRecords);
+
+  if (env.ATTACHMENTS) {
+    for (let index = 0; index < acceptedAttachments.length; index += 1) {
+      await env.ATTACHMENTS.put(attachmentRecords[index].key, acceptedAttachments[index].data, {
+        httpMetadata: { contentType: attachmentRecords[index].contentType }
+      });
+    }
+  }
+
+  return { message, oversizeStatus };
+}
+
+async function processInboundForMailbox(
+  store: AppStore,
+  env: AppBindings,
+  mailbox: MailboxRecord,
+  toAddress: string,
+  parsed: {
+    fromAddress: string;
+    subject: string;
+    text: string;
+    attachments: Array<{ filename: string; contentType: string; data: Uint8Array; size: number }>;
+  }
+) {
   let extraction = buildExtraction(parsed.subject, parsed.text);
   const featureToggles = await getFeatureToggles(store, env);
   const aiUsageToday = await store.audit.countByActorSince(
@@ -63,49 +135,45 @@ async function processInboundForMailbox(
     }
   }
 
-  const expiresAt = new Date(Date.now() + retentionDays(env) * 24 * 60 * 60 * 1000).toISOString();
-  const message = await store.messages.create({
+  const { message, oversizeStatus } = await saveInboundMessage(store, env, {
     mailboxId: mailbox.id,
-    fromAddress: parsed.fromAddress,
-    subject: parsed.subject,
-    previewText: createPreview(parsed.text),
-    bodyText: parsed.text.slice(0, 10_000),
-    extractionJson: JSON.stringify(extraction),
-    oversizeStatus,
-    attachmentCount: acceptedAttachments.length,
-    receivedAt: new Date().toISOString(),
-    expiresAt
+    toAddress,
+    parsed,
+    extraction
   });
 
-  const attachmentRecords = acceptedAttachments.map((attachment) => ({
-    id: crypto.randomUUID(),
-    filename: attachment.filename,
-    contentType: attachment.contentType,
-    size: attachment.size,
-    key: `attachments/${mailbox.id}/${message.id}/${attachment.filename}`
-  }));
-
-  await store.attachments.createMany(message.id, attachmentRecords);
-
-  if (env.ATTACHMENTS) {
-    for (let index = 0; index < acceptedAttachments.length; index += 1) {
-      await env.ATTACHMENTS.put(attachmentRecords[index].key, acceptedAttachments[index].data, {
-        httpMetadata: { contentType: attachmentRecords[index].contentType }
-      });
+  await sendTelegramNotification(
+    { store, env, featureToggles },
+    {
+      userId: mailbox.userId,
+      eventId: "message.received",
+      text: `New mail for ${mailbox.address}\nFrom: ${parsed.fromAddress}\nSubject: ${parsed.subject}`,
+      metadata: { mailboxId: mailbox.id, messageId: message.id }
     }
-  }
+  );
+  await sendWebhookEventToUser(store, mailbox.userId, "message.received", {
+    mailboxAddress: mailbox.address,
+    mailboxId: mailbox.id,
+    messageId: message.id,
+    fromAddress: parsed.fromAddress,
+    subject: parsed.subject
+  });
 
-  const telegram = await store.telegram.findByUserId(mailbox.userId);
-  if (telegram?.enabled) {
-    const client = buildTelegramClient(resolveAppConfig(env).integrations.telegramBotToken);
-    const result = await client?.sendMessage({
-      chatId: telegram.chatId,
-      text: `New mail for ${mailbox.address}\nFrom: ${parsed.fromAddress}\nSubject: ${parsed.subject}`
-    });
-    await recordAudit(store, "user", mailbox.userId, "telegram-notify", {
-      ok: result?.ok ?? false,
+  if (extraction.type !== "none") {
+    await sendTelegramNotification(
+      { store, env, featureToggles },
+      {
+        userId: mailbox.userId,
+        eventId: "message.extraction.detected",
+        text: `Extracted result for ${mailbox.address}\n${extraction.label}: ${extraction.value}\nSubject: ${parsed.subject}`,
+        metadata: { mailboxId: mailbox.id, messageId: message.id, extractionType: extraction.type }
+      }
+    );
+    await sendWebhookEventToUser(store, mailbox.userId, "message.extracted", {
+      mailboxAddress: mailbox.address,
       mailboxId: mailbox.id,
-      messageId: message.id
+      messageId: message.id,
+      extraction
     });
   }
 
@@ -114,6 +182,7 @@ async function processInboundForMailbox(
     messageId: message.id,
     oversizeStatus
   });
+  await store.mailboxes.update(mailbox.id, { lastActiveAt: message.receivedAt });
 
   return message;
 }
@@ -123,16 +192,27 @@ export async function processInboundEmail(
   store: AppStore,
   message: { to: string; raw: ReadableStream<Uint8Array> }
 ) {
-  const mailbox = await store.mailboxes.findByAddress(message.to);
-  if (!mailbox) return null;
+  const toAddress = normalizeRecipientAddress(message.to);
   const parsed = await parseRawEmail(message.raw);
-  return processInboundForMailbox(store, env, mailbox, parsed);
+  const mailbox = await store.mailboxes.findByAddress(toAddress);
+  if (!mailbox) {
+    const { message: unmatchedMessage } = await saveInboundMessage(store, env, {
+      mailboxId: buildUnmatchedMailboxId(toAddress),
+      toAddress,
+      parsed,
+      extraction: buildExtraction(parsed.subject, parsed.text)
+    });
+    return unmatchedMessage;
+  }
+  return processInboundForMailbox(store, env, mailbox, toAddress, parsed);
 }
 
 export async function runCleanup(store: AppStore, env: AppBindings) {
   const expired = await store.messages.listExpired(new Date().toISOString());
   const expiredIds = expired.map((entry) => entry.id);
   const attachments = await store.attachments.listByMessageIds(expiredIds);
+  const accountPolicy = parseAccountPolicyRecord(await store.accountSettings.get());
+  let deletedAccounts = 0;
 
   if (env.ATTACHMENTS) {
     for (const attachment of attachments) {
@@ -143,5 +223,37 @@ export async function runCleanup(store: AppStore, env: AppBindings) {
   await store.attachments.deleteByMessageIds(expiredIds);
   await store.messages.deleteMany(expiredIds);
 
-  return { deletedMessages: expiredIds.length, deletedAttachments: attachments.length };
+  if (accountPolicy.lifecycle.allowHardDelete) {
+    const cutoff = new Date(
+      Date.now() - accountPolicy.lifecycle.softDeleteRetentionDays * 24 * 60 * 60 * 1000
+    ).toISOString();
+    const expiredAccountIds: string[] = [];
+    const pageSize = 500;
+    let page = 1;
+    let total = 0;
+
+    do {
+      const result = await store.mailboxes.listAllWithDetails({
+        page,
+        pageSize,
+        status: "soft_deleted"
+      });
+      total = result.total;
+
+      for (const account of result.accounts) {
+        if (account.deletedAt && account.deletedAt <= cutoff) {
+          expiredAccountIds.push(account.id);
+        }
+      }
+
+      page += 1;
+    } while ((page - 1) * pageSize < total);
+
+    for (const accountId of expiredAccountIds) {
+      await store.mailboxes.delete(accountId);
+    }
+    deletedAccounts = expiredAccountIds.length;
+  }
+
+  return { deletedMessages: expiredIds.length, deletedAttachments: attachments.length, deletedAccounts };
 }

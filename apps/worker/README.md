@@ -71,7 +71,18 @@ pnpm --dir apps/worker run dev
 
 - `ENVIRONMENT=local`
 - 本地 D1 绑定 `DB`
+- 本地 KV 缓存绑定 `CACHE`
 - 本地默认 vars
+
+KV 只作为可失效的读缓存层使用，D1 仍是系统配置、字典、账号策略和邮件设置的权威数据源。远端环境需要先创建对应 namespace：
+
+```bash
+cd apps/worker
+pnpm exec wrangler kv namespace create CACHE --env staging
+pnpm exec wrangler kv namespace create CACHE --env production
+```
+
+然后把输出的 namespace id 填入 `wrangler.toml` 的 `env.staging.kv_namespaces` 和 `env.production.kv_namespaces`。
 
 ### 4. 初始化本地 D1 表结构与邀请码
 
@@ -164,6 +175,7 @@ cd apps/worker && pnpm exec wrangler deploy --env staging
 
 - `wrangler.toml` 的环境配置完整
 - D1 database ID 已替换占位值
+- KV namespace ID 已替换占位值
 - 运行时 secrets 已写入对应环境
 - 关键后端验证已经执行
 

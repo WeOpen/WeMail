@@ -79,3 +79,7 @@ export function getMailboxLimit(env: Pick<AppBindings, "MAILBOX_LIMIT">) {
 export function getOutboundLimit(env: Pick<AppBindings, "OUTBOUND_DAILY_LIMIT">) {
   return resolveAppConfig(env as AppBindings).outbound.dailyLimit;
 }
+
+export function getApiDailyLimit(env: Pick<AppBindings, "API_DAILY_LIMIT">) {
+  return resolveAppConfig(env as AppBindings).api.dailyLimit;
+}

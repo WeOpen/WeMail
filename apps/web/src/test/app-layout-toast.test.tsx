@@ -117,7 +117,7 @@ describe("AppLayout notice removal", () => {
     fireEvent.click(userMenuTrigger);
 
     const userMenu = screen.getByRole("menu");
-    expect(within(userMenu).getByText("用户名：Member User")).toBeInTheDocument();
+    expect(within(userMenu).queryByText(/用户名：/)).not.toBeInTheDocument();
     expect(within(userMenu).queryByText(session.user.email)).not.toBeInTheDocument();
     expect(within(userMenu).getByRole("menuitem", { name: "个人设置" })).toHaveAttribute("href", "/system/profile");
 

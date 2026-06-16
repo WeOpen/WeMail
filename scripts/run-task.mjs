@@ -24,7 +24,7 @@ const packageTasks = {
     lint: ["pnpm", ["exec", "eslint", "src"]],
     typecheck: ["pnpm", ["exec", "tsc", "-p", "tsconfig.json", "--noEmit"]],
     test: ["pnpm", ["exec", "vitest", "run"]],
-    build: ["pnpm", ["exec", "vite", "build"]]
+    build: ["node", ["scripts/build.mjs"]]
   }
 };
 

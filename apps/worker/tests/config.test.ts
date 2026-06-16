@@ -11,6 +11,7 @@ describe("worker config", () => {
       ENVIRONMENT: "staging",
       COOKIE_SECURE: "true",
       SESSION_TTL_HOURS: "24",
+      CORS_ALLOWED_ORIGINS: "https://mail.example.com, https://admin.example.com ",
       ADMIN_EMAILS: "admin@example.com, ops@example.com "
     });
 
@@ -18,10 +19,12 @@ describe("worker config", () => {
     expect(config.appName).toBe("WeMail");
     expect(config.cookie.name).toBe("wemail_session");
     expect(config.cookie.secure).toBe(true);
+    expect(config.cors.allowedOrigins).toEqual(["https://mail.example.com", "https://admin.example.com"]);
     expect(config.session.ttlHours).toBe(24);
     expect(config.mailbox.domain).toBe("example.com");
     expect(config.mailbox.limit).toBe(5);
     expect(config.message.retentionDays).toBe(7);
+    expect(config.api.dailyLimit).toBe(20000);
     expect(config.attachments.maxBytes).toBe(10485760);
     expect(config.attachments.maxTotalBytes).toBe(15728640);
     expect(config.ai.fallbackLimit).toBe(20);
@@ -39,9 +42,11 @@ describe("worker config", () => {
       ...workerTestEnv,
       ENVIRONMENT: undefined,
       COOKIE_SECURE: undefined,
+      CORS_ALLOWED_ORIGINS: undefined,
       SESSION_TTL_HOURS: "invalid",
       MAILBOX_LIMIT: "invalid",
       OUTBOUND_DAILY_LIMIT: "invalid",
+      API_DAILY_LIMIT: "invalid",
       MESSAGE_RETENTION_DAYS: "invalid",
       MAX_ATTACHMENT_BYTES: "invalid",
       MAX_TOTAL_ATTACHMENT_BYTES: "invalid",
@@ -56,9 +61,11 @@ describe("worker config", () => {
 
     expect(config.environment).toBe("local");
     expect(config.cookie.secure).toBe(false);
+    expect(config.cors.allowedOrigins).toEqual([]);
     expect(config.session.ttlHours).toBe(72);
     expect(config.mailbox.limit).toBe(5);
     expect(config.outbound.dailyLimit).toBe(20);
+    expect(config.api.dailyLimit).toBe(20000);
     expect(config.message.retentionDays).toBe(7);
     expect(config.attachments.maxBytes).toBe(10485760);
     expect(config.attachments.maxTotalBytes).toBe(15728640);

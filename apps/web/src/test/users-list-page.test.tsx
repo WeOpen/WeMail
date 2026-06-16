@@ -30,6 +30,8 @@ const adminUsers: UserSummary[] = [
 
 const adminQuota: QuotaSummary = {
   userId: "member-1",
+  apiDailyLimit: 20000,
+  apiCallsToday: 12,
   dailyLimit: 20,
   sendsToday: 8,
   disabled: false,

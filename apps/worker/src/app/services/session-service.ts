@@ -1,6 +1,7 @@
 import type { AppBindings, AppStore } from "../../core/bindings";
 import { resolveAppConfig } from "../../core/config";
 import { hashString, readSessionCookie } from "../../shared/auth";
+import { CACHE_KEYS, CACHE_TTL_SECONDS, cachedJson } from "./cache-service";
 
 export function sessionExpiryIso(env?: Pick<AppBindings, "SESSION_TTL_HOURS">) {
   const expires = new Date();
@@ -35,5 +36,7 @@ export async function getUserFromSession(c: any, store: AppStore) {
 
 export async function resolveFeatureToggles(store: AppStore, env: AppBindings) {
   const { defaultFeatureToggles } = await import("./config-service");
-  return store.settings.getFeatureToggles(defaultFeatureToggles(env));
+  return cachedJson(env.CACHE, CACHE_KEYS.featureToggles, CACHE_TTL_SECONDS.featureToggles, () =>
+    store.settings.getFeatureToggles(defaultFeatureToggles(env))
+  );
 }
