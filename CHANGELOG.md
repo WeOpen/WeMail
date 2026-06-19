@@ -16,13 +16,127 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Added the account list route data layer for server-backed filtering, pagination, export, create, update, and deletion workflows.
-- Added admin and account tests covering bulk account operations, hard deletion safeguards, and server-backed account list behavior.
+- Added a standalone Fumadocs documentation app under `apps/docs`.
+- Added detailed beginner-focused WeMail deployment docs with local setup, Cloudflare resources, Worker config, Email Routing, Pages, GitHub Actions, operations checks, and screenshot-style visual guides.
+- Added design system documentation entries for FilterBar, Icon, Divider, Chart, and Toast, with fuller component intros and additional examples across existing primitives.
+- Added a floating back-to-top icon action to the design system page.
 
 ### Changed
 
+- Expanded the root README with a centered brand header, project badges, and detailed Cloudflare deployment steps.
+- Changed the app logo, favicon, Apple touch icon, PWA icon, and social preview image to use the shared `WeMail.png` brand asset.
+- Changed the signed-in home page behavior so authenticated users can still view the public landing page, with header and landing CTA auth buttons replaced by console entries.
+- Changed the design system component detail pages to show current-component examples first and remove unrelated section-level preview panels.
+
+### Fixed
+
+- Fixed design system sidebar navigation so selecting a component returns the right-hand detail panel to the top.
+- Fixed the design system sidebar on compact viewports so long component menus remain clickable instead of being covered by the detail panel.
+
+## [0.1.2] - 2026-06-16
+
+### Added
+
+- Added a per-user daily API call quota with a 20,000 default, admin configuration controls, and API-key request enforcement.
+- Added a session-authenticated profile settings API with persisted user preferences for the personal settings page.
+- Added the account list route data layer for server-backed filtering, pagination, export, create, update, and deletion workflows.
+- Added admin and account tests covering bulk account operations, hard deletion safeguards, and server-backed account list behavior.
+- Added configured-domain selection to account creation, backed by a role-filtered account domain API.
+- Added shared account-policy validation and a policy-enforced bulk account deletion API.
+- Added server-backed mail message search, extraction filtering, pagination, and summary metadata to the mail list API.
+- Added inbound-mail integration coverage for Cloudflare Email Routing storage, extraction, and account activity updates.
+- Added D1 query indexes for account-scoped mail message pagination, received-time ordering, and attachment filtering.
+- Added administrator-visible retention for inbound mail sent to addresses that are not registered as system accounts.
+- Added Telegram overview and test-message endpoints wired into the settings UI so the page reflects backend capability state and sends real test notifications.
+- Added Telegram delivery history, Chat validation, extraction-result notifications, and API Key security notifications.
+- Added Telegram one-time `/start` binding codes and a Bot webhook endpoint so users can bind chats without manually copying Chat IDs.
+- Added server-side outbound mail pagination, search, status filtering, raw delivery details, and provider payload persistence.
+- Added real Webhook dispatch with signed test events, inbound mail event fan-out, delivery retry, response capture, and signing-secret rotation.
+- Added paginated announcements API responses, admin-only announcement publishing coverage, login announcement reminders, and a topbar recent-announcements badge.
+- Added server-side announcement visibility, search/filter query handling, global featured/summary payloads, detail lookup, and audience-aware receipt counts.
+- Added a shared dictionary catalog with Worker APIs, D1 persistence for dictionary overrides, and frontend session-scoped dictionary caching.
+- Added a Cloudflare KV-backed cache layer for dictionary catalogs, feature toggles, domain settings, account policy, and mail settings.
+
+### Changed
+
+- Expanded the deployment runbook with a detailed staged release flow, production gates, smoke checks, rollback steps, and incident handling template.
+- Changed the dashboard page to load KPI, trend, distribution, growth, resource, and role data from the Worker dashboard API instead of local mock data.
+- Moved the API key status metric cards into the credential security hero card so the page starts as a single consolidated control panel.
+- Refactored the Webhook settings page into an endpoint workbench with editable endpoint state, event subscriptions, signing details, and delivery-log triage.
+- Refined the Webhook workbench layout by removing the integration-choice card and giving logs, payload, and side-rail actions clearer placement.
+- Changed Webhook endpoint creation into a dialog flow, paginated the endpoint list, and promoted developer reference and delivery logs to full-width workbench cards.
+- Refined Webhook test-event feedback, payload code blocks, and endpoint status pill sizing.
+- Changed Webhook endpoint listing to use the shared account-list pagination UI backed by paginated worker responses.
+- Changed the Webhook page to manage endpoint editing, enablement, deletion, delivery filtering, log pagination, and payload detail review through backend APIs.
+- Refactored the personal settings page into a visible overview, form, and side-rail layout backed by real profile and preference data instead of page-local mock defaults.
+- Refactored the system settings page into overview, appearance controls, and status rail sections backed by real theme and domain-permission state.
+- Refactored the account settings page into a policy-console layout with overview metrics, switch-based controls, and a status side rail.
+- Refactored the Telegram notification page into a status-first control center with binding, preference, validation, and setup guidance sections.
+- Changed the Telegram notification page to include automatic binding controls and localized delivery timestamps.
+- Refactored the mail list page into a command-center workspace with message search, extraction filters, attachment filtering, and responsive list/detail states.
+- Refactored the outbound mail page into a real-record workspace with status tabs, summary metrics, pagination, detail actions, and empty states.
+- Changed the outbound mail page to request filtered pages from the backend and open persisted raw delivery details from the record detail action.
+- Refined the outbound mail page visual hierarchy with a tighter command header, single-line status tabs, and softer empty states.
+- Added a switchable outbound mailbox identity control so the send-history workspace can refresh records for different sender accounts.
+- Simplified the outbound mail header while retaining the mail-center kicker, moved summary metrics into full-row cards, and aligned the list/detail panel heights.
+- Changed outbound workspace defaults so saved mail-setting filters initialize the real backend-backed sent/failed views.
+- Changed mail notification targets to select already configured Webhook endpoints and Telegram bindings instead of accepting direct target input.
+- Changed the mail list mailbox picker into a searchable command-card selector, with empty selection loading messages from all user accounts.
+- Changed mail list message search, extraction filters, and pagination to load from backend query results instead of page-local filtering.
+- Refined the mail list reading layout by removing redundant list/detail headings and moving sender and received-time metadata into the message cards.
+- Changed the mail list quick filters from buttons to segmented tabs and shortened the all-messages label to "全部".
+- Changed mail list message cards to show sender, second-precision contextual time, extraction chip, and subject in a compact reference-list hierarchy.
+- Added semantic icons to mail list filters, extraction chips, and attachment chips.
+- Changed mail detail actions into right-aligned icon buttons with hover tooltips and a single-line subject title.
+- Changed mail detail extraction results into a confidence card and moved mailbox selection into a paginated table dialog with double-click selection.
+- Changed the mail list to load message details by id, debounce backend search, poll the current query, and show retryable list/detail loading errors.
+- Changed the mailbox selector so administrators can page through all enabled accounts with creator metadata while members only see their own enabled accounts.
+- Changed empty mail list and empty detail states into icon-based empty cards.
+- Changed account deletion so normal deletes soft-delete accounts while policy-gated bulk hard deletion handles irreversible removal.
+- Reduced explanatory copy in the personal settings cards so the page emphasizes fields, status, and actions.
+- Adjusted the personal settings preference summary card so timezone joins the preference chip group with distinct chip colors.
+- Made personal profile preferences affect sign-in routing, workspace density, and profile date formatting, with retryable loading errors and dirty-state save actions.
+- Changed the mail settings page to load, validate, and save through the backend mail settings endpoint instead of page-local defaults.
 - Changed the release workflow to publish GitHub releases directly instead of creating draft releases.
 - Changed account and admin workspaces to use the expanded account management API data model.
+- Refactored the announcements page to use backend data, multiple pinned announcement switching, a publish dialog, shared pagination, and real empty/loading states.
+- Refined announcements so pinned items sort first, display pinned chips in the list, and use an automatic carousel with compact bottom indicators.
+- Changed the pinned announcements carousel to use a right-aligned vertical timed indicator with animated announcement switching.
+- Added announcement start/end windows, per-user receipt status, detail viewing, and admin edit/archive/delete actions.
+- Changed the announcements page to rely on backend query results for filters, featured announcements, overview totals, and post-mutation refreshes.
+
+### Removed
+
+- Removed the mail list preview mock messages so an empty backend response now renders the real empty state.
+- Removed the outbound page's local exception mock record so the page only reflects backend-provided send history.
+- Removed the mail settings mock data module so settings state comes from shared defaults and persisted backend data.
+- Removed the unused legacy Telegram settings panel in favor of the backend-backed Telegram control page.
+- Removed the announcements page mock data module so announcement lists and pinned cards come from backend responses.
+
+### Fixed
+
+- Fixed the topbar announcement menu so acknowledged announcements no longer inflate the badge count, recent announcements open a detail dialog, and the username row is removed.
+- Fixed announcement validation so invalid status/type/audience/priority values and reversed publish windows are rejected by the Worker.
+- Fixed the mail settings notification target row by removing redundant Telegram helper copy and aligning the target controls to one height.
+- Fixed mail detail tooltips so copy is centered, and improved verification-code chip contrast across light and dark mail list states.
+- Fixed the mail list mailbox selector with hover-to-clear selection, a further compacted recognition card, and a create-mailbox dialog aligned with account creation domain requirements.
+- Fixed mail detail recognition cards so link results display the extracted URL instead of the link label text.
+- Fixed mail list refreshes so the selected message stays open when the refreshed result still contains it.
+- Fixed account settings so the page loads, saves, validates, and enforces real backend policy data instead of falling back to account mock data.
+- Fixed mailbox selector table column sizing and hover titles, and removed the duplicate empty-detail heading.
+- Fixed the mail settings summary rail so long strategy and identity values wrap without squeezing labels vertically.
+- Fixed mail settings option parsing types so shared type checking accepts validated enum values.
+- Fixed inbound Telegram notifications so they respect the global Telegram feature flag.
+- Fixed the legacy outbound exception filter so it migrates to the supported failed view instead of leaving an empty placeholder tab.
+- Fixed mail routing saves so enabled Webhook and Telegram targets must reference configured, enabled integrations.
+- Fixed outbound sending so persisted sender settings apply signatures, sender identity, retry attempts, recipient validation, and audit-friendly provider responses.
+- Fixed pre-deploy Worker safety checks by applying D1 migrations in the Cloudflare deployment workflow before publishing the Worker.
+- Fixed credentialed CORS handling so configured production origins are echoed explicitly instead of returning `*` with credentials.
+- Fixed quota races so concurrent API-key requests and outbound sends cannot both consume the same remaining daily allowance.
+- Fixed mailbox creation limits so soft-deleted accounts no longer count against a user's active mailbox allowance.
+- Fixed attachment downloads so untrusted filenames are sanitized and encoded in `Content-Disposition`.
+- Fixed the web smoke E2E suite to match current route redirects, tab navigation, admin data mocks, and announcement behavior.
+- Fixed the dashboard metrics regression test so its inbound-mail fixture follows the current test date instead of aging out of the "today" trend bucket.
 
 ## [0.1.1] - 2026-06-08
 
@@ -49,6 +163,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Established the current tracked baseline from the existing monorepo package versions.
 
-[Unreleased]: https://github.com/WeOpen/WeMail/compare/v0.1.1...HEAD
+[Unreleased]: https://github.com/WeOpen/WeMail/compare/v0.1.2...HEAD
+[0.1.2]: https://github.com/WeOpen/WeMail/releases/tag/v0.1.2
 [0.1.1]: https://github.com/WeOpen/WeMail/releases/tag/v0.1.1
 [0.1.0]: https://github.com/WeOpen/WeMail/releases/tag/v0.1.0

@@ -1,0 +1,92 @@
+---
+title: WeMail 部署指南
+description: 从本地启动到 Cloudflare 生产部署的完整 WeMail 文档入口
+---
+
+WeMail 是一个基于 Cloudflare Workers、D1、KV、Email Routing 和 React 的 disposable email 工作台。这个文档站按新手部署顺序组织：先在本地跑起来，再创建 Cloudflare 资源，最后发布 Worker、Pages 和邮件路由。
+
+如果你第一次接触 Cloudflare 部署，建议从上到下读一遍。每个章节都尽量给出可复制命令、验收方式和常见错误。
+
+## 推荐阅读顺序
+
+<Cards>
+  <Card title="1. 本地快速开始" href="/docs/quickstart">
+    安装依赖、初始化本地 D1、生成邀请码、启动 Web 和 Worker。
+  </Card>
+  <Card title="2. Cloudflare 资源准备" href="/docs/cloudflare-resources">
+    创建 D1、KV、Pages、Worker、Email Routing 和可选 R2。
+  </Card>
+  <Card title="3. Worker 配置" href="/docs/worker-config">
+    修改 `wrangler.toml`、写入 secrets、确认 CORS、Cookie 和绑定 ID。
+  </Card>
+  <Card title="4. Email Routing" href="/docs/email-routing">
+    让真实邮件进入 Worker 的 `email()` 入口，并完成收件验收。
+  </Card>
+  <Card title="5. Pages 前端部署" href="/docs/pages-deploy">
+    构建 `apps/web`，处理 API 地址，部署到 Cloudflare Pages。
+  </Card>
+  <Card title="6. GitHub Actions 发布" href="/docs/github-actions">
+    配置 GitHub Environments 和 secrets，通过 workflow 发布 staging / production。
+  </Card>
+</Cards>
+
+## 你最终会部署出什么
+
+| 组件 | 代码位置 | Cloudflare 资源 | 作用 |
+| --- | --- | --- | --- |
+| 前端控制台 | `apps/web` | Pages | 用户访问、登录、创建邮箱、查看邮件、管理设置 |
+| Worker API | `apps/worker` | Workers | HTTP API、认证、邮件处理、定时清理 |
+| 数据库 | `apps/worker/src/infrastructure/db` | D1 | 用户、邀请码、邮箱账号、邮件、设置、审计记录 |
+| 缓存 | Worker binding `CACHE` | KV | 缓存字典、域名设置、功能开关等低频数据 |
+| 收件链路 | Worker `email()` handler | Email Routing | 接收外部邮件并写入 WeMail |
+| 附件存储 | Worker binding `ATTACHMENTS` | R2，可选 | 保存邮件附件真实文件内容 |
+
+## 部署路线图
+
+![Cloudflare 资源准备示意图](/docs/screenshots/cloudflare-resources.png)
+
+上图是示意截图，用来说明 WeMail 的资源关系。真实控制台界面可能随 Cloudflare 更新而变化，但你需要核对的资源名称和关系是一致的。
+
+1. 本地先执行 `pnpm db:init:worker` 和 `pnpm dev`，确认功能主路径能跑通。
+2. 在 Cloudflare 创建 D1 和 KV，把返回的 ID 写进 `apps/worker/wrangler.toml`。
+3. 配置 Worker 的非敏感变量和 secrets，确保 staging / production 分开。
+4. 部署 Worker，跑远端 D1 migrations。
+5. 部署 Pages，确认前端能访问正确的 Worker API。
+6. 启用 Email Routing，给创建的邮箱账号投递真实邮件。
+7. 用 staging 完成冒烟，再从 `main` 发布 production。
+
+## 文档里的截图说明
+
+文档中有两类截图：
+
+- 真实本地页面截图：来自当前文档站或本地可访问页面。
+- 示意截图：用于展示 Cloudflare、GitHub Actions、终端命令和配置重点。它们不包含真实账号信息，适合新手对照步骤理解界面位置和检查项。
+
+凡是示意截图，页面说明里都会明确标注。
+
+## 常用命令速查
+
+```bash
+pnpm install
+pnpm db:init:worker -- --invite-code LOCAL-INVITE
+pnpm dev
+pnpm test
+pnpm typecheck
+pnpm lint
+pnpm build
+pnpm dev:docs
+```
+
+## 新手最容易混淆的三件事
+
+### Web 打开不等于邮件可用
+
+Pages 打开只说明前端部署成功。真实邮件进入系统还需要 Email Routing 调用 Worker 的 `email()` handler。部署完成后必须投递一封测试邮件。
+
+### D1 本地库和远端库不是同一个
+
+`pnpm db:init:worker` 初始化的是本地 D1，用于开发。staging 和 production 的 D1 需要在 Cloudflare 里分别创建，并通过 workflow 或 Wrangler 运行远端 migrations。
+
+### 前端 API 地址要提前决定
+
+生产构建时，如果不设置 `VITE_API_BASE_URL`，前端会调用同域的 `/api/...`。这适合同域路由方案。若 Worker API 使用独立域名，需要在构建前设置 `VITE_API_BASE_URL`，并让 Worker 的 `CORS_ALLOWED_ORIGINS` 精确包含 Pages 域名。

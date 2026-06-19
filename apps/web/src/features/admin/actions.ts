@@ -45,7 +45,7 @@ export async function disableInviteAction(inviteId: string) {
   return disableInvite(inviteId);
 }
 
-export async function updateQuotaAction(userId: string, payload: { dailyLimit: number; disabled: boolean }) {
+export async function updateQuotaAction(userId: string, payload: { apiDailyLimit: number; dailyLimit: number; disabled: boolean }) {
   return updateQuota(userId, payload);
 }
 

@@ -16,6 +16,17 @@ CREATE TABLE IF NOT EXISTS auth_sessions (
   created_at TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS user_preferences (
+  user_id TEXT PRIMARY KEY,
+  bio TEXT NOT NULL DEFAULT '',
+  locale TEXT NOT NULL DEFAULT 'zh-CN',
+  timezone TEXT NOT NULL DEFAULT 'Asia/Shanghai',
+  date_format TEXT NOT NULL DEFAULT 'yyyy-mm-dd',
+  landing_page TEXT NOT NULL DEFAULT '/dashboard',
+  density TEXT NOT NULL DEFAULT 'comfortable',
+  updated_at TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS user_invites (
   id TEXT PRIMARY KEY,
   code TEXT NOT NULL UNIQUE,
@@ -50,6 +61,7 @@ CREATE TABLE IF NOT EXISTS account_settings (
 CREATE TABLE IF NOT EXISTS mail_messages (
   id TEXT PRIMARY KEY,
   account_id TEXT NOT NULL,
+  to_address TEXT,
   from_address TEXT NOT NULL,
   subject TEXT NOT NULL,
   preview_text TEXT NOT NULL,
@@ -60,6 +72,12 @@ CREATE TABLE IF NOT EXISTS mail_messages (
   received_at TEXT NOT NULL,
   expires_at TEXT NOT NULL
 );
+
+CREATE INDEX IF NOT EXISTS idx_mail_messages_account_received
+  ON mail_messages (account_id, received_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_mail_messages_account_attachment
+  ON mail_messages (account_id, attachment_count, received_at DESC);
 
 CREATE TABLE IF NOT EXISTS mail_attachments (
   id TEXT PRIMARY KEY,
@@ -74,10 +92,15 @@ CREATE TABLE IF NOT EXISTS mail_attachments (
 CREATE TABLE IF NOT EXISTS mail_outbound_messages (
   id TEXT PRIMARY KEY,
   account_id TEXT NOT NULL,
+  from_address TEXT NOT NULL DEFAULT '',
   to_address TEXT NOT NULL,
   subject TEXT NOT NULL,
+  body_text TEXT NOT NULL DEFAULT '',
   status TEXT NOT NULL,
   error_text TEXT,
+  provider_message_id TEXT,
+  request_payload_json TEXT NOT NULL DEFAULT '{}',
+  response_payload_json TEXT,
   created_at TEXT NOT NULL
 );
 
@@ -97,6 +120,32 @@ CREATE TABLE IF NOT EXISTS mail_domains (
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS dictionary_groups (
+  group_key TEXT PRIMARY KEY,
+  label TEXT NOT NULL,
+  description TEXT,
+  is_system INTEGER NOT NULL DEFAULT 1,
+  version INTEGER NOT NULL DEFAULT 1,
+  updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS dictionary_items (
+  id TEXT PRIMARY KEY,
+  group_key TEXT NOT NULL,
+  value TEXT NOT NULL,
+  label TEXT NOT NULL,
+  description TEXT,
+  sort_order INTEGER NOT NULL DEFAULT 0,
+  enabled INTEGER NOT NULL DEFAULT 1,
+  metadata_json TEXT NOT NULL DEFAULT '{}',
+  updated_at TEXT NOT NULL,
+  UNIQUE(group_key, value),
+  FOREIGN KEY (group_key) REFERENCES dictionary_groups(group_key) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_dictionary_items_group_order
+  ON dictionary_items (group_key, sort_order, label);
 
 CREATE TABLE IF NOT EXISTS api_keys (
   id TEXT PRIMARY KEY,
@@ -122,6 +171,8 @@ CREATE TABLE IF NOT EXISTS user_send_quotas (
   user_id TEXT PRIMARY KEY,
   daily_limit INTEGER NOT NULL,
   sends_today INTEGER NOT NULL,
+  api_daily_limit INTEGER NOT NULL DEFAULT 20000,
+  api_calls_today INTEGER NOT NULL DEFAULT 0,
   disabled INTEGER NOT NULL,
   updated_at TEXT NOT NULL
 );
@@ -147,6 +198,7 @@ CREATE TABLE IF NOT EXISTS webhook_deliveries (
   duration_ms INTEGER,
   error_text TEXT,
   payload_json TEXT NOT NULL,
+  response_text TEXT,
   created_at TEXT NOT NULL
 );
 
@@ -166,6 +218,15 @@ CREATE TABLE IF NOT EXISTS announcements (
   end_at TEXT,
   published_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS announcement_receipts (
+  announcement_id TEXT NOT NULL,
+  user_id TEXT NOT NULL,
+  acknowledged_at TEXT NOT NULL,
+  PRIMARY KEY (announcement_id, user_id),
+  FOREIGN KEY (announcement_id) REFERENCES announcements(id) ON DELETE CASCADE,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS system_settings (

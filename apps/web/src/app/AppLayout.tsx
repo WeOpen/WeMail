@@ -16,20 +16,25 @@ import {
   Webhook
 } from "lucide-react";
 
-import type { SessionSummary } from "@wemail/shared";
+import type { SessionSummary, UserProfilePreferences } from "@wemail/shared";
 
 import { Button, ButtonLink } from "../shared/button";
 import { Tabs, TabsList, TabsPanel, TabsTrigger } from "../shared/tabs";
 import { WemailBrandLockup } from "../shared/WemailBrandLockup";
+import type { AnnouncementItem } from "../features/announcements/api";
 import type { WorkspaceRailIcon, WorkspaceShellState } from "./workspaceShell";
 import type { WorkspaceTheme } from "./useWorkspaceTheme";
 
 type AppLayoutProps = {
+  announcementCount?: number;
+  announcements?: AnnouncementItem[];
   session: SessionSummary;
+  onOpenAnnouncement?: (announcement: AnnouncementItem) => void;
   onLogout: () => void;
   onToggleTheme: () => void;
   theme: WorkspaceTheme;
   shell: WorkspaceShellState;
+  profilePreferences?: UserProfilePreferences | null;
   children: ReactNode;
 };
 
@@ -39,10 +44,6 @@ function ThemeIcon({ theme }: { theme: WorkspaceTheme }) {
   ) : (
     <MoonStar absoluteStrokeWidth aria-hidden="true" className="workspace-theme-icon workspace-icon" strokeWidth={1.8} />
   );
-}
-
-function buildUserDisplayName(user: SessionSummary["user"]) {
-  return user.name || user.email.split("@")[0] || user.email;
 }
 
 function RailIcon({ icon }: { icon: WorkspaceRailIcon }) {
@@ -78,11 +79,14 @@ function RailIcon({ icon }: { icon: WorkspaceRailIcon }) {
 }
 
 export function AppLayout({
-  session,
+  announcementCount = 0,
+  announcements = [],
+  onOpenAnnouncement,
   onLogout,
   onToggleTheme,
   theme,
   shell,
+  profilePreferences = null,
   children
 }: AppLayoutProps) {
   const location = useLocation();
@@ -93,10 +97,10 @@ export function AppLayout({
   const mobileDockRef = useRef<HTMLDivElement | null>(null);
   const railScrollRef = useRef<HTMLElement | null>(null);
   const mainScrollRef = useRef<HTMLDivElement | null>(null);
-  const userDisplayName = buildUserDisplayName(session.user);
   const workspaceNavItems = shell.railSections.find((section) => section.title === "工作台")?.items ?? [];
   const settingsNavItems = shell.railSections.find((section) => section.title === "设置")?.items ?? [];
   const isSettingsActive = settingsNavItems.some((item) => item.id === shell.activePrimaryId);
+  const visibleAnnouncements = announcements.slice(0, 3);
 
   useEffect(() => {
     const handlePointerDown = (event: MouseEvent) => {
@@ -133,6 +137,7 @@ export function AppLayout({
 
   const activeSecondaryRoute =
     shell.secondaryNav.find((item) => item.to === location.pathname)?.to ?? shell.secondaryNav[0]?.to ?? "";
+  const hasAnnouncementBadge = announcementCount > 0;
 
   useEffect(() => {
     const areas = [railScrollRef.current, mainScrollRef.current].filter(Boolean) as Array<HTMLElement>;
@@ -179,8 +184,16 @@ export function AppLayout({
     };
   }, []);
 
+  const density = profilePreferences?.density ?? "comfortable";
+
   return (
-    <div className="app-layout workspace-shell">
+    <div
+      className={`app-layout workspace-shell workspace-density-${density}`}
+      data-date-format={profilePreferences?.dateFormat ?? "yyyy-mm-dd"}
+      data-density={density}
+      data-locale={profilePreferences?.locale ?? "zh-CN"}
+      data-timezone={profilePreferences?.timezone ?? "Asia/Shanghai"}
+    >
       <header className="workspace-topbar panel">
         <div className="workspace-brand" aria-label="WeMail 工作台品牌">
           <WemailBrandLockup compact className="workspace-brand-lockup" label="WeMail logo" />
@@ -235,7 +248,7 @@ export function AppLayout({
             <Button
               aria-expanded={isUserMenuOpen}
               aria-haspopup="menu"
-              aria-label="用户菜单"
+              aria-label={hasAnnouncementBadge ? `用户菜单，${announcementCount} 条公告` : "用户菜单"}
               className="workspace-user-trigger"
               iconOnly
               onClick={() => setIsUserMenuOpen((currentState) => !currentState)}
@@ -244,12 +257,40 @@ export function AppLayout({
             >
               <UserRound absoluteStrokeWidth aria-hidden="true" className="workspace-user-trigger-icon workspace-icon" strokeWidth={1.9} />
             </Button>
+            {hasAnnouncementBadge ? (
+              <span aria-hidden="true" className="workspace-user-announcement-badge">
+                {announcementCount > 99 ? "99+" : announcementCount}
+              </span>
+            ) : null}
 
             {isUserMenuOpen ? (
               <div className="workspace-user-dropdown panel" role="menu">
-                <div className="workspace-user-dropdown-header" role="none">
-                  <strong>用户名：{userDisplayName}</strong>
-                </div>
+                {visibleAnnouncements.length > 0 ? (
+                  <section className="workspace-user-announcements" role="none">
+                    <div className="workspace-user-announcements-head">
+                      <span>最近公告</span>
+                      <small>{visibleAnnouncements.length} 条</small>
+                    </div>
+                    <div className="workspace-user-announcements-list">
+                      {visibleAnnouncements.map((announcement) => (
+                        <button
+                          aria-label={`查看公告 ${announcement.title}`}
+                          className="workspace-user-announcement-item"
+                          key={announcement.id}
+                          onClick={() => {
+                            setIsUserMenuOpen(false);
+                            onOpenAnnouncement?.(announcement);
+                          }}
+                          role="menuitem"
+                          type="button"
+                        >
+                          <strong>{announcement.title}</strong>
+                          <span>{announcement.summary}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </section>
+                ) : null}
                 <ButtonLink
                   className="workspace-user-dropdown-item"
                   fullWidth

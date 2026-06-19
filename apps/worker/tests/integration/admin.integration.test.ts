@@ -46,9 +46,9 @@ describe("worker admin integration", () => {
       },
       env
     );
-    const quotaPayload = (await quotaResponse.json()) as { quota: { dailyLimit: number; disabled: boolean } };
+    const quotaPayload = (await quotaResponse.json()) as { quota: { apiDailyLimit: number; dailyLimit: number; disabled: boolean } };
 
-    expect(quotaPayload.quota).toMatchObject({ dailyLimit: 20, disabled: false });
+    expect(quotaPayload.quota).toMatchObject({ apiDailyLimit: 20000, dailyLimit: 20, disabled: false });
 
     await app.request(
       `/api/users/${createPayload.user.id}/quota`,
@@ -58,10 +58,20 @@ describe("worker admin integration", () => {
           "content-type": "application/json",
           cookie
         },
-        body: JSON.stringify({ disabled: true })
+        body: JSON.stringify({ apiDailyLimit: 5000, disabled: true })
       },
       env
     );
+
+    const updatedQuotaResponse = await app.request(
+      `/api/users/${createPayload.user.id}/quota`,
+      {
+        headers: { cookie }
+      },
+      env
+    );
+    const updatedQuotaPayload = (await updatedQuotaResponse.json()) as { quota: { apiDailyLimit: number; disabled: boolean } };
+    expect(updatedQuotaPayload.quota).toMatchObject({ apiDailyLimit: 5000, disabled: true });
 
     const listResponse = await app.request(
       "/api/users",
@@ -593,16 +603,24 @@ describe("worker admin integration", () => {
 
     expect(deleteResponse.status).toBe(200);
 
-    const emptyListResponse = await app.request(
-      "/api/accounts/list?page=1&pageSize=10",
+    const softDeletedListResponse = await app.request(
+      "/api/accounts/list?page=1&pageSize=10&status=soft_deleted",
       {
         headers: { cookie }
       },
       env
     );
-    const emptyListPayload = (await emptyListResponse.json()) as { total: number };
+    const softDeletedListPayload = (await softDeletedListResponse.json()) as {
+      accounts: Array<{ id: string; status: string; deletedAt: string | null }>;
+      total: number;
+    };
 
-    expect(emptyListPayload.total).toBe(0);
+    expect(softDeletedListPayload.total).toBe(1);
+    expect(softDeletedListPayload.accounts[0]).toMatchObject({
+      id: createPayload.mailbox.id,
+      status: "soft_deleted",
+      deletedAt: expect.any(String)
+    });
   });
 
   it("filters mailbox accounts by active range, policy-backed inactivity, and safe pagination", async () => {

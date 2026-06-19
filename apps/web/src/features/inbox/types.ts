@@ -1,8 +1,11 @@
-export type OutboundHistoryItem = {
-  id: string;
-  toAddress: string;
-  subject: string;
-  status: string;
-  errorText: string | null;
-  createdAt: string;
-};
+import type {
+  OutboundListResult,
+  OutboundListSummary,
+  OutboundMessageDetail,
+  OutboundMessageSummary
+} from "@wemail/shared";
+
+export type OutboundHistoryItem = OutboundMessageSummary;
+export type OutboundHistoryDetail = OutboundMessageDetail;
+export type OutboundHistoryListResult = OutboundListResult;
+export type OutboundHistorySummary = OutboundListSummary;

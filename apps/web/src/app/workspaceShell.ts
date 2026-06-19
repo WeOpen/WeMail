@@ -113,7 +113,11 @@ const workspacePrimaryNav: WorkspacePrimaryNavConfig[] = [
     section: "设置",
     label: "API 密钥",
     to: "/api-keys",
-    icon: "keys"
+    icon: "keys",
+    children: [
+      { label: "API 密钥", to: "/api-keys" },
+      { label: "API 接口", to: "/api-keys/interfaces" }
+    ]
   },
   {
     id: "webhook",

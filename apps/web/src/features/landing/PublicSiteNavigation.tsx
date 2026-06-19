@@ -8,6 +8,8 @@ import { landingNavLinks } from "./landing-content";
 import "./landing.css";
 
 type PublicSiteNavigationProps = {
+  consoleHref?: string;
+  isAuthenticated?: boolean;
   onToggleTheme: () => void;
   theme: "dark" | "light";
 };
@@ -50,7 +52,7 @@ function resolveSectionHref(pathname: string, href: string) {
   return pathname === "/" ? href : `/${href}`;
 }
 
-export function PublicSiteNavigation({ onToggleTheme, theme }: PublicSiteNavigationProps) {
+export function PublicSiteNavigation({ consoleHref = "/dashboard", isAuthenticated = false, onToggleTheme, theme }: PublicSiteNavigationProps) {
   const location = useLocation();
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -102,12 +104,20 @@ export function PublicSiteNavigation({ onToggleTheme, theme }: PublicSiteNavigat
           </div>
 
           <div className="landing-nav-actions">
-            <ButtonLink size="sm" to="/login" variant="secondary">
-              登录
-            </ButtonLink>
-            <ButtonLink size="sm" to="/register" variant="primary">
-              注册
-            </ButtonLink>
+            {isAuthenticated ? (
+              <ButtonLink size="sm" to={consoleHref} variant="primary">
+                控制台
+              </ButtonLink>
+            ) : (
+              <>
+                <ButtonLink size="sm" to="/login" variant="secondary">
+                  登录
+                </ButtonLink>
+                <ButtonLink size="sm" to="/register" variant="primary">
+                  注册
+                </ButtonLink>
+              </>
+            )}
             {!isCompactNavigation ? (
               <Button
                 aria-label={theme === "dark" ? "切换到浅色主题" : "切换到深色主题"}
@@ -166,12 +176,20 @@ export function PublicSiteNavigation({ onToggleTheme, theme }: PublicSiteNavigat
               </Link>
             </div>
             <div className="landing-mobile-actions">
-              <ButtonLink size="sm" to="/login" variant="secondary" onClick={() => setIsMobileMenuOpen(false)}>
-                登录
-              </ButtonLink>
-              <ButtonLink size="sm" to="/register" variant="primary" onClick={() => setIsMobileMenuOpen(false)}>
-                注册
-              </ButtonLink>
+              {isAuthenticated ? (
+                <ButtonLink size="sm" to={consoleHref} variant="primary" onClick={() => setIsMobileMenuOpen(false)}>
+                  控制台
+                </ButtonLink>
+              ) : (
+                <>
+                  <ButtonLink size="sm" to="/login" variant="secondary" onClick={() => setIsMobileMenuOpen(false)}>
+                    登录
+                  </ButtonLink>
+                  <ButtonLink size="sm" to="/register" variant="primary" onClick={() => setIsMobileMenuOpen(false)}>
+                    注册
+                  </ButtonLink>
+                </>
+              )}
               <Button
                 fullWidth
                 className="landing-nav-theme-toggle landing-mobile-theme-toggle"

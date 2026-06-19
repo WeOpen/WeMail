@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
-import type { MailboxDetail } from "@wemail/shared";
+import type { MailDomainSummary, MailboxDetail } from "@wemail/shared";
 
 import { AccountsListPage } from "../../features/accounts/AccountsListPage";
 import { AccountsListRoutePage } from "../../features/accounts/AccountsListRoutePage";
@@ -60,6 +60,36 @@ const mockAccounts: MailboxDetail[] = [
   }
 ];
 
+const mockAccountDomains: MailDomainSummary[] = [
+  { domain: "wemail.ai", allowedRoles: [] },
+  { domain: "ops.example.com", allowedRoles: ["admin"] }
+];
+
+const mockAccountPolicy = {
+  creation: {
+    defaultTagsEnabled: true,
+    defaultTags: "真实标签, 运营",
+    allowCreationOverride: true,
+    defaultStatus: "enabled",
+    requireCreatorNote: false
+  },
+  lifecycle: {
+    inactiveDays: 30,
+    inactiveAction: "archive",
+    softDeleteRetentionDays: 30,
+    allowHardDelete: false,
+    requireSoftDeleteBeforeHardDelete: true
+  },
+  protection: {
+    confirmStandardBulkActions: true,
+    standardBulkLimit: 100,
+    requireDangerPhrase: true,
+    hardDeleteLimit: 20,
+    auditLoggingEnabled: true
+  },
+  lastUpdatedLabel: "2026-04-20T00:00:00.000Z"
+};
+
 describe("accounts pages", () => {
   afterEach(() => {
     cleanup();
@@ -72,6 +102,8 @@ describe("accounts pages", () => {
       <AccountsListPage
         accounts={mockAccounts}
         activeRange="all"
+        availableDomains={mockAccountDomains}
+        isLoadingDomains={false}
         isLoading={false}
         onActiveRangeChange={vi.fn()}
         onBulkDeleteAccounts={vi.fn()}
@@ -127,6 +159,135 @@ describe("accounts pages", () => {
     expect(screen.getByRole("button", { name: "新建账号" }).querySelector(".ui-button-icon-slot")).not.toBeNull();
   });
 
+  it("requires a configured domain selection when creating an account", async () => {
+    const user = userEvent.setup();
+    const onCreateAccount = vi.fn().mockResolvedValue(undefined);
+
+    renderWithRouter(
+      <AccountsListPage
+        accounts={mockAccounts}
+        activeRange="all"
+        availableDomains={mockAccountDomains}
+        isLoading={false}
+        isLoadingDomains={false}
+        onActiveRangeChange={vi.fn()}
+        onBulkDeleteAccounts={vi.fn()}
+        onCreateAccount={onCreateAccount}
+        onDeleteAccount={vi.fn()}
+        onExportAccounts={vi.fn()}
+        onPageChange={vi.fn()}
+        onPageSizeChange={vi.fn()}
+        onQuickFilterChange={vi.fn()}
+        onRefresh={vi.fn()}
+        onSearchChange={vi.fn()}
+        onStatusFilterChange={vi.fn()}
+        onUpdateAccount={vi.fn()}
+        page={1}
+        pageSize={10}
+        quickFilter="none"
+        searchValue=""
+        statusFilter="all"
+        total={3}
+      />
+    );
+
+    await user.click(screen.getByRole("button", { name: "新建账号" }));
+
+    const dialog = screen.getByRole("dialog", { name: "创建新账号" });
+    const labelInput = within(dialog).getByLabelText("账号标签");
+    const domainSelect = within(dialog).getByRole("combobox", { name: "邮箱域名" });
+    const createButton = within(dialog).getByRole("button", { name: "创建账号" });
+
+    expect(createButton).toBeDisabled();
+
+    await user.type(labelInput, "ops");
+
+    expect(createButton).toBeDisabled();
+
+    await user.click(domainSelect);
+    await user.click(within(await screen.findByRole("listbox", { name: "邮箱域名" })).getByRole("option", { name: "wemail.ai" }));
+
+    expect(createButton).toBeEnabled();
+
+    await user.click(createButton);
+
+    expect(onCreateAccount).toHaveBeenCalledWith({
+      label: "ops",
+      domain: "wemail.ai"
+    });
+  });
+
+  it("loads configured account domains and posts the selected domain when creating through the route", async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi.fn(async (input, init) => {
+      const url = typeof input === "string" ? input : input instanceof Request ? input.url : String(input);
+
+      if (url.endsWith("/api/accounts/domains")) {
+        return new Response(
+          JSON.stringify({
+            domains: mockAccountDomains,
+            primaryDomain: "wemail.ai"
+          }),
+          {
+            headers: { "content-type": "application/json" },
+            status: 200
+          }
+        );
+      }
+
+      if (url.includes("/api/accounts/list?")) {
+        return new Response(JSON.stringify({ accounts: [], total: 0 }), {
+          headers: { "content-type": "application/json" },
+          status: 200
+        });
+      }
+
+      if (url.endsWith("/api/accounts") && init?.method === "POST") {
+        return new Response(
+          JSON.stringify({
+            mailbox: {
+              id: "acct-created",
+              address: "support@ops.example.com",
+              label: "support",
+              createdAt: "2026-04-20T00:00:00.000Z"
+            }
+          }),
+          {
+            headers: { "content-type": "application/json" },
+            status: 201
+          }
+        );
+      }
+
+      return new Response(JSON.stringify({}), {
+        headers: { "content-type": "application/json" },
+        status: 404
+      });
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderWithRouter(<AccountsListRoutePage />);
+
+    await user.click(await screen.findByRole("button", { name: "新建账号" }));
+
+    const dialog = screen.getByRole("dialog", { name: "创建新账号" });
+    await user.type(within(dialog).getByLabelText("账号标签"), "support");
+    await user.click(within(dialog).getByRole("combobox", { name: "邮箱域名" }));
+    await user.click(within(await screen.findByRole("listbox", { name: "邮箱域名" })).getByRole("option", { name: "ops.example.com" }));
+    await user.click(within(dialog).getByRole("button", { name: "创建账号" }));
+
+    await waitFor(() => {
+      const createCall = fetchMock.mock.calls.find(([input, init]) => {
+        const url = typeof input === "string" ? input : input instanceof Request ? input.url : String(input);
+        return url.endsWith("/api/accounts") && init?.method === "POST";
+      });
+
+      expect(createCall).toBeDefined();
+      expect(createCall?.[1]?.body).toBe(JSON.stringify({ label: "support", domain: "ops.example.com" }));
+    });
+  });
+
   it("shows selected state on account quick filters when toggled", async () => {
     const user = userEvent.setup();
 
@@ -137,6 +298,8 @@ describe("accounts pages", () => {
         <AccountsListPage
           accounts={mockAccounts}
           activeRange="all"
+          availableDomains={mockAccountDomains}
+          isLoadingDomains={false}
           isLoading={false}
           onActiveRangeChange={vi.fn()}
           onBulkDeleteAccounts={vi.fn()}
@@ -189,6 +352,8 @@ describe("accounts pages", () => {
       <AccountsListPage
         accounts={mockAccounts}
         activeRange="all"
+        availableDomains={mockAccountDomains}
+        isLoadingDomains={false}
         isLoading={false}
         onActiveRangeChange={onActiveRangeChange}
         onBulkDeleteAccounts={vi.fn()}
@@ -226,6 +391,8 @@ describe("accounts pages", () => {
       <AccountsListPage
         accounts={mockAccounts}
         activeRange="all"
+        availableDomains={mockAccountDomains}
+        isLoadingDomains={false}
         isLoading={false}
         onActiveRangeChange={vi.fn()}
         onBulkDeleteAccounts={vi.fn()}
@@ -276,6 +443,8 @@ describe("accounts pages", () => {
       <AccountsListPage
         accounts={mockAccounts}
         activeRange="all"
+        availableDomains={mockAccountDomains}
+        isLoadingDomains={false}
         isLoading={false}
         onActiveRangeChange={vi.fn()}
         onBulkDeleteAccounts={onBulkDeleteAccounts}
@@ -325,6 +494,75 @@ describe("accounts pages", () => {
     expect(screen.queryByText("已选择 2 个账号")).not.toBeInTheDocument();
   });
 
+  it("uses the backend bulk-delete endpoint for route-level hard deletion", async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi.fn(async (input, init) => {
+      const url = typeof input === "string" ? input : input instanceof Request ? input.url : String(input);
+
+      if (url.endsWith("/api/accounts/domains")) {
+        return new Response(
+          JSON.stringify({
+            domains: mockAccountDomains,
+            primaryDomain: "wemail.ai"
+          }),
+          {
+            headers: { "content-type": "application/json" },
+            status: 200
+          }
+        );
+      }
+
+      if (url.includes("/api/accounts/list?")) {
+        return new Response(JSON.stringify({ accounts: mockAccounts, total: mockAccounts.length }), {
+          headers: { "content-type": "application/json" },
+          status: 200
+        });
+      }
+
+      if (url.endsWith("/api/accounts/bulk-delete") && init?.method === "POST") {
+        return new Response(JSON.stringify({ ok: true, deleted: 2 }), {
+          headers: { "content-type": "application/json" },
+          status: 200
+        });
+      }
+
+      return new Response(JSON.stringify({}), {
+        headers: { "content-type": "application/json" },
+        status: 404
+      });
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderWithRouter(<AccountsListRoutePage />);
+
+    await screen.findByText("ops@wemail.ai");
+    await user.click(screen.getByRole("checkbox", { name: "选择账号 ops@wemail.ai" }));
+    await user.click(screen.getByRole("checkbox", { name: "选择账号 growth@wemail.ai" }));
+    await user.click(screen.getByRole("button", { name: "更多操作" }));
+    await user.click(screen.getByRole("button", { name: "批量彻底删除" }));
+
+    const dialog = screen.getByRole("dialog", { name: "确认彻底删除" });
+    await user.type(within(dialog).getByLabelText("确认词"), "DELETE 2 ACCOUNTS");
+    await user.click(within(dialog).getByRole("button", { name: "确认彻底删除" }));
+
+    await waitFor(() => {
+      const bulkDeleteCall = fetchMock.mock.calls.find(([input, init]) => {
+        const url = typeof input === "string" ? input : input instanceof Request ? input.url : String(input);
+        return url.endsWith("/api/accounts/bulk-delete") && init?.method === "POST";
+      });
+
+      expect(bulkDeleteCall).toBeDefined();
+      expect(bulkDeleteCall?.[1]?.body).toBe(
+        JSON.stringify({
+          accountIds: ["acct_1001", "acct_1002"],
+          mode: "hard",
+          confirmationPhrase: "DELETE 2 ACCOUNTS"
+        })
+      );
+    });
+  });
+
   it("opens the bulk more-actions menu in a popover layer", async () => {
     const user = userEvent.setup();
 
@@ -332,6 +570,8 @@ describe("accounts pages", () => {
       <AccountsListPage
         accounts={mockAccounts}
         activeRange="all"
+        availableDomains={mockAccountDomains}
+        isLoadingDomains={false}
         isLoading={false}
         onActiveRangeChange={vi.fn()}
         onBulkDeleteAccounts={vi.fn()}
@@ -371,26 +611,48 @@ describe("accounts pages", () => {
       address: `export-${index}@wemail.ai`
     }));
     const exportPageTwoAccounts = mockAccounts;
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValueOnce(
-        new Response(JSON.stringify(currentPagePayload), {
+    const fetchMock = vi.fn(async (input) => {
+      const url = typeof input === "string" ? input : input instanceof Request ? input.url : String(input);
+
+      if (url.endsWith("/api/accounts/domains")) {
+        return new Response(
+          JSON.stringify({
+            domains: mockAccountDomains,
+            primaryDomain: "wemail.ai"
+          }),
+          {
+            headers: { "content-type": "application/json" },
+            status: 200
+          }
+        );
+      }
+
+      if (url.includes("/api/accounts/list?") && url.includes("page=1&pageSize=500")) {
+        return new Response(JSON.stringify({ accounts: exportPageOneAccounts, total: 503 }), {
           headers: { "content-type": "application/json" },
           status: 200
-        })
-      )
-      .mockResolvedValueOnce(
-        new Response(JSON.stringify({ accounts: exportPageOneAccounts, total: 503 }), {
+        });
+      }
+
+      if (url.includes("/api/accounts/list?") && url.includes("page=2&pageSize=500")) {
+        return new Response(JSON.stringify({ accounts: exportPageTwoAccounts, total: 503 }), {
           headers: { "content-type": "application/json" },
           status: 200
-        })
-      )
-      .mockResolvedValueOnce(
-        new Response(JSON.stringify({ accounts: exportPageTwoAccounts, total: 503 }), {
+        });
+      }
+
+      if (url.includes("/api/accounts/list?")) {
+        return new Response(JSON.stringify(currentPagePayload), {
           headers: { "content-type": "application/json" },
           status: 200
-        })
-      );
+        });
+      }
+
+      return new Response(JSON.stringify({}), {
+        headers: { "content-type": "application/json" },
+        status: 404
+      });
+    });
 
     vi.stubGlobal("fetch", fetchMock);
     Object.defineProperty(URL, "createObjectURL", {
@@ -408,27 +670,61 @@ describe("accounts pages", () => {
     await screen.findByText("ops@wemail.ai");
     await user.click(screen.getByRole("button", { name: "导出" }));
 
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
-    expect(String(fetchMock.mock.calls[1][0])).toContain("page=1&pageSize=500");
-    expect(String(fetchMock.mock.calls[2][0])).toContain("page=2&pageSize=500");
+    await waitFor(() => {
+      const listCalls = fetchMock.mock.calls.filter(([input]) => String(input).includes("/api/accounts/list?"));
+      expect(listCalls).toHaveLength(3);
+    });
+    const listCalls = fetchMock.mock.calls.filter(([input]) => String(input).includes("/api/accounts/list?"));
+    expect(String(listCalls[1][0])).toContain("page=1&pageSize=500");
+    expect(String(listCalls[2][0])).toContain("page=2&pageSize=500");
   });
 
   it("renders the global mailbox-account settings center with independent save controls", async () => {
     const user = userEvent.setup();
+    const fetchMock = vi.fn(async (input, init) => {
+      const url = typeof input === "string" ? input : input instanceof Request ? input.url : String(input);
+
+      if (url.endsWith("/api/accounts/settings") && (!init?.method || init.method === "GET")) {
+        return new Response(JSON.stringify({ policy: mockAccountPolicy }), {
+          headers: { "content-type": "application/json" },
+          status: 200
+        });
+      }
+
+      if (url.endsWith("/api/accounts/settings") && init?.method === "PUT") {
+        return new Response(JSON.stringify({ policy: mockAccountPolicy }), {
+          headers: { "content-type": "application/json" },
+          status: 200
+        });
+      }
+
+      return new Response(JSON.stringify({}), {
+        headers: { "content-type": "application/json" },
+        status: 404
+      });
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
 
     renderWithRouter(<AccountsSettingsPage />);
 
-    expect(screen.getByRole("heading", { name: "账号设置" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "账号策略中心" })).toBeInTheDocument();
+    expect(screen.getByLabelText("账号设置概览")).toHaveClass("accounts-settings-overview-panel");
+    expect(screen.getByLabelText("账号设置关键指标")).toHaveClass("accounts-settings-metric-grid");
     expect(screen.getByRole("heading", { name: "默认创建规则" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "生命周期规则" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "批量操作保护" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "当前策略摘要" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "策略运行状态" })).toBeInTheDocument();
+    expect(screen.queryByText(/mock-first/i)).not.toBeInTheDocument();
+    expect(await screen.findByDisplayValue("真实标签, 运营")).toBeInTheDocument();
+    expect(screen.getByRole("switch", { name: "自动附加默认标签" })).toHaveAttribute("aria-checked", "true");
+    expect(screen.getByRole("switch", { name: "危险操作要求确认词" })).toHaveAttribute("aria-checked", "true");
 
     await user.click(screen.getByRole("button", { name: "保存默认创建规则" }));
 
     expect(screen.getByText("默认创建规则已保存")).toBeInTheDocument();
 
-    const allowHardDeleteCheckbox = screen.getByLabelText("允许彻底删除");
+    const allowHardDeleteCheckbox = screen.getByRole("switch", { name: "允许彻底删除" });
 
     await user.click(allowHardDeleteCheckbox);
     await user.click(screen.getByRole("button", { name: "保存生命周期规则" }));
@@ -438,6 +734,42 @@ describe("accounts pages", () => {
 
     await user.click(within(dialog).getByRole("button", { name: "取消" }));
 
-    expect(allowHardDeleteCheckbox).not.toBeChecked();
+    expect(allowHardDeleteCheckbox).toHaveAttribute("aria-checked", "false");
+  });
+
+  it("keeps account settings dirty and shows an error when saving fails", async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi.fn(async (input, init) => {
+      const url = typeof input === "string" ? input : input instanceof Request ? input.url : String(input);
+
+      if (url.endsWith("/api/accounts/settings") && (!init?.method || init.method === "GET")) {
+        return new Response(JSON.stringify({ policy: mockAccountPolicy }), {
+          headers: { "content-type": "application/json" },
+          status: 200
+        });
+      }
+
+      if (url.endsWith("/api/accounts/settings") && init?.method === "PUT") {
+        return new Response(JSON.stringify({ error: "validation failed" }), {
+          headers: { "content-type": "application/json" },
+          status: 400
+        });
+      }
+
+      return new Response(JSON.stringify({}), {
+        headers: { "content-type": "application/json" },
+        status: 404
+      });
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderWithRouter(<AccountsSettingsPage />);
+
+    await screen.findByDisplayValue("真实标签, 运营");
+    await user.click(screen.getByRole("button", { name: "保存默认创建规则" }));
+
+    expect(await screen.findByText("账号策略保存失败")).toBeInTheDocument();
+    expect(screen.queryByText("默认创建规则已保存")).not.toBeInTheDocument();
   });
 });

@@ -3,7 +3,7 @@ import type { UserRole, UserStatus } from "@wemail/shared";
 import type { AppBindings, AppStore, PageListOptions, UserListOptions, UserRecord } from "../../core/bindings";
 import { hashPassword } from "../../shared/auth";
 import { jsonError, recordAudit } from "../services/audit-service";
-import { getOutboundLimit } from "../services/config-service";
+import { getApiDailyLimit, getOutboundLimit } from "../services/config-service";
 
 type AdminUseCaseContext = {
   store: AppStore;
@@ -60,6 +60,8 @@ export async function createAdminUserUseCase(
 
   await context.store.quotas.save({
     userId: user.id,
+    apiDailyLimit: getApiDailyLimit(context.env),
+    apiCallsToday: 0,
     dailyLimit: getOutboundLimit(context.env),
     sendsToday: 0,
     disabled: false,
@@ -184,14 +186,15 @@ export async function disableInviteUseCase(
 }
 
 export async function getQuotaUseCase(context: AdminUseCaseContext, userId: string) {
-  return context.store.quotas.getByUserId(userId, getOutboundLimit(context.env));
+  return context.store.quotas.getByUserId(userId, getOutboundLimit(context.env), getApiDailyLimit(context.env));
 }
 
 export async function updateQuotaUseCase(
   context: AdminUseCaseContext,
-  payload: { actorUserId: string; userId: string; dailyLimit: number; disabled: boolean }
+  payload: { actorUserId: string; userId: string; apiDailyLimit: number; dailyLimit: number; disabled: boolean }
 ) {
-  const existing = await context.store.quotas.getByUserId(payload.userId, getOutboundLimit(context.env));
+  const existing = await context.store.quotas.getByUserId(payload.userId, getOutboundLimit(context.env), getApiDailyLimit(context.env));
+  existing.apiDailyLimit = payload.apiDailyLimit;
   existing.dailyLimit = payload.dailyLimit;
   existing.disabled = payload.disabled;
   existing.updatedAt = new Date().toISOString();

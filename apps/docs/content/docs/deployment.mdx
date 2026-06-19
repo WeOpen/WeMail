@@ -1,0 +1,144 @@
+---
+title: 文档站单独部署
+description: 将 apps/docs 作为独立 Fumadocs 站点部署
+---
+
+WeMail 文档站位于：
+
+```text
+apps/docs
+```
+
+它在 monorepo 里维护，但可以作为独立站点部署。当前技术栈：
+
+| 范围 | 技术 |
+| --- | --- |
+| App | Next.js 16 |
+| Docs | Fumadocs MDX |
+| 内容 | `apps/docs/content/docs` |
+| 搜索 | Fumadocs 本地搜索接口 |
+| 样式 | Tailwind CSS + `apps/docs/app/global.css` |
+
+## 本地启动
+
+在仓库根目录执行：
+
+```bash
+pnpm dev:docs
+```
+
+默认地址：
+
+```text
+http://127.0.0.1:3000
+```
+
+只验证文档站：
+
+```bash
+pnpm lint:docs
+pnpm typecheck:docs
+pnpm build:docs
+```
+
+## 内容目录
+
+文档页面在：
+
+```text
+apps/docs/content/docs
+```
+
+新增一篇文档时，创建 MDX 文件：
+
+```text
+apps/docs/content/docs/new-page.mdx
+```
+
+基础 frontmatter：
+
+```mdx
+---
+title: 页面标题
+description: 页面说明
+---
+
+正文内容
+```
+
+侧边栏顺序由：
+
+```text
+apps/docs/content/docs/meta.json
+```
+
+控制。
+
+## 图片资源
+
+文档图片建议放在：
+
+```text
+apps/docs/public/docs/screenshots
+```
+
+在 MDX 中引用：
+
+```mdx
+![截图说明](/docs/screenshots/local-dev-terminal.png)
+```
+
+不要在文档里引用本机临时路径，例如 `/var/folders/...`，部署后会失效。
+
+## 推荐部署方式：Vercel
+
+Next.js + Fumadocs 的最省心部署目标是 Vercel。
+
+项目设置建议：
+
+| 项 | 值 |
+| --- | --- |
+| Root Directory | 仓库根目录 |
+| Install Command | `pnpm install --frozen-lockfile` |
+| Build Command | `pnpm build:docs` |
+| Output | 由 Vercel 自动识别 Next.js |
+
+如果 Vercel 需要指定 monorepo app，可以把项目目录设为 `apps/docs`，但要确认 workspace 依赖和 lockfile 仍能被正确安装。
+
+## Cloudflare 部署说明
+
+Cloudflare Pages 对普通静态站点很友好，但当前 docs app 是 Next.js 16 应用，不是纯静态导出配置。
+
+如果要部署到 Cloudflare，建议走其中一种：
+
+1. 使用 OpenNext / Cloudflare Workers 方案承载 Next.js。
+2. 评估是否把文档站改为可静态导出，再部署到 Pages。
+
+在没有完成这一步前，不建议直接把 `.next` 当作静态目录上传到 Pages。
+
+## 自定义域名
+
+建议使用独立域名：
+
+```text
+docs.example.com
+```
+
+这样文档站和产品站可以独立发布，也不会影响 WeMail 主应用的 `/api/*` 路由策略。
+
+## 发布前检查
+
+- [ ] `pnpm lint:docs` 通过。
+- [ ] `pnpm typecheck:docs` 通过。
+- [ ] `pnpm build:docs` 通过。
+- [ ] 新增图片位于 `apps/docs/public`。
+- [ ] 新增页面已加入 `meta.json`。
+- [ ] 首页卡片或相关文档能链接到新页面。
+- [ ] 没有把真实 secret、Cloudflare token、私有账号 ID 写进文档。
+
+## 文档维护约定
+
+- 部署流程变化时，同步更新产品部署文档和根 README。
+- Cloudflare 控制台截图如果来自真实账号，先遮挡账号 ID、邮箱、token 和域名隐私。
+- 示例 token 使用占位符，不使用看起来像真实密钥的字符串。
+- 每次提交按仓库约定更新根 `CHANGELOG.md` 的 `[Unreleased]`。

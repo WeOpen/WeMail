@@ -124,6 +124,14 @@ export const designSystemPageStyles = {
     fontSize: "14px",
     fontWeight: 700,
     color: "var(--text, #111827)"
+  } satisfies CSSProperties,
+  backToTopButton: {
+    position: "fixed",
+    right: "24px",
+    bottom: "24px",
+    zIndex: 30,
+    boxShadow: "0 18px 42px rgba(15, 23, 42, 0.18)",
+    background: "var(--surface-primary, rgba(255, 255, 255, 0.96))"
   } satisfies CSSProperties
 };
 
@@ -171,6 +179,26 @@ export const designSystemDocStyles = {
     gap: "12px",
     paddingBottom: "16px",
     borderBottom: "1px solid var(--border-subtle, rgba(15, 23, 42, 0.08))"
+  } satisfies CSSProperties,
+  introGrid: {
+    display: "grid",
+    gap: "10px",
+    gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 220px), 1fr))"
+  } satisfies CSSProperties,
+  introCard: {
+    display: "grid",
+    gap: "6px",
+    minWidth: 0,
+    padding: "12px 14px",
+    borderRadius: "14px",
+    border: "1px solid var(--border-subtle, rgba(15, 23, 42, 0.08))",
+    background: "var(--surface-secondary, rgba(15, 23, 42, 0.04))"
+  } satisfies CSSProperties,
+  introHeading: {
+    margin: 0,
+    fontSize: "13px",
+    fontWeight: 700,
+    color: "var(--text, #111827)"
   } satisfies CSSProperties,
   sectionList: {
     display: "grid",
@@ -250,4 +278,20 @@ export function resolveDesignSystemSidebarLayoutStyle(viewportWidth?: number): C
     gridTemplateColumns: "minmax(240px, 280px) minmax(0, 1fr)",
     alignItems: "start"
   };
+}
+
+export function resolveDesignSystemSidebarShellStyle(viewportWidth?: number): CSSProperties {
+  const width = viewportWidth ?? (typeof window !== "undefined" ? window.innerWidth : 1280);
+
+  if (width < 980) {
+    return {
+      alignSelf: "start",
+      maxHeight: "none",
+      position: "relative",
+      top: "auto",
+      zIndex: 1
+    };
+  }
+
+  return {};
 }

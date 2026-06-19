@@ -132,12 +132,14 @@ CREATE TABLE IF NOT EXISTS user_send_quotas (
   user_id TEXT PRIMARY KEY,
   daily_limit INTEGER NOT NULL,
   sends_today INTEGER NOT NULL,
+  api_daily_limit INTEGER NOT NULL DEFAULT 20000,
+  api_calls_today INTEGER NOT NULL DEFAULT 0,
   disabled INTEGER NOT NULL,
   updated_at TEXT NOT NULL
 );
 
-INSERT OR IGNORE INTO user_send_quotas (user_id, daily_limit, sends_today, disabled, updated_at)
-SELECT user_id, daily_limit, sends_today, disabled, updated_at FROM send_quotas;
+INSERT OR IGNORE INTO user_send_quotas (user_id, daily_limit, sends_today, api_daily_limit, api_calls_today, disabled, updated_at)
+SELECT user_id, daily_limit, sends_today, 20000, 0, disabled, updated_at FROM send_quotas;
 
 CREATE TABLE IF NOT EXISTS system_settings (
   key TEXT PRIMARY KEY,
@@ -197,6 +199,7 @@ CREATE TABLE IF NOT EXISTS webhook_deliveries (
   duration_ms INTEGER,
   error_text TEXT,
   payload_json TEXT NOT NULL,
+  response_text TEXT,
   created_at TEXT NOT NULL
 );
 
@@ -216,6 +219,15 @@ CREATE TABLE IF NOT EXISTS announcements (
   end_at TEXT,
   published_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS announcement_receipts (
+  announcement_id TEXT NOT NULL,
+  user_id TEXT NOT NULL,
+  acknowledged_at TEXT NOT NULL,
+  PRIMARY KEY (announcement_id, user_id),
+  FOREIGN KEY (announcement_id) REFERENCES announcements(id) ON DELETE CASCADE,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
 DROP TABLE IF EXISTS sessions;

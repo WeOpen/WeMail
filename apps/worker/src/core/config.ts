@@ -9,6 +9,9 @@ export type AppConfig = {
     name: string;
     secure: boolean;
   };
+  cors: {
+    allowedOrigins: string[];
+  };
   session: {
     ttlHours: number;
   };
@@ -23,6 +26,9 @@ export type AppConfig = {
     dailyLimit: number;
     resendFrom?: string;
   };
+  api: {
+    dailyLimit: number;
+  };
   attachments: {
     maxBytes: number;
     maxTotalBytes: number;
@@ -35,6 +41,8 @@ export type AppConfig = {
   integrations: {
     resendApiKey?: string;
     telegramBotToken?: string;
+    telegramBotUsername?: string;
+    telegramWebhookSecret?: string;
   };
 };
 
@@ -76,6 +84,12 @@ export function resolveAppConfig(env: AppBindings): AppConfig {
       secure: parseBoolean(env.COOKIE_SECURE, false)
     },
 
+    cors: {
+      // Credentialed browser requests cannot use `*`; production deployments
+      // should list every frontend origin that may call the Worker API.
+      allowedOrigins: parseList(env.CORS_ALLOWED_ORIGINS)
+    },
+
     session: {
       // Session TTL is stored as hours to keep wrangler.toml readable.
       // Defaulting here keeps auth helpers free from fallback literals.
@@ -103,6 +117,12 @@ export function resolveAppConfig(env: AppBindings): AppConfig {
       // RESEND_FROM remains optional because the app can derive a sensible
       // default sender address from APP_NAME and DEFAULT_MAIL_DOMAIN.
       resendFrom: env.RESEND_FROM
+    },
+
+    api: {
+      // External API keys are capped separately from outbound sending so admin
+      // user settings can tune integration traffic without affecting mail flow.
+      dailyLimit: parseNumber(env.API_DAILY_LIMIT, APP_LIMITS.apiDailyLimit)
     },
 
     attachments: {
@@ -134,7 +154,9 @@ export function resolveAppConfig(env: AppBindings): AppConfig {
       // Secrets stay optional so local development can run without every third-
       // party integration configured.
       resendApiKey: env.RESEND_API_KEY,
-      telegramBotToken: env.TELEGRAM_BOT_TOKEN
+      telegramBotToken: env.TELEGRAM_BOT_TOKEN,
+      telegramBotUsername: env.TELEGRAM_BOT_USERNAME,
+      telegramWebhookSecret: env.TELEGRAM_WEBHOOK_SECRET
     }
   };
 }

@@ -1,7 +1,17 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { MailboxDetail, MailboxStatus } from "@wemail/shared";
+import type { MailDomainSummary, MailboxDetail, MailboxStatus } from "@wemail/shared";
 
-import { createAccount, deleteAccount, fetchAccountsList, updateAccount, type AccountsListQuery } from "./api";
+import {
+  bulkDeleteAccounts,
+  createAccount,
+  deleteAccount,
+  fetchAccountDomains,
+  fetchAccountPolicy,
+  fetchAccountsList,
+  updateAccount,
+  type AccountCreatePayload,
+  type AccountsListQuery
+} from "./api";
 import { AccountsListPage } from "./AccountsListPage";
 
 type AccountsStatusFilter = "all" | "enabled" | "disabled" | "archived" | "soft_deleted";
@@ -12,8 +22,11 @@ const ACCOUNTS_EXPORT_PAGE_SIZE = 500;
 
 export function AccountsListRoutePage() {
   const [accounts, setAccounts] = useState<MailboxDetail[]>([]);
+  const [availableDomains, setAvailableDomains] = useState<MailDomainSummary[]>([]);
+  const [requireCreatorNote, setRequireCreatorNote] = useState(false);
   const [total, setTotal] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingDomains, setIsLoadingDomains] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const [searchValue, setSearchValue] = useState("");
@@ -49,9 +62,38 @@ export function AccountsListRoutePage() {
     }
   }, [query]);
 
+  const loadAccountDomains = useCallback(async () => {
+    setIsLoadingDomains(true);
+    try {
+      const data = await fetchAccountDomains();
+      setAvailableDomains(Array.isArray(data.domains) ? data.domains : []);
+    } catch {
+      setAvailableDomains([]);
+    } finally {
+      setIsLoadingDomains(false);
+    }
+  }, []);
+
+  const loadAccountPolicy = useCallback(async () => {
+    try {
+      const data = await fetchAccountPolicy();
+      setRequireCreatorNote(Boolean(data.policy.creation.requireCreatorNote));
+    } catch {
+      setRequireCreatorNote(false);
+    }
+  }, []);
+
   useEffect(() => {
     void loadAccounts();
   }, [loadAccounts]);
+
+  useEffect(() => {
+    void loadAccountDomains();
+  }, [loadAccountDomains]);
+
+  useEffect(() => {
+    void loadAccountPolicy();
+  }, [loadAccountPolicy]);
 
   useEffect(() => {
     const pageCount = Math.max(1, Math.ceil(total / pageSize));
@@ -85,12 +127,18 @@ export function AccountsListRoutePage() {
   }, []);
 
   const handleCreateAccount = useCallback(
-    async (label: string) => {
-      await createAccount({ label });
+    async (payload: AccountCreatePayload) => {
+      await createAccount(payload);
       await loadAccounts();
     },
     [loadAccounts]
   );
+
+  const handleRefresh = useCallback(() => {
+    void loadAccounts();
+    void loadAccountDomains();
+    void loadAccountPolicy();
+  }, [loadAccountDomains, loadAccountPolicy, loadAccounts]);
 
   const handlePageSizeChange = useCallback((value: number) => {
     setPageSize(value);
@@ -115,7 +163,11 @@ export function AccountsListRoutePage() {
 
   const handleBulkDeleteAccounts = useCallback(
     async (accountIds: string[]) => {
-      await Promise.all(accountIds.map((accountId) => deleteAccount(accountId)));
+      await bulkDeleteAccounts({
+        accountIds,
+        mode: "hard",
+        confirmationPhrase: `DELETE ${accountIds.length} ACCOUNTS`
+      });
       await loadAccounts();
     },
     [loadAccounts]
@@ -130,8 +182,11 @@ export function AccountsListRoutePage() {
     <AccountsListPage
       accounts={accounts}
       activeRange={activeRange}
+      availableDomains={availableDomains}
       error={error}
       isLoading={isLoading}
+      isLoadingDomains={isLoadingDomains}
+      requireCreatorNote={requireCreatorNote}
       onActiveRangeChange={handleActiveRangeChange}
       onBulkDeleteAccounts={handleBulkDeleteAccounts}
       onCreateAccount={handleCreateAccount}
@@ -140,7 +195,7 @@ export function AccountsListRoutePage() {
       onPageChange={setPage}
       onPageSizeChange={handlePageSizeChange}
       onQuickFilterChange={handleQuickFilterChange}
-      onRefresh={loadAccounts}
+      onRefresh={handleRefresh}
       onSearchChange={handleSearchChange}
       onStatusFilterChange={handleStatusFilterChange}
       onUpdateAccount={handleUpdateAccount}

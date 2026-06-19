@@ -5,6 +5,7 @@ import type { SessionSummary } from "@wemail/shared";
 import { useAdminData } from "../features/admin/useAdminData";
 import { useAuthSession } from "../features/auth/useAuthSession";
 import { useInboxWorkspace } from "../features/inbox/useInboxWorkspace";
+import { useProfileData } from "../features/settings/useProfileData";
 import { useSettingsData } from "../features/settings/useSettingsData";
 import { useAppStore } from "./appStore";
 
@@ -35,13 +36,20 @@ export function useAppShell() {
     enabled: Boolean(session),
     onToast: pushToast
   });
-  const { selectedMailboxId, refreshMailboxes, refreshMessages, refreshOutbound } = inbox;
+  const { mailboxes, selectedMailboxId, refreshMailboxes, refreshOutbound } = inbox;
 
   const settings = useSettingsData({
     session,
     onToast: pushToast
   });
   const { refreshSettingsData } = settings;
+
+  const profile = useProfileData({
+    session,
+    onSessionUpdated: setSession,
+    onToast: pushToast
+  });
+  const { refreshProfileData } = profile;
 
   const admin = useAdminData({
     session,
@@ -57,14 +65,15 @@ export function useAppShell() {
     if (!session) return;
     void refreshMailboxes();
     void refreshSettingsData();
+    void refreshProfileData();
     if (session.user.role === "admin") void refreshAdminData();
-  }, [refreshAdminData, refreshMailboxes, refreshSettingsData, session]);
+  }, [refreshAdminData, refreshMailboxes, refreshProfileData, refreshSettingsData, session]);
 
   useEffect(() => {
-    if (!selectedMailboxId) return;
-    void refreshMessages(selectedMailboxId);
-    void refreshOutbound(selectedMailboxId);
-  }, [refreshMessages, refreshOutbound, selectedMailboxId]);
+    if (!session) return;
+    const outboundMailboxId = selectedMailboxId ?? mailboxes[0]?.id ?? null;
+    void refreshOutbound(outboundMailboxId);
+  }, [mailboxes, refreshOutbound, selectedMailboxId, session]);
 
   return {
     session,
@@ -74,6 +83,7 @@ export function useAppShell() {
     auth,
     inbox,
     settings,
+    profile,
     admin
   };
 }

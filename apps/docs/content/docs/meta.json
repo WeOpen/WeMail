@@ -1,0 +1,14 @@
+{
+  "title": "WeMail",
+  "pages": [
+    "index",
+    "quickstart",
+    "cloudflare-resources",
+    "worker-config",
+    "email-routing",
+    "pages-deploy",
+    "github-actions",
+    "operations",
+    "deployment"
+  ]
+}

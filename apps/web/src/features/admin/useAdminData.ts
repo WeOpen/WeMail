@@ -197,6 +197,7 @@ export function useAdminData({ session, onToast }: UseAdminDataOptions) {
         userIds.map(async (userId) => {
           const quota = await queryQuota(userId);
           await updateQuotaAction(userId, {
+            apiDailyLimit: quota.apiDailyLimit,
             dailyLimit: quota.dailyLimit,
             disabled: true
           });
@@ -226,6 +227,7 @@ export function useAdminData({ session, onToast }: UseAdminDataOptions) {
       event.preventDefault();
       const form = new FormData(event.currentTarget);
       const payload = await updateQuotaAction(userId, {
+        apiDailyLimit: Number(form.get("apiDailyLimit")),
         dailyLimit: Number(form.get("dailyLimit")),
         disabled: form.get("disabled") === "on"
       });

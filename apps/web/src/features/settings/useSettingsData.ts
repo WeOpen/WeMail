@@ -4,7 +4,13 @@ import type { SessionSummary } from "@wemail/shared";
 
 import { useAppStore } from "../../app/appStore";
 import type { WemailToastInput } from "../../shared/toast";
-import { createApiKeyAction, revokeApiKeyAction, saveTelegramAction } from "./actions";
+import {
+  createApiKeyAction,
+  createTelegramLinkCodeAction,
+  revokeApiKeyAction,
+  saveTelegramAction,
+  sendTelegramTestAction
+} from "./actions";
 import { querySettingsData } from "./queries";
 
 type UseSettingsDataOptions = {
@@ -15,13 +21,19 @@ type UseSettingsDataOptions = {
 export function useSettingsData({ session, onToast }: UseSettingsDataOptions) {
   const apiKeys = useAppStore((state) => state.apiKeys);
   const telegram = useAppStore((state) => state.telegram);
+  const telegramOverview = useAppStore((state) => state.telegramOverview);
+  const telegramDeliveries = useAppStore((state) => state.telegramDeliveries);
+  const dictionaries = useAppStore((state) => state.dictionaries);
+  const dictionaryByGroup = useAppStore((state) => state.dictionaryByGroup);
   const setSettingsData = useAppStore((state) => state.setSettingsData);
+  const setDictionaries = useAppStore((state) => state.setDictionaries);
 
   const refreshSettingsData = useCallback(async () => {
     if (!session) return;
     const data = await querySettingsData();
-    setSettingsData(data.apiKeys, data.telegram);
-  }, [session, setSettingsData]);
+    setSettingsData(data.apiKeys, data.telegramOverview, data.telegramDeliveries);
+    setDictionaries(data.dictionaries);
+  }, [session, setDictionaries, setSettingsData]);
 
   const createApiKey = useCallback(
     async (label: string) => {
@@ -51,12 +63,34 @@ export function useSettingsData({ session, onToast }: UseSettingsDataOptions) {
     [onToast, refreshSettingsData]
   );
 
+  const createTelegramLinkCode = useCallback(async () => {
+    const payload = await createTelegramLinkCodeAction();
+    onToast({ message: "Telegram 绑定码已生成。", tone: "success" });
+    return payload.link;
+  }, [onToast]);
+
+  const sendTelegramTest = useCallback(async () => {
+    const payload = await sendTelegramTestAction();
+    onToast({
+      message: payload.result.delivered ? "Telegram 测试通知已发送。" : "Telegram 测试通知发送失败。",
+      tone: payload.result.delivered ? "success" : "error"
+    });
+    await refreshSettingsData();
+    return payload.result;
+  }, [onToast, refreshSettingsData]);
+
   return {
     apiKeys,
+    dictionaries,
+    dictionaryByGroup,
     telegram,
+    telegramOverview,
+    telegramDeliveries,
     refreshSettingsData,
     createApiKey,
     revokeApiKey,
-    saveTelegram
+    saveTelegram,
+    createTelegramLinkCode,
+    sendTelegramTest
   };
 }

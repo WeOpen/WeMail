@@ -15,3 +15,4 @@
 ## 🔗 相关目录
 - `apps/web/`
 - `apps/worker/`
+- `apps/docs/`

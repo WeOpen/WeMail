@@ -1,25 +1,119 @@
-import type { MailboxSummary, MessageSummary } from "@wemail/shared";
+import type {
+  AccountPolicy,
+  MailDomainSettings,
+  MailboxSummary,
+  MessageListQuery,
+  MessageListResult,
+  MessageSummary,
+  OutboundListQuery,
+  OutboundListResult
+} from "@wemail/shared";
 
 import { apiFetch } from "../../shared/api/client";
-import type { OutboundHistoryItem } from "./types";
+import type { OutboundHistoryDetail } from "./types";
 
-export function fetchMailboxes() {
-  return apiFetch<{ mailboxes: MailboxSummary[] }>("/api/accounts");
+export type MailboxListQueryInput = {
+  page?: number;
+  pageSize?: number;
+  search?: string;
+};
+
+export type MailboxListResponse = {
+  mailboxes: MailboxSummary[];
+  page?: number;
+  pageSize?: number;
+  total?: number;
+};
+
+function buildMailboxListPath(query?: MailboxListQueryInput) {
+  if (!query) return "/api/accounts";
+
+  const params = new URLSearchParams({
+    page: String(query.page ?? 1),
+    pageSize: String(query.pageSize ?? 10)
+  });
+  const search = query.search?.trim();
+  if (search) params.set("search", search);
+
+  return `/api/accounts?${params.toString()}`;
 }
 
-export function createMailbox(label: string) {
+export function fetchMailboxes(query?: MailboxListQueryInput) {
+  return apiFetch<MailboxListResponse>(buildMailboxListPath(query));
+}
+
+export type MailboxCreatePayload = {
+  label: string;
+  domain: string;
+  creatorNote?: string;
+};
+
+export function fetchMailboxDomains() {
+  return apiFetch<MailDomainSettings>("/api/accounts/domains");
+}
+
+export function fetchMailboxPolicy() {
+  return apiFetch<{ policy: AccountPolicy }>("/api/accounts/settings");
+}
+
+export function createMailbox(payload: MailboxCreatePayload) {
   return apiFetch<{ mailbox: MailboxSummary }>("/api/accounts", {
     method: "POST",
-    body: JSON.stringify({ label })
+    body: JSON.stringify(payload)
   });
 }
 
-export function fetchMessages(mailboxId: string) {
-  return apiFetch<{ messages: MessageSummary[] }>(`/api/mail/messages?accountId=${mailboxId}`);
+export type MessageListQueryInput = Partial<MessageListQuery> & {
+  mailboxId?: string | null;
+};
+
+export type MessageListResponse = Partial<MessageListResult> & {
+  messages?: MessageSummary[];
+};
+
+function normalizeMessageListQuery(query?: MessageListQueryInput | string | null): MessageListQueryInput {
+  if (typeof query === "string" || query === null) return { mailboxId: query };
+  return query ?? {};
 }
 
-export function fetchOutboundHistory(mailboxId: string) {
-  return apiFetch<{ messages: OutboundHistoryItem[] }>(`/api/mail/outbound?accountId=${mailboxId}`);
+export function fetchMessages(query?: MessageListQueryInput | string | null) {
+  const normalizedQuery = normalizeMessageListQuery(query);
+  const params = new URLSearchParams();
+  const search = normalizedQuery.search?.trim();
+
+  if (normalizedQuery.mailboxId) params.set("accountId", normalizedQuery.mailboxId);
+  params.set("page", String(normalizedQuery.page ?? 1));
+  params.set("pageSize", String(normalizedQuery.pageSize ?? 10));
+  params.set("filter", normalizedQuery.filter ?? "all");
+  if (search) params.set("search", search);
+
+  return apiFetch<MessageListResponse>(`/api/mail/messages?${params.toString()}`);
+}
+
+export function fetchMessageDetail(messageId: string) {
+  return apiFetch<{ message: MessageSummary }>(`/api/mail/messages/${encodeURIComponent(messageId)}`);
+}
+
+export type OutboundListQueryInput = Partial<Omit<OutboundListQuery, "mailboxId">> & {
+  mailboxId: string;
+};
+
+export function fetchOutboundHistory(query: string | OutboundListQueryInput) {
+  const normalizedQuery = typeof query === "string" ? { mailboxId: query } : query;
+  const params = new URLSearchParams({
+    accountId: normalizedQuery.mailboxId,
+    page: String(normalizedQuery.page ?? 1),
+    pageSize: String(normalizedQuery.pageSize ?? 6),
+    status: normalizedQuery.status ?? "all"
+  });
+  const search = normalizedQuery.search?.trim();
+  if (search) params.set("search", search);
+
+  return apiFetch<OutboundListResult>(`/api/mail/outbound?${params.toString()}`);
+}
+
+export function fetchOutboundDetail(messageId: string) {
+  return apiFetch<{ message: OutboundHistoryDetail }>(`/api/mail/outbound/${encodeURIComponent(messageId)}`);
 }
 
 export function sendOutboundMessage(payload: {

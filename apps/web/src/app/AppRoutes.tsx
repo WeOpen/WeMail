@@ -4,21 +4,36 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import type {
   ApiKeySummary,
   FeatureToggles,
+  MailDomainSummary,
   MailboxSummary,
+  MessageListSummary,
   MessageSummary,
   QuotaSummary,
   SessionSummary,
-  TelegramSubscriptionSummary,
+  TelegramDeliverySummary,
+  TelegramLinkCodeSummary,
+  TelegramOverviewSummary,
+  TelegramTestMessageResult,
+  UserProfileSummary,
+  UserProfileUpdateInput,
   UserRole,
   UserStatus,
   UserSummary
 } from "@wemail/shared";
 
 import type { AdminUserStats, AdminUsersQuery, InviteSummary } from "../features/admin/types";
-import type { OutboundHistoryItem } from "../features/inbox/types";
+import type {
+  MailboxCreatePayload,
+  MailboxListQueryInput,
+  MailboxListResponse,
+  MessageListQueryInput,
+  OutboundListQueryInput
+} from "../features/inbox/api";
+import type { OutboundHistoryDetail, OutboundHistoryItem, OutboundHistorySummary } from "../features/inbox/types";
 import { AccountsListRoutePage } from "../features/accounts/AccountsListRoutePage";
 import { AccountsSettingsPage } from "../features/accounts/AccountsSettingsPage";
 import { OutboundPage } from "../features/outbound/OutboundPage";
+import { ApiInterfacesPage } from "../features/settings/ApiInterfacesPage";
 import { ApiKeysPage } from "../features/settings/ApiKeysPage";
 import { MailSettingsPage } from "../features/settings/MailSettingsPage";
 import { TelegramSettingsPage } from "../features/settings/TelegramSettingsPage";
@@ -31,6 +46,7 @@ import { SystemProfilePage } from "../pages/SystemProfilePage";
 import { UsersGlobalSettingsPage } from "../pages/UsersGlobalSettingsPage";
 import { UsersListRoutePage } from "../pages/UsersListRoutePage";
 import { AboutPage } from "../pages/AboutPage";
+import { Button } from "../shared/button";
 import { WorkspacePlaceholderPage } from "../pages/WorkspacePlaceholderPage";
 import type { WorkspaceTheme, WorkspaceThemePreference } from "./useWorkspaceTheme";
 
@@ -40,21 +56,57 @@ type AppRoutesProps = {
     mailboxes: MailboxSummary[];
     selectedMailboxId: string | null;
     messages: MessageSummary[];
+    isLoadingMessages: boolean;
+    messageListError: string | null;
+    messageListPage: number;
+    messageListPageSize: number;
+    messageListSummary: MessageListSummary;
+    messageListTotal: number;
     selectedMessageId: string | null;
+    isLoadingSelectedMessage: boolean;
+    selectedMessageError: string | null;
     outboundHistory: OutboundHistoryItem[];
-    setSelectedMailboxId: (mailboxId: string) => void;
+    outboundTotal: number;
+    outboundPage: number;
+    outboundPageSize: number;
+    outboundSummary: OutboundHistorySummary;
+    isLoadingOutbound: boolean;
+    outboundError: string | null;
+    availableMailboxDomains: MailDomainSummary[];
+    isLoadingMailboxDomains: boolean;
+    requireMailboxCreatorNote: boolean;
+    setSelectedMailboxId: (mailboxId: string | null) => void;
     setSelectedMessageId: (messageId: string) => void;
-    refreshMessages: (mailboxId?: string | null) => Promise<void>;
-    createMailbox: (label: string) => Promise<void>;
+    refreshMailboxOptions: (query: MailboxListQueryInput) => Promise<Required<MailboxListResponse>>;
+    refreshMessages: (query?: MessageListQueryInput | string | null) => Promise<void>;
+    refreshSelectedMessage: (messageId?: string | null) => Promise<void>;
+    refreshOutbound: (query?: string | OutboundListQueryInput | null) => Promise<void>;
+    loadOutboundDetail: (messageId: string) => Promise<OutboundHistoryDetail>;
+    createMailbox: (payload: MailboxCreatePayload) => Promise<void>;
     sendMail: (event: FormEvent<HTMLFormElement>) => Promise<void>;
   };
   selectedMessage: MessageSummary | null;
   settings: {
     apiKeys: ApiKeySummary[];
-    telegram: TelegramSubscriptionSummary | null;
+    telegramOverview: TelegramOverviewSummary;
+    telegramDeliveries: TelegramDeliverySummary[];
     createApiKey: (label: string) => Promise<{ key: { secret: string; prefix: string } }>;
     revokeApiKey: (keyId: string) => Promise<void>;
     saveTelegram: (payload: { chatId: string; enabled: boolean }) => Promise<void>;
+    createTelegramLinkCode: () => Promise<TelegramLinkCodeSummary>;
+    refreshSettingsData: () => Promise<void>;
+    sendTelegramTest: () => Promise<TelegramTestMessageResult>;
+  };
+  profile: {
+    profile: UserProfileSummary | null;
+    hasLoadedProfile: boolean;
+    isLoadingProfile: boolean;
+    isSavingProfile: boolean;
+    isSavingPreferences: boolean;
+    profileError: string | null;
+    refreshProfileData: () => Promise<void>;
+    saveProfile: (payload: UserProfileUpdateInput) => Promise<void>;
+    savePreferences: (payload: UserProfileUpdateInput) => Promise<void>;
   };
   admin: {
     adminUsers: UserSummary[];
@@ -100,36 +152,69 @@ type AppRoutesProps = {
     mailboxComposerOpen: boolean;
     onOpenMailboxComposer: () => void;
     onCloseMailboxComposer: () => void;
-    onCreateMailbox: (label: string) => Promise<void>;
+    onCreateMailbox: (payload: MailboxCreatePayload) => Promise<void>;
   };
+  onLogout: () => void;
 };
 
-export function AppRoutes({ session, inbox, selectedMessage, settings, admin, appearance, workspace }: AppRoutesProps) {
+export function AppRoutes({
+  session,
+  inbox,
+  selectedMessage,
+  settings,
+  profile,
+  admin,
+  appearance,
+  workspace,
+  onLogout
+}: AppRoutesProps) {
   const inboxPage = (
     <InboxPage
       mailboxes={inbox.mailboxes}
+      currentUserRole={session.user.role}
       selectedMailboxId={inbox.selectedMailboxId}
       messages={inbox.messages}
+      isLoadingMessages={inbox.isLoadingMessages}
+      messageListError={inbox.messageListError}
+      messageListPage={inbox.messageListPage}
+      messageListPageSize={inbox.messageListPageSize}
+      messageListSummary={inbox.messageListSummary}
+      messageListTotal={inbox.messageListTotal}
       selectedMessageId={inbox.selectedMessageId}
       selectedMessage={selectedMessage}
+      isLoadingSelectedMessage={inbox.isLoadingSelectedMessage}
+      selectedMessageError={inbox.selectedMessageError}
       outboundHistory={inbox.outboundHistory}
+      availableDomains={inbox.availableMailboxDomains}
+      isLoadingDomains={inbox.isLoadingMailboxDomains}
       mailboxComposerOpen={workspace.mailboxComposerOpen}
       onCloseMailboxComposer={workspace.onCloseMailboxComposer}
       onCreateMailbox={workspace.onCreateMailbox}
       onOpenMailboxComposer={workspace.onOpenMailboxComposer}
+      onQueryMailboxes={inbox.refreshMailboxOptions}
       onSelectMailbox={inbox.setSelectedMailboxId}
       onSelectMessage={inbox.setSelectedMessageId}
-      onRefreshMessages={() => void inbox.refreshMessages()}
+      onRefreshMessages={inbox.refreshMessages}
+      onRetrySelectedMessage={inbox.refreshSelectedMessage}
       onSendMail={inbox.sendMail}
+      requireCreatorNote={inbox.requireMailboxCreatorNote}
     />
   );
 
   const apiKeysPage = (
     <ApiKeysPage apiKeys={settings.apiKeys} onCreateApiKey={settings.createApiKey} onRevokeApiKey={settings.revokeApiKey} />
   );
+  const apiInterfacesPage = <ApiInterfacesPage />;
 
   const telegramPage = (
-    <TelegramSettingsPage telegram={settings.telegram} onSaveTelegram={settings.saveTelegram} />
+    <TelegramSettingsPage
+      deliveries={settings.telegramDeliveries}
+      overview={settings.telegramOverview}
+      onCreateTelegramLinkCode={settings.createTelegramLinkCode}
+      onRefreshTelegram={settings.refreshSettingsData}
+      onSaveTelegram={settings.saveTelegram}
+      onSendTelegramTest={settings.sendTelegramTest}
+    />
   );
 
   const restrictedUsersPage = (
@@ -197,20 +282,36 @@ export function AppRoutes({ session, inbox, selectedMessage, settings, admin, ap
     );
 
   const dashboardPage = <DashboardPage canViewRoleCard={session.user.role === "admin"} />;
+  const preferredLandingPage = profile.profile?.preferences.landingPage ?? "/dashboard";
+  const rootPage = profile.profile ? <Navigate replace to={preferredLandingPage} /> : dashboardPage;
 
   const accountsListPage = <AccountsListRoutePage />;
 
   const accountsSettingsPage = <AccountsSettingsPage />;
 
+  const activeOutboundMailbox =
+    inbox.mailboxes.find((mailbox) => mailbox.id === inbox.selectedMailboxId) ?? inbox.mailboxes[0] ?? null;
+
   const mailOutboundPage = (
     <OutboundPage
-      hasActiveMailbox={Boolean(inbox.selectedMailboxId)}
+      activeMailbox={activeOutboundMailbox}
+      mailboxes={inbox.mailboxes}
+      onRefreshOutbound={inbox.refreshOutbound}
+      onLoadOutboundDetail={inbox.loadOutboundDetail}
+      onSelectMailbox={inbox.setSelectedMailboxId}
       onSendMail={inbox.sendMail}
       outboundHistory={inbox.outboundHistory}
+      outboundTotal={inbox.outboundTotal}
+      outboundPage={inbox.outboundPage}
+      outboundPageSize={inbox.outboundPageSize}
+      outboundSummary={inbox.outboundSummary}
+      isLoadingOutbound={inbox.isLoadingOutbound}
+      outboundError={inbox.outboundError}
+      selectedMailboxId={inbox.selectedMailboxId}
     />
   );
 
-  const mailSettingsPage = <MailSettingsPage />;
+  const mailSettingsPage = <MailSettingsPage canManageMailSettings={session.user.role === "admin"} />;
 
   const webhookPage = <WebhookPage />;
 
@@ -247,28 +348,53 @@ export function AppRoutes({ session, inbox, selectedMessage, settings, admin, ap
     />
   );
 
-  const systemProfilePage = (
+  const systemProfilePage = profile.profile ? (
     <SystemProfilePage
-      sessionSummary={{
-        name: session.user.name || session.user.email.split("@")[0] || session.user.email,
-        email: session.user.email,
-        role: session.user.role === "admin" ? "管理员" : "成员",
-        createdAtLabel: new Date(session.user.createdAt).toLocaleDateString("zh-CN"),
-        updatedAtLabel: new Date(session.user.updatedAt || session.user.createdAt).toLocaleDateString("zh-CN")
-      }}
+      isSavingPreferences={profile.isSavingPreferences}
+      isSavingProfile={profile.isSavingProfile}
+      profile={profile.profile}
+      onLogoutCurrentDevice={onLogout}
+      onSavePreferences={profile.savePreferences}
+      onSaveProfile={profile.saveProfile}
     />
+  ) : (
+    <main className="workspace-grid profile-settings-grid">
+      <section className="panel workspace-card page-panel profile-settings-panel">
+        <p className="panel-kicker">账号资料</p>
+        <h2>{profile.isLoadingProfile ? "正在同步个人设置" : profile.profileError ? "个人设置同步失败" : "个人设置暂不可用"}</h2>
+        {profile.profileError ? (
+          <>
+            <p aria-label="个人设置加载失败" className="error-banner" role="alert">
+              {profile.profileError}
+            </p>
+            <div className="profile-settings-actions">
+              <Button
+                isLoading={profile.isLoadingProfile}
+                loadingLabel="同步中"
+                onClick={() => void profile.refreshProfileData()}
+                variant="primary"
+              >
+                重试同步
+              </Button>
+            </div>
+          </>
+        ) : (
+          <p className="section-copy">当前会话：{session.user.email}</p>
+        )}
+      </section>
+    </main>
   );
 
   return (
     <Routes>
-      <Route path="/" element={dashboardPage} />
+      <Route path="/" element={rootPage} />
       <Route path="/dashboard" element={dashboardPage} />
       <Route path="/accounts" element={accountsListPage} />
       <Route path="/accounts/list" element={accountsListPage} />
       <Route path="/accounts/settings" element={accountsSettingsPage} />
       <Route path="/mail" element={inboxPage} />
       <Route path="/mail/list" element={inboxPage} />
-      <Route path="/mail/unassigned" element={<Navigate replace to={{ pathname: "/mail/outbound", search: "?view=exceptions" }} />} />
+      <Route path="/mail/unassigned" element={<Navigate replace to={{ pathname: "/mail/outbound", search: "?view=failed" }} />} />
       <Route path="/mail/outbound" element={mailOutboundPage} />
       <Route path="/mail/settings" element={mailSettingsPage} />
       <Route path="/users" element={usersListPage} />
@@ -277,6 +403,7 @@ export function AppRoutes({ session, inbox, selectedMessage, settings, admin, ap
       <Route path="/admin" element={usersSettingsPage} />
       <Route path="/settings" element={apiKeysPage} />
       <Route path="/api-keys" element={apiKeysPage} />
+      <Route path="/api-keys/interfaces" element={apiInterfacesPage} />
       <Route path="/webhook" element={webhookPage} />
       <Route path="/telegram" element={telegramPage} />
       <Route path="/docs" element={docsPage} />

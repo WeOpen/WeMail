@@ -1,4 +1,16 @@
-import type { FeatureToggles, MailDomainSummary, MailboxStatus, UserStatus } from "@wemail/shared";
+import type {
+  DictionaryCatalogGroup,
+  DictionaryItemSummary,
+  DictionaryItemUpdateInput,
+  FeatureToggles,
+  MailDomainSummary,
+  MailboxStatus,
+  MessageFilter,
+  MessageListSummary,
+  OutboundListStatus,
+  OutboundListSummary,
+  UserStatus
+} from "@wemail/shared";
 
 export type { FeatureToggles } from "@wemail/shared";
 
@@ -8,6 +20,7 @@ export type RateLimiterBinding = {
 
 export type TelegramApiClient = {
   sendMessage: (params: { chatId: string; text: string }) => Promise<{ ok: boolean }>;
+  getChat: (params: { chatId: string }) => Promise<{ ok: boolean; description: string | null }>;
 };
 
 export type ResendClient = {
@@ -17,7 +30,7 @@ export type ResendClient = {
     subject: string;
     text: string;
     html?: string;
-  }) => Promise<{ success: boolean; error?: string }>;
+  }) => Promise<{ success: boolean; error?: string; messageId?: string; responsePayload?: unknown }>;
 };
 
 export type AttachmentRecord = {
@@ -31,6 +44,7 @@ export type AttachmentRecord = {
 export type PersistedMessageRecord = {
   id: string;
   mailboxId: string;
+  toAddress?: string | null;
   fromAddress: string;
   subject: string;
   previewText: string;
@@ -78,6 +92,70 @@ export type PageListOptions = {
   pageSize: number;
 };
 
+export type AnnouncementListScope = "visible" | "manage";
+
+export type AnnouncementListOptions = PageListOptions & {
+  q?: string;
+  scope?: AnnouncementListScope;
+  status?: string;
+  time?: "7d" | "30d";
+  type?: string;
+  userRole?: UserRecord["role"];
+};
+
+export type AnnouncementVisibilityOptions = {
+  scope?: AnnouncementListScope;
+  userRole?: UserRecord["role"];
+};
+
+export type MessageRecordListQuery = {
+  mailboxIds: string[];
+  includeUnmatched?: boolean;
+  page: number;
+  pageSize: number;
+  search?: string;
+  filter?: MessageFilter;
+};
+
+export type MessageRecordListResult = {
+  messages: PersistedMessageRecord[];
+  page: number;
+  pageSize: number;
+  summary: MessageListSummary;
+  total: number;
+};
+
+export type OutboundMessageRecord = {
+  id: string;
+  mailboxId: string;
+  fromAddress: string;
+  toAddress: string;
+  subject: string;
+  bodyText: string;
+  status: "sent" | "failed";
+  errorText: string | null;
+  providerMessageId: string | null;
+  requestPayloadJson: string;
+  responsePayloadJson: string | null;
+  createdAt: string;
+};
+
+export type OutboundMessageListQuery = {
+  mailboxId: string;
+  page: number;
+  pageSize: number;
+  search?: string;
+  status?: OutboundListStatus;
+};
+
+export type OutboundMessageListResult = {
+  messages: OutboundMessageRecord[];
+  page: number;
+  pageSize: number;
+  summary: OutboundListSummary;
+  total: number;
+};
+
 export type InviteListResult = {
   available: number;
   invites: InviteRecord[];
@@ -99,6 +177,17 @@ export type SessionRecord = {
   userId: string;
   expiresAt: string;
   createdAt: string;
+};
+
+export type UserPreferencesRecord = {
+  userId: string;
+  bio: string;
+  locale: string;
+  timezone: string;
+  dateFormat: string;
+  landingPage: string;
+  density: string;
+  updatedAt: string;
 };
 
 export type InviteRecord = {
@@ -173,6 +262,8 @@ export type TelegramSubscriptionRecord = {
 
 export type QuotaRecord = {
   userId: string;
+  apiDailyLimit: number;
+  apiCallsToday: number;
   dailyLimit: number;
   sendsToday: number;
   disabled: boolean;
@@ -216,6 +307,13 @@ export type WebhookEndpointRecord = {
   updatedAt: string;
 };
 
+export type WebhookEndpointListResult = {
+  endpoints: WebhookEndpointRecord[];
+  total: number;
+  page: number;
+  pageSize: number;
+};
+
 export type WebhookDeliveryRecord = {
   id: string;
   endpointId: string;
@@ -225,7 +323,22 @@ export type WebhookDeliveryRecord = {
   durationMs: number | null;
   errorText: string | null;
   payloadJson: string;
+  responseText: string | null;
   createdAt: string;
+};
+
+export type WebhookDeliveryListStatus = "all" | "success" | "failed";
+
+export type WebhookDeliveryListQuery = PageListOptions & {
+  endpointId?: string;
+  status?: WebhookDeliveryListStatus;
+};
+
+export type WebhookDeliveryListResult = {
+  deliveries: WebhookDeliveryRecord[];
+  total: number;
+  page: number;
+  pageSize: number;
 };
 
 export type AnnouncementRecord = {
@@ -246,9 +359,28 @@ export type AnnouncementRecord = {
   updatedAt: string;
 };
 
+export type AnnouncementReceiptRecord = {
+  announcementId: string;
+  userId: string;
+  acknowledgedAt: string;
+};
+
+export type AnnouncementListResult = {
+  announcements: AnnouncementRecord[];
+  total: number;
+  page: number;
+  pageSize: number;
+};
+
+export type AnnouncementSummaryItem = {
+  label: string;
+  value: number;
+};
+
 export interface AppStore {
   users: {
     count: () => Promise<number>;
+    countActiveByRole: (role?: UserRecord["role"]) => Promise<number>;
     findByEmail: (email: string) => Promise<UserRecord | null>;
     findById: (id: string) => Promise<UserRecord | null>;
     create: (input: { email: string; name: string; passwordHash: string; role: UserRecord["role"] }) => Promise<UserRecord>;
@@ -259,6 +391,10 @@ export interface AppStore {
     delete: (id: string) => Promise<boolean>;
     list: (options: UserListOptions) => Promise<UserListResult>;
     summary: () => Promise<UserSummaryStats>;
+  };
+  userPreferences: {
+    getByUserId: (userId: string) => Promise<UserPreferencesRecord | null>;
+    save: (record: Omit<UserPreferencesRecord, "updatedAt">) => Promise<UserPreferencesRecord>;
   };
   sessions: {
     create: (input: { userId: string; expiresAt: string }) => Promise<SessionRecord>;
@@ -277,18 +413,30 @@ export interface AppStore {
   };
   mailboxes: {
     countByUser: (userId: string) => Promise<number>;
-    create: (input: { userId: string; address: string; label: string; lastActiveAt?: string | null }) => Promise<MailboxRecord>;
-    update: (id: string, input: { label?: string; status?: MailboxStatus }) => Promise<MailboxDetailRecord | null>;
+    create: (input: {
+      userId: string;
+      address: string;
+      label: string;
+      lastActiveAt?: string | null;
+      status?: MailboxStatus;
+      tags?: string[];
+    }) => Promise<MailboxRecord>;
+    update: (
+      id: string,
+      input: { label?: string; status?: MailboxStatus; tags?: string[]; deletedAt?: string | null; lastActiveAt?: string | null }
+    ) => Promise<MailboxDetailRecord | null>;
     listByUser: (userId: string) => Promise<MailboxRecord[]>;
     listAll: () => Promise<MailboxRecord[]>;
     listAllWithDetails: (query: MailboxDetailListQuery) => Promise<MailboxDetailListResult>;
     listPage: (options: PageListOptions) => Promise<MailboxListResult>;
     findById: (id: string) => Promise<MailboxRecord | null>;
+    findDetailById: (id: string) => Promise<MailboxDetailRecord | null>;
     findByAddress: (address: string) => Promise<MailboxRecord | null>;
     delete: (id: string) => Promise<void>;
   };
   messages: {
     create: (input: Omit<PersistedMessageRecord, "id">) => Promise<PersistedMessageRecord>;
+    listForMailboxes: (query: MessageRecordListQuery) => Promise<MessageRecordListResult>;
     listByMailbox: (mailboxId: string) => Promise<PersistedMessageRecord[]>;
     findById: (id: string) => Promise<PersistedMessageRecord | null>;
     listExpired: (beforeIso: string) => Promise<PersistedMessageRecord[]>;
@@ -303,22 +451,18 @@ export interface AppStore {
   outboundMessages: {
     create: (input: {
       mailboxId: string;
+      fromAddress: string;
       toAddress: string;
       subject: string;
+      bodyText: string;
       status: "sent" | "failed";
       errorText: string | null;
-    }) => Promise<void>;
-    listByMailbox: (mailboxId: string) => Promise<
-      {
-        id: string;
-        mailboxId: string;
-        toAddress: string;
-        subject: string;
-        status: "sent" | "failed";
-        errorText: string | null;
-        createdAt: string;
-      }[]
-    >;
+      providerMessageId: string | null;
+      requestPayloadJson: string;
+      responsePayloadJson: string | null;
+    }) => Promise<OutboundMessageRecord>;
+    listByMailbox: (query: OutboundMessageListQuery) => Promise<OutboundMessageListResult>;
+    findById: (id: string) => Promise<OutboundMessageRecord | null>;
   };
   apiKeys: {
     create: (input: {
@@ -337,7 +481,9 @@ export interface AppStore {
     findByUserId: (userId: string) => Promise<TelegramSubscriptionRecord | null>;
   };
   quotas: {
-    getByUserId: (userId: string, fallbackLimit: number) => Promise<QuotaRecord>;
+    getByUserId: (userId: string, fallbackLimit: number, fallbackApiDailyLimit: number) => Promise<QuotaRecord>;
+    consumeApiCall: (userId: string, fallbackLimit: number, fallbackApiDailyLimit: number) => Promise<QuotaRecord | null>;
+    consumeOutboundSend: (userId: string, fallbackLimit: number, fallbackApiDailyLimit: number) => Promise<QuotaRecord | null>;
     save: (quota: QuotaRecord) => Promise<void>;
   };
   settings: {
@@ -348,9 +494,21 @@ export interface AppStore {
     list: (defaults: MailDomainSummary[]) => Promise<MailDomainSummary[]>;
     saveAll: (domains: MailDomainSummary[]) => Promise<MailDomainSummary[]>;
   };
+  dictionaries: {
+    listGroups: (
+      groupKeys?: string[],
+      options?: { includeDisabled?: boolean }
+    ) => Promise<DictionaryCatalogGroup[]>;
+    updateItem: (
+      groupKey: string,
+      value: string,
+      input: DictionaryItemUpdateInput
+    ) => Promise<DictionaryItemSummary | null>;
+  };
   audit: {
     record: (event: Omit<AuditEventRecord, "id" | "createdAt">) => Promise<void>;
     countByActorSince: (actorId: string, eventType: string, sinceIso: string) => Promise<number>;
+    listByActorAndTypes: (actorId: string, eventTypes: string[], limit: number) => Promise<AuditEventRecord[]>;
   };
   accountSettings: {
     get: () => Promise<AccountSettingsRecord | null>;
@@ -362,17 +520,33 @@ export interface AppStore {
   };
   webhookEndpoints: {
     listByUser: (userId: string) => Promise<WebhookEndpointRecord[]>;
+    listByUserPage: (userId: string, options: PageListOptions) => Promise<WebhookEndpointListResult>;
     create: (input: { userId: string; name: string; url: string; eventsJson: string; enabled: boolean }) => Promise<WebhookEndpointRecord>;
     update: (id: string, userId: string, input: { name: string; url: string; eventsJson: string; enabled: boolean }) => Promise<WebhookEndpointRecord | null>;
+    rotateSecret: (id: string, userId: string) => Promise<WebhookEndpointRecord | null>;
     delete: (id: string, userId: string) => Promise<void>;
   };
   webhookDeliveries: {
     listByUser: (userId: string) => Promise<WebhookDeliveryRecord[]>;
-    record: (input: Omit<WebhookDeliveryRecord, "id" | "createdAt">) => Promise<WebhookDeliveryRecord>;
+    listByUserPage: (userId: string, query: WebhookDeliveryListQuery) => Promise<WebhookDeliveryListResult>;
+    findByUser: (id: string, userId: string) => Promise<WebhookDeliveryRecord | null>;
+    record: (input: Omit<WebhookDeliveryRecord, "id" | "createdAt"> & { id?: string; createdAt?: string }) => Promise<WebhookDeliveryRecord>;
   };
   announcements: {
     list: () => Promise<AnnouncementRecord[]>;
+    listPage: (options: AnnouncementListOptions) => Promise<AnnouncementListResult>;
+    listFeatured: (options: AnnouncementVisibilityOptions) => Promise<AnnouncementRecord[]>;
+    summary: (options: AnnouncementVisibilityOptions) => Promise<AnnouncementSummaryItem[]>;
     create: (input: Omit<AnnouncementRecord, "id" | "publishedAt" | "updatedAt">) => Promise<AnnouncementRecord>;
+    find: (id: string) => Promise<AnnouncementRecord | null>;
+    update: (
+      id: string,
+      input: Partial<Omit<AnnouncementRecord, "id" | "publishedAt" | "updatedAt" | "authorUserId" | "authorLabel">>
+    ) => Promise<AnnouncementRecord | null>;
+    delete: (id: string) => Promise<boolean>;
+    acknowledge: (announcementId: string, userId: string) => Promise<AnnouncementReceiptRecord>;
+    listReceiptsByUser: (userId: string, announcementIds: string[]) => Promise<AnnouncementReceiptRecord[]>;
+    countReceipts: (announcementIds: string[]) => Promise<Record<string, number>>;
   };
 }
 
@@ -381,10 +555,12 @@ export type AppBindings = {
   APP_NAME: string;
   COOKIE_NAME: string;
   COOKIE_SECURE?: string;
+  CORS_ALLOWED_ORIGINS?: string;
   DEFAULT_MAIL_DOMAIN: string;
   MAILBOX_LIMIT: string;
   MESSAGE_RETENTION_DAYS: string;
   OUTBOUND_DAILY_LIMIT: string;
+  API_DAILY_LIMIT?: string;
   AI_FALLBACK_LIMIT: string;
   MAX_ATTACHMENT_BYTES: string;
   MAX_TOTAL_ATTACHMENT_BYTES: string;
@@ -397,7 +573,10 @@ export type AppBindings = {
   RESEND_API_KEY?: string;
   RESEND_FROM?: string;
   TELEGRAM_BOT_TOKEN?: string;
+  TELEGRAM_BOT_USERNAME?: string;
+  TELEGRAM_WEBHOOK_SECRET?: string;
   RATE_LIMITER?: RateLimiterBinding;
+  CACHE?: KVNamespace;
   DB?: D1Database;
   ATTACHMENTS?: R2Bucket;
   AI?: Ai;

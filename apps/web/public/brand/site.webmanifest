@@ -6,14 +6,8 @@
   "background_color": "#f5f1ea",
   "icons": [
     {
-      "src": "/brand/android-chrome-192x192.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any"
-    },
-    {
-      "src": "/brand/android-chrome-512x512.png",
-      "sizes": "512x512",
+      "src": "/brand/WeMail.png",
+      "sizes": "1254x1254",
       "type": "image/png",
       "purpose": "any"
     }

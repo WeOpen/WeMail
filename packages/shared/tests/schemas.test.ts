@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  defaultMailSettings,
   parseLoginPayload,
+  parseMailSettingsUpdatePayload,
   parseMailboxCreatePayload,
   parseOutboundPayload,
   parseQuotaPayload,
@@ -65,6 +67,31 @@ describe("shared schemas", () => {
     });
   });
 
+  it("migrates legacy outbound exception settings to supported failed-view settings", () => {
+    expect(
+      parseMailSettingsUpdatePayload(
+        {
+          routing: {
+            exceptionStrategy: "异常 / 无匹配邮件进入发件箱异常视图"
+          },
+          workspaceDefaults: {
+            outboundDefaultFilter: "异常 / 无匹配"
+          }
+        },
+        defaultMailSettings
+      )
+    ).toEqual({
+      routing: {
+        ...defaultMailSettings.routing,
+        exceptionStrategy: "异常 / 无匹配邮件进入失败告警队列"
+      },
+      workspaceDefaults: {
+        ...defaultMailSettings.workspaceDefaults,
+        outboundDefaultFilter: "失败"
+      }
+    });
+  });
+
   it("parses telegram payload", () => {
     expect(parseTelegramPayload({ chatId: "123", enabled: true })).toEqual({
       chatId: "123",
@@ -73,11 +100,13 @@ describe("shared schemas", () => {
   });
 
   it("parses quota payload with fallback", () => {
-    expect(parseQuotaPayload({}, { dailyLimit: 20, disabled: false })).toEqual({
+    expect(parseQuotaPayload({}, { apiDailyLimit: 20000, dailyLimit: 20, disabled: false })).toEqual({
+      apiDailyLimit: 20000,
       dailyLimit: 20,
       disabled: false
     });
-    expect(parseQuotaPayload({ dailyLimit: 5, disabled: true }, { dailyLimit: 20, disabled: false })).toEqual({
+    expect(parseQuotaPayload({ apiDailyLimit: 5000, dailyLimit: 5, disabled: true }, { apiDailyLimit: 20000, dailyLimit: 20, disabled: false })).toEqual({
+      apiDailyLimit: 5000,
       dailyLimit: 5,
       disabled: true
     });

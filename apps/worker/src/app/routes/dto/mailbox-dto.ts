@@ -1,9 +1,11 @@
-import type { MailboxSummary, MessageSummary, MailboxDetail } from "@wemail/shared";
+import type { MailboxSummary, MessageListResult, MessageSummary, MailboxDetail } from "@wemail/shared";
 
 type MailboxRecordLike = {
   id: string;
   address: string;
   label: string;
+  createdBy?: string | null;
+  createdByName?: string | null;
   createdAt: string;
 };
 
@@ -24,13 +26,20 @@ type MailboxDetailRecordLike = {
 
 type MessageRecordLike = MessageSummary;
 
-export function toMailboxSummary(record: MailboxRecordLike): MailboxSummary {
-  return {
+export function toMailboxSummary(record: MailboxRecordLike, options?: { includeCreator?: boolean }): MailboxSummary {
+  const summary: MailboxSummary = {
     id: record.id,
     address: record.address,
     label: record.label,
     createdAt: record.createdAt
   };
+
+  if (options?.includeCreator) {
+    summary.createdBy = record.createdBy ?? null;
+    summary.createdByName = record.createdByName ?? null;
+  }
+
+  return summary;
 }
 
 export function toMailboxDetail(record: MailboxDetailRecordLike): MailboxDetail {
@@ -50,9 +59,21 @@ export function toMailboxDetail(record: MailboxDetailRecordLike): MailboxDetail 
   };
 }
 
-export function toMailboxListResponse(records: MailboxRecordLike[]) {
+export function toMailboxListResponse(
+  records: MailboxRecordLike[] | { mailboxes: MailboxRecordLike[]; total: number; page: number; pageSize: number },
+  options?: { includeCreator?: boolean }
+) {
+  if (!Array.isArray(records)) {
+    return {
+      mailboxes: records.mailboxes.map((record) => toMailboxSummary(record, options)),
+      total: records.total,
+      page: records.page,
+      pageSize: records.pageSize
+    };
+  }
+
   return {
-    mailboxes: records.map(toMailboxSummary)
+    mailboxes: records.map((record) => toMailboxSummary(record, options))
   };
 }
 
@@ -69,8 +90,9 @@ export function toMailboxCreateResponse(record: MailboxRecordLike) {
   };
 }
 
-export function toMessageListResponse(messages: MessageRecordLike[]) {
-  return { messages };
+export function toMessageListResponse(result: MessageRecordLike[] | MessageListResult) {
+  if (Array.isArray(result)) return { messages: result };
+  return result;
 }
 
 export function toMessageDetailResponse(message: MessageRecordLike) {

@@ -1,7 +1,8 @@
 import { createMailbox as createMailboxRequest, sendOutboundMessage } from "./api";
+import type { MailboxCreatePayload } from "./api";
 
-export async function createMailboxAction(label: string) {
-  return createMailboxRequest(label);
+export async function createMailboxAction(payload: MailboxCreatePayload) {
+  return createMailboxRequest(payload);
 }
 
 export async function sendOutboundAction(payload: {

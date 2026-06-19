@@ -1,0 +1,16 @@
+﻿<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 388 92" fill="none">
+  <rect width="388" height="92" fill="transparent"/>
+  <g transform="translate(0 10)">
+    <rect x="4" y="12" width="56" height="40" rx="14" fill="#fffaf6" stroke="#111111" stroke-width="3.5"/>
+    <path d="M10 20.5L23.25 31.75L32 25.25L40.75 31.75L54 20.5" stroke="#111111" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M23.25 31.75L32 25.25L40.75 31.75" stroke="#ff7a00" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M10.5 47L24.5 34" stroke="#111111" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M53.5 47L39.5 34" stroke="#111111" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="32" cy="42.5" r="9.5" fill="#ff7a00" stroke="#111111" stroke-width="3"/>
+    <path d="M26.4 45.6V35.2L32 42L37.6 35.2V45.6" stroke="#111111" stroke-width="2.35" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <g transform="translate(100 2)">
+    <text x="110" y="40" fill="#111111" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="34" font-weight="700" letter-spacing="-1.8" text-anchor="middle"><tspan fill="#111111">We</tspan><tspan fill="#ff7a00">Mail</tspan></text>
+    <text x="110" y="58" fill="#6f6259" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="8.5" font-weight="600" letter-spacing="3.2" text-anchor="middle">EDGE MAIL OPERATIONS</text>
+  </g>
+</svg>

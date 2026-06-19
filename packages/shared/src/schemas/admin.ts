@@ -26,9 +26,13 @@ function requirePassword(value: unknown) {
   return password;
 }
 
-export function parseQuotaPayload(input: unknown, fallback: { dailyLimit: number; disabled: boolean }) {
+export function parseQuotaPayload(input: unknown, fallback: { apiDailyLimit: number; dailyLimit: number; disabled: boolean }) {
   const payload = toRecordLike(input);
   return {
+    apiDailyLimit:
+      typeof payload.apiDailyLimit === "undefined"
+        ? fallback.apiDailyLimit
+        : requireNumber(payload.apiDailyLimit, "apiDailyLimit"),
     dailyLimit:
       typeof payload.dailyLimit === "undefined"
         ? fallback.dailyLimit

@@ -1,6 +1,6 @@
 {
   "name": "@wemail/web",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "private": true,
   "type": "module",
   "scripts": {
@@ -15,8 +15,8 @@
     "@nivo/theming": "^0.99.0",
     "@wemail/shared": "workspace:*",
     "lucide-react": "^1.8.0",
-    "react": "^19.2.0",
-    "react-dom": "^19.2.0",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
     "react-router-dom": "^7.9.4",
     "zustand": "^5.0.12"
   }

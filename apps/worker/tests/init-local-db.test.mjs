@@ -1,6 +1,12 @@
+import { readFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+
 import { describe, expect, it, vi } from "vitest";
 
 import { createInviteSeedSql, resolveInviteCode, runLocalDbInit } from "../scripts/init-local-db.mjs";
+
+const workerRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
 function normalizePath(value) {
   return value.replaceAll("\\", "/");
@@ -27,6 +33,14 @@ describe("init local db script", () => {
     expect(sql).toContain("'invite-1'");
     expect(sql).toContain("'O''HARA'");
     expect(sql).toContain("'2026-04-14T00:00:00.000Z'");
+  });
+
+  it("declares indexes for server-side mail message list queries", () => {
+    const schema = readFileSync(resolve(workerRoot, "src/infrastructure/db/schema.sql"), "utf8");
+
+    expect(schema).toContain("idx_mail_messages_account_received");
+    expect(schema).toContain("idx_mail_messages_account_attachment");
+    expect(schema).toContain("to_address TEXT");
   });
 
   it("executes schema, seed, and verify steps in order", () => {

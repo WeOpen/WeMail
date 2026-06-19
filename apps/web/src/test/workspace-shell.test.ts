@@ -53,7 +53,7 @@ describe("buildWorkspaceShellState", () => {
       {
         title: "设置",
         items: [
-          { id: "api-keys", icon: "keys", label: "API 密钥", to: "/api-keys", hint: undefined },
+          { id: "api-keys", icon: "keys", label: "API 密钥", to: "/api-keys", hint: "API 密钥 · API 接口" },
           { id: "webhook", icon: "webhook", label: "Webhook", to: "/webhook", hint: undefined },
           { id: "telegram", icon: "telegram", label: "Telegram", to: "/telegram", hint: undefined },
           { id: "announcements", icon: "announcements", label: "公告", to: "/announcements", hint: undefined },
@@ -170,6 +170,33 @@ describe("buildWorkspaceShellState", () => {
 
     expect(shell.routeKey).toBe("api-keys");
     expect(shell.routeLabel).toBe("API 密钥");
-    expect(shell.secondaryNav).toEqual([]);
+    expect(shell.secondaryNav.map((item) => item.label)).toEqual(["API 密钥", "API 接口"]);
+  });
+
+  it("treats the API interface catalog as an API key secondary route", () => {
+    const shell = buildWorkspaceShellState({
+      pathname: "/api-keys/interfaces",
+      session: {
+        user: {
+          id: "member-1",
+          email: "member@example.com",
+          name: "Member User",
+          role: "member",
+          status: "active",
+          createdAt: "2026-04-14T00:00:00.000Z",
+          updatedAt: "2026-04-14T00:00:00.000Z"
+        },
+        featureToggles: {
+          aiEnabled: true,
+          telegramEnabled: true,
+          outboundEnabled: true,
+          mailboxCreationEnabled: true
+        }
+      }
+    });
+
+    expect(shell.activePrimaryId).toBe("api-keys");
+    expect(shell.routeLabel).toBe("API 接口");
+    expect(shell.secondaryNav.map((item) => item.to)).toEqual(["/api-keys", "/api-keys/interfaces"]);
   });
 });

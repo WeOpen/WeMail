@@ -104,7 +104,7 @@ export function disableInvite(inviteId: string) {
   return apiFetch(`/api/users/invites/${inviteId}`, { method: "DELETE" });
 }
 
-export function updateQuota(userId: string, payload: { dailyLimit: number; disabled: boolean }) {
+export function updateQuota(userId: string, payload: { apiDailyLimit: number; dailyLimit: number; disabled: boolean }) {
   return apiFetch<{ quota: QuotaSummary }>(`/api/users/${userId}/quota`, {
     method: "PATCH",
     body: JSON.stringify(payload)

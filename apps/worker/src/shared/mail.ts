@@ -93,6 +93,19 @@ export function createPreview(text: string) {
 export function buildTelegramClient(token: string | undefined): TelegramApiClient | null {
   if (!token) return null;
   return {
+    async getChat({ chatId }: { chatId: string }) {
+      const response = await fetch(`https://api.telegram.org/bot${token}/getChat`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ chat_id: chatId })
+      });
+      let description: string | null = null;
+      if (!response.ok) {
+        const payload = (await response.json().catch(() => null)) as { description?: string } | null;
+        description = payload?.description ?? `Telegram getChat failed: ${response.status}`;
+      }
+      return { ok: response.ok, description };
+    },
     async sendMessage({ chatId, text }: { chatId: string; text: string }) {
       const response = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
         method: "POST",
@@ -133,10 +146,23 @@ export function buildResendClient(apiKey: string | undefined): ResendClient | nu
         })
       });
 
-      if (!response.ok) {
-        return { success: false, error: await response.text() };
+      const responseText = await response.text();
+      let responsePayload: unknown = responseText;
+      try {
+        responsePayload = responseText ? JSON.parse(responseText) : null;
+      } catch {
+        responsePayload = responseText;
       }
-      return { success: true };
+
+      if (!response.ok) {
+        return { success: false, error: responseText, responsePayload };
+      }
+
+      const messageId =
+        typeof responsePayload === "object" && responsePayload && "id" in responsePayload
+          ? String((responsePayload as { id: unknown }).id)
+          : undefined;
+      return { success: true, messageId, responsePayload };
     }
   };
 }
@@ -145,6 +171,7 @@ export function toMessageJson(message: PersistedMessageRecord, attachments: Atta
   return {
     id: message.id,
     mailboxId: message.mailboxId,
+    toAddress: message.toAddress ?? null,
     fromAddress: message.fromAddress,
     subject: message.subject,
     previewText: message.previewText,

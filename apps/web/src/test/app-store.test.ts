@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 
-import type { MailboxSummary, MessageSummary, SessionSummary } from "@wemail/shared";
+import type { DictionaryCatalogGroup, MailboxSummary, MessageSummary, SessionSummary } from "@wemail/shared";
 
 import { resetAppStore, useAppStore } from "../app/appStore";
 
@@ -47,6 +47,27 @@ const messages: MessageSummary[] = [
   }
 ];
 
+const dictionaries: DictionaryCatalogGroup[] = [
+  {
+    groupKey: "user.role",
+    label: "用户角色",
+    description: "控制权限边界的系统角色。",
+    isSystem: true,
+    version: 1,
+    items: [
+      {
+        groupKey: "user.role",
+        value: "admin",
+        label: "管理员",
+        description: null,
+        sortOrder: 10,
+        enabled: true,
+        metadata: {}
+      }
+    ]
+  }
+];
+
 describe("app zustand store", () => {
   afterEach(() => {
     resetAppStore();
@@ -87,5 +108,26 @@ describe("app zustand store", () => {
     expect(useAppStore.getState().mailboxComposerOpen).toBe(false);
     expect(useAppStore.getState().mailboxes).toEqual([]);
     expect(useAppStore.getState().messages).toEqual([]);
+  });
+
+  it("falls back to an empty telegram overview when legacy settings payloads omit it", () => {
+    expect(() => {
+      useAppStore.getState().setSettingsData([], undefined as never);
+    }).not.toThrow();
+
+    expect(useAppStore.getState().telegram).toBeNull();
+    expect(useAppStore.getState().telegramOverview.subscription).toBeNull();
+  });
+
+  it("keeps dictionary catalog in resettable session-scoped state", () => {
+    useAppStore.getState().setDictionaries(dictionaries);
+
+    expect(useAppStore.getState().dictionaries).toEqual(dictionaries);
+    expect(useAppStore.getState().dictionaryByGroup["user.role"]?.items[0]?.label).toBe("管理员");
+
+    resetAppStore();
+
+    expect(useAppStore.getState().dictionaries).toEqual([]);
+    expect(useAppStore.getState().dictionaryByGroup).toEqual({});
   });
 });

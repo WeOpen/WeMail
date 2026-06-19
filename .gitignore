@@ -1,4 +1,5 @@
 .pnpm-store/
+.DS_Store
 .codex/
 node_modules/
 dist/

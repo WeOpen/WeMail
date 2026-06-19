@@ -60,7 +60,10 @@ export function QuotaPanel({
             {selectedQuotaUser ? <small>{selectedQuotaUser.email}</small> : <small>用户 ID：{adminQuota.userId}</small>}
           </div>
           <div className="users-quota-meter">
+            <span>外发</span>
             <strong>{adminQuota.sendsToday} / {adminQuota.dailyLimit}</strong>
+            <span>API</span>
+            <strong>{adminQuota.apiCallsToday} / {adminQuota.apiDailyLimit}</strong>
             <Badge variant={adminQuota.disabled ? "warning" : "success"}>
               {adminQuota.disabled ? "已暂停" : "可外发"}
             </Badge>
@@ -101,6 +104,9 @@ export function QuotaPanel({
         >
           <FormField description={`今日已发送 ${adminQuota.sendsToday} 封`} label="每日发送上限">
             <TextInput defaultValue={adminQuota.dailyLimit} name="dailyLimit" type="number" />
+          </FormField>
+          <FormField description={`今日已调用 ${adminQuota.apiCallsToday} 次`} label="API 每日调用上限">
+            <TextInput defaultValue={adminQuota.apiDailyLimit} name="apiDailyLimit" type="number" />
           </FormField>
           <CheckboxField defaultChecked={adminQuota.disabled} label="暂停该用户的外发能力" name="disabled" />
           <Button size="sm" type="submit" variant="primary">

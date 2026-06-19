@@ -25,6 +25,7 @@ jobs:
     runs-on: ubuntu-latest
     environment: ${{ github.event.inputs.environment }}
     outputs:
+      d1_database_name: ${{ steps.target.outputs.d1_database_name }}
       worker_command: ${{ steps.target.outputs.worker_command }}
       worker_environment: ${{ steps.target.outputs.worker_environment }}
       pages_branch: ${{ steps.target.outputs.pages_branch }}
@@ -61,11 +62,13 @@ jobs:
         shell: bash
         run: |
           if [[ "${{ github.event.inputs.environment }}" == "staging" ]]; then
+            echo "d1_database_name=wemail-staging" >> "$GITHUB_OUTPUT"
             echo "worker_command=deploy --env staging" >> "$GITHUB_OUTPUT"
             echo "worker_environment=staging" >> "$GITHUB_OUTPUT"
             echo "pages_branch=staging" >> "$GITHUB_OUTPUT"
             echo "pages_mode=preview" >> "$GITHUB_OUTPUT"
           else
+            echo "d1_database_name=wemail-production" >> "$GITHUB_OUTPUT"
             echo "worker_command=deploy --env production" >> "$GITHUB_OUTPUT"
             echo "worker_environment=production" >> "$GITHUB_OUTPUT"
             echo "pages_branch=" >> "$GITHUB_OUTPUT"
@@ -78,6 +81,7 @@ jobs:
           echo "## Cloudflare Deploy Plan" >> "$GITHUB_STEP_SUMMARY"
           echo "- Environment: ${{ github.event.inputs.environment }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- Git ref: ${GITHUB_REF}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- D1 database: ${{ steps.target.outputs.d1_database_name }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- Worker command: ${{ steps.target.outputs.worker_command }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- Pages mode: ${{ steps.target.outputs.pages_mode }}" >> "$GITHUB_STEP_SUMMARY"
 
@@ -141,6 +145,17 @@ jobs:
 
       - name: Install
         run: pnpm install --frozen-lockfile
+
+      - name: Apply D1 migrations
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: apps/worker
+          command: >-
+            d1 migrations apply ${{ needs.prepare.outputs.d1_database_name }}
+            --env ${{ needs.prepare.outputs.worker_environment }}
+            --remote
 
       - name: Deploy Worker with Wrangler Action
         id: deploy_worker

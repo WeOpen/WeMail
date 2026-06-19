@@ -52,7 +52,7 @@ export function parseSettingsListQuery(url: string) {
 
 export async function parseQuotaUpdateRequest(
   request: Request,
-  fallback: { dailyLimit: number; disabled: boolean }
+  fallback: { apiDailyLimit: number; dailyLimit: number; disabled: boolean }
 ) {
   return parseQuotaPayload(await request.json(), fallback);
 }

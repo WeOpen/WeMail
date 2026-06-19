@@ -66,10 +66,13 @@ describe("system settings route integration", () => {
     window.history.pushState({}, "", "/");
   });
 
-  it("renders the renamed system settings page on /system/settings", async () => {
+  it("renders the redesigned system settings page on /system/settings", async () => {
     render(<App />);
 
-    expect(await screen.findByRole("heading", { name: /^系统设置$/i })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: /^系统控制台$/i })).toBeInTheDocument();
+    expect(screen.getByLabelText("系统设置概览")).toBeInTheDocument();
+    expect(screen.getByLabelText("系统设置主设置")).toBeInTheDocument();
+    expect(screen.getByLabelText("系统设置状态侧栏")).toBeInTheDocument();
     expect(screen.getByText("主题模式")).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: /^外观设置$/i })).not.toBeInTheDocument();
   });

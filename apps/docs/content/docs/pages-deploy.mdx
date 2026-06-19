@@ -1,0 +1,240 @@
+---
+title: Pages 前端部署
+description: 构建 apps/web，并把 WeMail 前端部署到 Cloudflare Pages
+---
+
+WeMail 前端位于：
+
+```text
+apps/web
+```
+
+构建产物位于：
+
+```text
+apps/web/dist
+```
+
+当前仓库的 GitHub Actions 会先在 CI 里执行 `pnpm build`，再把 `apps/web/dist` 部署到 Cloudflare Pages。
+
+## 1. 本地构建前端
+
+在仓库根目录执行：
+
+```bash
+pnpm install
+pnpm build
+```
+
+如果只想构建前端：
+
+```bash
+pnpm --dir apps/web run build
+```
+
+构建成功后，检查产物目录：
+
+```bash
+ls apps/web/dist
+```
+
+## 2. 决定 API 地址模式
+
+前端 API 客户端逻辑在：
+
+```text
+apps/web/src/shared/api/client.ts
+```
+
+生产环境里，如果没有设置 `VITE_API_BASE_URL`，前端会请求同域路径：
+
+```text
+/api/auth/session
+/api/accounts
+/api/mail/messages
+```
+
+因此你必须在部署前选择一种模式。
+
+### 模式 A：同域 `/api`，推荐给新手
+
+前端域名：
+
+```text
+https://mail.example.com
+```
+
+API 地址：
+
+```text
+https://mail.example.com/api/system/health
+```
+
+这种模式下不需要 `VITE_API_BASE_URL`。但你要在 Cloudflare 路由里让 `/api/*` 指向 Worker，其余页面由 Pages 提供。
+
+优点：
+
+- Cookie 是同域，浏览器限制少。
+- 前端构建不需要额外环境变量。
+- 当前 GitHub Actions 默认适配这个模式。
+
+### 模式 B：独立 Worker API 域名
+
+前端域名：
+
+```text
+https://mail.example.com
+```
+
+API 域名：
+
+```text
+https://wemail-api.example.com
+```
+
+构建前端时必须设置：
+
+```bash
+VITE_API_BASE_URL=https://wemail-api.example.com pnpm --dir apps/web run build
+```
+
+同时 Worker 配置要允许前端来源：
+
+```toml
+CORS_ALLOWED_ORIGINS = "https://mail.example.com"
+COOKIE_SECURE = "true"
+```
+
+如果使用 GitHub Actions，请在 `verify` job 的 build 环节注入 `VITE_API_BASE_URL`。例如把 GitHub Environment variable `VITE_API_BASE_URL` 传入：
+
+```yaml
+- name: Verify
+  env:
+    VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}
+  run: |
+    pnpm test
+    pnpm typecheck
+    pnpm lint
+    pnpm build
+```
+
+没有这一步时，即使你在 Cloudflare Pages 控制台配置了变量，也不会影响当前 workflow 已经构建好的 `apps/web/dist`。
+
+## 3. 手动部署 Pages
+
+只在 GitHub Actions 不可用或你想快速验证时使用手动部署。
+
+同域模式：
+
+```bash
+pnpm install --frozen-lockfile
+pnpm build
+pnpm exec wrangler pages deploy apps/web/dist --project-name=wemail-web --branch=staging
+```
+
+独立 API 域名模式：
+
+```bash
+pnpm install --frozen-lockfile
+VITE_API_BASE_URL=https://wemail-api.example.com pnpm build
+pnpm exec wrangler pages deploy apps/web/dist --project-name=wemail-web --branch=staging
+```
+
+production 不带 `--branch=staging`：
+
+```bash
+pnpm exec wrangler pages deploy apps/web/dist --project-name=wemail-web
+```
+
+## 4. 通过 GitHub Actions 部署
+
+当前 workflow 位于：
+
+```text
+.github/workflows/deploy-cloudflare.yml
+```
+
+staging 会执行：
+
+```bash
+pages deploy apps/web/dist --project-name=<project> --branch=staging
+```
+
+production 会执行：
+
+```bash
+pages deploy apps/web/dist --project-name=<project>
+```
+
+需要配置 GitHub Environment secret：
+
+```text
+CLOUDFLARE_PAGES_PROJECT_NAME
+```
+
+完整流程见 [GitHub Actions 发布](/docs/github-actions)。
+
+## 5. 配置自定义域名
+
+在 Cloudflare Pages 项目中添加自定义域名，例如：
+
+```text
+mail.example.com
+```
+
+如果你选择同域 `/api` 模式，还需要确保 `/api/*` 请求到 Worker。常见做法是在 Cloudflare 路由层配置 Worker route。
+
+如果你选择独立 API 域名，则 Pages 域名只负责前端页面，Worker API 使用另一个域名。
+
+## 6. 前端部署后验收
+
+打开 Pages URL，检查：
+
+- 首页能打开。
+- `/login` 能打开。
+- `/register` 能打开。
+- 登录后能进入 Dashboard。
+- 创建邮箱账号时 API 请求成功。
+- 邮件列表能加载。
+- 设置页能加载。
+
+同时打开浏览器开发者工具，检查 Network：
+
+- API 请求地址是否符合你选择的模式。
+- 没有 CORS 错误。
+- 登录响应是否写入 cookie。
+- 受保护接口是否带上 cookie。
+
+## 常见问题
+
+### 页面打开了，但所有 API 都 404
+
+通常是生产构建没有设置 `VITE_API_BASE_URL`，而你也没有配置同域 `/api/*` Worker 路由。
+
+解决方式二选一：
+
+1. 配置同域 `/api/*` 到 Worker。
+2. 构建前设置 `VITE_API_BASE_URL`，并重新部署 Pages。
+
+### 浏览器提示 CORS
+
+检查 Worker 的：
+
+```toml
+CORS_ALLOWED_ORIGINS = "https://mail.example.com"
+```
+
+还要确认浏览器实际访问的前端来源完全一致。`https://www.example.com` 和 `https://example.com` 是两个不同来源。
+
+### 登录成功但刷新后又退出
+
+检查：
+
+- production `COOKIE_SECURE` 是否为 `"true"`。
+- 前端和 API 是否处在预期域名关系下。
+- 浏览器是否拒绝第三方 cookie。
+- Worker 响应里的 `set-cookie` 是否被浏览器保存。
+
+## 下一步
+
+前端部署路径确认后，继续配置 [GitHub Actions 发布](/docs/github-actions)，把 staging 和 production 变成可重复执行的流程。

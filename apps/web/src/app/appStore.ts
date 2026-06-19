@@ -2,11 +2,14 @@ import { create } from "zustand";
 
 import type {
   ApiKeySummary,
+  DictionaryCatalogGroup,
   FeatureToggles,
   MailboxSummary,
   MessageSummary,
   QuotaSummary,
   SessionSummary,
+  TelegramDeliverySummary,
+  TelegramOverviewSummary,
   TelegramSubscriptionSummary,
   UserSummary
 } from "@wemail/shared";
@@ -20,6 +23,14 @@ export type WorkspaceThemePreference = WorkspaceTheme | "system";
 
 export const WORKSPACE_THEME_STORAGE_KEY = "wemail-workspace-theme";
 
+export const emptyTelegramOverview: TelegramOverviewSummary = {
+  botConfigured: false,
+  canSendTest: false,
+  featureEnabled: false,
+  subscription: null,
+  supportedEvents: []
+};
+
 type SessionScopedState = {
   session: SessionSummary | null;
   mailboxes: MailboxSummary[];
@@ -29,6 +40,8 @@ type SessionScopedState = {
   outboundHistory: OutboundHistoryItem[];
   apiKeys: ApiKeySummary[];
   telegram: TelegramSubscriptionSummary | null;
+  telegramOverview: TelegramOverviewSummary;
+  telegramDeliveries: TelegramDeliverySummary[];
   adminUsers: UserSummary[];
   adminUsersTotal: number;
   adminSettingsUsers: UserSummary[];
@@ -45,6 +58,8 @@ type SessionScopedState = {
   adminMailboxesPage: number;
   adminMailboxesPageSize: number;
   adminMailboxesTotal: number;
+  dictionaries: DictionaryCatalogGroup[];
+  dictionaryByGroup: Record<string, DictionaryCatalogGroup>;
 };
 
 type AppState = SessionScopedState & {
@@ -92,7 +107,11 @@ type AppActions = {
   setMessages: (messages: MessageSummary[]) => void;
   setSelectedMessageId: (selectedMessageId: string | null) => void;
   setOutboundHistory: (outboundHistory: OutboundHistoryItem[]) => void;
-  setSettingsData: (apiKeys: ApiKeySummary[], telegram: TelegramSubscriptionSummary | null) => void;
+  setSettingsData: (
+    apiKeys: ApiKeySummary[],
+    telegramOverview: TelegramOverviewSummary,
+    telegramDeliveries?: TelegramDeliverySummary[]
+  ) => void;
   setAdminDashboard: (dashboard: AdminDashboardState) => void;
   setAdminUsers: (users: UserSummary[], total: number) => void;
   setAdminUserSettingsSummary: (payload: { settingsUsers: UserSummary[]; userStats: AdminUserStats }) => void;
@@ -112,6 +131,7 @@ type AppActions = {
   }) => void;
   setAdminQuota: (adminQuota: QuotaSummary | null) => void;
   setAdminFeatures: (adminFeatures: FeatureToggles) => void;
+  setDictionaries: (dictionaries: DictionaryCatalogGroup[]) => void;
 };
 
 type AppStore = AppState & AppActions;
@@ -145,6 +165,8 @@ function createSessionScopedState(): SessionScopedState {
     outboundHistory: [],
     apiKeys: [],
     telegram: null,
+    telegramOverview: emptyTelegramOverview,
+    telegramDeliveries: [],
     adminUsers: [],
     adminUsersTotal: 0,
     adminSettingsUsers: [],
@@ -160,8 +182,17 @@ function createSessionScopedState(): SessionScopedState {
     adminLatestMailbox: null,
     adminMailboxesPage: 1,
     adminMailboxesPageSize: 5,
-    adminMailboxesTotal: 0
+    adminMailboxesTotal: 0,
+    dictionaries: [],
+    dictionaryByGroup: {}
   };
+}
+
+function indexDictionaries(dictionaries: DictionaryCatalogGroup[]) {
+  return dictionaries.reduce<Record<string, DictionaryCatalogGroup>>((indexed, dictionary) => {
+    indexed[dictionary.groupKey] = dictionary;
+    return indexed;
+  }, {});
 }
 
 function createInitialState(themePreference: WorkspaceThemePreference): AppState {
@@ -176,8 +207,9 @@ function createInitialState(themePreference: WorkspaceThemePreference): AppState
   };
 }
 
-function pickNextMailboxId(mailboxes: MailboxSummary[], preferredMailboxId?: string | null) {
-  return preferredMailboxId ?? mailboxes[0]?.id ?? null;
+function pickNextMailboxId(preferredMailboxId?: string | null) {
+  if (typeof preferredMailboxId !== "undefined") return preferredMailboxId;
+  return null;
 }
 
 export const useAppStore = create<AppStore>()((set) => ({
@@ -194,7 +226,7 @@ export const useAppStore = create<AppStore>()((set) => ({
   setMailboxes: (mailboxes, preferredMailboxId) =>
     set({
       mailboxes,
-      selectedMailboxId: pickNextMailboxId(mailboxes, preferredMailboxId)
+      selectedMailboxId: pickNextMailboxId(preferredMailboxId)
     }),
   setSelectedMailboxId: (selectedMailboxId) => set({ selectedMailboxId }),
   setMessages: (messages) =>
@@ -204,7 +236,17 @@ export const useAppStore = create<AppStore>()((set) => ({
     }),
   setSelectedMessageId: (selectedMessageId) => set({ selectedMessageId }),
   setOutboundHistory: (outboundHistory) => set({ outboundHistory }),
-  setSettingsData: (apiKeys, telegram) => set({ apiKeys, telegram }),
+  setSettingsData: (apiKeys, telegramOverview, telegramDeliveries = []) => {
+    const nextTelegramOverview = telegramOverview ?? emptyTelegramOverview;
+    return set({
+      apiKeys,
+      telegram: nextTelegramOverview.subscription
+        ? { chatId: nextTelegramOverview.subscription.chatId, enabled: nextTelegramOverview.subscription.enabled }
+        : null,
+      telegramOverview: nextTelegramOverview,
+      telegramDeliveries
+    });
+  },
   setAdminDashboard: (dashboard) =>
     set({
       adminUsers: dashboard.users,
@@ -247,7 +289,12 @@ export const useAppStore = create<AppStore>()((set) => ({
       adminMailboxesTotal: payload.mailboxesTotal
     }),
   setAdminQuota: (adminQuota) => set({ adminQuota }),
-  setAdminFeatures: (adminFeatures) => set({ adminFeatures })
+  setAdminFeatures: (adminFeatures) => set({ adminFeatures }),
+  setDictionaries: (dictionaries) =>
+    set({
+      dictionaries,
+      dictionaryByGroup: indexDictionaries(dictionaries)
+    })
 }));
 
 export function resetAppStore() {
