@@ -1,0 +1,249 @@
+---
+title: 上线验收与排障
+description: WeMail staging / production 部署后的检查清单、常见错误和回滚入口
+---
+
+这一章用于部署完成后的验收和排障。建议每次 staging 和 production 都按同一套顺序检查，这样问题更容易定位。
+
+## 最小验收顺序
+
+1. Worker health。
+2. Pages 页面。
+3. 登录和 session。
+4. 创建邮箱账号。
+5. Email Routing 收件。
+6. 邮件详情和附件。
+7. 发件，若启用。
+8. Telegram / Webhook / 公告，若启用。
+9. 管理员页面。
+10. Worker 日志。
+
+## 1. Worker health
+
+staging：
+
+```bash
+curl -i "$STAGING_API_BASE_URL/api/system/health"
+```
+
+production：
+
+```bash
+curl -i "$PRODUCTION_API_BASE_URL/api/system/health"
+```
+
+期望：
+
+```json
+{
+  "ok": true,
+  "environment": "production",
+  "appName": "WeMail"
+}
+```
+
+如果 health 不通，先排 Worker，不要先排前端。
+
+## 2. Pages 页面
+
+打开 Pages URL，检查：
+
+- 首页没有白屏。
+- `/login` 可以打开。
+- `/register` 可以打开。
+- 登录后进入 Dashboard。
+- 刷新页面不会丢登录态。
+
+浏览器 Network 面板重点看：
+
+- API 请求是否发到预期域名。
+- 是否有 CORS error。
+- 登录接口是否返回 `set-cookie`。
+- 受保护接口是否带 cookie。
+
+## 3. 注册与登录
+
+注册依赖邀请码。生产环境邀请码通常由管理员在后台创建。
+
+本地邀请码来自：
+
+```bash
+pnpm db:init:worker -- --invite-code LOCAL-INVITE
+```
+
+远端环境的邀请码需要在对应 D1 数据中存在，或者由已有管理员在用户管理页创建。
+
+验收：
+
+1. 使用邀请码注册一个测试账号。
+2. 退出登录。
+3. 重新登录。
+4. 刷新页面，确认 session 保持。
+
+## 4. 邮箱账号与收件
+
+创建一个测试邮箱账号，例如：
+
+```text
+smoke@example.com
+```
+
+从外部邮箱发送测试邮件：
+
+```text
+To: smoke@example.com
+Subject: WeMail production smoke
+Body: hello
+```
+
+期望：
+
+- 邮件列表出现新邮件。
+- 详情可打开。
+- 发件人、收件人、主题和正文正确。
+- 如果有验证码或链接，提取结果合理。
+
+如果邮件没有出现，按 [Email Routing](/docs/email-routing) 的排查顺序检查。
+
+## 5. 发件验收
+
+只有启用 `ENABLE_OUTBOUND = "true"` 且配置 Resend 后才需要验收。
+
+检查：
+
+1. `RESEND_API_KEY` 已通过 Wrangler secret 写入。
+2. Resend 域名或发件身份已验证。
+3. WeMail 发件页面能选择邮箱账号。
+4. 发送测试邮件成功。
+5. outbound 列表出现发送记录。
+6. 配额递增。
+
+如果暂时不用发件，建议生产环境先设：
+
+```toml
+ENABLE_OUTBOUND = "false"
+```
+
+## 6. Telegram 验收
+
+只有启用 `ENABLE_TELEGRAM = "true"` 时需要。
+
+检查：
+
+- `TELEGRAM_BOT_TOKEN` 已写入。
+- `TELEGRAM_WEBHOOK_SECRET` 已写入，生产建议开启。
+- 用户能生成绑定码。
+- Telegram Bot 能完成绑定。
+- 测试消息能发送。
+- 新邮件通知能送达。
+
+如果暂时不用 Telegram，建议生产环境先设：
+
+```toml
+ENABLE_TELEGRAM = "false"
+```
+
+## 7. Webhook 验收
+
+检查：
+
+- 可以创建 endpoint。
+- 可以发送测试事件。
+- delivery log 有记录。
+- 签名 secret 能轮换。
+- 失败请求能看到状态码和响应文本。
+
+Webhook 失败时，不一定代表邮件主流程失败。优先确认邮件是否已经入库，再排外部 endpoint。
+
+## 8. Worker 日志
+
+查看 production 日志：
+
+```bash
+cd apps/worker
+pnpm exec wrangler tail --env production
+```
+
+常看错误：
+
+- D1 query failed。
+- KV binding missing。
+- Email parsing failed。
+- Resend provider error。
+- Telegram request failed。
+- Webhook delivery failed。
+
+## 常见问题速查
+
+| 现象 | 常见原因 | 处理 |
+| --- | --- | --- |
+| API 404 | 前端请求了 Pages 域名 `/api`，但没有 `/api/*` Worker route | 配同域路由，或构建时设置 `VITE_API_BASE_URL` |
+| CORS error | `CORS_ALLOWED_ORIGINS` 没包含真实前端来源 | 写入完整 `https://...` 来源并重新部署 Worker |
+| 登录后刷新退出 | Cookie 域名关系不对，或 production 没开 secure cookie | 检查 `COOKIE_SECURE` 和前后端域名模式 |
+| workflow 缺 secrets | GitHub Environment 没配置 secret | 补 `CLOUDFLARE_API_TOKEN`、`CLOUDFLARE_ACCOUNT_ID`、`CLOUDFLARE_PAGES_PROJECT_NAME` |
+| D1 migration 失败 | database ID 配错或 migration 状态异常 | 停止部署，检查 D1 和 migration 记录 |
+| 收不到邮件 | Email Routing 没指向 Worker 或邮箱地址不存在 | 检查路由、域名、Worker 日志和 WeMail 邮箱账号 |
+| 附件下载失败 | 没有 R2 `ATTACHMENTS` binding | 创建 R2 并配置 binding 后重新部署 |
+| Telegram 无法绑定 | Bot token、username 或 webhook secret 配错 | 检查 secrets 和 Telegram Bot 配置 |
+
+## 回滚原则
+
+优先恢复用户主流程，再处理配置和数据。
+
+推荐顺序：
+
+1. 判断问题在 Worker、Pages、D1 migration 还是配置。
+2. 如果是 Worker 代码问题，重新部署上一稳定 commit 或 tag。
+3. 如果是 Pages 问题，回滚 Pages deployment 或重新部署上一版前端产物。
+4. 如果是配置问题，回退 Wrangler vars、secrets、routes 或 Email Routing。
+5. 如果涉及 D1 migration，不要直接删除生产数据。先导出影响范围，再设计修复 migration。
+
+## 手动回滚入口
+
+查看最近 tag：
+
+```bash
+git tag --sort=-creatordate | head
+```
+
+查看最近提交：
+
+```bash
+git log --oneline -20
+```
+
+重新部署上一稳定版本时，仍然使用同一套流程。不要在事故中临时发明第二套部署步骤。
+
+## 事故记录模板
+
+```markdown
+## Incident: <标题>
+
+- 时间：
+- 环境：
+- 版本 / commit：
+- 影响范围：
+- 用户可见表现：
+- 检测方式：
+- 直接原因：
+- 根因：
+- 处理动作：
+- 回滚目标：
+- 恢复时间：
+- 遗漏的测试：
+- 后续修复：
+```
+
+## production 发布完成标准
+
+- [ ] Worker health 返回 `ok: true`。
+- [ ] Pages 首页、登录、注册可访问。
+- [ ] 登录后刷新不丢 session。
+- [ ] 可以创建邮箱账号。
+- [ ] 真实测试邮件能进入邮件列表。
+- [ ] 邮件详情可读。
+- [ ] 如果启用发件，测试发件成功。
+- [ ] 如果启用 Telegram，测试消息成功。
+- [ ] 如果启用 Webhook，测试事件成功。
+- [ ] 管理员页面可打开。
+- [ ] Worker 日志没有新增 5xx、D1 或 Email Routing 错误。

@@ -1,0 +1,286 @@
+---
+title: GitHub Actions 发布
+description: 配置 GitHub Environments 和 Cloudflare secrets，通过 workflow 发布 staging 与 production
+---
+
+WeMail 的标准发布入口是：
+
+```text
+.github/workflows/deploy-cloudflare.yml
+```
+
+它支持手动触发，输入参数是目标环境：
+
+- `staging`
+- `production`
+
+![GitHub Actions 发布示意图](/docs/screenshots/github-actions-workflow.png)
+
+这是示意截图。真实 GitHub UI 可能不同，但你要点击的是 `Deploy Cloudflare` workflow 的 `Run workflow`。
+
+## 1. 创建 GitHub Environments
+
+在 GitHub 仓库中进入：
+
+```text
+Settings -> Environments
+```
+
+创建：
+
+```text
+staging
+production
+```
+
+建议：
+
+- staging 可以不加审批，方便快速验证。
+- production 建议加 required reviewers，避免误发。
+
+## 2. 配置 Environment secrets
+
+每个 environment 至少配置：
+
+| Secret | 用途 |
+| --- | --- |
+| `CLOUDFLARE_API_TOKEN` | 部署 Worker、Pages、执行 D1 migrations |
+| `CLOUDFLARE_ACCOUNT_ID` | Cloudflare Account ID |
+| `CLOUDFLARE_PAGES_PROJECT_NAME` | Cloudflare Pages 项目名 |
+
+`GITHUB_TOKEN` 是 GitHub Actions 内建 token，不需要手动配置。
+
+## 3. 创建 Cloudflare API Token
+
+建议使用最小权限 token。需要覆盖：
+
+| 权限 | 级别 |
+| --- | --- |
+| Workers Scripts | Edit |
+| D1 | Edit |
+| Pages | Edit |
+| Workers Tail | Read，可选 |
+
+如果团队权限允许，staging 和 production 使用不同 token，减少误操作风险。
+
+## 4. 可选：配置 Environment variables
+
+如果你选择独立 Worker API 域名，前端构建需要：
+
+```text
+VITE_API_BASE_URL
+```
+
+GitHub Environment variable 不会自动进入 shell。你需要在 workflow 的 build 步骤显式传入：
+
+```yaml
+env:
+  VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}
+```
+
+如果你选择同域 `/api` 模式，可以不设置这个变量。
+
+## 5. workflow 做了什么
+
+### `prepare`
+
+作用：
+
+- 校验 production 只能从 `main` 触发。
+- 检查 Cloudflare deploy secrets 是否存在。
+- 根据 environment 输出 D1 database name、Worker deploy command、Pages deploy mode。
+
+production 分支保护逻辑：
+
+```bash
+if [[ "${GITHUB_REF}" != "refs/heads/main" ]]; then
+  echo "Production deployments are only allowed from the main branch." >&2
+  exit 1
+fi
+```
+
+### `verify`
+
+作用：
+
+- 安装依赖。
+- 执行版本检查。
+- 执行测试、类型检查、lint 和 build。
+- 上传 `apps/web/dist` 作为 artifact。
+
+实际命令：
+
+```bash
+pnpm version:check
+pnpm test
+pnpm typecheck
+pnpm lint
+pnpm build
+```
+
+### `deploy-worker`
+
+作用：
+
+- 安装依赖。
+- 对远端 D1 执行 migrations。
+- 部署 Worker。
+
+staging 使用：
+
+```bash
+wrangler d1 migrations apply wemail-staging --env staging --remote
+wrangler deploy --env staging
+```
+
+production 使用：
+
+```bash
+wrangler d1 migrations apply wemail-production --env production --remote
+wrangler deploy --env production
+```
+
+### `deploy-pages`
+
+作用：
+
+- 下载 `apps/web/dist` artifact。
+- 部署 Cloudflare Pages。
+
+staging：
+
+```bash
+pages deploy apps/web/dist --project-name=<project> --branch=staging
+```
+
+production：
+
+```bash
+pages deploy apps/web/dist --project-name=<project>
+```
+
+## 6. 发布 staging
+
+进入 GitHub：
+
+```text
+Actions -> Deploy Cloudflare -> Run workflow
+```
+
+选择：
+
+| 项 | 值 |
+| --- | --- |
+| Branch | 当前待验证分支 |
+| environment | `staging` |
+
+等待以下 job 全部通过：
+
+- `prepare`
+- `verify`
+- `deploy-worker`
+- `deploy-pages`
+
+完成后在 Job Summary 里记录：
+
+- Worker deployment URL。
+- Pages deployment URL。
+- Pages alias URL，如果有。
+- Git ref。
+- D1 database name。
+
+## 7. staging 冒烟
+
+先检查 API：
+
+```bash
+curl -i "$STAGING_API_BASE_URL/api/system/health"
+```
+
+再打开 staging Pages URL，验证：
+
+- 首页。
+- 登录。
+- 注册。
+- 创建邮箱账号。
+- 邮件列表。
+- 系统设置。
+- Webhook / Telegram / 公告等启用的页面。
+
+如果 staging 没验收，不要发 production。
+
+## 8. 发布 production
+
+production 只能从 `main` 发。
+
+发布前确认：
+
+- 当前发布 commit 已合入 `main`。
+- staging 已验证通过。
+- `CHANGELOG.md` 已更新。
+- `wrangler.toml` production 绑定不是占位值。
+- production secrets 已写入。
+- 回滚目标 commit 或 tag 已明确。
+
+触发 workflow：
+
+| 项 | 值 |
+| --- | --- |
+| Branch | `main` |
+| environment | `production` |
+
+如果 production environment 配置了审批，审批后 workflow 才会继续。
+
+## 常见失败
+
+### `Missing required secrets`
+
+`prepare` job 会检查：
+
+- `CLOUDFLARE_API_TOKEN`
+- `CLOUDFLARE_ACCOUNT_ID`
+- `CLOUDFLARE_PAGES_PROJECT_NAME`
+
+缺哪个就去对应 GitHub Environment 补哪个。
+
+### production 从非 main 分支触发
+
+workflow 会直接失败。这是预期保护。
+
+解决方式：
+
+1. 先把 release commit 合入 `main`。
+2. 从 `main` 重新触发 production。
+
+### D1 migrations 失败
+
+不要跳过 migrations 继续部署。先看失败 SQL 和远端 D1 状态。
+
+常见原因：
+
+- `wrangler.toml` 里 D1 database ID 配错。
+- migrations 已部分执行。
+- migration 文件与当前 schema 不兼容。
+
+### Pages 部署成功但页面请求错 API
+
+看 [Pages 前端部署](/docs/pages-deploy) 的 API 地址模式。多数情况下是：
+
+- 没有配置同域 `/api/*` Worker route。
+- 选择独立 API 域名，但构建时没有传入 `VITE_API_BASE_URL`。
+
+## 发布记录建议
+
+每次 production 发布都记录：
+
+| 字段 | 示例 |
+| --- | --- |
+| 环境 | `production` |
+| commit | `abc1234` |
+| tag | `v0.1.2` |
+| Worker URL | workflow 输出 |
+| Pages URL | workflow 输出 |
+| D1 database | `wemail-production` |
+| 发布人 | GitHub actor |
+| staging 验收结论 | 通过 / 不通过 |
+| 回滚目标 | 上一个稳定 tag |

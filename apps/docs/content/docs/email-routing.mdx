@@ -1,0 +1,185 @@
+---
+title: Email Routing
+description: 配置 Cloudflare Email Routing，让真实邮件进入 WeMail
+---
+
+WeMail 的前端和 API 部署成功后，还不能说明收件可用。真实邮件进入系统，需要 Cloudflare Email Routing 把邮件投递到 Worker 的 `email(message, env)` 入口。
+
+![Email Routing 配置示意图](/docs/screenshots/email-routing-flow.png)
+
+这是示意截图，说明从域名验证到投递测试邮件的完整路径。
+
+## 收件链路如何工作
+
+1. 外部发件人把邮件发到 `user@example.com`。
+2. Cloudflare Email Routing 接收这封邮件。
+3. Email Routing 调用 WeMail Worker 的 `email()` handler。
+4. Worker 解析原始邮件，查找是否存在对应邮箱账号。
+5. 找到账号时，写入 `mail_messages`，保存附件元数据，并触发 Telegram / Webhook。
+6. 找不到账号时，保存为管理员可见的 unmatched 邮件，方便排查。
+
+代码入口在：
+
+```text
+apps/worker/src/index.ts
+```
+
+核心导出：
+
+```ts
+export default {
+  fetch: app.fetch,
+  async email(message, env) {
+    if (!env.DB) return;
+    await processInboundEmail(env, createD1Store(env.DB), message);
+  }
+};
+```
+
+## 1. 确认域名由 Cloudflare 管理
+
+Email Routing 要求域名 DNS 托管在 Cloudflare。你需要在 Cloudflare Dashboard 里看到域名状态为 active。
+
+如果域名还没有接入 Cloudflare：
+
+1. 在 Cloudflare 添加站点。
+2. 按提示修改域名注册商里的 nameserver。
+3. 等待 Cloudflare 显示 DNS 生效。
+
+## 2. 启用 Email Routing
+
+在 Cloudflare Dashboard 中进入目标域名，找到 Email Routing。
+
+按提示完成：
+
+- 启用 Email Routing。
+- 添加 Cloudflare 要求的 MX 记录。
+- 添加 Cloudflare 要求的 TXT 记录。
+- 等待状态变为 enabled 或 active。
+
+Cloudflare 控制台会给出准确 DNS 值，以控制台为准。不要凭文档里的示例值手填生产 DNS。
+
+## 3. 把邮件路由到 Worker
+
+在 Email Routing 里创建路由规则。目标是让邮件交给 WeMail Worker，而不是转发到个人邮箱。
+
+常见配置方式：
+
+| 配置 | 说明 |
+| --- | --- |
+| Custom address | 只接收某个地址，例如 `test@example.com` |
+| Catch-all | 接收该域名下所有地址 |
+| Destination action | 选择 Worker 或 Email Worker |
+| Worker | 选择已部署的 `wemail` Worker |
+
+新手建议先用 custom address 验证，确认流程无误后再评估是否开启 catch-all。
+
+## 4. 保持 Worker 邮件域名一致
+
+`apps/worker/wrangler.toml` 中的生产配置要与 Email Routing 域名一致：
+
+```toml
+[env.production.vars]
+DEFAULT_MAIL_DOMAIN = "example.com"
+```
+
+如果你希望用户创建的是 `xxx@mail.example.com`，则这里也要写：
+
+```toml
+DEFAULT_MAIL_DOMAIN = "mail.example.com"
+```
+
+## 5. 创建 WeMail 邮箱账号
+
+进入 WeMail 前端，创建一个邮箱账号。假设生成地址：
+
+```text
+alice@example.com
+```
+
+这个地址必须能被你的 Email Routing 规则覆盖。否则邮件不会进 Worker。
+
+## 6. 投递测试邮件
+
+用外部邮箱向刚创建的地址发一封邮件：
+
+```text
+To: alice@example.com
+Subject: WeMail routing test
+Body: hello from outside
+```
+
+然后在 WeMail 邮件列表里检查：
+
+- 邮件是否出现。
+- 发件人是否正确。
+- 主题和正文是否正确。
+- 如果有验证码或链接，提取结果是否正确。
+- 如果带附件，附件元数据是否出现。
+
+## 7. 验证 Worker 健康状态
+
+收件失败时，先确认 Worker API 本身可用：
+
+```bash
+curl -i "$PRODUCTION_API_BASE_URL/api/system/health"
+```
+
+API 健康不代表 Email Routing 一定可用，但 API 不健康时，收件链路通常也不会正常。
+
+## 8. 查看 Worker 日志
+
+生产排查时可以 tail Worker 日志：
+
+```bash
+cd apps/worker
+pnpm exec wrangler tail --env production
+```
+
+然后再投递一封测试邮件，观察是否出现错误。
+
+## 常见问题
+
+### 邮件没有出现在 WeMail
+
+按顺序检查：
+
+1. 域名 Email Routing 是否 enabled。
+2. MX / TXT 记录是否按 Cloudflare 控制台要求配置。
+3. 路由规则是否覆盖目标地址。
+4. 路由目标是否是 WeMail Worker。
+5. `DEFAULT_MAIL_DOMAIN` 是否和创建邮箱地址一致。
+6. Worker production 是否已部署最新版本。
+7. D1 production 是否已经跑 migrations。
+
+### 只有 unmatched 邮件，没有进入用户邮箱
+
+这说明 Email Routing 已经把邮件交给 Worker，但系统里找不到对应邮箱账号。
+
+检查：
+
+- WeMail 里是否创建了完全相同的邮箱地址。
+- 地址大小写、域名、子域名是否一致。
+- 是否创建在 staging，但邮件发到了 production 域名。
+
+### 附件看得到元数据，但下载失败
+
+如果没有配置 R2 `ATTACHMENTS` binding，系统仍可能保存附件元数据，但真实文件内容不会写入 R2。
+
+启用附件下载需要：
+
+1. 创建 R2 bucket。
+2. 在 `wrangler.toml` 中声明 `ATTACHMENTS` binding。
+3. 重新部署 Worker。
+4. 投递一封新的附件测试邮件。
+
+## 生产前检查清单
+
+- [ ] 域名 DNS 已托管到 Cloudflare。
+- [ ] Email Routing 状态是 enabled。
+- [ ] MX / TXT 记录按控制台提示生效。
+- [ ] 路由目标选择了 WeMail Worker。
+- [ ] `DEFAULT_MAIL_DOMAIN` 是真实收件域名。
+- [ ] WeMail 中已创建测试邮箱账号。
+- [ ] 外部测试邮件能出现在邮件列表。
+- [ ] Worker 日志没有新增解析或 D1 写入错误。

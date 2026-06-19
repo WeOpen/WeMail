@@ -1,4 +1,5 @@
 import type { DesignSystemApiField, DesignSystemCodeSample, DesignSystemComponentDoc, DesignSystemDocSection } from "./designSystemContent";
+import { DesignSystemComponentShowcase } from "./DesignSystemComponentShowcase";
 import { designSystemDocStyles, designSystemSharedStyles } from "./designSystemStyles";
 
 interface DesignSystemDocContentProps {
@@ -7,7 +8,7 @@ interface DesignSystemDocContentProps {
   sectionTitles: string[];
 }
 
-const COMPONENT_SECTION_ORDER = ["Import", "Usage", "Variants", "Anatomy", "Accessibility", "API Reference", "Examples"] as const;
+const COMPONENT_SECTION_ORDER = ["Import", "Usage", "Variants", "Anatomy", "Accessibility", "API Reference"] as const;
 
 type ComponentSectionTitle = (typeof COMPONENT_SECTION_ORDER)[number];
 
@@ -40,6 +41,7 @@ function normalizeImportName(componentTitle: string) {
 function resolveImportLines(componentDoc: DesignSystemComponentDoc) {
   const linesById: Record<string, string[]> = {
     "copy-utility": ['import { CopyButton } from "../shared/copy-button";'],
+    chart: ['import { createNivoTheme } from "../shared/chart";'],
     "data-display": [
       'import { Avatar } from "../shared/avatar";',
       'import { KVList } from "../shared/kv-list";',
@@ -47,6 +49,8 @@ function resolveImportLines(componentDoc: DesignSystemComponentDoc) {
       'import { Table, TableBody, TableCell, TableContainer, TableHead, TableHeaderCell, TableRow } from "../shared/table";'
     ],
     "design-tokens": ['import "../shared/styles/index.css";'],
+    divider: ['import { Divider } from "../shared/divider";'],
+    "filter-bar": ['import { FilterBar } from "../shared/filter-bar";'],
     "form-field": ['import { FormField } from "../shared/form";'],
     feedback: [
       'import { Alert } from "../shared/alert";',
@@ -56,6 +60,7 @@ function resolveImportLines(componentDoc: DesignSystemComponentDoc) {
       'import { Spinner } from "../shared/spinner";',
       'import { Tag } from "../shared/tag";'
     ],
+    icon: ['import { Icon } from "../shared/icon";'],
     "kv-list": ['import { KVList } from "../shared/kv-list";'],
     "metric-card": ['import { MetricCard } from "../shared/metric-card";'],
     "multi-select": ['import { MultiSelect } from "../shared/form";'],
@@ -75,6 +80,7 @@ function resolveImportLines(componentDoc: DesignSystemComponentDoc) {
       'import { Switch } from "../shared/switch";'
     ],
     "textarea-input": ['import { TextareaInput } from "../shared/form";'],
+    toast: ['import { toast } from "../shared/toast";', 'import { WemailToastViewport } from "../shared/WemailToastViewport";'],
     "tooltip-popover": [
       'import { Popover, PopoverContent, PopoverTrigger } from "../shared/popover";',
       'import { Tooltip, TooltipContent, TooltipTrigger } from "../shared/tooltip";'
@@ -96,7 +102,7 @@ function renderImportSample(componentDoc: DesignSystemComponentDoc) {
   return (
     <article style={designSystemDocStyles.codeSampleCard}>
       <p className="section-copy" style={{ margin: 0 }}>
-        HeroUI 的组件文档通常先给出 import，再进入 usage、variants、anatomy、accessibility 与 API。WeMail 这页沿用同样阅读顺序，但导入来源指向本项目 shared primitives。
+        当前组件示例已放在页面顶部；Import 区只说明业务代码应该从哪个 shared primitive 入口导入，避免页面局部复制实现。
       </p>
       <pre style={designSystemDocStyles.codeSamplePre}>
         <code>{importLines.join("\n")}</code>
@@ -151,9 +157,34 @@ function renderApiTable(apiFields: DesignSystemApiField[]) {
   );
 }
 
+function renderExampleShowcase(componentDoc: DesignSystemComponentDoc) {
+  const body = componentDoc.codeSamples?.length
+    ? ["下方代码只作为调用参考；组件展示区域只渲染当前组件自己的真实 UI，不混入同一分区的其它组件预览。"]
+    : ["当前组件还没有代码示例；新增组件能力前需要先补齐示例。"];
+
+  return (
+    <section
+      aria-label="文档章节：Examples"
+      style={{
+        ...designSystemDocStyles.section,
+        ...designSystemDocStyles.exampleNote
+      }}
+    >
+      <h2 style={designSystemDocStyles.sectionHeading}>Examples</h2>
+      <DesignSystemComponentShowcase componentId={componentDoc.id} />
+      {renderParagraphs(body)}
+      {componentDoc.codeSamples?.length ? (
+        <div aria-label={`代码示例：${componentDoc.title}`} role="region">
+          {renderCodeSamples(componentDoc.codeSamples)}
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
 function getComponentSections(componentDoc: DesignSystemComponentDoc, sectionTitles: string[]): Array<{ title: ComponentSectionTitle; body: string[] }> {
   const sectionBodyMap = getSectionBodyMap(componentDoc.docSections);
-  const usageBody = [componentDoc.summary, ...(sectionBodyMap.get("适用场景") ?? [])];
+  const usageBody = sectionBodyMap.get("适用场景") ?? [];
   const variantBody = [
     ...(sectionBodyMap.get("状态与变体") ?? []),
     ...(sectionTitles.length ? [`关联预览分区：${sectionTitles.join("、")}。`] : [])
@@ -178,10 +209,7 @@ function getComponentSections(componentDoc: DesignSystemComponentDoc, sectionTit
     "API Reference": [
       componentDoc.api?.length ? "下表记录当前设计系统暴露给业务页面的稳定 props。" : "当前组件还没有结构化 API，新增用法前需要先补齐 props 表。",
       ...(sectionBodyMap.get("不适用场景") ?? [])
-    ],
-    Examples: componentDoc.codeSamples?.length
-      ? ["以下示例优先展示最常用调用方式，后续真实预览会在下方 live preview 分区校验。"]
-      : ["该组件目前依赖下方 live preview 展示真实组合；新增复杂用法时应同步补充代码示例。"]
+    ]
   };
 
   return COMPONENT_SECTION_ORDER.map((title) => ({
@@ -192,6 +220,21 @@ function getComponentSections(componentDoc: DesignSystemComponentDoc, sectionTit
 
 export function DesignSystemDocContent({ componentDoc, groupTitle, sectionTitles }: DesignSystemDocContentProps) {
   const sections = getComponentSections(componentDoc, sectionTitles);
+  const sectionScope = sectionTitles.length ? sectionTitles.join("、") : "当前组件分区";
+  const introCards = [
+    {
+      title: "什么时候用",
+      body: `${componentDoc.chineseTitle}用于${sectionScope}中的标准化场景，优先复用 shared primitive，减少业务页面自行拼装。`
+    },
+    {
+      title: "什么时候不用",
+      body: "当需求只是一次性视觉修饰，或组件职责无法清楚对应到语义、状态、导航、输入、反馈之一时，先不要扩展它。"
+    },
+    {
+      title: "维护重点",
+      body: "新增变体、API 或组合模式时，需要同步更新顶部 Examples、Import 和 API Reference。"
+    }
+  ];
 
   return (
     <section className="panel workspace-card page-panel design-system-panel" style={{ ...designSystemDocStyles.shell, ...designSystemSharedStyles.stack }}>
@@ -199,6 +242,9 @@ export function DesignSystemDocContent({ componentDoc, groupTitle, sectionTitles
         <p className="panel-kicker">{groupTitle} / Component</p>
         <h1 style={{ margin: 0 }}>{componentDoc.title}</h1>
         <strong style={{ color: "var(--text, #111827)" }}>{componentDoc.chineseTitle}</strong>
+        <p className="section-copy" style={{ margin: 0, maxWidth: "760px" }}>
+          {componentDoc.summary}
+        </p>
         <div style={designSystemSharedStyles.chipRow}>
           {sectionTitles.map((sectionTitle) => (
             <span key={sectionTitle} style={designSystemSharedStyles.chip}>
@@ -207,9 +253,19 @@ export function DesignSystemDocContent({ componentDoc, groupTitle, sectionTitles
           ))}
         </div>
       </header>
+      {renderExampleShowcase(componentDoc)}
+      <div style={designSystemDocStyles.introGrid}>
+        {introCards.map((card) => (
+          <article key={card.title} style={designSystemDocStyles.introCard}>
+            <h2 style={designSystemDocStyles.introHeading}>{card.title}</h2>
+            <p className="section-copy" style={{ margin: 0 }}>
+              {card.body}
+            </p>
+          </article>
+        ))}
+      </div>
       <div style={designSystemDocStyles.sectionList}>
         {sections.map((section) => {
-          const isExampleSection = section.title === "Examples";
           const isGuidanceSection = section.title === "API Reference" || section.title === "Accessibility";
 
           return (
@@ -218,21 +274,13 @@ export function DesignSystemDocContent({ componentDoc, groupTitle, sectionTitles
               key={section.title}
               style={{
                 ...designSystemDocStyles.section,
-                ...(isExampleSection ? designSystemDocStyles.exampleNote : null),
                 ...(isGuidanceSection ? designSystemDocStyles.guidanceNote : null)
               }}
             >
               <h2 style={designSystemDocStyles.sectionHeading}>{section.title}</h2>
               {section.title === "Import" ? renderImportSample(componentDoc) : null}
               {section.title === "API Reference" && componentDoc.api?.length ? renderApiTable(componentDoc.api) : null}
-              {section.title === "Examples" && componentDoc.codeSamples?.length ? (
-                <div aria-label={`代码示例：${componentDoc.title}`} role="region">
-                  {renderCodeSamples(componentDoc.codeSamples)}
-                </div>
-              ) : null}
-              {section.title !== "Import" && section.title !== "API Reference" && !(section.title === "Examples" && componentDoc.codeSamples?.length)
-                ? renderParagraphs(section.body)
-                : null}
+              {section.title !== "Import" && section.title !== "API Reference" ? renderParagraphs(section.body) : null}
             </section>
           );
         })}

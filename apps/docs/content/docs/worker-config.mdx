@@ -1,0 +1,296 @@
+---
+title: Worker 配置
+description: 配置 wrangler.toml、Cloudflare bindings、secrets、CORS 和生产环境安全项
+---
+
+Worker 配置分两类：
+
+- 非敏感配置：写在 `apps/worker/wrangler.toml`，可以提交到仓库。
+- 敏感配置：用 `wrangler secret put` 写入 Cloudflare，不提交到仓库。
+
+![wrangler.toml 配置示意图](/docs/screenshots/wrangler-bindings.png)
+
+这是示意截图，重点是不要把 D1 / KV 的占位 ID 留到生产环境。
+
+## 1. 理解环境结构
+
+`apps/worker/wrangler.toml` 里有三块环境：
+
+| 配置块 | 用途 |
+| --- | --- |
+| `[vars]` | 本地 `wrangler dev` 默认值 |
+| `[env.staging]` | staging 远端部署 |
+| `[env.production]` | production 远端部署 |
+
+远端部署必须显式指定环境：
+
+```bash
+pnpm exec wrangler deploy --env staging
+pnpm exec wrangler deploy --env production
+```
+
+当前 GitHub Actions 已经按这个方式执行。
+
+## 2. 替换 D1 和 KV 占位 ID
+
+打开：
+
+```text
+apps/worker/wrangler.toml
+```
+
+找到 staging：
+
+```toml
+[[env.staging.d1_databases]]
+binding = "DB"
+database_name = "wemail-staging"
+database_id = "replace-with-staging-d1-id"
+
+[[env.staging.kv_namespaces]]
+binding = "CACHE"
+id = "replace-with-staging-kv-id"
+preview_id = "replace-with-staging-kv-preview-id"
+```
+
+找到 production：
+
+```toml
+[[env.production.d1_databases]]
+binding = "DB"
+database_name = "wemail-production"
+database_id = "replace-with-production-d1-id"
+
+[[env.production.kv_namespaces]]
+binding = "CACHE"
+id = "replace-with-production-kv-id"
+preview_id = "replace-with-production-kv-preview-id"
+```
+
+把 `replace-with-*` 全部替换为 Cloudflare 返回的真实 ID。
+
+替换后在仓库根目录检查：
+
+```bash
+rg "replace-with-" apps/worker/wrangler.toml
+```
+
+如果这个命令还有输出，不要发 production。
+
+## 3. 设置邮件域名
+
+本地默认值：
+
+```toml
+DEFAULT_MAIL_DOMAIN = "example.com"
+```
+
+生产环境要换成真实收件域名：
+
+```toml
+[env.production.vars]
+DEFAULT_MAIL_DOMAIN = "example.com"
+```
+
+如果你用子域名收信，也可以是：
+
+```toml
+DEFAULT_MAIL_DOMAIN = "mail.example.com"
+```
+
+这个值会影响用户创建邮箱账号时生成的地址。Email Routing 也要配置到同一个域名或可接收该地址的域名。
+
+## 4. 配置 Cookie 和 CORS
+
+生产环境必须：
+
+```toml
+COOKIE_SECURE = "true"
+```
+
+`CORS_ALLOWED_ORIGINS` 要精确列出允许访问 Worker API 的前端来源：
+
+```toml
+CORS_ALLOWED_ORIGINS = "https://mail.example.com"
+```
+
+多个来源用英文逗号分隔：
+
+```toml
+CORS_ALLOWED_ORIGINS = "https://staging.example.com,https://mail.example.com"
+```
+
+不要用 `*`。WeMail 的浏览器请求使用 `credentials: "include"` 携带 session cookie，带 cookie 的跨域请求不能依赖通配符。
+
+## 5. 决定前端和 Worker 的域名关系
+
+WeMail 前端在生产构建中有两个模式。
+
+### 模式 A：同域 `/api` 路由
+
+如果前端访问：
+
+```text
+https://mail.example.com
+```
+
+API 也通过同一个域名下的 `/api/...` 访问：
+
+```text
+https://mail.example.com/api/system/health
+```
+
+则前端不需要设置 `VITE_API_BASE_URL`。这是当前代码的生产默认行为。
+
+你需要在 Cloudflare 路由层把：
+
+```text
+mail.example.com/api/*
+```
+
+指向 Worker，把其他页面流量交给 Pages。
+
+### 模式 B：独立 Worker API 域名
+
+如果 Worker API 是独立域名：
+
+```text
+https://wemail-api.example.com
+```
+
+前端构建时必须设置：
+
+```bash
+VITE_API_BASE_URL=https://wemail-api.example.com pnpm build
+```
+
+同时 Worker 的 `CORS_ALLOWED_ORIGINS` 必须包含 Pages 域名：
+
+```toml
+CORS_ALLOWED_ORIGINS = "https://mail.example.com"
+```
+
+如果你使用当前 GitHub Actions，需要把 `VITE_API_BASE_URL` 加到 build 环境中。详见 [Pages 前端部署](/docs/pages-deploy)。
+
+## 6. 配置功能开关和额度
+
+这些配置都来自 `wrangler.toml`，默认是字符串：
+
+| 变量 | 默认示例 | 说明 |
+| --- | --- | --- |
+| `MAILBOX_LIMIT` | `"5"` | 每个用户默认可创建的邮箱账号数量 |
+| `MESSAGE_RETENTION_DAYS` | `"7"` | 邮件保留天数 |
+| `OUTBOUND_DAILY_LIMIT` | `"20"` | 每个用户每日发件额度 |
+| `API_DAILY_LIMIT` | `"20000"` | API key 每日调用额度 |
+| `AI_FALLBACK_LIMIT` | `"20"` | AI fallback 每日限制 |
+| `MAX_ATTACHMENT_BYTES` | `"10485760"` | 单个附件最大字节数 |
+| `MAX_TOTAL_ATTACHMENT_BYTES` | `"15728640"` | 单封邮件附件总大小限制 |
+| `ENABLE_AI` | `"true"` | 是否启用 AI fallback |
+| `ENABLE_TELEGRAM` | `"true"` | 是否启用 Telegram |
+| `ENABLE_OUTBOUND` | `"true"` | 是否启用发件 |
+| `ENABLE_MAILBOX_CREATION` | `"true"` | 是否允许创建邮箱账号 |
+| `ADMIN_EMAILS` | `""` | 逗号分隔的管理员 bootstrap 邮箱 |
+
+新手部署建议：
+
+- 暂时不用发件时，把 `ENABLE_OUTBOUND` 设为 `"false"`。
+- 暂时不用 Telegram 时，把 `ENABLE_TELEGRAM` 设为 `"false"`。
+- 暂时不用 AI 时，把 `ENABLE_AI` 设为 `"false"`。
+- 生产环境至少设置一个 `ADMIN_EMAILS`，方便首个管理员账号识别。
+
+## 7. 写入 Worker secrets
+
+进入 Worker 目录：
+
+```bash
+cd apps/worker
+```
+
+按实际启用的能力写入 secrets。
+
+### Resend 发件
+
+如果启用外发邮件：
+
+```bash
+pnpm exec wrangler secret put RESEND_API_KEY --env staging
+pnpm exec wrangler secret put RESEND_API_KEY --env production
+```
+
+可选设置默认发件地址：
+
+```bash
+pnpm exec wrangler secret put RESEND_FROM --env staging
+pnpm exec wrangler secret put RESEND_FROM --env production
+```
+
+### Telegram
+
+如果启用 Telegram：
+
+```bash
+pnpm exec wrangler secret put TELEGRAM_BOT_TOKEN --env staging
+pnpm exec wrangler secret put TELEGRAM_BOT_TOKEN --env production
+pnpm exec wrangler secret put TELEGRAM_WEBHOOK_SECRET --env staging
+pnpm exec wrangler secret put TELEGRAM_WEBHOOK_SECRET --env production
+```
+
+`TELEGRAM_BOT_USERNAME` 不是强 secret，但如果用于生成 deep link，也要配置到 Worker 运行环境。当前 `.env.example` 把它列为本地参考值。
+
+## 8. 可选：配置 R2 附件绑定
+
+如果你已经创建 R2 bucket，可以在 `wrangler.toml` 加：
+
+```toml
+[[env.staging.r2_buckets]]
+binding = "ATTACHMENTS"
+bucket_name = "wemail-staging-attachments"
+
+[[env.production.r2_buckets]]
+binding = "ATTACHMENTS"
+bucket_name = "wemail-production-attachments"
+```
+
+不配置 R2 时，入站邮件仍可保存附件元数据，但下载真实附件文件会受到限制。
+
+## 9. 运行远端 migrations
+
+GitHub Actions 会在部署 Worker 前自动执行：
+
+```bash
+pnpm exec wrangler d1 migrations apply wemail-staging --env staging --remote
+pnpm exec wrangler d1 migrations apply wemail-production --env production --remote
+```
+
+如果你手动部署，也要先跑 migrations，再部署 Worker。
+
+## 10. 验证 Worker
+
+部署 staging 后：
+
+```bash
+curl -i "$STAGING_API_BASE_URL/api/system/health"
+```
+
+部署 production 后：
+
+```bash
+curl -i "$PRODUCTION_API_BASE_URL/api/system/health"
+```
+
+期望：
+
+- HTTP 200。
+- JSON 里 `ok` 是 `true`。
+- `environment` 分别是 `staging` 或 `production`。
+
+## 配置检查清单
+
+- [ ] `apps/worker/wrangler.toml` 没有 `replace-with-*`。
+- [ ] production 的 `COOKIE_SECURE = "true"`。
+- [ ] production 的 `DEFAULT_MAIL_DOMAIN` 是真实域名。
+- [ ] `CORS_ALLOWED_ORIGINS` 包含真实前端域名。
+- [ ] D1、KV 的 staging / production ID 不混用。
+- [ ] 已通过 `wrangler secret put` 写入启用能力所需 secrets。
+- [ ] 如果启用 R2，已声明 `ATTACHMENTS` binding。
+- [ ] `curl /api/system/health` 返回正确环境。

@@ -1,0 +1,168 @@
+---
+title: Cloudflare 资源准备
+description: 为 WeMail 创建 Worker、Pages、D1、KV、Email Routing 和可选 R2
+---
+
+这一章只做资源准备，不改业务代码。目标是把 staging 和 production 需要的 Cloudflare 资源先建出来，并把后面要写入 `wrangler.toml`、GitHub secrets 的值记录好。
+
+![Cloudflare 资源准备示意图](/docs/screenshots/cloudflare-resources.png)
+
+这是示意截图。真实控制台 UI 可能不同，但你需要准备的资源就是图里的几类。
+
+## 资源清单
+
+| 资源 | staging 示例 | production 示例 | 是否必需 |
+| --- | --- | --- | --- |
+| Worker | `wemail` with `--env staging` | `wemail` with `--env production` | 必需 |
+| Pages | `wemail-web` preview branch | `wemail-web` production | 必需 |
+| D1 | `wemail-staging` | `wemail-production` | 必需 |
+| KV | `CACHE` namespace | `CACHE` namespace | 必需 |
+| Email Routing | staging 域名或子域名 | 正式邮件域名 | 收真实邮件必需 |
+| R2 | `wemail-staging-attachments` | `wemail-production-attachments` | 附件文件存储可选 |
+
+## 1. 登录 Wrangler
+
+在仓库根目录执行：
+
+```bash
+cd apps/worker
+pnpm exec wrangler login
+pnpm exec wrangler whoami
+```
+
+`whoami` 能看到账号信息后，再继续创建资源。
+
+如果你有多个 Cloudflare account，请记录目标 Account ID。GitHub Actions 后面需要：
+
+```text
+CLOUDFLARE_ACCOUNT_ID
+```
+
+## 2. 创建 D1 数据库
+
+在 `apps/worker` 目录执行：
+
+```bash
+pnpm exec wrangler d1 create wemail-staging
+pnpm exec wrangler d1 create wemail-production
+```
+
+Wrangler 会输出类似内容：
+
+```toml
+[[d1_databases]]
+binding = "DB"
+database_name = "wemail-staging"
+database_id = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+```
+
+把 staging 和 production 的 `database_id` 都保存下来，后面写进 `apps/worker/wrangler.toml`。
+
+## 3. 创建 KV namespace
+
+在 `apps/worker` 目录执行：
+
+```bash
+pnpm exec wrangler kv namespace create CACHE --env staging
+pnpm exec wrangler kv namespace create CACHE --env production
+```
+
+如果命令只返回 `id`，没有返回 `preview_id`，再创建 preview namespace：
+
+```bash
+pnpm exec wrangler kv namespace create CACHE --preview --env staging
+pnpm exec wrangler kv namespace create CACHE --preview --env production
+```
+
+把返回的值记录为：
+
+| 环境 | 字段 |
+| --- | --- |
+| staging | `replace-with-staging-kv-id` |
+| staging preview | `replace-with-staging-kv-preview-id` |
+| production | `replace-with-production-kv-id` |
+| production preview | `replace-with-production-kv-preview-id` |
+
+## 4. 准备 Pages 项目
+
+WeMail 前端构建产物位于：
+
+```text
+apps/web/dist
+```
+
+如果使用当前仓库里的 GitHub Actions，workflow 会在 CI 中构建 Web，再用 Wrangler 执行：
+
+```bash
+pnpm exec wrangler pages deploy apps/web/dist --project-name=<pages-project-name>
+```
+
+你需要在 Cloudflare Pages 里准备一个项目名，例如：
+
+```text
+wemail-web
+```
+
+这个项目名后面会写入 GitHub Environment secret：
+
+```text
+CLOUDFLARE_PAGES_PROJECT_NAME
+```
+
+## 5. 准备邮件域名
+
+生产环境需要一个已经托管到 Cloudflare DNS 的域名，例如：
+
+```text
+example.com
+```
+
+你后面会把它写入 Worker 配置：
+
+```toml
+DEFAULT_MAIL_DOMAIN = "example.com"
+```
+
+如果你还没有正式域名，可以先用 staging 子域名或测试域名走完部署流程。不要把生产环境长期留在 `example.com`。
+
+Email Routing 的详细配置见 [Email Routing](/docs/email-routing)。
+
+## 6. 可选：创建 R2 bucket
+
+WeMail 代码里支持可选的 `ATTACHMENTS` R2 binding。没有绑定时，邮件仍会保存附件元数据，但真实附件文件不会写入 R2。
+
+如果你要启用附件文件下载，创建 bucket：
+
+```bash
+pnpm exec wrangler r2 bucket create wemail-staging-attachments
+pnpm exec wrangler r2 bucket create wemail-production-attachments
+```
+
+后面再把 R2 binding 加到 `wrangler.toml`：
+
+```toml
+[[env.production.r2_buckets]]
+binding = "ATTACHMENTS"
+bucket_name = "wemail-production-attachments"
+```
+
+## 7. 记录资源表
+
+建议在部署前把这些值整理到一个本地私有笔记，不要提交到仓库：
+
+| 项 | 示例 |
+| --- | --- |
+| Cloudflare Account ID | `xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx` |
+| Pages project name | `wemail-web` |
+| staging D1 database ID | `...` |
+| production D1 database ID | `...` |
+| staging KV namespace ID | `...` |
+| production KV namespace ID | `...` |
+| staging Worker URL | `https://wemail-staging.<account>.workers.dev` |
+| production Worker URL | `https://wemail.<account>.workers.dev` |
+| Pages staging URL | workflow 输出为准 |
+| Pages production URL | 自定义域名或 Pages 默认域名 |
+
+## 下一步
+
+资源准备完后，继续配置 [Worker 配置](/docs/worker-config)。那里会把 D1 / KV ID 写入 `wrangler.toml`，并设置 secrets、CORS、Cookie 和功能开关。

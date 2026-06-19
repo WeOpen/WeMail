@@ -1296,11 +1296,11 @@ button:disabled {
 }
 
 .auth-brand-mark {
-  width: 96px;
-  height: 96px;
+  width: 144px;
+  height: 144px;
   display: inline-grid;
   place-items: center;
-  border-radius: 24px;
+  border-radius: 36px;
   background: linear-gradient(135deg, rgba(255, 122, 0, 0.14), rgba(255, 255, 255, 0.52));
   border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--border));
   color: var(--text);
@@ -1308,9 +1308,10 @@ button:disabled {
 }
 
 .auth-brand-logo {
-  width: 56px;
-  height: 56px;
+  width: 112px;
+  height: 112px;
   display: block;
+  object-fit: contain;
 }
 
 .auth-brand-wordmark {
@@ -1496,6 +1497,7 @@ button:disabled {
   width: 34px;
   height: 34px;
   display: block;
+  object-fit: contain;
 }
 
 .wemail-brand-lockup.compact .wemail-brand-lockup-logo {
@@ -8998,22 +9000,7 @@ button:disabled {
   width: 112px;
   height: 112px;
   display: block;
-}
-
-.wemail-loading-logo .wemail-logo-seal-group {
-  transform-box: fill-box;
-  transform-origin: center;
-  animation: wemail-loading-seal-breathe 2.6s ease-in-out infinite;
-}
-
-.wemail-loading-logo .wemail-logo-monogram {
-  transform-box: fill-box;
-  transform-origin: center;
-  animation: wemail-loading-monogram-pulse 1.3s ease-in-out infinite alternate;
-}
-
-.wemail-loading-logo .wemail-logo-fold {
-  animation: wemail-loading-fold-flicker 1.8s ease-in-out infinite;
+  object-fit: contain;
 }
 
 .wemail-loading-copy {
@@ -9102,10 +9089,7 @@ button:disabled {
 @media (prefers-reduced-motion: reduce) {
   .wemail-loading-mark,
   .wemail-loading-glow,
-  .wemail-loading-echo,
-  .wemail-loading-logo .wemail-logo-seal-group,
-  .wemail-loading-logo .wemail-logo-monogram,
-  .wemail-loading-logo .wemail-logo-fold {
+  .wemail-loading-echo {
     animation: none;
   }
 }

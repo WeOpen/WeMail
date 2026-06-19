@@ -25,16 +25,23 @@ const packageTasks = {
     typecheck: ["pnpm", ["exec", "tsc", "-p", "tsconfig.json", "--noEmit"]],
     test: ["pnpm", ["exec", "vitest", "run"]],
     build: ["node", ["scripts/build.mjs"]]
+  },
+  docs: {
+    lint: ["pnpm", ["run", "lint"]],
+    typecheck: ["pnpm", ["run", "typecheck"]],
+    test: ["pnpm", ["run", "test"]],
+    build: ["pnpm", ["run", "build"]]
   }
 };
 
 const packageDirs = {
   shared: "packages/shared",
   worker: "apps/worker",
-  web: "apps/web"
+  web: "apps/web",
+  docs: "apps/docs"
 };
 
-const allTargets = ["shared", "worker", "web"];
+const allTargets = ["shared", "worker", "web", "docs"];
 const targets = filter ? allTargets.filter((target) => target.includes(filter)) : allTargets;
 
 if (!task || !packageTasks.shared[task]) {

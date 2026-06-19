@@ -14,6 +14,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Added a standalone Fumadocs documentation app under `apps/docs`.
+- Added detailed beginner-focused WeMail deployment docs with local setup, Cloudflare resources, Worker config, Email Routing, Pages, GitHub Actions, operations checks, and screenshot-style visual guides.
+- Added design system documentation entries for FilterBar, Icon, Divider, Chart, and Toast, with fuller component intros and additional examples across existing primitives.
+- Added a floating back-to-top icon action to the design system page.
+
+### Changed
+
+- Expanded the root README with a centered brand header, project badges, and detailed Cloudflare deployment steps.
+- Changed the app logo, favicon, Apple touch icon, PWA icon, and social preview image to use the shared `WeMail.png` brand asset.
+- Changed the signed-in home page behavior so authenticated users can still view the public landing page, with header and landing CTA auth buttons replaced by console entries.
+- Changed the design system component detail pages to show current-component examples first and remove unrelated section-level preview panels.
+
+### Fixed
+
+- Fixed design system sidebar navigation so selecting a component returns the right-hand detail panel to the top.
+- Fixed the design system sidebar on compact viewports so long component menus remain clickable instead of being covered by the detail panel.
+
 ## [0.1.2] - 2026-06-16
 
 ### Added

@@ -9,6 +9,54 @@ const DESIGN_SYSTEM_THEME_STORAGE_KEY = "wemail-design-system-preview-theme";
 
 const originalMatchMedia = window.matchMedia;
 
+function mockMemberSessionFetch(input: RequestInfo | URL) {
+  const url = typeof input === "string" ? input : input instanceof Request ? input.url : String(input);
+
+  if (url.endsWith("/api/auth/session")) {
+    return jsonResponse({
+      user: {
+        id: "member-1",
+        email: "member@example.com",
+        role: "member",
+        createdAt: "2026-04-08T00:00:00.000Z"
+      },
+      featureToggles: {
+        aiEnabled: true,
+        telegramEnabled: true,
+        outboundEnabled: true,
+        mailboxCreationEnabled: true
+      }
+    });
+  }
+
+  if (url.endsWith("/api/profile")) {
+    return jsonResponse({
+      profile: {
+        user: {
+          id: "member-1",
+          email: "member@example.com",
+          role: "member",
+          createdAt: "2026-04-08T00:00:00.000Z",
+          name: "Member User",
+          bio: ""
+        },
+        preferences: {
+          landingPage: "/mail/list",
+          dashboardDensity: "comfortable"
+        }
+      }
+    });
+  }
+
+  if (url.endsWith("/api/accounts")) return jsonResponse({ mailboxes: [] });
+  if (url.endsWith("/api/mail/settings")) return jsonResponse({ settings: null });
+  if (url.endsWith("/api/dictionaries")) return jsonResponse({ dictionaries: [] });
+  if (url.includes("/api/mail/outbound")) return jsonResponse({ messages: [], total: 0 });
+  if (url.includes("/api/announcements")) return jsonResponse({ announcements: [] });
+
+  return jsonResponse({});
+}
+
 function installMatchMedia({
   compactNavigation = false,
   dark = true
@@ -102,6 +150,37 @@ describe("App", () => {
   );
 
   it(
+    "keeps the public landing page available for signed-in users and replaces auth actions with a console link",
+    async () => {
+      vi.spyOn(globalThis, "fetch").mockImplementation(mockMemberSessionFetch);
+      const { container } = render(<App />);
+
+      const navigation = await screen.findByRole("navigation", { name: /首页导航/i });
+
+      expect(screen.getByRole("heading", { level: 1, name: /把临时邮箱/i })).toBeInTheDocument();
+      expect(within(navigation).queryByRole("link", { name: /^登录$/i })).not.toBeInTheDocument();
+      expect(within(navigation).queryByRole("link", { name: /^注册$/i })).not.toBeInTheDocument();
+
+      const consoleLink = within(navigation).getByRole("link", { name: /^控制台$/i });
+      expect(consoleLink).toHaveClass("ui-button", "ui-button-primary");
+      await waitFor(() => {
+        expect(consoleLink).toHaveAttribute("href", "/mail/list");
+      });
+      const landingCtaRows = Array.from(container.querySelectorAll(".landing-cta-row"));
+      expect(landingCtaRows).toHaveLength(2);
+
+      for (const ctaRow of landingCtaRows) {
+        const cta = within(ctaRow as HTMLElement).getByRole("link", { name: /^进入控制台$/i });
+        expect(cta).toHaveClass("ui-button", "ui-button-primary");
+        expect(cta).toHaveAttribute("href", "/mail/list");
+        expect(within(ctaRow as HTMLElement).queryByRole("link", { name: /立即开始|受邀注册|进入登录/i })).not.toBeInTheDocument();
+      }
+      expect(window.location.pathname).toBe("/");
+    },
+    10000
+  );
+
+  it(
     "renders the design system as a public route with sidebar navigation and the first component detail by default",
     async () => {
       window.history.pushState({}, "", "/design-system");
@@ -140,7 +219,8 @@ describe("App", () => {
 
       expect(screen.getByRole("heading", { level: 1, name: "Button" })).toBeInTheDocument();
       expect(screen.getByText(/覆盖主要、次要、轻量、危险和 icon-only 等动作样式/i)).toBeInTheDocument();
-      expect(screen.getByRole("heading", { level: 2, name: "Buttons & Actions" })).toBeInTheDocument();
+      expect(screen.getByRole("region", { name: "代码示例：Button" })).toBeInTheDocument();
+      expect(screen.queryByRole("heading", { level: 2, name: "Buttons & Actions" })).not.toBeInTheDocument();
       expect(screen.queryByText(/Design tokens、预览地图、文档入口与视觉回归基线/i)).not.toBeInTheDocument();
     },
     10000
@@ -191,7 +271,7 @@ describe("App", () => {
       fireEvent.click(within(sidebar).getByRole("button", { name: "Button" }));
 
       const headings = screen.getAllByRole("heading").map((node) => node.textContent);
-      const requiredHeadings = ["Usage", "API Reference", "Examples"];
+      const requiredHeadings = ["Examples", "Import", "Usage", "API Reference"];
       const headingIndexes = requiredHeadings.map((heading) => headings.indexOf(heading));
 
       expect(headingIndexes.every((index) => index >= 0)).toBe(true);
@@ -353,6 +433,28 @@ describe("App", () => {
 
       await waitFor(() => {
         expect(window.location.pathname).toBe("/design-system");
+      });
+    },
+    10000
+  );
+
+  it(
+    "shows the console action instead of auth links in the signed-in mobile landing menu",
+    async () => {
+      vi.spyOn(globalThis, "fetch").mockImplementation(mockMemberSessionFetch);
+      installMatchMedia({ compactNavigation: true, dark: true });
+      render(<App />);
+
+      fireEvent.click(await screen.findByRole("button", { name: /切换菜单/i }));
+
+      const dialog = screen.getByRole("dialog", { name: /首页移动菜单/i });
+      expect(within(dialog).queryByRole("link", { name: /^登录$/i })).not.toBeInTheDocument();
+      expect(within(dialog).queryByRole("link", { name: /^注册$/i })).not.toBeInTheDocument();
+
+      const consoleLink = within(dialog).getByRole("link", { name: /^控制台$/i });
+      expect(consoleLink).toHaveClass("ui-button", "ui-button-primary");
+      await waitFor(() => {
+        expect(consoleLink).toHaveAttribute("href", "/mail/list");
       });
     },
     10000

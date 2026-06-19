@@ -1351,6 +1351,114 @@ const heroUiInspiredComponentAdditions: Record<string, DesignSystemComponentDoc[
       codeSamples: [
         createCodeSample("筛选无结果", `<EmptyState\n  title="暂无账号结果"\n  description="调整状态或创建人后会在这里刷新。"\n  actions={<Button variant="primary">新建筛选</Button>}\n/>`)
       ]
+    }),
+    createHeroComponentDoc({
+      id: "icon",
+      title: "Icon",
+      chineseTitle: "图标",
+      summary: "统一 lucide 图标尺寸、语义、装饰态和按钮内图标对齐。",
+      sectionIds: ["buttons-actions", "feedback-status"],
+      usage: [
+        "用于按钮、状态提示、导航入口和空状态中的视觉辅助，让图标尺寸与文本节奏保持一致。",
+        "当页面需要图标表达动作、状态或对象类型时，应通过 Icon 原语统一 aria 与尺寸，而不是直接散落 lucide 组件。"
+      ],
+      avoid: [
+        "不要用图标替代必须阅读的文本，尤其是危险操作、状态结果和表单错误。",
+        "不要在同一行混用不同尺寸或不同描边风格的图标，否则列表扫描会失去稳定节奏。"
+      ],
+      variants: [
+        "size 支持 xs、sm、md、lg，tone 支持 default、muted、brand、success、warning、danger。",
+        "decorative 控制图标是否隐藏给辅助技术；有语义时必须提供 label。"
+      ],
+      anatomy: [
+        "Icon root 负责尺寸、颜色和可访问名称，内部渲染具体 lucide 图标。",
+        "在 Button、Tag、Alert 中使用时，图标应作为 leadingIcon、visual 或 media slot，而不是额外包一层布局。"
+      ],
+      accessibility: [
+        "装饰图标设置 decorative；传达独立含义的图标必须提供 label 或由相邻文本完整说明。",
+        "icon-only 按钮不能只依赖 Icon label，按钮本身也需要 aria-label。"
+      ],
+      api: [
+        createApiField("icon", "LucideIcon | ReactNode", "required", "要渲染的图标组件或节点。"),
+        createApiField("size", '"xs" | "sm" | "md" | "lg"', '"md"', "控制图标视觉尺寸。"),
+        createApiField("decorative", "boolean", "true", "是否作为装饰图标隐藏给辅助技术。")
+      ],
+      codeSamples: [
+        createCodeSample("按钮图标", `<Button leadingIcon={<Icon icon={Save} decorative />}>保存变更</Button>`),
+        createCodeSample("语义状态", `<Icon icon={CircleAlert} decorative={false} label="存在风险" tone="warning" />`)
+      ]
+    }),
+    createHeroComponentDoc({
+      id: "divider",
+      title: "Divider",
+      chineseTitle: "分隔线",
+      summary: "统一横向、纵向和带标签分隔，帮助密集页面建立轻量边界。",
+      sectionIds: ["layout-spacing", "surfaces-cards"],
+      usage: [
+        "用于卡片内部、设置分组、工具栏和弹层内容之间的轻量分隔。",
+        "当内容属于同一容器但需要清晰分段时，Divider 比新增卡片或重阴影更克制。"
+      ],
+      avoid: [
+        "不要用 Divider 解决页面级布局混乱；如果结构差异很大，应拆分 section 或 PageLayout 区域。",
+        "不要在每个列表项之间都加重分隔，密集列表更适合 Table、List 或间距规则。"
+      ],
+      variants: [
+        "orientation 支持 horizontal 与 vertical，tone 支持 default 与 subtle。",
+        "label 可作为分组说明，但只适合短标签，不应承载长段解释。"
+      ],
+      anatomy: [
+        "Divider root 输出分隔语义，line 负责视觉边界，optional label 承载短分组名。",
+        "纵向分隔通常放在工具栏动作组之间，横向分隔放在内容段落之间。"
+      ],
+      accessibility: [
+        "纯装饰分隔线应隐藏给辅助技术；有 label 时需要保证文本本身说明分组含义。",
+        "不要依赖分隔线作为唯一结构信号，关键分组仍要有标题或可读上下文。"
+      ],
+      api: [
+        createApiField("orientation", '"horizontal" | "vertical"', '"horizontal"', "控制分隔方向。"),
+        createApiField("label", "ReactNode", "undefined", "可选短标签。"),
+        createApiField("decorative", "boolean", "true", "是否隐藏分隔线语义。")
+      ],
+      codeSamples: [
+        createCodeSample("内容分组", `<Divider label="通知设置" />\n<FormField label="Telegram">...</FormField>`),
+        createCodeSample("工具栏分隔", `<Button variant="secondary">筛选</Button>\n<Divider orientation="vertical" />\n<Button variant="ghost">重置</Button>`)
+      ]
+    }),
+    createHeroComponentDoc({
+      id: "chart",
+      title: "Chart",
+      chineseTitle: "图表主题",
+      summary: "为 Nivo 图表统一主题、色板、轴线、tooltip 和数据标签密度。",
+      sectionIds: ["data-display", "color-theme"],
+      usage: [
+        "用于仪表盘趋势、资源分布、角色占比和运营指标图表，保证图表和页面 token 同步。",
+        "当业务需要展示折线、柱状、饼图或面积趋势时，应先使用共享 chart theme，再组合具体 Nivo 图表。"
+      ],
+      avoid: [
+        "不要在页面中直接覆盖 Nivo 默认主题或硬编码色板；这会让 light/dark 和品牌色失去一致性。",
+        "不要用图表承载少量无需比较的数据，简单指标更适合 MetricCard 或 KVList。"
+      ],
+      variants: [
+        "支持 dashboard、compact、dense tooltip 等使用场景，由主题函数统一轴线、网格和标签。",
+        "色板应从语义色和品牌色派生，避免同一页面出现互相冲突的图表颜色。"
+      ],
+      anatomy: [
+        "Chart theme 提供 axis、grid、tooltip、legends 和 labels，业务图表只传数据、维度和交互。",
+        "图表外层仍应通过 Card 或 PageLayout 管理标题、说明、空态和加载态。"
+      ],
+      accessibility: [
+        "图表必须有标题、说明或 aria-label，关键结论不能只藏在 tooltip 中。",
+        "颜色区分需要配合图例、标签或文本摘要，避免仅靠色相表达数据含义。"
+      ],
+      api: [
+        createApiField("theme", "Nivo theme object", "createNivoTheme(theme)", "统一轴线、网格、tooltip 和标签样式。"),
+        createApiField("colors", "string[]", "semantic palette", "图表序列色板。"),
+        createApiField("ariaLabel", "string", "recommended", "描述图表内容和指标范围。")
+      ],
+      codeSamples: [
+        createCodeSample("折线图主题", `<ResponsiveLine data={series} theme={createNivoTheme(theme)} colors={chartColors} ariaLabel="邮件趋势" />`),
+        createCodeSample("图表容器", `<Card><CardHeader>发送趋势</CardHeader><CardBody><ChartEmptyState /></CardBody></Card>`)
+      ]
     })
   ],
   "forms-navigation-feedback": [
@@ -1387,6 +1495,42 @@ const heroUiInspiredComponentAdditions: Record<string, DesignSystemComponentDoc[
       ],
       codeSamples: [
         createCodeSample("带说明字段", `<FormField label="搜索账号" description="支持邮箱、域名或创建人">\n  <SearchInput aria-label="搜索账号" />\n</FormField>`)
+      ]
+    }),
+    createHeroComponentDoc({
+      id: "filter-bar",
+      title: "FilterBar",
+      chineseTitle: "筛选栏",
+      summary: "统一搜索、下拉、多选、批量动作和结果计数的工具栏组合。",
+      sectionIds: ["form-inputs", "navigation-wayfinding"],
+      usage: [
+        "用于账号列表、消息列表、公告管理和 API Key 等需要组合搜索与筛选的页面。",
+        "当多个筛选控件需要在同一行协作，并且还要展示结果数量或批量操作时，应使用 FilterBar。"
+      ],
+      avoid: [
+        "不要把页面主标题、长说明或复杂表单塞进 FilterBar；它只承接短控件与列表工具动作。",
+        "如果页面只有一个搜索框，也不需要强行套完整筛选栏，可以直接使用 SearchInput。"
+      ],
+      variants: [
+        "支持 search slot、filters slot、actions slot 和 meta slot，适配紧凑筛选与管理页批量操作。",
+        "在窄屏下应允许换行，但每个控件需要保持稳定最小宽度，避免标签挤压。"
+      ],
+      anatomy: [
+        "FilterBar root 负责横向密度，search 放主查询入口，filters 放枚举/多选条件，actions 放重置或导出。",
+        "它通常位于 PageToolbar 内，和 Pagination、Table 共同组成列表页标准结构。"
+      ],
+      accessibility: [
+        "筛选栏需要可读 aria-label 或区域标题；每个内部输入仍必须有自己的 label。",
+        "筛选变更后应让结果区有明确反馈，不能只改变列表而没有结果计数或空状态。"
+      ],
+      api: [
+        createApiField("search", "ReactNode", "undefined", "主搜索控件。"),
+        createApiField("filters", "ReactNode", "undefined", "状态、角色、标签等筛选控件组。"),
+        createApiField("actions", "ReactNode", "undefined", "重置、导出、批量操作等工具动作。")
+      ],
+      codeSamples: [
+        createCodeSample("列表筛选", `<FilterBar\n  search={<SearchInput aria-label="搜索账号" placeholder="搜索账号或创建人" />}\n  filters={<SelectInput aria-label="状态"><option>全部状态</option></SelectInput>}\n  actions={<Button variant="secondary">重置</Button>}\n/>`),
+        createCodeSample("带结果计数", `<FilterBar meta={<span>共 128 条结果</span>} actions={<Button variant="primary">导出</Button>} />`)
       ]
     }),
     createHeroComponentDoc({
@@ -1808,6 +1952,42 @@ const heroUiInspiredComponentAdditions: Record<string, DesignSystemComponentDoc[
       codeSamples: [
         createCodeSample("局部加载", `<Spinner showLabel size="sm" label="同步中" />`)
       ]
+    }),
+    createHeroComponentDoc({
+      id: "toast",
+      title: "Toast",
+      chineseTitle: "全局提示",
+      summary: "展示保存、复制、批量任务和后台操作结果的短暂全局反馈。",
+      sectionIds: ["feedback-status", "overlays-utilities"],
+      usage: [
+        "用于保存成功、复制成功、批量任务已开始、后台操作失败等短反馈。",
+        "当反馈不需要占据页面布局，也不需要用户立即处理时，Toast 比 Alert 更轻。"
+      ],
+      avoid: [
+        "不要把必须阅读的错误、危险确认或长说明放进 Toast；这些应进入 Alert、Dialog 或页面正文。",
+        "不要连续触发大量 Toast，批量任务应合并为一条状态反馈或进入任务中心。"
+      ],
+      variants: [
+        "variant 支持 success、warning、danger、info，duration 控制自动关闭时间。",
+        "action slot 可用于撤销或查看详情，但不应承载复杂流程。"
+      ],
+      anatomy: [
+        "Toast 由 viewport、item、title、description、action、close button 组成。",
+        "业务页面通过统一 toast store 触发消息，不直接在页面里渲染一次性浮层。"
+      ],
+      accessibility: [
+        "非紧急成功提示使用 polite live region，错误或失败反馈可以提升为 assertive。",
+        "关闭按钮和 action 必须可聚焦，自动消失不应让用户错过关键恢复路径。"
+      ],
+      api: [
+        createApiField("variant", '"success" | "warning" | "danger" | "info"', '"info"', "控制提示语义。"),
+        createApiField("duration", "number", "4000", "自动关闭延迟。"),
+        createApiField("action", "ReactNode", "undefined", "撤销、查看详情或重试动作。")
+      ],
+      codeSamples: [
+        createCodeSample("保存成功", `toast.success({ title: "设置已保存", description: "新的邮件策略已经生效。" })`),
+        createCodeSample("带恢复动作", `toast.warning({ title: "批量删除已提交", action: <Button variant="ghost">撤销</Button> })`)
+      ]
     })
   ],
   "overlays-utilities": [
@@ -1969,14 +2149,47 @@ const heroUiInspiredCodeSamplesById: Record<string, DesignSystemCodeSample[]> = 
   ]
 };
 
+const supplementalCodeSampleById: Record<string, DesignSystemCodeSample> = {
+  alert: createCodeSample("带操作提示", `<Alert\n  actions={<Button variant="secondary">查看任务</Button>}\n  title="导入已开始"\n  variant="info"\n>\n  系统会在后台继续处理文件。\n</Alert>`),
+  badge: createCodeSample("导航计数", `<Badge appearance="solid" variant="brand">12</Badge>\n<Badge statusRole="status" variant="warning">待处理</Badge>`),
+  "empty-state": createCodeSample("权限受限", `<EmptyState\n  title="无法查看成员"\n  description="当前角色没有成员管理权限。"\n  variant="no-access"\n/>`),
+  "form-field": createCodeSample("错误反馈", `<FormField label="Webhook URL" message="请输入有效的 HTTPS 地址" tone="error">\n  <TextInput aria-label="Webhook URL" />\n</FormField>`),
+  "kv-list": createCodeSample("带复制动作", `<KVList\n  items={[{ key: "API 前缀", value: "wm_live", action: <CopyButton value="wm_live" /> }]}\n  density="compact"\n/>`),
+  "metric-card": createCodeSample("配额摘要", `<MetricCard\n  title="今日 API 调用"\n  value="12,480"\n  detail="20,000 daily limit"\n  caption="剩余 37.6%"\n/>`),
+  "multi-select": createCodeSample("权限筛选", `<MultiSelect\n  aria-label="权限筛选"\n  options={[{ label: "管理员", value: "admin" }, { label: "成员", value: "member" }]}\n/>`),
+  "page-layout": createCodeSample("无侧栏页面", `<Page>\n  <PageHeader title="系统设置" />\n  <PageBody><PageMain>设置表单</PageMain></PageBody>\n</Page>`),
+  pagination: createCodeSample("远程分页", `<Pagination\n  page={3}\n  pageSize={20}\n  total={128}\n  onPageChange={setPage}\n/>`),
+  popover: createCodeSample("用户资料卡", `<Popover>\n  <PopoverTrigger>查看创建人</PopoverTrigger>\n  <PopoverContent align="end"><KVList items={profileItems} /></PopoverContent>\n</Popover>`),
+  progress: createCodeSample("配额使用", `<Progress\n  aria-label="API 配额使用量"\n  max={20000}\n  showValueLabel\n  value={12480}\n/>`),
+  "scroll-area": createCodeSample("抽屉日志", `<ScrollArea aria-label="投递日志">\n  <ScrollAreaViewport style={{ maxHeight: 280, overflow: "auto" }}>{logRows}</ScrollAreaViewport>\n</ScrollArea>`),
+  "search-input": createCodeSample("受控搜索", `<SearchInput\n  aria-label="搜索邮件"\n  onChange={(event) => setQuery(event.target.value)}\n  placeholder="搜索发件人、主题或验证码"\n  value={query}\n/>`),
+  "select-input": createCodeSample("域名选择", `<SelectInput aria-label="邮箱域名" defaultValue="wemail.dev">\n  <option value="wemail.dev">wemail.dev</option>\n  <option value="example.com">example.com</option>\n</SelectInput>`),
+  "selection-controls": createCodeSample("卡片式单选", `<Radio name="density" value="compact" label="紧凑" />\n<Radio name="density" value="comfortable" label="舒适" />`),
+  skeleton: createCodeSample("列表骨架", `<Skeleton shape="circle" width={32} height={32} />\n<Skeleton shape="text" width="48%" />\n<Skeleton shape="text" width="72%" />`),
+  spinner: createCodeSample("按钮内等待", `<Button isLoading loadingLabel="发送中" variant="primary">\n  发送测试通知\n</Button>`),
+  steps: createCodeSample("带说明步骤", `<Steps currentStep={3}>\n  <StepsList>\n    <StepItem description="版本和迁移已确认" step={1} title="准备" />\n    <StepItem description="测试和构建完成" step={2} title="验证" />\n  </StepsList>\n</Steps>`),
+  switch: createCodeSample("禁用开关", `<Switch disabled label="生产环境强制启用" aria-label="生产环境强制启用" />`),
+  table: createCodeSample("可交互行", `<TableRow isInteractive>\n  <TableCell>ops@wemail.ai</TableCell>\n  <TableCell><Badge variant="success">启用</Badge></TableCell>\n</TableRow>`),
+  tabs: createCodeSample("受控标签页", `<Tabs value={activeTab} onValueChange={setActiveTab}>\n  <TabsList><TabsTrigger value="overview">概览</TabsTrigger></TabsList>\n  <TabsPanel value="overview">概览内容</TabsPanel>\n</Tabs>`),
+  tag: createCodeSample("筛选标签", `<Tag dot variant="warning">异常账号</Tag>\n<Tag shape="rounded" variant="neutral">内测域名</Tag>`),
+  "textarea-input": createCodeSample("只读 payload", `<TextareaInput\n  aria-label="Webhook payload"\n  readOnly\n  value={JSON.stringify(payload, null, 2)}\n/>`),
+  tooltip: createCodeSample("禁用原因", `<Tooltip>\n  <TooltipTrigger aria-label="为什么不可用">?</TooltipTrigger>\n  <TooltipContent side="bottom">需要管理员权限。</TooltipContent>\n</Tooltip>`),
+  "tooltip-popover": createCodeSample("选择使用边界", `<Tooltip><TooltipTrigger aria-label="说明">?</TooltipTrigger><TooltipContent>短说明</TooltipContent></Tooltip>\n<Popover><PopoverTrigger>更多操作</PopoverTrigger><PopoverContent>上下文操作</PopoverContent></Popover>`)
+};
+
 export const designSystemGroups: DesignSystemGroupDoc[] = baseDesignSystemGroups.map((group) => ({
   ...group,
   overviewDescription:
     group.id === "foundations"
       ? `${group.overviewDescription} 页面结构参考 HeroUI React Components 的组件索引与详情页顺序，先看组件、再看 API、最后看真实预览。`
       : group.overviewDescription,
-  components: [...group.components, ...(heroUiInspiredComponentAdditions[group.id] ?? [])].map((component) => ({
-    ...component,
-    codeSamples: component.codeSamples?.length ? component.codeSamples : heroUiInspiredCodeSamplesById[component.id]
-  }))
+  components: [...group.components, ...(heroUiInspiredComponentAdditions[group.id] ?? [])].map((component) => {
+    const codeSamples = component.codeSamples?.length ? component.codeSamples : heroUiInspiredCodeSamplesById[component.id] ?? [];
+    const supplementalCodeSample = supplementalCodeSampleById[component.id];
+
+    return {
+      ...component,
+      codeSamples: codeSamples.length >= 2 || !supplementalCodeSample ? codeSamples : [...codeSamples, supplementalCodeSample]
+    };
+  })
 }));

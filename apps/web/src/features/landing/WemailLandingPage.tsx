@@ -326,7 +326,12 @@ function AnimatedCounter({ value, prefix, suffix }: { value: number; prefix: str
   );
 }
 
-function HeroSection() {
+type LandingAuthCtaProps = {
+  consoleHref: string;
+  isAuthenticated: boolean;
+};
+
+function HeroSection({ consoleHref, isAuthenticated }: LandingAuthCtaProps) {
   const reducedMotion = useReducedMotion();
   const [isVisible, setIsVisible] = useState(false);
   const [wordIndex] = useAutoIndex(heroWords.length, 2500, reducedMotion);
@@ -376,12 +381,20 @@ function HeroSection() {
         <div className="landing-hero-bottom">
           <p className="landing-hero-description">为 QA、运营、客服和内部自动化提供统一工作台，在同一界面完成收件、解析、外发与权限治理。</p>
           <div className="landing-cta-row">
-            <ButtonLink size="lg" to="/register" trailingIcon={<ArrowRight aria-hidden="true" />} variant="primary">
-              立即开始
-            </ButtonLink>
-            <ButtonLink size="lg" to="/login" variant="secondary">
-              进入登录
-            </ButtonLink>
+            {isAuthenticated ? (
+              <ButtonLink size="lg" to={consoleHref} trailingIcon={<ArrowRight aria-hidden="true" />} variant="primary">
+                进入控制台
+              </ButtonLink>
+            ) : (
+              <>
+                <ButtonLink size="lg" to="/register" trailingIcon={<ArrowRight aria-hidden="true" />} variant="primary">
+                  立即开始
+                </ButtonLink>
+                <ButtonLink size="lg" to="/login" variant="secondary">
+                  进入登录
+                </ButtonLink>
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -854,7 +867,7 @@ function PricingSection() {
   );
 }
 
-function CtaSection() {
+function CtaSection({ consoleHref, isAuthenticated }: LandingAuthCtaProps) {
   const [mousePosition, setMousePosition] = useState({ x: 50, y: 50 });
 
   function handleMouseMove(event: MouseEvent<HTMLDivElement>) {
@@ -879,12 +892,20 @@ function CtaSection() {
           <h2 className="landing-display-title">准备把临时邮箱接入你的系统？</h2>
           <p className="landing-section-copy">先从测试、活动上线或运营协作开始，再逐步打开团队真正需要的治理能力，不必一开始就背上沉重平台成本。</p>
           <div className="landing-cta-row">
-            <ButtonLink size="lg" to="/register" trailingIcon={<ArrowRight aria-hidden="true" />} variant="primary">
-              受邀注册
-            </ButtonLink>
-            <ButtonLink size="lg" to="/login" variant="secondary">
-              进入登录
-            </ButtonLink>
+            {isAuthenticated ? (
+              <ButtonLink size="lg" to={consoleHref} trailingIcon={<ArrowRight aria-hidden="true" />} variant="primary">
+                进入控制台
+              </ButtonLink>
+            ) : (
+              <>
+                <ButtonLink size="lg" to="/register" trailingIcon={<ArrowRight aria-hidden="true" />} variant="primary">
+                  受邀注册
+                </ButtonLink>
+                <ButtonLink size="lg" to="/login" variant="secondary">
+                  进入登录
+                </ButtonLink>
+              </>
+            )}
           </div>
         </div>
         <div className="landing-cta-visual" aria-hidden="true">
@@ -939,17 +960,23 @@ function FooterSection() {
 }
 
 export function WemailLandingPage({
+  consoleHref,
+  isAuthenticated = false,
   onToggleTheme,
   theme
 }: {
+  consoleHref?: string;
+  isAuthenticated?: boolean;
   onToggleTheme: () => void;
   theme: "dark" | "light";
 }) {
+  const resolvedConsoleHref = consoleHref ?? "/dashboard";
+
   return (
     <div className="landing-page noise-overlay">
-      <PublicSiteNavigation onToggleTheme={onToggleTheme} theme={theme} />
+      <PublicSiteNavigation consoleHref={resolvedConsoleHref} isAuthenticated={isAuthenticated} onToggleTheme={onToggleTheme} theme={theme} />
       <main className="landing-page-main">
-        <HeroSection />
+        <HeroSection consoleHref={resolvedConsoleHref} isAuthenticated={isAuthenticated} />
         <FeaturesSection />
         <HowItWorksSection />
         <InfrastructureSection />
@@ -959,7 +986,7 @@ export function WemailLandingPage({
         <DevelopersSection />
         <TestimonialsSection />
         <PricingSection />
-        <CtaSection />
+        <CtaSection consoleHref={resolvedConsoleHref} isAuthenticated={isAuthenticated} />
       </main>
       <FooterSection />
     </div>

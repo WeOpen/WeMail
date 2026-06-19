@@ -1,14 +1,22 @@
-import { type CSSProperties, useEffect, useState } from "react";
+import { type CSSProperties, useEffect, useRef, useState } from "react";
+import { ArrowUp } from "lucide-react";
 
 import { type WorkspaceTheme } from "../app/appStore";
 import { PublicSiteNavigation } from "../features/landing/PublicSiteNavigation";
 import { Badge } from "../shared/badge";
+import { Button } from "../shared/button";
+import { Icon } from "../shared/icon";
 import { DesignSystemDocContent } from "./design-system/DesignSystemDocContent";
-import { DesignSystemPreviewOverlays, DesignSystemSectionList } from "./design-system/DesignSystemPreviewContent";
+import { DesignSystemPreviewOverlays } from "./design-system/DesignSystemPreviewContent";
 import { designSystemGroups } from "./design-system/designSystemContent";
 import { PreviewActionButtons } from "./design-system/designSystemPreviewParts";
 import { designSystemSections, findDesignSystemSection } from "./design-system/designSystemSections";
-import { designSystemPageStyles, designSystemSharedStyles, resolveDesignSystemSidebarLayoutStyle } from "./design-system/designSystemStyles";
+import {
+  designSystemPageStyles,
+  designSystemSharedStyles,
+  resolveDesignSystemSidebarLayoutStyle,
+  resolveDesignSystemSidebarShellStyle
+} from "./design-system/designSystemStyles";
 
 const DESIGN_SYSTEM_THEME_STORAGE_KEY = "wemail-design-system-preview-theme";
 
@@ -41,6 +49,8 @@ export function DesignSystemPage() {
   const [activeGroupId, setActiveGroupId] = useState(initialGroup?.id ?? "foundations");
   const [activeComponentId, setActiveComponentId] = useState<string | null>(initialComponent?.id ?? null);
   const [sidebarLayoutStyle, setSidebarLayoutStyle] = useState<CSSProperties>(resolveDesignSystemSidebarLayoutStyle);
+  const [sidebarShellStyle, setSidebarShellStyle] = useState<CSSProperties>(resolveDesignSystemSidebarShellStyle);
+  const contentTopRef = useRef<HTMLDivElement>(null);
 
   const activeGroup = groups.find((group) => group.id === activeGroupId) ?? groups[0];
   const activeComponent = activeGroup?.components.find((component) => component.id === activeComponentId) ?? activeGroup?.components[0] ?? null;
@@ -52,6 +62,11 @@ export function DesignSystemPage() {
   function handleSelectComponent(groupId: string, componentId: string) {
     setActiveGroupId(groupId);
     setActiveComponentId(componentId);
+    contentTopRef.current?.scrollIntoView?.({ behavior: "smooth", block: "start" });
+  }
+
+  function handleBackToTop() {
+    window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   useEffect(() => {
@@ -76,6 +91,7 @@ export function DesignSystemPage() {
   useEffect(() => {
     function handleResize() {
       setSidebarLayoutStyle(resolveDesignSystemSidebarLayoutStyle());
+      setSidebarShellStyle(resolveDesignSystemSidebarShellStyle());
     }
 
     handleResize();
@@ -98,8 +114,8 @@ export function DesignSystemPage() {
             <div style={{ ...designSystemSharedStyles.stack, gap: "10px" }}>
               <h1 style={{ margin: 0 }}>Components</h1>
               <p className="section-copy" style={{ margin: 0, maxWidth: "820px" }}>
-                参考 HeroUI React Components 的信息架构：左侧按组件索引导航，右侧每个组件都按 Import、Usage、Variants、Anatomy、Accessibility、API Reference 和 Examples 展开。
-                WeMail 保留自己的共享原语、token 和业务约束，但阅读路径会尽量贴近 HeroUI 的组件文档体验。
+                参考 HeroUI React Components 的组件索引导航，但右侧详情聚焦当前组件：先给 Examples，再展开 Import、Usage、Variants、Anatomy、Accessibility 和 API Reference。
+                WeMail 保留自己的共享原语、token 和业务约束，避免在单个组件页混入其它组件或分区级展示。
               </p>
             </div>
             <div style={{ ...designSystemSharedStyles.chipRow, justifyContent: "space-between", alignItems: "center" }}>
@@ -118,7 +134,7 @@ export function DesignSystemPage() {
         </section>
 
         <div style={sidebarLayoutStyle}>
-          <aside className="workspace-rail-shell" aria-label="design system sidebar shell" style={designSystemPageStyles.sidebarShell}>
+          <aside className="workspace-rail-shell" aria-label="design system sidebar shell" style={{ ...designSystemPageStyles.sidebarShell, ...sidebarShellStyle }}>
             <nav className="workspace-rail workspace-scroll-area" aria-label="Design system sidebar" style={designSystemPageStyles.sidebarNav}>
               {groups.map((group) => (
                 <section className="workspace-rail-section" key={group.id} style={designSystemPageStyles.sidebarGroup}>
@@ -156,7 +172,7 @@ export function DesignSystemPage() {
             </nav>
           </aside>
 
-          <div style={{ display: "grid", gap: "24px" }}>
+          <div data-testid="design-system-content-top" ref={contentTopRef} style={{ display: "grid", gap: "24px", scrollMarginTop: "96px" }}>
             {activeComponent ? (
               <>
                 <DesignSystemDocContent
@@ -164,7 +180,6 @@ export function DesignSystemPage() {
                   groupTitle={activeGroup?.title ?? "Design system"}
                   sectionTitles={activeComponent.sectionIds.map((sectionId) => findDesignSystemSection(sectionId).title)}
                 />
-                <DesignSystemSectionList sectionIds={activeComponent.sectionIds} />
               </>
             ) : null}
           </div>
@@ -176,6 +191,16 @@ export function DesignSystemPage() {
           onCloseDialog={() => setIsDialogOpen(false)}
           onCloseDrawer={() => setIsDrawerOpen(false)}
         />
+        <Button
+          aria-label="返回顶部"
+          iconOnly
+          onClick={handleBackToTop}
+          size="lg"
+          style={designSystemPageStyles.backToTopButton}
+          variant="icon"
+        >
+          <Icon decorative icon={ArrowUp} size="md" />
+        </Button>
       </main>
     </div>
   );

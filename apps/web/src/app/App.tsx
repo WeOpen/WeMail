@@ -6,6 +6,7 @@ import { AppRoutes } from "./AppRoutes";
 import { AuthPage } from "../pages/AuthPage";
 import { DesignSystemPage } from "../pages/DesignSystemPage";
 import { acknowledgeAnnouncement, fetchAnnouncements, type AnnouncementItem } from "../features/announcements/api";
+import { WemailLandingPage } from "../features/landing/WemailLandingPage";
 import type { MailboxCreatePayload } from "../features/inbox/api";
 import { Button } from "../shared/button";
 import { OverlayDialog } from "../shared/overlay";
@@ -205,6 +206,7 @@ function AppContent() {
 
   const toastViewport = <WemailToastViewport onDismissToast={dismissToast} toasts={toasts} />;
   const isPublicDesignSystemPage = location.pathname === "/design-system";
+  const isPublicHomePage = location.pathname === "/";
 
   if (isPublicDesignSystemPage) {
     return (
@@ -250,6 +252,20 @@ function AppContent() {
     }
 
     return <Navigate to={resolvePostAuthPath(location.search, profile.profile?.preferences.landingPage ?? "/dashboard")} replace />;
+  }
+
+  if (isPublicHomePage) {
+    return (
+      <>
+        {toastViewport}
+        <WemailLandingPage
+          consoleHref={profile.profile?.preferences.landingPage ?? "/dashboard"}
+          isAuthenticated
+          onToggleTheme={toggleTheme}
+          theme={theme}
+        />
+      </>
+    );
   }
 
   if (!shell) return null;

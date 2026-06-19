@@ -1,0 +1,232 @@
+---
+title: 本地快速开始
+description: 在本地启动 WeMail Web、Worker 和 D1，完成第一次注册
+---
+
+这一章带你从一个刚 clone 下来的仓库跑到本地可登录的 WeMail。完成后你会得到：
+
+- 一个本地 Worker API，通常在 `http://127.0.0.1:8787`。
+- 一个本地 Web 前端，通常在 `http://127.0.0.1:5173`。
+- 一个本地 D1 数据库。
+- 一个可用于注册的本地邀请码。
+
+![本地启动终端示意图](/docs/screenshots/local-dev-terminal.png)
+
+上图是本地启动流程示意截图，命令和输出重点与实际流程一致。
+
+## 需要准备
+
+| 工具 | 建议版本 | 用途 |
+| --- | --- | --- |
+| Node.js | 22.x | 运行 monorepo 脚本和构建工具 |
+| pnpm | 10.18.2 | 安装 workspace 依赖 |
+| Git | 任意较新版本 | 拉取代码 |
+| 浏览器 | Chrome / Edge / Safari | 访问本地前端 |
+
+检查版本：
+
+```bash
+node -v
+pnpm -v
+git --version
+```
+
+如果你没有 pnpm，可以先启用 Corepack：
+
+```bash
+corepack enable
+corepack prepare pnpm@10.18.2 --activate
+pnpm -v
+```
+
+## 1. 安装依赖
+
+在仓库根目录执行：
+
+```bash
+pnpm install
+```
+
+这个命令会安装 `apps/web`、`apps/worker`、`packages/shared` 和 `apps/docs` 所需依赖。
+
+如果安装失败，先确认：
+
+- 当前目录是仓库根目录，不是 `apps/web` 或 `apps/worker`。
+- Node 是 22.x。
+- 没有混用 `npm install` 或 `yarn install` 生成额外 lockfile。
+
+## 2. 初始化本地 D1
+
+WeMail 注册需要邀请码，本地开发也一样。执行：
+
+```bash
+pnpm db:init:worker -- --invite-code LOCAL-INVITE
+```
+
+期望看到类似输出：
+
+```text
+Local D1 initialized. Invite code: LOCAL-INVITE
+```
+
+这个命令会做三件事：
+
+1. 把 `apps/worker/src/infrastructure/db/schema.sql` 应用到本地 D1。
+2. 写入一个邀请码。
+3. 查询本地 D1，确认邀请码已经存在。
+
+如果你不指定邀请码，也可以执行：
+
+```bash
+pnpm db:init:worker
+```
+
+脚本会生成一个类似 `INVITE-XXXXXXXX` 的随机邀请码。建议新手先用固定的 `LOCAL-INVITE`，注册时不容易输错。
+
+## 3. 启动 Web 和 Worker
+
+在仓库根目录执行：
+
+```bash
+pnpm dev
+```
+
+这个命令会同时启动：
+
+| 服务 | 常见地址 | 说明 |
+| --- | --- | --- |
+| Web | `http://127.0.0.1:5173` | React + Vite 前端 |
+| Worker | `http://127.0.0.1:8787` | Cloudflare Worker 本地服务 |
+
+Worker 地址以 `wrangler dev` 的终端输出为准。大多数情况下是 `8787`。
+
+只启动某一边也可以：
+
+```bash
+pnpm dev:web
+pnpm dev:worker
+```
+
+完整体验建议使用 `pnpm dev`，因为只开前端时，登录、注册、邮箱列表等 API 会失败。
+
+## 4. 检查 Worker 健康状态
+
+新开一个终端，在仓库根目录或任意目录执行：
+
+```bash
+curl -s http://127.0.0.1:8787/api/system/health
+```
+
+成功时会返回 JSON，核心字段类似：
+
+```json
+{
+  "ok": true,
+  "environment": "local",
+  "appName": "WeMail"
+}
+```
+
+如果这里失败，先不要继续注册。优先检查 Worker 终端输出。
+
+## 5. 注册第一个本地账号
+
+打开：
+
+```text
+http://127.0.0.1:5173/register
+```
+
+填写：
+
+| 字段 | 示例 |
+| --- | --- |
+| 邮箱 | `admin@example.com` |
+| 名称 | `Admin` |
+| 密码 | 自己设一个本地密码 |
+| 邀请码 | `LOCAL-INVITE` |
+
+注册成功后，浏览器会写入 session cookie。之后访问工作台页面时会自动带上这个 cookie。
+
+## 6. 创建第一个邮箱账号
+
+登录后进入工作台，创建一个邮箱账号。默认本地域名来自 `apps/worker/wrangler.toml`：
+
+```toml
+DEFAULT_MAIL_DOMAIN = "example.com"
+```
+
+本地创建的地址通常会类似：
+
+```text
+xxx@example.com
+```
+
+本地开发不会自动接收真实互联网邮件。真实收件需要部署到 Cloudflare 并配置 Email Routing，见 [Email Routing](/docs/email-routing)。
+
+## 7. 本地开发时的常用验证
+
+```bash
+pnpm test
+pnpm typecheck
+pnpm lint
+pnpm build
+```
+
+只验证某个范围：
+
+```bash
+pnpm test:worker
+pnpm test:web
+pnpm test:shared
+pnpm build:docs
+```
+
+如果你只改文档站：
+
+```bash
+pnpm lint:docs
+pnpm typecheck:docs
+pnpm build:docs
+```
+
+## 常见问题
+
+### `pnpm db:init:worker` 失败
+
+先检查是不是在仓库根目录执行。这个脚本会进入 `apps/worker` 并调用 Wrangler。
+
+也可以直接进入 Worker 目录排查：
+
+```bash
+cd apps/worker
+pnpm exec wrangler --version
+```
+
+### 注册提示邀请码无效
+
+重新初始化本地 D1，并明确指定邀请码：
+
+```bash
+pnpm db:init:worker -- --invite-code LOCAL-INVITE
+```
+
+再刷新注册页，重新填写 `LOCAL-INVITE`。
+
+### 前端打开了，但注册接口失败
+
+本地前端默认把 API 请求发到 `http://127.0.0.1:8787`。确认 Worker 也在运行：
+
+```bash
+curl -i http://127.0.0.1:8787/api/system/health
+```
+
+如果 Worker 端口不是 `8787`，需要按终端输出调整本地配置，或重启 `pnpm dev`。
+
+### 登录后页面一直回到登录页
+
+常见原因是浏览器没有保存 session cookie。检查：
+
+- Web 地址使用 `127.0.0.1:5173`，不要一会儿用 `localhost` 一会儿用 `127.0.0.1`。
+- Worker 的 `COOKIE_SECURE` 在本地是 `"false"`。
+- 浏览器没有禁用本地站点 cookie。
