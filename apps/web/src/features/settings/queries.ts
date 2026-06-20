@@ -1,6 +1,18 @@
-import type { ApiKeySummary, DictionaryCatalogGroup, TelegramDeliverySummary, TelegramOverviewSummary } from "@wemail/shared";
+import type {
+  ApiKeySummary,
+  DictionaryCatalogGroup,
+  RuntimeSettings,
+  TelegramDeliverySummary,
+  TelegramOverviewSummary
+} from "@wemail/shared";
 
-import { fetchApiKeys, fetchDictionaries, fetchTelegramDeliveries, fetchTelegramOverview } from "./api";
+import {
+  fetchApiKeys,
+  fetchDictionaries,
+  fetchRuntimeSettings,
+  fetchTelegramDeliveries,
+  fetchTelegramOverview
+} from "./api";
 
 const emptyTelegramOverview: TelegramOverviewSummary = {
   botConfigured: false,
@@ -10,17 +22,19 @@ const emptyTelegramOverview: TelegramOverviewSummary = {
   supportedEvents: []
 };
 
-export async function querySettingsData() {
-  const [keyPayload, telegramPayload, deliveryPayload, dictionaryPayload] = await Promise.all([
+export async function querySettingsData(options?: { includeRuntimeSettings?: boolean }) {
+  const [keyPayload, telegramPayload, deliveryPayload, dictionaryPayload, runtimeSettingsPayload] = await Promise.all([
     fetchApiKeys(),
     fetchTelegramOverview(),
     fetchTelegramDeliveries(),
-    fetchDictionaries()
+    fetchDictionaries(),
+    options?.includeRuntimeSettings ? fetchRuntimeSettings() : Promise.resolve({ settings: null })
   ]);
 
   return {
     apiKeys: keyPayload.keys as ApiKeySummary[],
     dictionaries: (dictionaryPayload.dictionaries ?? []) as DictionaryCatalogGroup[],
+    runtimeSettings: (runtimeSettingsPayload.settings ?? null) as RuntimeSettings | null,
     telegramOverview: (telegramPayload.overview ?? emptyTelegramOverview) as TelegramOverviewSummary,
     telegramDeliveries: (deliveryPayload.deliveries ?? []) as TelegramDeliverySummary[]
   };

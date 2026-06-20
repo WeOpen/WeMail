@@ -102,6 +102,36 @@ describe("system KV cache", () => {
     expect(cache.delete).toHaveBeenCalledWith("v1:system:domains");
   });
 
+  it("caches runtime settings reads and invalidates them after updates", async () => {
+    const harness = createWorkerTestHarness();
+    const cookie = await registerAdmin(harness);
+    const cache = createMockKv();
+    const env = { ...harness.env, CACHE: cache };
+
+    const getResponse = await harness.app.request("/api/system/runtime-settings", { headers: { cookie } }, env);
+    expect(getResponse.status).toBe(200);
+    expect(cache.put).toHaveBeenCalledWith(
+      "v1:system:runtime-settings",
+      expect.any(String),
+      expect.objectContaining({ expirationTtl: 120 })
+    );
+
+    const patchResponse = await harness.app.request(
+      "/api/system/runtime-settings",
+      {
+        method: "PATCH",
+        headers: {
+          cookie,
+          "content-type": "application/json"
+        },
+        body: JSON.stringify({ api: { dailyLimit: 1234 } })
+      },
+      env
+    );
+    expect(patchResponse.status).toBe(200);
+    expect(cache.delete).toHaveBeenCalledWith("v1:system:runtime-settings");
+  });
+
   it("caches account policy reads and invalidates them after updates", async () => {
     const harness = createWorkerTestHarness();
     const cookie = await registerAdmin(harness);

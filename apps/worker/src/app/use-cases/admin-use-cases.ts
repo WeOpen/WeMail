@@ -3,7 +3,7 @@ import type { UserRole, UserStatus } from "@wemail/shared";
 import type { AppBindings, AppStore, PageListOptions, UserListOptions, UserRecord } from "../../core/bindings";
 import { hashPassword } from "../../shared/auth";
 import { jsonError, recordAudit } from "../services/audit-service";
-import { getApiDailyLimit, getOutboundLimit } from "../services/config-service";
+import { getResolvedApiDailyLimit, getResolvedOutboundLimit } from "../services/config-service";
 
 type AdminUseCaseContext = {
   store: AppStore;
@@ -58,11 +58,15 @@ export async function createAdminUserUseCase(
     role: payload.role
   });
 
+  const [apiDailyLimit, dailyLimit] = await Promise.all([
+    getResolvedApiDailyLimit(context.store, context.env),
+    getResolvedOutboundLimit(context.store, context.env)
+  ]);
   await context.store.quotas.save({
     userId: user.id,
-    apiDailyLimit: getApiDailyLimit(context.env),
+    apiDailyLimit,
     apiCallsToday: 0,
-    dailyLimit: getOutboundLimit(context.env),
+    dailyLimit,
     sendsToday: 0,
     disabled: false,
     updatedAt: new Date().toISOString()
@@ -186,14 +190,22 @@ export async function disableInviteUseCase(
 }
 
 export async function getQuotaUseCase(context: AdminUseCaseContext, userId: string) {
-  return context.store.quotas.getByUserId(userId, getOutboundLimit(context.env), getApiDailyLimit(context.env));
+  const [outboundLimit, apiDailyLimit] = await Promise.all([
+    getResolvedOutboundLimit(context.store, context.env),
+    getResolvedApiDailyLimit(context.store, context.env)
+  ]);
+  return context.store.quotas.getByUserId(userId, outboundLimit, apiDailyLimit);
 }
 
 export async function updateQuotaUseCase(
   context: AdminUseCaseContext,
   payload: { actorUserId: string; userId: string; apiDailyLimit: number; dailyLimit: number; disabled: boolean }
 ) {
-  const existing = await context.store.quotas.getByUserId(payload.userId, getOutboundLimit(context.env), getApiDailyLimit(context.env));
+  const [outboundLimit, apiDailyLimit] = await Promise.all([
+    getResolvedOutboundLimit(context.store, context.env),
+    getResolvedApiDailyLimit(context.store, context.env)
+  ]);
+  const existing = await context.store.quotas.getByUserId(payload.userId, outboundLimit, apiDailyLimit);
   existing.apiDailyLimit = payload.apiDailyLimit;
   existing.dailyLimit = payload.dailyLimit;
   existing.disabled = payload.disabled;

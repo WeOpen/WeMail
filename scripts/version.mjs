@@ -5,7 +5,13 @@ import { fileURLToPath } from "node:url";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const mode = process.argv[2] ?? "check";
-const packagePaths = ["package.json", "apps/web/package.json", "apps/worker/package.json", "packages/shared/package.json"];
+const packagePaths = [
+  "package.json",
+  "apps/docs/package.json",
+  "apps/web/package.json",
+  "apps/worker/package.json",
+  "packages/shared/package.json"
+];
 const versionFilePath = "packages/shared/src/version.ts";
 const openApiPath = "docs/openapi.yaml";
 const changelogPath = "CHANGELOG.md";

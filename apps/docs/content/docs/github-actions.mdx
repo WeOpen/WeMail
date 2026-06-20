@@ -47,6 +47,9 @@ production
 | `CLOUDFLARE_API_TOKEN` | 部署 Worker、Pages、执行 D1 migrations |
 | `CLOUDFLARE_ACCOUNT_ID` | Cloudflare Account ID |
 | `CLOUDFLARE_PAGES_PROJECT_NAME` | Cloudflare Pages 项目名 |
+| `CLOUDFLARE_D1_DATABASE_ID` | 当前 environment 的 D1 database ID |
+| `CLOUDFLARE_KV_NAMESPACE_ID` | 当前 environment 的 KV namespace ID |
+| `CLOUDFLARE_KV_PREVIEW_NAMESPACE_ID` | 当前 environment 的 KV preview namespace ID |
 
 `GITHUB_TOKEN` 是 GitHub Actions 内建 token，不需要手动配置。
 
@@ -87,7 +90,7 @@ env:
 作用：
 
 - 校验 production 只能从 `main` 触发。
-- 检查 Cloudflare deploy secrets 是否存在。
+- 检查 Cloudflare deploy secrets 和 D1 / KV 绑定 ID secrets 是否存在。
 - 根据 environment 输出 D1 database name、Worker deploy command、Pages deploy mode。
 
 production 分支保护逻辑：
@@ -218,7 +221,8 @@ production 只能从 `main` 发。
 - 当前发布 commit 已合入 `main`。
 - staging 已验证通过。
 - `CHANGELOG.md` 已更新。
-- `wrangler.toml` production 绑定不是占位值。
+- production Environment secrets 已配置 D1 / KV 真实 ID。
+- `wrangler.toml` 没有提交真实 D1 / KV ID。
 - production secrets 已写入。
 - 回滚目标 commit 或 tag 已明确。
 
@@ -240,6 +244,9 @@ production 只能从 `main` 发。
 - `CLOUDFLARE_API_TOKEN`
 - `CLOUDFLARE_ACCOUNT_ID`
 - `CLOUDFLARE_PAGES_PROJECT_NAME`
+- `CLOUDFLARE_D1_DATABASE_ID`
+- `CLOUDFLARE_KV_NAMESPACE_ID`
+- `CLOUDFLARE_KV_PREVIEW_NAMESPACE_ID`
 
 缺哪个就去对应 GitHub Environment 补哪个。
 
@@ -258,7 +265,7 @@ workflow 会直接失败。这是预期保护。
 
 常见原因：
 
-- `wrangler.toml` 里 D1 database ID 配错。
+- 当前 GitHub Environment 的 `CLOUDFLARE_D1_DATABASE_ID` 配错。
 - migrations 已部分执行。
 - migration 文件与当前 schema 不兼容。
 

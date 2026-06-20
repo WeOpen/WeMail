@@ -3,7 +3,7 @@ title: Cloudflare 资源准备
 description: 为 WeMail 创建 Worker、Pages、D1、KV、Email Routing 和可选 R2
 ---
 
-这一章只做资源准备，不改业务代码。目标是把 staging 和 production 需要的 Cloudflare 资源先建出来，并把后面要写入 `wrangler.toml`、GitHub secrets 的值记录好。
+这一章只做资源准备，不改业务代码。目标是把 staging 和 production 需要的 Cloudflare 资源先建出来，并把后面要写入 GitHub Environment secrets 的值记录好。
 
 ![Cloudflare 资源准备示意图](/docs/screenshots/cloudflare-resources.png)
 
@@ -56,7 +56,7 @@ database_name = "wemail-staging"
 database_id = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
 ```
 
-把 staging 和 production 的 `database_id` 都保存下来，后面写进 `apps/worker/wrangler.toml`。
+把 staging 和 production 的 `database_id` 都保存下来，后面分别写进 GitHub Environment secret `CLOUDFLARE_D1_DATABASE_ID`。
 
 ## 3. 创建 KV namespace
 
@@ -117,10 +117,10 @@ CLOUDFLARE_PAGES_PROJECT_NAME
 example.com
 ```
 
-你后面会把它写入 Worker 配置：
+部署完成后，你会在 WeMail 后台填写它：
 
-```toml
-DEFAULT_MAIL_DOMAIN = "example.com"
+```text
+系统设置 -> 域名设置 -> example.com
 ```
 
 如果你还没有正式域名，可以先用 staging 子域名或测试域名走完部署流程。不要把生产环境长期留在 `example.com`。
@@ -146,6 +146,8 @@ binding = "ATTACHMENTS"
 bucket_name = "wemail-production-attachments"
 ```
 
+R2 bucket 名不是 secret，可以提交；D1 / KV 的真实 ID 不要提交。
+
 ## 7. 记录资源表
 
 建议在部署前把这些值整理到一个本地私有笔记，不要提交到仓库：
@@ -165,4 +167,4 @@ bucket_name = "wemail-production-attachments"
 
 ## 下一步
 
-资源准备完后，继续配置 [Worker 配置](/docs/worker-config)。那里会把 D1 / KV ID 写入 `wrangler.toml`，并设置 secrets、CORS、Cookie 和功能开关。
+资源准备完后，继续配置 [Worker 配置](/docs/worker-config)。那里会说明 `wrangler.toml` 占位绑定、GitHub Environment secrets、CORS、Cookie 和后台业务设置。

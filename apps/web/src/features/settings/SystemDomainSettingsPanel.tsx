@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Plus, Trash2 } from "lucide-react";
+import { Save, Trash2 } from "lucide-react";
 import type { MailDomainSummary, UserRole } from "@wemail/shared";
 
 import { Button } from "../../shared/button";
@@ -60,21 +60,33 @@ export function SystemDomainSettingsPanel() {
     };
   }, []);
 
-  function addDomain() {
+  function readPendingDomain() {
     const nextDomain = normalizeDomain(domainInput);
-    setStatusText(null);
+    if (!nextDomain) return { domains, hasPendingDomain: false };
 
     if (!isValidDomain(nextDomain)) {
       setErrorText("请输入有效的域名后缀，例如 example.com。");
-      return;
+      return null;
     }
 
     if (domains.some((domain) => domain.domain === nextDomain)) {
       setErrorText("该域名后缀已在列表中。");
-      return;
+      return null;
     }
 
-    setDomains((current) => [...current, { domain: nextDomain, allowedRoles: allowedRoleInput }]);
+    return {
+      domains: [...domains, { domain: nextDomain, allowedRoles: allowedRoleInput }],
+      hasPendingDomain: true
+    };
+  }
+
+  function addDomain() {
+    setStatusText(null);
+
+    const result = readPendingDomain();
+    if (!result || !result.hasPendingDomain) return;
+
+    setDomains(result.domains);
     setDomainInput("");
     setAllowedRoleInput([]);
     setErrorText(null);
@@ -95,17 +107,24 @@ export function SystemDomainSettingsPanel() {
   }
 
   async function saveDomains() {
-    if (domains.length === 0) {
+    setStatusText(null);
+    const result = readPendingDomain();
+    if (!result) return;
+
+    if (result.domains.length === 0) {
       setErrorText("至少保留一个邮箱域名后缀。");
       return;
     }
 
     setIsSaving(true);
-    setStatusText(null);
     setErrorText(null);
     try {
-      const settings = await updateSystemDomains(domains);
+      const settings = await updateSystemDomains(result.domains);
       setDomains(settings.domains);
+      if (result.hasPendingDomain) {
+        setDomainInput("");
+        setAllowedRoleInput([]);
+      }
       setStatusText("域名设置已保存。");
     } catch {
       setErrorText("域名设置保存失败，请稍后重试。");
@@ -186,9 +205,6 @@ export function SystemDomainSettingsPanel() {
             ))}
           </div>
         </fieldset>
-        <Button leadingIcon={<Plus aria-hidden="true" />} onClick={addDomain} type="button" variant="secondary">
-          添加域名
-        </Button>
       </div>
 
       {errorText ? (
@@ -203,7 +219,15 @@ export function SystemDomainSettingsPanel() {
       ) : null}
 
       <div className="system-domain-actions">
-        <Button disabled={isSaving || isLoading} onClick={() => void saveDomains()} variant="primary">
+        <Button
+          className="system-domain-save-button"
+          disabled={isSaving || isLoading}
+          isLoading={isSaving}
+          leadingIcon={<Save size={16} strokeWidth={1.9} aria-hidden="true" />}
+          loadingLabel="保存中"
+          onClick={() => void saveDomains()}
+          variant="primary"
+        >
           {isSaving ? "保存中..." : "保存域名设置"}
         </Button>
       </div>

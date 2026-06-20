@@ -10,12 +10,17 @@ import {
 import type { AppBindings, AppStore, MailboxDetailListQuery } from "../../core/bindings";
 import { jsonError, recordAudit } from "../services/audit-service";
 import { buildMailboxAddress } from "../services/address-service";
-import { getMailDomains, getMailDomainsForRole, getMailboxLimit, normalizeMailDomain } from "../services/config-service";
+import {
+  getMailDomains,
+  getMailDomainsForRole,
+  getResolvedMailboxLimit,
+  normalizeMailDomain
+} from "../services/config-service";
 
 type MailboxUseCaseContext = {
   store: AppStore;
   featureToggles: Pick<FeatureToggles, "mailboxCreationEnabled">;
-  env: Pick<AppBindings, "DEFAULT_MAIL_DOMAIN" | "MAILBOX_LIMIT">;
+  env: AppBindings;
 };
 
 export async function listUserMailboxes(context: MailboxUseCaseContext, userId: string) {
@@ -158,7 +163,9 @@ export async function createUserMailbox(
     return jsonError("Mailbox creation disabled", 403);
   }
 
-  if ((await context.store.mailboxes.countByUser(payload.userId)) >= getMailboxLimit(context.env)) {
+  const mailboxCount = await context.store.mailboxes.countByUser(payload.userId);
+  const mailboxLimit = await getResolvedMailboxLimit(context.store, context.env);
+  if (mailboxCount >= mailboxLimit) {
     return jsonError("Mailbox limit reached", 403);
   }
 

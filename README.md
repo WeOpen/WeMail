@@ -140,7 +140,9 @@ WeMail 的标准部署目标是 Cloudflare：
 ```bash
 cd apps/worker
 pnpm exec wrangler kv namespace create CACHE --env staging
+pnpm exec wrangler kv namespace create CACHE --env staging --preview
 pnpm exec wrangler kv namespace create CACHE --env production
+pnpm exec wrangler kv namespace create CACHE --env production --preview
 ```
 
 创建 D1 示例：
@@ -151,38 +153,33 @@ pnpm exec wrangler d1 create wemail-staging
 pnpm exec wrangler d1 create wemail-production
 ```
 
-把 Cloudflare 返回的 D1 database ID 和 KV namespace ID 写入 `apps/worker/wrangler.toml`：
+开源仓库不要把真实 D1 database ID 和 KV namespace ID 写入 `apps/worker/wrangler.toml`。保持文件里的 `replace-with-*` 占位值，改在 GitHub Environment secrets 中配置：
 
-- `env.staging.d1_databases`
-- `env.production.d1_databases`
-- `env.staging.kv_namespaces`
-- `env.production.kv_namespaces`
+- `CLOUDFLARE_D1_DATABASE_ID`
+- `CLOUDFLARE_KV_NAMESPACE_ID`
+- `CLOUDFLARE_KV_PREVIEW_NAMESPACE_ID`
 
-不要把 production 保持为 `replace-with-production-*` 占位值。
+`.github/workflows/deploy-cloudflare.yml` 会在部署时把当前目标环境的占位值临时替换为这些 secrets，不会把真实 ID 提交回仓库。
 
-### 2. 配置 Worker 环境变量
+### 2. 配置 Worker 启动配置
 
 检查 `apps/worker/wrangler.toml` 中的环境配置：
 
-- `DEFAULT_MAIL_DOMAIN`
 - `COOKIE_SECURE`
 - `CORS_ALLOWED_ORIGINS`
-- `MAILBOX_LIMIT`
-- `OUTBOUND_DAILY_LIMIT`
-- `API_DAILY_LIMIT`
-- `AI_FALLBACK_LIMIT`
-- `ENABLE_AI`
-- `ENABLE_TELEGRAM`
-- `ENABLE_OUTBOUND`
-- `ENABLE_MAILBOX_CREATION`
-- `ADMIN_EMAILS`
 
 生产环境必须满足：
 
 - `COOKIE_SECURE = "true"`
 - `CORS_ALLOWED_ORIGINS` 精确列出 Pages 域名或自定义域名
-- `DEFAULT_MAIL_DOMAIN` 指向真实邮件域名
-- `API_DAILY_LIMIT` 默认可保持 `20000`
+
+邮箱域名、邮箱数量上限、邮件保留天数、默认外发额度、默认 API 调用额度、附件大小、AI fallback 次数都在部署后由管理员进入 WeMail「系统设置」维护；AI / Telegram / 发件 / 邮箱创建功能开关在「用户设置」维护。数据保存在 D1 的 `system_settings` 中，不需要把这些业务默认值写进开源仓库。
+
+首次上线后建议按顺序检查：
+
+1. 「系统设置」→「域名设置」：把默认域名改成真实 Email Routing 域名。
+2. 「系统设置」→「业务默认值」：确认额度、保留时间和附件上限。
+3. 「用户设置」→「功能开关」：按实际接入情况开启或关闭 AI、Telegram、发件和邮箱创建。
 
 ### 3. 写入 Worker 运行时 secrets
 
@@ -198,7 +195,7 @@ pnpm exec wrangler secret put TELEGRAM_WEBHOOK_SECRET --env staging
 pnpm exec wrangler secret put TELEGRAM_WEBHOOK_SECRET --env production
 ```
 
-按实际启用能力补充其他第三方服务密钥。未启用的能力应同步关闭对应 `ENABLE_*` 配置。
+按实际启用能力补充其他第三方服务密钥。未启用的能力应在 WeMail「用户设置」→「功能开关」中关闭。
 
 ### 4. 配置 GitHub Environments 和 Secrets
 
@@ -214,11 +211,15 @@ pnpm exec wrangler secret put TELEGRAM_WEBHOOK_SECRET --env production
 | `CLOUDFLARE_API_TOKEN` | Wrangler Action 部署 Worker / Pages |
 | `CLOUDFLARE_ACCOUNT_ID` | Cloudflare Account ID |
 | `CLOUDFLARE_PAGES_PROJECT_NAME` | Cloudflare Pages 项目名 |
+| `CLOUDFLARE_D1_DATABASE_ID` | 当前环境的 D1 database ID |
+| `CLOUDFLARE_KV_NAMESPACE_ID` | 当前环境的 KV namespace ID |
+| `CLOUDFLARE_KV_PREVIEW_NAMESPACE_ID` | 当前环境的 KV preview namespace ID |
 
 `CLOUDFLARE_API_TOKEN` 建议最小权限：
 
 - Workers Scripts: Edit
 - D1: Edit
+- Workers KV Storage: Edit
 - Pages: Edit
 - Workers Tail: Read，可选
 
@@ -288,8 +289,8 @@ production 只允许从 `main` 部署。
 2. 当前发布 commit 已合入 `main`。
 3. CI 为绿色。
 4. `CHANGELOG.md` 已更新。
-5. `wrangler.toml` production D1 / KV ID 不是占位值。
-6. production secrets 已写入。
+5. production GitHub Environment 已配置 D1 / KV 绑定 secrets。
+6. production Worker runtime secrets 已通过 Wrangler 写入。
 7. 回滚目标 commit 或 tag 已明确。
 
 执行：

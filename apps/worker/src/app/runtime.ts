@@ -1,28 +1,12 @@
 import { parseAccountPolicyRecord } from "@wemail/shared";
 
 import type { AppBindings, AppStore, MailboxRecord } from "../core/bindings";
-import { resolveAppConfig } from "../core/config";
 import { buildExtraction, createPreview, maybeRunAiFallback, parseRawEmail } from "../shared/mail";
 import { recordAudit } from "./services/audit-service";
 import { defaultFeatureToggles } from "./services/config-service";
+import { getRuntimeSettings } from "./services/runtime-settings-service";
 import { sendTelegramNotification } from "./services/telegram-service";
 import { sendWebhookEventToUser } from "./services/webhook-service";
-
-function retentionDays(env: AppBindings) {
-  return resolveAppConfig(env).message.retentionDays;
-}
-
-function attachmentLimit(env: AppBindings) {
-  return resolveAppConfig(env).attachments.maxBytes;
-}
-
-function totalAttachmentLimit(env: AppBindings) {
-  return resolveAppConfig(env).attachments.maxTotalBytes;
-}
-
-function aiFallbackLimit(env: AppBindings) {
-  return resolveAppConfig(env).ai.fallbackLimit;
-}
 
 function normalizeRecipientAddress(address: string) {
   return address.trim().toLowerCase();
@@ -37,7 +21,7 @@ async function getFeatureToggles(store: AppStore, env: AppBindings) {
 }
 
 function collectAcceptedAttachments(
-  env: AppBindings,
+  settings: Awaited<ReturnType<typeof getRuntimeSettings>>,
   attachments: Array<{ filename: string; contentType: string; data: Uint8Array; size: number }>
 ) {
   let totalAttachmentBytes = 0;
@@ -46,7 +30,10 @@ function collectAcceptedAttachments(
 
   for (const attachment of attachments) {
     totalAttachmentBytes += attachment.size;
-    if (attachment.size > attachmentLimit(env) || totalAttachmentBytes > totalAttachmentLimit(env)) {
+    if (
+      attachment.size > settings.attachments.maxBytes ||
+      totalAttachmentBytes > settings.attachments.maxTotalBytes
+    ) {
       oversizeStatus = "rejected_oversize_attachment";
       continue;
     }
@@ -71,8 +58,9 @@ async function saveInboundMessage(
     extraction: ReturnType<typeof buildExtraction>;
   }
 ) {
-  const { acceptedAttachments, oversizeStatus } = collectAcceptedAttachments(env, input.parsed.attachments);
-  const expiresAt = new Date(Date.now() + retentionDays(env) * 24 * 60 * 60 * 1000).toISOString();
+  const settings = await getRuntimeSettings(store, env);
+  const { acceptedAttachments, oversizeStatus } = collectAcceptedAttachments(settings, input.parsed.attachments);
+  const expiresAt = new Date(Date.now() + settings.message.retentionDays * 24 * 60 * 60 * 1000).toISOString();
   const message = await store.messages.create({
     mailboxId: input.mailboxId,
     toAddress: input.toAddress,
@@ -122,13 +110,14 @@ async function processInboundForMailbox(
 ) {
   let extraction = buildExtraction(parsed.subject, parsed.text);
   const featureToggles = await getFeatureToggles(store, env);
+  const settings = await getRuntimeSettings(store, env);
   const aiUsageToday = await store.audit.countByActorSince(
     mailbox.userId,
     "ai-fallback",
     `${new Date().toISOString().slice(0, 10)}T00:00:00.000Z`
   );
 
-  if (featureToggles.aiEnabled && extraction.type === "none" && aiUsageToday < aiFallbackLimit(env)) {
+  if (featureToggles.aiEnabled && extraction.type === "none" && aiUsageToday < settings.ai.fallbackLimit) {
     extraction = (await maybeRunAiFallback(env, extraction, parsed.text)) as typeof extraction;
     if (extraction.method === "ai") {
       await recordAudit(store, "user", mailbox.userId, "ai-fallback", { mailboxId: mailbox.id });

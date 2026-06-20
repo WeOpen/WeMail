@@ -694,7 +694,7 @@ export const apiInterfaceGroups: ApiInterfaceGroup[] = [
     "id": "system",
     "kicker": "平台配置",
     "title": "系统",
-    "description": "健康检查、功能开关、域名配置和字典目录。",
+    "description": "健康检查、功能开关、域名配置、运行时设置和字典目录。",
     "endpoints": [
       {
         "method": "GET",
@@ -746,6 +746,25 @@ export const apiInterfaceGroups: ApiInterfaceGroup[] = [
             "memberDomains": [
               "example.com"
             ]
+          }
+        }
+      },
+      {
+        "method": "GET",
+        "path": "/api/system/runtime-settings",
+        "title": "运行时设置",
+        "description": "读取 API 调用上限等运行时配置。",
+        "access": "管理员"
+      },
+      {
+        "method": "PATCH",
+        "path": "/api/system/runtime-settings",
+        "title": "更新运行时设置",
+        "description": "保存 API 每日调用上限等运行时配置。",
+        "access": "管理员",
+        "example": {
+          "requestBody": {
+            "apiDailyLimit": 20000
           }
         }
       },

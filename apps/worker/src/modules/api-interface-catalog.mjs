@@ -374,7 +374,7 @@ export const apiInterfaceGroups = [
     id: "system",
     kicker: "平台配置",
     title: "系统",
-    description: "健康检查、功能开关、域名配置和字典目录。",
+    description: "健康检查、功能开关、域名配置、运行时设置和字典目录。",
     endpoints: [
       { method: "GET", path: "/api/system/health", title: "健康检查", description: "返回服务状态和功能开关。", access: "公开" },
       { method: "GET", path: "/api/system/features", title: "功能开关", description: "读取平台功能开关。", access: "管理员" },
@@ -394,6 +394,21 @@ export const apiInterfaceGroups = [
         description: "保存域名与角色权限。",
         access: "管理员",
         example: { requestBody: { domains: ["example.com"], memberDomains: ["example.com"] } }
+      },
+      {
+        method: "GET",
+        path: "/api/system/runtime-settings",
+        title: "运行时设置",
+        description: "读取 API 调用上限等运行时配置。",
+        access: "管理员"
+      },
+      {
+        method: "PATCH",
+        path: "/api/system/runtime-settings",
+        title: "更新运行时设置",
+        description: "保存 API 每日调用上限等运行时配置。",
+        access: "管理员",
+        example: { requestBody: { apiDailyLimit: 20000 } }
       },
       {
         method: "GET",

@@ -7,18 +7,22 @@ import {
   SunMedium,
   type LucideIcon
 } from "lucide-react";
+import type { RuntimeSettings, RuntimeSettingsUpdateInput } from "@wemail/shared";
 
 import type { WorkspaceTheme, WorkspaceThemePreference } from "../app/useWorkspaceTheme";
 import { SystemDomainSettingsPanel } from "../features/settings/SystemDomainSettingsPanel";
+import { SystemRuntimeSettingsPanel } from "../features/settings/SystemRuntimeSettingsPanel";
 import { Badge } from "../shared/badge";
 import { Button } from "../shared/button";
 import { Page } from "../shared/page-layout";
 
 type SystemSettingsPageProps = {
   canManageDomains?: boolean;
+  runtimeSettings: RuntimeSettings | null;
   resolvedTheme: WorkspaceTheme;
   themePreference: WorkspaceThemePreference;
   onSelectThemePreference: (preference: WorkspaceThemePreference) => void;
+  onSaveRuntimeSettings: (payload: RuntimeSettingsUpdateInput) => Promise<void>;
 };
 
 const themeOptions: Array<{
@@ -63,9 +67,11 @@ function formatResolvedTheme(theme: WorkspaceTheme) {
 
 export function SystemSettingsPage({
   canManageDomains = false,
+  runtimeSettings,
   resolvedTheme,
   themePreference,
-  onSelectThemePreference
+  onSelectThemePreference,
+  onSaveRuntimeSettings
 }: SystemSettingsPageProps) {
   const themePreferenceLabel = formatThemePreference(themePreference);
   const resolvedThemeLabel = formatResolvedTheme(resolvedTheme);
@@ -153,6 +159,12 @@ export function SystemSettingsPage({
               })}
             </div>
           </section>
+          {canManageDomains ? (
+            <SystemRuntimeSettingsPanel
+              runtimeSettings={runtimeSettings}
+              onSaveRuntimeSettings={onSaveRuntimeSettings}
+            />
+          ) : null}
           {canManageDomains ? <SystemDomainSettingsPanel /> : null}
         </div>
 

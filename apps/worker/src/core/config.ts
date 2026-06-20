@@ -99,7 +99,7 @@ export function resolveAppConfig(env: AppBindings): AppConfig {
     mailbox: {
       // Mailbox addresses are generated from this domain, so keeping the value
       // in typed config makes address creation and validation consistent.
-      domain: env.DEFAULT_MAIL_DOMAIN,
+      domain: env.DEFAULT_MAIL_DOMAIN ?? "example.com",
       limit: parseNumber(env.MAILBOX_LIMIT, APP_LIMITS.mailboxLimit)
     },
 

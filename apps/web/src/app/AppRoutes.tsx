@@ -9,6 +9,8 @@ import type {
   MessageListSummary,
   MessageSummary,
   QuotaSummary,
+  RuntimeSettings,
+  RuntimeSettingsUpdateInput,
   SessionSummary,
   TelegramDeliverySummary,
   TelegramLinkCodeSummary,
@@ -88,6 +90,7 @@ type AppRoutesProps = {
   selectedMessage: MessageSummary | null;
   settings: {
     apiKeys: ApiKeySummary[];
+    runtimeSettings: RuntimeSettings | null;
     telegramOverview: TelegramOverviewSummary;
     telegramDeliveries: TelegramDeliverySummary[];
     createApiKey: (label: string) => Promise<{ key: { secret: string; prefix: string } }>;
@@ -95,6 +98,7 @@ type AppRoutesProps = {
     saveTelegram: (payload: { chatId: string; enabled: boolean }) => Promise<void>;
     createTelegramLinkCode: () => Promise<TelegramLinkCodeSummary>;
     refreshSettingsData: () => Promise<void>;
+    saveRuntimeSettings: (payload: RuntimeSettingsUpdateInput) => Promise<void>;
     sendTelegramTest: () => Promise<TelegramTestMessageResult>;
   };
   profile: {
@@ -342,9 +346,11 @@ export function AppRoutes({
   const systemSettingsPage = (
     <SystemSettingsPage
       canManageDomains={session.user.role === "admin"}
+      runtimeSettings={settings.runtimeSettings}
       resolvedTheme={appearance.theme}
       themePreference={appearance.themePreference}
       onSelectThemePreference={appearance.setThemePreference}
+      onSaveRuntimeSettings={settings.saveRuntimeSettings}
     />
   );
 

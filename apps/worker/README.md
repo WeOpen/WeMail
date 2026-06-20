@@ -74,15 +74,17 @@ pnpm --dir apps/worker run dev
 - 本地 KV 缓存绑定 `CACHE`
 - 本地默认 vars
 
-KV 只作为可失效的读缓存层使用，D1 仍是系统配置、字典、账号策略和邮件设置的权威数据源。远端环境需要先创建对应 namespace：
+KV 只作为可失效的读缓存层使用，D1 仍是系统配置、字典、账号策略和邮件设置的权威数据源。邮箱域名、业务默认额度、附件限制和功能开关应通过后台设置写入 D1，不要作为生产业务配置提交到 `wrangler.toml`。远端环境需要先创建对应 namespace：
 
 ```bash
 cd apps/worker
 pnpm exec wrangler kv namespace create CACHE --env staging
+pnpm exec wrangler kv namespace create CACHE --env staging --preview
 pnpm exec wrangler kv namespace create CACHE --env production
+pnpm exec wrangler kv namespace create CACHE --env production --preview
 ```
 
-然后把输出的 namespace id 填入 `wrangler.toml` 的 `env.staging.kv_namespaces` 和 `env.production.kv_namespaces`。
+开源仓库不要把真实 namespace id 提交到 `wrangler.toml`。保持配置里的 `replace-with-*` 占位值，并把远端部署需要的真实 ID 配到 GitHub Environment secrets。
 
 ### 4. 初始化本地 D1 表结构与邀请码
 
@@ -154,6 +156,8 @@ pnpm exec wrangler secret put RESEND_API_KEY --env production
 - `staging`：`deploy --env staging`
 - `production`：`deploy --env production`
 
+workflow 会从当前 GitHub Environment 读取 `CLOUDFLARE_D1_DATABASE_ID`、`CLOUDFLARE_KV_NAMESPACE_ID` 和 `CLOUDFLARE_KV_PREVIEW_NAMESPACE_ID`，并在部署时临时替换 `wrangler.toml` 中的占位绑定。
+
 生产环境只能从 `main` 触发。
 
 ### 本地手动部署
@@ -174,8 +178,7 @@ cd apps/worker && pnpm exec wrangler deploy --env staging
 ## 🔐 部署前确认
 
 - `wrangler.toml` 的环境配置完整
-- D1 database ID 已替换占位值
-- KV namespace ID 已替换占位值
+- GitHub Environment 已配置 D1 / KV 绑定 secrets
 - 运行时 secrets 已写入对应环境
 - 关键后端验证已经执行
 

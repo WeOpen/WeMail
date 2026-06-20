@@ -10,7 +10,7 @@ Worker 配置分两类：
 
 ![wrangler.toml 配置示意图](/docs/screenshots/wrangler-bindings.png)
 
-这是示意截图，重点是不要把 D1 / KV 的占位 ID 留到生产环境。
+这是示意截图。开源仓库里不要提交真实 D1 / KV ID，生产部署由 GitHub Environment secrets 临时注入。
 
 ## 1. 理解环境结构
 
@@ -31,7 +31,7 @@ pnpm exec wrangler deploy --env production
 
 当前 GitHub Actions 已经按这个方式执行。
 
-## 2. 替换 D1 和 KV 占位 ID
+## 2. 配置 D1 和 KV 绑定 ID
 
 打开：
 
@@ -67,35 +67,40 @@ id = "replace-with-production-kv-id"
 preview_id = "replace-with-production-kv-preview-id"
 ```
 
-把 `replace-with-*` 全部替换为 Cloudflare 返回的真实 ID。
+`binding` 名称必须保持 `DB` 和 `CACHE`，代码会按这两个名字读取绑定。`database_id`、`id` 和 `preview_id` 在开源仓库里保持 `replace-with-*` 占位值。
 
-替换后在仓库根目录检查：
+把 Cloudflare 返回的真实 ID 配到 GitHub Environment secrets：
 
-```bash
-rg "replace-with-" apps/worker/wrangler.toml
-```
+| Secret | 说明 |
+| --- | --- |
+| `CLOUDFLARE_D1_DATABASE_ID` | 当前环境的 D1 database ID |
+| `CLOUDFLARE_KV_NAMESPACE_ID` | 当前环境的 KV namespace ID |
+| `CLOUDFLARE_KV_PREVIEW_NAMESPACE_ID` | 当前环境的 KV preview namespace ID |
 
-如果这个命令还有输出，不要发 production。
+当前 GitHub Actions 会在部署时把对应环境的占位值临时替换为这些 secrets，不会把真实 ID 写回仓库。
+
+如果你完全手动部署，也可以只在本地临时替换，部署完成后不要提交真实 ID。
 
 ## 3. 设置邮件域名
 
-本地默认值：
+邮件域名现在由后台系统设置保存到 D1。Worker 首次启动时如果 D1 里还没有域名，会使用内置兜底值 `example.com`，方便本地开发先跑起来。
 
-```toml
-DEFAULT_MAIL_DOMAIN = "example.com"
+生产环境不要把真实域名写进开源仓库。部署完成并创建管理员账号后，进入 WeMail：
+
+```text
+系统设置 -> 域名设置
 ```
 
-生产环境要换成真实收件域名：
+把默认域名改成真实 Email Routing 域名，例如：
 
-```toml
-[env.production.vars]
-DEFAULT_MAIL_DOMAIN = "example.com"
+```text
+example.com
 ```
 
-如果你用子域名收信，也可以是：
+如果你用子域名收信，也可以填：
 
-```toml
-DEFAULT_MAIL_DOMAIN = "mail.example.com"
+```text
+mail.example.com
 ```
 
 这个值会影响用户创建邮箱账号时生成的地址。Email Routing 也要配置到同一个域名或可接收该地址的域名。
@@ -174,29 +179,21 @@ CORS_ALLOWED_ORIGINS = "https://mail.example.com"
 
 ## 6. 配置功能开关和额度
 
-这些配置都来自 `wrangler.toml`，默认是字符串：
+这些业务配置不需要写进 `wrangler.toml`。部署完成后用管理员账号进入后台维护，保存后写入 D1 的 `system_settings` 表，KV 只作为可失效缓存。
 
-| 变量 | 默认示例 | 说明 |
-| --- | --- | --- |
-| `MAILBOX_LIMIT` | `"5"` | 每个用户默认可创建的邮箱账号数量 |
-| `MESSAGE_RETENTION_DAYS` | `"7"` | 邮件保留天数 |
-| `OUTBOUND_DAILY_LIMIT` | `"20"` | 每个用户每日发件额度 |
-| `API_DAILY_LIMIT` | `"20000"` | API key 每日调用额度 |
-| `AI_FALLBACK_LIMIT` | `"20"` | AI fallback 每日限制 |
-| `MAX_ATTACHMENT_BYTES` | `"10485760"` | 单个附件最大字节数 |
-| `MAX_TOTAL_ATTACHMENT_BYTES` | `"15728640"` | 单封邮件附件总大小限制 |
-| `ENABLE_AI` | `"true"` | 是否启用 AI fallback |
-| `ENABLE_TELEGRAM` | `"true"` | 是否启用 Telegram |
-| `ENABLE_OUTBOUND` | `"true"` | 是否启用发件 |
-| `ENABLE_MAILBOX_CREATION` | `"true"` | 是否允许创建邮箱账号 |
-| `ADMIN_EMAILS` | `""` | 逗号分隔的管理员 bootstrap 邮箱 |
+| 后台位置 | 可配置内容 |
+| --- | --- |
+| 系统设置 -> 域名设置 | 可用邮箱域名、默认域名、角色可用范围 |
+| 系统设置 -> 业务默认值 | 邮箱数量上限、邮件保留天数、默认每日发件额度、默认每日 API 调用额度、附件大小、AI fallback 次数 |
+| 用户设置 -> 功能开关 | AI fallback、Telegram、发件、邮箱创建 |
+| 用户设置 -> 配额 | 单个用户的外发额度覆盖 |
 
 新手部署建议：
 
-- 暂时不用发件时，把 `ENABLE_OUTBOUND` 设为 `"false"`。
-- 暂时不用 Telegram 时，把 `ENABLE_TELEGRAM` 设为 `"false"`。
-- 暂时不用 AI 时，把 `ENABLE_AI` 设为 `"false"`。
-- 生产环境至少设置一个 `ADMIN_EMAILS`，方便首个管理员账号识别。
+- 部署后先进入「系统设置」把域名改成真实 Email Routing 域名。
+- 在「域名设置」里填写新增域名后缀后，可以按 Enter 加入列表，也可以直接点击「保存域名设置」一次性保存。
+- 暂时不用发件、Telegram 或 AI 时，在「用户设置」的功能开关面板关闭对应能力。
+- 额度默认值先保守设置，确认真实使用量后再调大。
 
 ## 7. 写入 Worker secrets
 
@@ -286,9 +283,10 @@ curl -i "$PRODUCTION_API_BASE_URL/api/system/health"
 
 ## 配置检查清单
 
-- [ ] `apps/worker/wrangler.toml` 没有 `replace-with-*`。
+- [ ] GitHub Environment secrets 已配置 D1 / KV 真实 ID。
+- [ ] `apps/worker/wrangler.toml` 没有提交真实 D1 / KV ID。
 - [ ] production 的 `COOKIE_SECURE = "true"`。
-- [ ] production 的 `DEFAULT_MAIL_DOMAIN` 是真实域名。
+- [ ] 系统设置里的默认邮箱域名是真实收件域名。
 - [ ] `CORS_ALLOWED_ORIGINS` 包含真实前端域名。
 - [ ] D1、KV 的 staging / production ID 不混用。
 - [ ] 已通过 `wrangler secret put` 写入启用能力所需 secrets。

@@ -9,7 +9,19 @@ WeMail 文档站位于：
 apps/docs
 ```
 
-它在 monorepo 里维护，但可以作为独立站点部署。当前技术栈：
+它在 monorepo 里维护，但可以作为独立站点部署。推荐直接部署到 Vercel：
+
+<p>
+  <a
+    href="https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2FWeOpen%2FWeMail&root-directory=apps%2Fdocs&project-name=wemail-docs&repository-name=wemail-docs&env=NEXT_PUBLIC_SITE_URL&envDescription=Docs%20public%20origin%20used%20for%20Open%20Graph%20URLs&envLink=https%3A%2F%2Fgithub.com%2FWeOpen%2FWeMail%2Ftree%2Fmain%2Fapps%2Fdocs"
+    rel="noreferrer noopener"
+    target="_blank"
+  >
+    <img alt="Deploy with Vercel" src="https://vercel.com/button" />
+  </a>
+</p>
+
+当前技术栈：
 
 | 范围 | 技术 |
 | --- | --- |
@@ -94,7 +106,48 @@ apps/docs/public/docs/screenshots
 
 Next.js + Fumadocs 的最省心部署目标是 Vercel。
 
-项目设置建议：
+### 一键部署
+
+点击上方 `Deploy with Vercel` 按钮后，Vercel 会从 GitHub 克隆仓库并预填：
+
+| 项 | 值 |
+| --- | --- |
+| Repository | `https://github.com/WeOpen/WeMail` |
+| Root Directory | `apps/docs` |
+| Project Name | `wemail-docs` |
+| Environment Variable | `NEXT_PUBLIC_SITE_URL` |
+
+`NEXT_PUBLIC_SITE_URL` 填文档站最终公开访问地址，例如：
+
+```text
+https://docs.example.com
+```
+
+如果暂时没有正式域名，可以先填 Vercel 分配的 production 域名，后续绑定自定义域名后再更新。
+
+### 方案 A：Vercel Git 集成，推荐
+
+| 项 | 值 |
+| --- | --- |
+| Root Directory | `apps/docs` |
+| Framework Preset | Next.js |
+| Install Command | 保持默认，不填写 |
+| Build Command | 保持默认，不填写 |
+| Output | 由 Vercel 自动识别 Next.js |
+
+`Root Directory` 设为 `apps/docs` 后，Vercel 会在文档站目录内安装和构建，并自动读取 `apps/docs/package.json` 里的 `build` 脚本，也就是执行等价于 `pnpm run build` 的命令。
+
+不要在这个方案里填写 `pnpm build:docs`。这个脚本只存在仓库根目录；当 Vercel 已经进入 `apps/docs` 后再执行它，会因为找不到脚本而构建失败。
+
+需要绑定正式域名时，在 Vercel 项目的 `Settings -> Environment Variables` 添加：
+
+```text
+NEXT_PUBLIC_SITE_URL=https://docs.example.com
+```
+
+### 方案 B：仓库根目录构建
+
+如果项目的 `Root Directory` 保持为仓库根目录，才使用根目录脚本：
 
 | 项 | 值 |
 | --- | --- |
@@ -103,7 +156,7 @@ Next.js + Fumadocs 的最省心部署目标是 Vercel。
 | Build Command | `pnpm build:docs` |
 | Output | 由 Vercel 自动识别 Next.js |
 
-如果 Vercel 需要指定 monorepo app，可以把项目目录设为 `apps/docs`，但要确认 workspace 依赖和 lockfile 仍能被正确安装。
+这个方案适合需要从 monorepo 根目录统一管理构建命令的团队。日常部署文档站时，优先使用方案 A。
 
 ## Cloudflare 部署说明
 

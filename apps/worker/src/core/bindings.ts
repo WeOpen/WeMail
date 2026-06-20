@@ -295,6 +295,17 @@ export type MailSettingsRecord = {
   updatedAt: string;
 };
 
+export type RuntimeSettingsRecord = {
+  mailboxLimit: string;
+  messageRetentionDays: string;
+  outboundDailyLimit: string;
+  apiDailyLimit: string;
+  maxAttachmentBytes: string;
+  maxTotalAttachmentBytes: string;
+  aiFallbackLimit: string;
+  updatedAt: string;
+};
+
 export type WebhookEndpointRecord = {
   id: string;
   userId: string;
@@ -490,6 +501,10 @@ export interface AppStore {
     getFeatureToggles: (defaults: FeatureToggles) => Promise<FeatureToggles>;
     saveFeatureToggles: (toggles: FeatureToggles) => Promise<FeatureToggles>;
   };
+  runtimeSettings: {
+    get: () => Promise<RuntimeSettingsRecord | null>;
+    save: (record: Omit<RuntimeSettingsRecord, "updatedAt">) => Promise<RuntimeSettingsRecord>;
+  };
   mailDomains: {
     list: (defaults: MailDomainSummary[]) => Promise<MailDomainSummary[]>;
     saveAll: (domains: MailDomainSummary[]) => Promise<MailDomainSummary[]>;
@@ -556,19 +571,19 @@ export type AppBindings = {
   COOKIE_NAME: string;
   COOKIE_SECURE?: string;
   CORS_ALLOWED_ORIGINS?: string;
-  DEFAULT_MAIL_DOMAIN: string;
-  MAILBOX_LIMIT: string;
-  MESSAGE_RETENTION_DAYS: string;
-  OUTBOUND_DAILY_LIMIT: string;
+  DEFAULT_MAIL_DOMAIN?: string;
+  MAILBOX_LIMIT?: string;
+  MESSAGE_RETENTION_DAYS?: string;
+  OUTBOUND_DAILY_LIMIT?: string;
   API_DAILY_LIMIT?: string;
-  AI_FALLBACK_LIMIT: string;
-  MAX_ATTACHMENT_BYTES: string;
-  MAX_TOTAL_ATTACHMENT_BYTES: string;
-  ENABLE_AI: string;
-  ENABLE_TELEGRAM: string;
-  ENABLE_OUTBOUND: string;
-  ENABLE_MAILBOX_CREATION: string;
-  ADMIN_EMAILS: string;
+  AI_FALLBACK_LIMIT?: string;
+  MAX_ATTACHMENT_BYTES?: string;
+  MAX_TOTAL_ATTACHMENT_BYTES?: string;
+  ENABLE_AI?: string;
+  ENABLE_TELEGRAM?: string;
+  ENABLE_OUTBOUND?: string;
+  ENABLE_MAILBOX_CREATION?: string;
+  ADMIN_EMAILS?: string;
   SESSION_TTL_HOURS?: string;
   RESEND_API_KEY?: string;
   RESEND_FROM?: string;

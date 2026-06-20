@@ -853,4 +853,121 @@ describe("worker settings integration", () => {
     expect(pausedTelegramResponse.status).toBe(400);
     expect(pausedTelegramPayload.error).toMatch(/enabled Telegram/i);
   });
+
+  it("reads runtime settings from env defaults and lets admins override them", async () => {
+    const { app, env, cookie } = await registerUserAndGetCookie({
+      email: "runtime-admin@example.com",
+      inviteCode: "INVITE-RUNTIME-SETTINGS"
+    });
+
+    const initialResponse = await app.request(
+      "/api/system/runtime-settings",
+      {
+        headers: { cookie }
+      },
+      env
+    );
+
+    expect(initialResponse.status).toBe(200);
+    expect(await initialResponse.json()).toMatchObject({
+      settings: {
+        mailbox: { limit: 5 },
+        message: { retentionDays: 7 },
+        outbound: { dailyLimit: 20 },
+        api: { dailyLimit: 20000 },
+        attachments: {
+          maxBytes: 10485760,
+          maxTotalBytes: 15728640
+        },
+        ai: { fallbackLimit: 20 }
+      }
+    });
+
+    const updateResponse = await app.request(
+      "/api/system/runtime-settings",
+      {
+        method: "PATCH",
+        headers: {
+          cookie,
+          "content-type": "application/json"
+        },
+        body: JSON.stringify({
+          mailbox: { limit: 9 },
+          message: { retentionDays: 14 },
+          outbound: { dailyLimit: 50 },
+          api: { dailyLimit: 50000 },
+          attachments: { maxBytes: 20971520, maxTotalBytes: 31457280 },
+          ai: { fallbackLimit: 35 }
+        })
+      },
+      env
+    );
+
+    expect(updateResponse.status).toBe(200);
+    expect(await updateResponse.json()).toMatchObject({
+      settings: {
+        mailbox: { limit: 9 },
+        message: { retentionDays: 14 },
+        outbound: { dailyLimit: 50 },
+        api: { dailyLimit: 50000 },
+        attachments: {
+          maxBytes: 20971520,
+          maxTotalBytes: 31457280
+        },
+        ai: { fallbackLimit: 35 }
+      }
+    });
+
+    const persistedResponse = await app.request(
+      "/api/system/runtime-settings",
+      {
+        headers: { cookie }
+      },
+      env
+    );
+
+    expect(persistedResponse.status).toBe(200);
+    expect(await persistedResponse.json()).toMatchObject({
+      settings: {
+        mailbox: { limit: 9 },
+        message: { retentionDays: 14 },
+        outbound: { dailyLimit: 50 },
+        api: { dailyLimit: 50000 },
+        attachments: {
+          maxBytes: 20971520,
+          maxTotalBytes: 31457280
+        },
+        ai: { fallbackLimit: 35 }
+      }
+    });
+  });
+
+  it("rejects runtime attachment totals below the single attachment limit", async () => {
+    const { app, env, cookie } = await registerUserAndGetCookie({
+      email: "runtime-attachment-guard@example.com",
+      inviteCode: "INVITE-RUNTIME-ATTACHMENT-GUARD"
+    });
+
+    const response = await app.request(
+      "/api/system/runtime-settings",
+      {
+        method: "PATCH",
+        headers: {
+          cookie,
+          "content-type": "application/json"
+        },
+        body: JSON.stringify({
+          attachments: {
+            maxBytes: 20 * 1024 * 1024,
+            maxTotalBytes: 10 * 1024 * 1024
+          }
+        })
+      },
+      env
+    );
+    const payload = (await response.json()) as { error?: string };
+
+    expect(response.status).toBe(400);
+    expect(payload.error).toBe("attachments.maxTotalBytes must be greater than or equal to attachments.maxBytes");
+  });
 });

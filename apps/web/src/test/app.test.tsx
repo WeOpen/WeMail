@@ -3,9 +3,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { App } from "../app/App";
 import { WORKSPACE_THEME_STORAGE_KEY } from "../app/appStore";
+import { apiInterfaceGroups } from "../features/settings/api-interface-catalog.generated";
+import { designSystemGroups } from "../pages/design-system/designSystemContent";
 import { jsonResponse } from "./helpers/mock-api";
 
 const DESIGN_SYSTEM_THEME_STORAGE_KEY = "wemail-design-system-preview-theme";
+const apiInterfaceCount = apiInterfaceGroups.reduce((total, group) => total + group.endpoints.length, 0);
 
 const originalMatchMedia = window.matchMedia;
 
@@ -181,137 +184,66 @@ describe("App", () => {
   );
 
   it(
-    "renders the design system as a public route with sidebar navigation and the first component detail by default",
+    "renders the design system as a public grouped component gallery",
     async () => {
       window.history.pushState({}, "", "/design-system");
       vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("not authenticated"));
       render(<App />);
 
       expect(await screen.findByTestId("design-system-page")).toBeInTheDocument();
-      const sidebar = screen.getByRole("navigation", { name: "Design system sidebar" });
-      expect(sidebar).toBeInTheDocument();
-      expect(within(sidebar).queryByRole("button", { name: /概览/i })).not.toBeInTheDocument();
-      expect(within(sidebar).getByRole("button", { name: "Design tokens" })).toHaveAttribute("aria-current", "page");
-      expect(screen.getByRole("heading", { level: 1, name: "Design tokens" })).toBeInTheDocument();
-      expect(screen.getByText(/品牌色、语义色、间距、圆角和阴影的统一定义/i)).toBeInTheDocument();
-      expect(screen.queryByText("Current mode")).not.toBeInTheDocument();
-      expect(screen.queryByText(/这个页面现在改成左侧导航和右侧内容面板/i)).not.toBeInTheDocument();
-      expect(screen.queryByRole("button", { name: "切换主题" })).not.toBeInTheDocument();
-      expect(screen.queryByRole("button", { name: "复制预览链接" })).not.toBeInTheDocument();
-      expect(screen.getByText("WeMail Design System v1")).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: "打开对话框" })).toBeInTheDocument();
-      expect(screen.queryByText(/Design system preview workspace/i)).not.toBeInTheDocument();
-      expect(screen.queryByText(/S1-S7/i)).not.toBeInTheDocument();
+      expect(screen.queryByRole("navigation", { name: "Design system sidebar" })).not.toBeInTheDocument();
+      expect(screen.getByRole("heading", { level: 1, name: "Components" })).toBeInTheDocument();
+      for (const group of designSystemGroups.slice(0, 2)) {
+        expect(screen.getByRole("region", { name: `${group.title} 组件组` })).toBeInTheDocument();
+      }
+      expect(screen.getByRole("article", { name: "Button 组件展示" })).toBeInTheDocument();
+      expect(screen.getByRole("article", { name: "Card 组件展示" })).toBeInTheDocument();
+      expect(screen.queryByRole("heading", { level: 2, name: "Import" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("heading", { level: 2, name: "API Reference" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "打开对话框" })).not.toBeInTheDocument();
       expect(screen.queryByRole("tablist", { name: /认证方式切换/i })).not.toBeInTheDocument();
     },
     10000
   );
 
   it(
-    "switches the right panel to component detail when a sidebar component is selected",
+    "shows the console action on the design system page for signed-in users",
     async () => {
       window.history.pushState({}, "", "/design-system");
-      vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("not authenticated"));
+      vi.spyOn(globalThis, "fetch").mockImplementation(mockMemberSessionFetch);
       render(<App />);
 
-      const sidebar = await screen.findByRole("navigation", { name: "Design system sidebar" });
-      fireEvent.click(within(sidebar).getByRole("button", { name: "Button" }));
+      expect(await screen.findByTestId("design-system-page")).toBeInTheDocument();
+      const navigation = screen.getByRole("navigation", { name: /首页导航/i });
+      const consoleLink = await within(navigation).findByRole("link", { name: /^控制台$/i });
 
-      expect(screen.getByRole("heading", { level: 1, name: "Button" })).toBeInTheDocument();
-      expect(screen.getByText(/覆盖主要、次要、轻量、危险和 icon-only 等动作样式/i)).toBeInTheDocument();
-      expect(screen.getByRole("region", { name: "代码示例：Button" })).toBeInTheDocument();
-      expect(screen.queryByRole("heading", { level: 2, name: "Buttons & Actions" })).not.toBeInTheDocument();
-      expect(screen.queryByText(/Design tokens、预览地图、文档入口与视觉回归基线/i)).not.toBeInTheDocument();
+      expect(consoleLink).toHaveClass("ui-button", "ui-button-primary");
+      await waitFor(() => {
+        expect(consoleLink).toHaveAttribute("href", "/mail/list");
+      });
+      expect(within(navigation).queryByRole("link", { name: /^登录$/i })).not.toBeInTheDocument();
+      expect(within(navigation).queryByRole("link", { name: /^注册$/i })).not.toBeInTheDocument();
     },
     10000
   );
 
   it(
-    "renders structured documentation sections for the initial component-docsite targets",
+    "shows representative component variants directly in the gallery",
     async () => {
       window.history.pushState({}, "", "/design-system");
       vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("not authenticated"));
       render(<App />);
 
-      const sidebar = await screen.findByRole("navigation", { name: "Design system sidebar" });
+      const buttonCard = await screen.findByRole("article", { name: "Button 组件展示" });
+      expect(within(buttonCard).getByRole("button", { name: "保存变更" })).toBeInTheDocument();
+      expect(within(buttonCard).getByRole("button", { name: "查看历史" })).toBeInTheDocument();
+      expect(within(buttonCard).getByRole("button", { name: "取消" })).toBeInTheDocument();
+      expect(within(buttonCard).getByRole("button", { name: "停用账号" })).toBeInTheDocument();
 
-      expect(screen.getByRole("heading", { level: 2, name: "Usage" })).toBeInTheDocument();
-      expect(screen.getByText(/品牌色、语义色、间距、圆角和阴影的统一定义/i)).toBeInTheDocument();
-
-      fireEvent.click(within(sidebar).getByRole("button", { name: "Button" }));
-      expect(screen.getByRole("heading", { level: 2, name: "API Reference" })).toBeInTheDocument();
-      const apiSection = screen.getByRole("region", { name: "文档章节：API Reference" });
-      expect(within(apiSection).getByText("variant")).toBeInTheDocument();
-      expect(within(apiSection).getAllByText(/primary/i).length).toBeGreaterThan(0);
-
-      fireEvent.click(within(sidebar).getByRole("button", { name: "Card" }));
-      expect(screen.getByRole("heading", { level: 2, name: "Accessibility" })).toBeInTheDocument();
-      expect(screen.getByText(/卡片只负责建立信息边界，不应该再承担页面级布局职责/i)).toBeInTheDocument();
-
-      fireEvent.click(within(sidebar).getByRole("button", { name: "SearchInput" }));
-      expect(screen.getByText(/搜索框应直接表达可搜索对象，例如账号、地址或创建人/i)).toBeInTheDocument();
-
-      fireEvent.click(within(sidebar).getByRole("button", { name: "Navigation" }));
-      expect(screen.getByText(/导航组件首先服务于定位和切换，不应混入主操作按钮语义/i)).toBeInTheDocument();
-
-      fireEvent.click(within(sidebar).getByRole("button", { name: "Feedback" }));
-      expect(screen.getByText(/Skeleton 和 Spinner 只用于短暂加载反馈，不应替代真正的空状态说明/i)).toBeInTheDocument();
-    },
-    10000
-  );
-
-  it(
-    "renders component docs with examples first, then API, then usage guidance",
-    async () => {
-      window.history.pushState({}, "", "/design-system");
-      vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("not authenticated"));
-      render(<App />);
-
-      const sidebar = await screen.findByRole("navigation", { name: "Design system sidebar" });
-      fireEvent.click(within(sidebar).getByRole("button", { name: "Button" }));
-
-      const headings = screen.getAllByRole("heading").map((node) => node.textContent);
-      const requiredHeadings = ["Examples", "Import", "Usage", "API Reference"];
-      const headingIndexes = requiredHeadings.map((heading) => headings.indexOf(heading));
-
-      expect(headingIndexes.every((index) => index >= 0)).toBe(true);
-      expect(headingIndexes).toEqual([...headingIndexes].sort((left, right) => left - right));
-    },
-    10000
-  );
-
-  it(
-    "renders separate doc sections and code sample regions for a component",
-    async () => {
-      window.history.pushState({}, "", "/design-system");
-      vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("not authenticated"));
-      render(<App />);
-
-      const sidebar = await screen.findByRole("navigation", { name: "Design system sidebar" });
-      fireEvent.click(within(sidebar).getByRole("button", { name: "Button" }));
-
-      expect(screen.getByRole("region", { name: "文档章节：API Reference" })).toBeInTheDocument();
-      expect(screen.getByRole("region", { name: "文档章节：Accessibility" })).toBeInTheDocument();
-      expect(screen.getByRole("region", { name: "代码示例：Button" })).toBeInTheDocument();
-    },
-    10000
-  );
-
-  it(
-    "documents button with examples, API, usage, and design guidance",
-    async () => {
-      window.history.pushState({}, "", "/design-system");
-      vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("not authenticated"));
-      render(<App />);
-
-      const sidebar = await screen.findByRole("navigation", { name: "Design system sidebar" });
-      fireEvent.click(within(sidebar).getByRole("button", { name: "Button" }));
-
-      expect(screen.getByRole("heading", { level: 2, name: "Examples" })).toBeInTheDocument();
-      expect(screen.getByRole("heading", { level: 2, name: "API Reference" })).toBeInTheDocument();
-      expect(screen.getByRole("heading", { level: 2, name: "Usage" })).toBeInTheDocument();
-      expect(screen.getByRole("heading", { level: 2, name: "Accessibility" })).toBeInTheDocument();
-      expect(screen.getByRole("region", { name: "代码示例：Button" })).toBeInTheDocument();
+      const badgeCard = screen.getByRole("article", { name: "Badge 组件展示" });
+      expect(within(badgeCard).getByText("启用")).toBeInTheDocument();
+      expect(within(badgeCard).getByText("待处理")).toBeInTheDocument();
+      expect(within(badgeCard).getByText("阻塞")).toBeInTheDocument();
     },
     10000
   );
@@ -664,7 +596,7 @@ describe("App", () => {
       expect(screen.getByRole("navigation", { name: "API 密钥 二级菜单" })).toBeInTheDocument();
       expect(screen.getByRole("tab", { name: "API 密钥" })).toHaveAttribute("aria-selected", "false");
       expect(screen.getByRole("tab", { name: "API 接口" })).toHaveAttribute("aria-selected", "true");
-      expect(screen.getByLabelText("接口总数")).toHaveTextContent("69");
+      expect(screen.getByLabelText("接口总数")).toHaveTextContent(String(apiInterfaceCount));
       expect(screen.getByRole("heading", { name: "邮件" })).toBeInTheDocument();
       expect(screen.getByLabelText("GET /api/mail/messages/:messageId/attachments/:attachmentId")).toBeInTheDocument();
       expect(screen.getByRole("heading", { name: "用户管理" })).toBeInTheDocument();

@@ -4,7 +4,11 @@ import type { AppBindings, AppStore, ResendClient } from "../../core/bindings";
 import { resolveAppConfig } from "../../core/config";
 import { buildResendClient } from "../../shared/mail";
 import { jsonError, recordAudit } from "../services/audit-service";
-import { getApiDailyLimit, getMailDomains, getOutboundLimit } from "../services/config-service";
+import {
+  getMailDomains,
+  getResolvedApiDailyLimit,
+  getResolvedOutboundLimit
+} from "../services/config-service";
 import { getOwnedMailbox } from "../services/mailbox-access-service";
 
 type OutboundUseCaseContext = {
@@ -109,10 +113,14 @@ export async function sendOutboundMessageUseCase(
   const [primaryDomain] = await getMailDomains(context.store, context.env);
   const resend = buildResendClient(config.integrations.resendApiKey);
   if (!resend) return jsonError("Resend not configured", 503);
+  const [outboundLimit, apiDailyLimit] = await Promise.all([
+    getResolvedOutboundLimit(context.store, context.env),
+    getResolvedApiDailyLimit(context.store, context.env)
+  ]);
   const quota = await context.store.quotas.consumeOutboundSend(
     payload.userId,
-    getOutboundLimit(context.env),
-    getApiDailyLimit(context.env)
+    outboundLimit,
+    apiDailyLimit
   );
   if (!quota) return jsonError("Outbound quota exhausted", 403);
   const mailSettings = parseMailSettingsRecord(await context.store.mailSettings.get());

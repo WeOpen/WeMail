@@ -47,11 +47,17 @@ jobs:
           CF_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CF_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           CF_PAGES_PROJECT: ${{ secrets.CLOUDFLARE_PAGES_PROJECT_NAME }}
+          CF_D1_DATABASE_ID: ${{ secrets.CLOUDFLARE_D1_DATABASE_ID }}
+          CF_KV_NAMESPACE_ID: ${{ secrets.CLOUDFLARE_KV_NAMESPACE_ID }}
+          CF_KV_PREVIEW_NAMESPACE_ID: ${{ secrets.CLOUDFLARE_KV_PREVIEW_NAMESPACE_ID }}
         run: |
           missing=()
           [[ -z "$CF_API_TOKEN" ]] && missing+=("CLOUDFLARE_API_TOKEN")
           [[ -z "$CF_ACCOUNT_ID" ]] && missing+=("CLOUDFLARE_ACCOUNT_ID")
           [[ -z "$CF_PAGES_PROJECT" ]] && missing+=("CLOUDFLARE_PAGES_PROJECT_NAME")
+          [[ -z "$CF_D1_DATABASE_ID" ]] && missing+=("CLOUDFLARE_D1_DATABASE_ID")
+          [[ -z "$CF_KV_NAMESPACE_ID" ]] && missing+=("CLOUDFLARE_KV_NAMESPACE_ID")
+          [[ -z "$CF_KV_PREVIEW_NAMESPACE_ID" ]] && missing+=("CLOUDFLARE_KV_PREVIEW_NAMESPACE_ID")
           if (( ${#missing[@]} > 0 )); then
             printf 'Missing required secrets for %s: %s\n' "${{ github.event.inputs.environment }}" "${missing[*]}" >&2
             exit 1
@@ -145,6 +151,49 @@ jobs:
 
       - name: Install
         run: pnpm install --frozen-lockfile
+
+      - name: Inject private Worker bindings
+        shell: bash
+        working-directory: apps/worker
+        env:
+          TARGET_ENV: ${{ needs.prepare.outputs.worker_environment }}
+          D1_DATABASE_ID: ${{ secrets.CLOUDFLARE_D1_DATABASE_ID }}
+          KV_NAMESPACE_ID: ${{ secrets.CLOUDFLARE_KV_NAMESPACE_ID }}
+          KV_PREVIEW_NAMESPACE_ID: ${{ secrets.CLOUDFLARE_KV_PREVIEW_NAMESPACE_ID }}
+        run: |
+          missing=()
+          [[ -z "$D1_DATABASE_ID" ]] && missing+=("CLOUDFLARE_D1_DATABASE_ID")
+          [[ -z "$KV_NAMESPACE_ID" ]] && missing+=("CLOUDFLARE_KV_NAMESPACE_ID")
+          [[ -z "$KV_PREVIEW_NAMESPACE_ID" ]] && missing+=("CLOUDFLARE_KV_PREVIEW_NAMESPACE_ID")
+          if (( ${#missing[@]} > 0 )); then
+            printf 'Missing Worker binding secrets for %s: %s\n' "$TARGET_ENV" "${missing[*]}" >&2
+            exit 1
+          fi
+
+          case "$TARGET_ENV" in
+            staging)
+              D1_PLACEHOLDER="replace-with-staging-d1-id"
+              KV_PLACEHOLDER="replace-with-staging-kv-id"
+              KV_PREVIEW_PLACEHOLDER="replace-with-staging-kv-preview-id"
+              ;;
+            production)
+              D1_PLACEHOLDER="replace-with-production-d1-id"
+              KV_PLACEHOLDER="replace-with-production-kv-id"
+              KV_PREVIEW_PLACEHOLDER="replace-with-production-kv-preview-id"
+              ;;
+            *)
+              printf 'Unsupported Worker environment: %s\n' "$TARGET_ENV" >&2
+              exit 1
+              ;;
+          esac
+
+          export D1_PLACEHOLDER KV_PLACEHOLDER KV_PREVIEW_PLACEHOLDER
+          perl -0pi -e 's/\Q$ENV{D1_PLACEHOLDER}\E/$ENV{D1_DATABASE_ID}/g; s/\Q$ENV{KV_PLACEHOLDER}\E/$ENV{KV_NAMESPACE_ID}/g; s/\Q$ENV{KV_PREVIEW_PLACEHOLDER}\E/$ENV{KV_PREVIEW_NAMESPACE_ID}/g' wrangler.toml
+
+          if grep -qF "$D1_PLACEHOLDER" wrangler.toml || grep -qF "$KV_PLACEHOLDER" wrangler.toml || grep -qF "$KV_PREVIEW_PLACEHOLDER" wrangler.toml; then
+            echo "Failed to inject Worker binding secrets into wrangler.toml." >&2
+            exit 1
+          fi
 
       - name: Apply D1 migrations
         uses: cloudflare/wrangler-action@v3

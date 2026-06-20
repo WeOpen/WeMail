@@ -7002,7 +7002,7 @@ button:disabled {
 
 .system-domain-editor {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(220px, auto) auto;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, auto);
   gap: 12px;
   align-items: end;
 }
@@ -7060,16 +7060,99 @@ button:disabled {
   justify-content: flex-end;
 }
 
+.system-runtime-settings-panel {
+  display: grid;
+  gap: 18px;
+}
+
+.system-runtime-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.system-runtime-summary-card {
+  min-width: 0;
+  display: grid;
+  gap: 6px;
+  padding: 14px;
+  border-radius: 18px;
+  border: 1px solid var(--border);
+  background: var(--surface-muted);
+}
+
+.system-runtime-summary-card svg {
+  color: var(--accent);
+}
+
+.system-runtime-summary-card span,
+.system-runtime-actions span {
+  color: var(--text-soft);
+  font-size: 0.84rem;
+  font-weight: 700;
+}
+
+.system-runtime-summary-card strong {
+  min-width: 0;
+  color: var(--text);
+  font-size: 0.98rem;
+  overflow-wrap: anywhere;
+}
+
+.system-runtime-settings-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.system-runtime-message {
+  margin: 0;
+}
+
+.system-runtime-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.system-runtime-save-button.ui-button-primary {
+  color: #fff;
+}
+
+.system-runtime-save-button.ui-button-primary .ui-button-icon-slot,
+.system-runtime-save-button.ui-button-primary .ui-button-label,
+.system-runtime-save-button.ui-button-primary .ui-button-loading-label {
+  color: #fff;
+}
+
 @media (max-width: 760px) {
   .system-domain-settings-head,
   .system-domain-editor,
-  .system-domain-row {
+  .system-domain-row,
+  .system-runtime-settings-grid,
+  .system-runtime-actions {
     grid-template-columns: minmax(0, 1fr);
   }
 
+  .system-runtime-summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .system-runtime-actions {
+    display: grid;
+  }
+
   .system-domain-actions .ui-button,
-  .system-domain-row .ui-button {
+  .system-domain-row .ui-button,
+  .system-runtime-actions .ui-button {
     width: 100%;
+  }
+}
+
+@media (max-width: 520px) {
+  .system-runtime-summary-grid {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 

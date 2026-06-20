@@ -150,10 +150,10 @@ http://127.0.0.1:5173/register
 
 ## 6. 创建第一个邮箱账号
 
-登录后进入工作台，创建一个邮箱账号。默认本地域名来自 `apps/worker/wrangler.toml`：
+登录后进入工作台，创建一个邮箱账号。本地开发如果还没有配置系统域名，会使用内置兜底域名：
 
-```toml
-DEFAULT_MAIL_DOMAIN = "example.com"
+```text
+example.com
 ```
 
 本地创建的地址通常会类似：
@@ -163,6 +163,8 @@ xxx@example.com
 ```
 
 本地开发不会自动接收真实互联网邮件。真实收件需要部署到 Cloudflare 并配置 Email Routing，见 [Email Routing](/docs/email-routing)。
+
+部署到生产后，先用管理员账号进入「系统设置」->「域名设置」，把默认域名改成真实 Email Routing 域名。
 
 ## 7. 本地开发时的常用验证
 

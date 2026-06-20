@@ -7,6 +7,7 @@ import type {
   MailboxSummary,
   MessageSummary,
   QuotaSummary,
+  RuntimeSettings,
   SessionSummary,
   TelegramDeliverySummary,
   TelegramOverviewSummary,
@@ -42,6 +43,7 @@ type SessionScopedState = {
   telegram: TelegramSubscriptionSummary | null;
   telegramOverview: TelegramOverviewSummary;
   telegramDeliveries: TelegramDeliverySummary[];
+  runtimeSettings: RuntimeSettings | null;
   adminUsers: UserSummary[];
   adminUsersTotal: number;
   adminSettingsUsers: UserSummary[];
@@ -110,7 +112,8 @@ type AppActions = {
   setSettingsData: (
     apiKeys: ApiKeySummary[],
     telegramOverview: TelegramOverviewSummary,
-    telegramDeliveries?: TelegramDeliverySummary[]
+    telegramDeliveries?: TelegramDeliverySummary[],
+    runtimeSettings?: RuntimeSettings | null
   ) => void;
   setAdminDashboard: (dashboard: AdminDashboardState) => void;
   setAdminUsers: (users: UserSummary[], total: number) => void;
@@ -167,6 +170,7 @@ function createSessionScopedState(): SessionScopedState {
     telegram: null,
     telegramOverview: emptyTelegramOverview,
     telegramDeliveries: [],
+    runtimeSettings: null,
     adminUsers: [],
     adminUsersTotal: 0,
     adminSettingsUsers: [],
@@ -236,7 +240,7 @@ export const useAppStore = create<AppStore>()((set) => ({
     }),
   setSelectedMessageId: (selectedMessageId) => set({ selectedMessageId }),
   setOutboundHistory: (outboundHistory) => set({ outboundHistory }),
-  setSettingsData: (apiKeys, telegramOverview, telegramDeliveries = []) => {
+  setSettingsData: (apiKeys, telegramOverview, telegramDeliveries = [], runtimeSettings = null) => {
     const nextTelegramOverview = telegramOverview ?? emptyTelegramOverview;
     return set({
       apiKeys,
@@ -244,7 +248,8 @@ export const useAppStore = create<AppStore>()((set) => ({
         ? { chatId: nextTelegramOverview.subscription.chatId, enabled: nextTelegramOverview.subscription.enabled }
         : null,
       telegramOverview: nextTelegramOverview,
-      telegramDeliveries
+      telegramDeliveries,
+      runtimeSettings
     });
   },
   setAdminDashboard: (dashboard) =>

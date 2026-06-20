@@ -223,12 +223,12 @@ html > body[data-scroll-locked] {
 }
 
 .docs-home-hero {
-  min-height: 100dvh;
+  min-height: min(760px, calc(100dvh - 24px));
   display: grid;
   grid-template-columns: minmax(0, 0.95fr) minmax(360px, 0.74fr);
-  align-items: center;
-  gap: 56px;
-  padding: 138px 0 78px;
+  align-items: start;
+  gap: 52px;
+  padding: 104px 0 58px;
 }
 
 .docs-home-grid {
@@ -275,12 +275,12 @@ html > body[data-scroll-locked] {
 .docs-home-copy {
   display: grid;
   justify-items: start;
-  gap: 22px;
+  gap: 18px;
 }
 
 .docs-home-hero-logo {
   display: block;
-  width: min(480px, 42vw);
+  width: min(430px, 38vw);
   height: auto;
   filter: drop-shadow(0 28px 48px rgba(77, 45, 18, 0.18));
 }
@@ -314,7 +314,8 @@ html > body[data-scroll-locked] {
 }
 
 .docs-home-primary-action,
-.docs-home-secondary-action {
+.docs-home-secondary-action,
+.docs-home-vercel-action {
   display: inline-flex;
   min-height: 46px;
   align-items: center;
@@ -344,16 +345,25 @@ html > body[data-scroll-locked] {
   backdrop-filter: blur(18px);
 }
 
+.docs-home-vercel-action {
+  background: var(--docs-text);
+  color: var(--docs-bg-elevated);
+  box-shadow: 0 18px 40px color-mix(in srgb, var(--docs-text) 18%, transparent);
+}
+
 .docs-home-primary-action:hover,
 .docs-home-primary-action:focus-visible,
 .docs-home-secondary-action:hover,
 .docs-home-secondary-action:focus-visible,
+.docs-home-vercel-action:hover,
+.docs-home-vercel-action:focus-visible,
 .docs-home-guide-card:hover,
 .docs-home-guide-card:focus-visible {
   transform: translateY(-2px);
 }
 
 .docs-home-primary-action svg,
+.docs-home-vercel-action svg,
 .docs-home-guide-card > svg {
   width: 17px;
   height: 17px;
@@ -527,7 +537,7 @@ html > body[data-scroll-locked] {
     min-height: auto;
     grid-template-columns: 1fr;
     gap: 28px;
-    padding-top: 118px;
+    padding-top: 92px;
   }
 
   .docs-home-console {
@@ -578,7 +588,8 @@ html > body[data-scroll-locked] {
   }
 
   .docs-home-primary-action,
-  .docs-home-secondary-action {
+  .docs-home-secondary-action,
+  .docs-home-vercel-action {
     width: 100%;
   }
 

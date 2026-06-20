@@ -423,6 +423,9 @@ describe("worker app", () => {
   });
 
   it("publishes announcement windows and records per-user receipts", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-06-15T10:00:00.000Z"));
+
     const store = createInMemoryStore();
     const app = createApp({ store });
     const adminCookie = await registerSessionUser({ app, store, email: "admin@example.com" });

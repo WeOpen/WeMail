@@ -4,6 +4,7 @@ export const CACHE_KEYS = {
     `v1:dict:catalog:${scope}:${groups.length > 0 ? groups.join(",") : "all"}`,
   featureToggles: "v1:system:features",
   mailDomains: "v1:system:domains",
+  runtimeSettings: "v1:system:runtime-settings",
   mailSettings: "v1:settings:mail"
 } as const;
 

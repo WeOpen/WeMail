@@ -2,12 +2,14 @@ import { describe, expect, it } from "vitest";
 
 import {
   defaultMailSettings,
+  defaultRuntimeSettings,
   parseLoginPayload,
   parseMailSettingsUpdatePayload,
   parseMailboxCreatePayload,
   parseOutboundPayload,
   parseQuotaPayload,
   parseRegisterPayload,
+  parseRuntimeSettingsUpdatePayload,
   parseTelegramPayload,
   parseUserCreatePayload,
   parseUserPasswordResetPayload,
@@ -110,6 +112,20 @@ describe("shared schemas", () => {
       dailyLimit: 5,
       disabled: true
     });
+  });
+
+  it("rejects runtime attachment totals below the single attachment limit", () => {
+    expect(() =>
+      parseRuntimeSettingsUpdatePayload(
+        {
+          attachments: {
+            maxBytes: 20 * 1024 * 1024,
+            maxTotalBytes: 10 * 1024 * 1024
+          }
+        },
+        defaultRuntimeSettings
+      )
+    ).toThrow("attachments.maxTotalBytes must be greater than or equal to attachments.maxBytes");
   });
 
   it("parses admin user create payload", () => {

@@ -1,5 +1,5 @@
 import type { Hono } from "hono";
-import type { FeatureToggles } from "@wemail/shared";
+import type { FeatureToggles, RuntimeSettingsUpdateInput } from "@wemail/shared";
 
 import type { AppContext } from "../../app/context";
 import { getAppServices, requireSessionAuth, requireUser } from "../../app/context";
@@ -7,6 +7,7 @@ import { resolveAppConfig } from "../../core/config";
 import { jsonError } from "../../app/services/audit-service";
 import { CACHE_KEYS, CACHE_TTL_SECONDS, cachedJson, deleteCacheKeys } from "../../app/services/cache-service";
 import { defaultFeatureToggles } from "../../app/services/config-service";
+import { getRuntimeSettings, updateRuntimeSettings } from "../../app/services/runtime-settings-service";
 import {
   getMailDomainSettingsUseCase,
   updateFeatureTogglesUseCase,
@@ -62,5 +63,34 @@ export function registerSystemRoutes(app: Hono<AppContext>) {
     if (result instanceof Response) return result;
     await deleteCacheKeys(c.env.CACHE, [CACHE_KEYS.mailDomains]);
     return c.json(result);
+  });
+
+  app.get("/api/system/runtime-settings", async (c) => {
+    const user = requireUser(c);
+    if (!user || user.role !== "admin" || !requireSessionAuth(c)) return jsonError("Admin session required", 403);
+    const settings = await cachedJson(c.env.CACHE, CACHE_KEYS.runtimeSettings, CACHE_TTL_SECONDS.settings, () =>
+      getRuntimeSettings(c.get("store"), c.env)
+    );
+    return c.json({ settings });
+  });
+
+  app.patch("/api/system/runtime-settings", async (c) => {
+    const user = requireUser(c);
+    if (!user || user.role !== "admin" || !requireSessionAuth(c)) return jsonError("Admin session required", 403);
+
+    let payload: RuntimeSettingsUpdateInput;
+    try {
+      payload = (await c.req.json()) as RuntimeSettingsUpdateInput;
+    } catch {
+      return jsonError("Invalid request", 400);
+    }
+
+    try {
+      const settings = await updateRuntimeSettings(c.get("store"), c.env, payload);
+      await deleteCacheKeys(c.env.CACHE, [CACHE_KEYS.runtimeSettings]);
+      return c.json({ settings });
+    } catch (error) {
+      return jsonError(error instanceof Error ? error.message : "Invalid request", 400);
+    }
   });
 }

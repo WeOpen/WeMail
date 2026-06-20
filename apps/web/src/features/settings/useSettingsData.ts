@@ -8,6 +8,7 @@ import {
   createApiKeyAction,
   createTelegramLinkCodeAction,
   revokeApiKeyAction,
+  saveRuntimeSettingsAction,
   saveTelegramAction,
   sendTelegramTestAction
 } from "./actions";
@@ -23,6 +24,7 @@ export function useSettingsData({ session, onToast }: UseSettingsDataOptions) {
   const telegram = useAppStore((state) => state.telegram);
   const telegramOverview = useAppStore((state) => state.telegramOverview);
   const telegramDeliveries = useAppStore((state) => state.telegramDeliveries);
+  const runtimeSettings = useAppStore((state) => state.runtimeSettings);
   const dictionaries = useAppStore((state) => state.dictionaries);
   const dictionaryByGroup = useAppStore((state) => state.dictionaryByGroup);
   const setSettingsData = useAppStore((state) => state.setSettingsData);
@@ -30,8 +32,8 @@ export function useSettingsData({ session, onToast }: UseSettingsDataOptions) {
 
   const refreshSettingsData = useCallback(async () => {
     if (!session) return;
-    const data = await querySettingsData();
-    setSettingsData(data.apiKeys, data.telegramOverview, data.telegramDeliveries);
+    const data = await querySettingsData({ includeRuntimeSettings: session.user.role === "admin" });
+    setSettingsData(data.apiKeys, data.telegramOverview, data.telegramDeliveries, data.runtimeSettings);
     setDictionaries(data.dictionaries);
   }, [session, setDictionaries, setSettingsData]);
 
@@ -79,10 +81,20 @@ export function useSettingsData({ session, onToast }: UseSettingsDataOptions) {
     return payload.result;
   }, [onToast, refreshSettingsData]);
 
+  const saveRuntimeSettings = useCallback(
+    async (payload: Parameters<typeof saveRuntimeSettingsAction>[0]) => {
+      await saveRuntimeSettingsAction(payload);
+      onToast({ message: "系统运行策略已保存。", tone: "success" });
+      await refreshSettingsData();
+    },
+    [onToast, refreshSettingsData]
+  );
+
   return {
     apiKeys,
     dictionaries,
     dictionaryByGroup,
+    runtimeSettings,
     telegram,
     telegramOverview,
     telegramDeliveries,
@@ -90,6 +102,7 @@ export function useSettingsData({ session, onToast }: UseSettingsDataOptions) {
     createApiKey,
     revokeApiKey,
     saveTelegram,
+    saveRuntimeSettings,
     createTelegramLinkCode,
     sendTelegramTest
   };

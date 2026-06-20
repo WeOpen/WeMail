@@ -14,8 +14,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.3] - 2026-06-21
+
 ### Added
 
+- Added admin-managed runtime business settings for mailbox limits, retention, outbound/API defaults, attachment limits, and AI fallback quotas.
+- Added one-click Vercel deployment buttons and setup guidance for the standalone docs app.
 - Added a standalone Fumadocs documentation app under `apps/docs`.
 - Added detailed beginner-focused WeMail deployment docs with local setup, Cloudflare resources, Worker config, Email Routing, Pages, GitHub Actions, operations checks, and screenshot-style visual guides.
 - Added design system documentation entries for FilterBar, Icon, Divider, Chart, and Toast, with fuller component intros and additional examples across existing primitives.
@@ -23,13 +27,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Changed system settings domain management to save pending domain input from the main save action and clarified open-source Cloudflare binding configuration docs.
+- Changed deploy-time business defaults and feature toggles to be managed from the WeMail admin UI and persisted in D1 instead of requiring open-source `wrangler.toml` edits.
+- Changed the Cloudflare deployment workflow to inject private Worker D1 and KV binding IDs from GitHub Environment secrets for open-source repository safety.
+- Changed the standalone docs site metadata to use the same favicon, Apple touch icon, manifest, and theme color as the WeMail main site.
 - Expanded the root README with a centered brand header, project badges, and detailed Cloudflare deployment steps.
 - Changed the app logo, favicon, Apple touch icon, PWA icon, and social preview image to use the shared `WeMail.png` brand asset.
 - Changed the signed-in home page behavior so authenticated users can still view the public landing page, with header and landing CTA auth buttons replaced by console entries.
+- Changed the design system page into a grouped component gallery without the left sidebar or prose documentation panels.
+- Changed the design system gallery spacing and signed-in navigation so component previews breathe more and the public header shows the console action for authenticated users.
 - Changed the design system component detail pages to show current-component examples first and remove unrelated section-level preview panels.
 
 ### Fixed
 
+- Fixed the runtime settings save button contrast so its label remains readable.
+- Fixed runtime settings validation, docs metadata warnings, and stale deployment troubleshooting notes.
+- Fixed the docs homepage hero spacing so the logo, title, and console content sit closer to the navigation instead of leaving a large blank band.
+- Fixed the docs deployment guide to recommend default Vercel install and build commands when deploying from the `apps/docs` root directory.
 - Fixed design system sidebar navigation so selecting a component returns the right-hand detail panel to the top.
 - Fixed the design system sidebar on compact viewports so long component menus remain clickable instead of being covered by the detail panel.
 
@@ -163,7 +177,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Established the current tracked baseline from the existing monorepo package versions.
 
-[Unreleased]: https://github.com/WeOpen/WeMail/compare/v0.1.2...HEAD
+[Unreleased]: https://github.com/WeOpen/WeMail/compare/v0.1.3...HEAD
+[0.1.3]: https://github.com/WeOpen/WeMail/releases/tag/v0.1.3
 [0.1.2]: https://github.com/WeOpen/WeMail/releases/tag/v0.1.2
 [0.1.1]: https://github.com/WeOpen/WeMail/releases/tag/v0.1.1
 [0.1.0]: https://github.com/WeOpen/WeMail/releases/tag/v0.1.0

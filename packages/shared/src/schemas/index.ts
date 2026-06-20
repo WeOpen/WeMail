@@ -5,4 +5,5 @@ export * from "./mail-settings";
 export * from "./mailbox";
 export * from "./outbound";
 export * from "./profile";
+export * from "./runtime-settings";
 export * from "./settings";

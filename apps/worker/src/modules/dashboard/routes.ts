@@ -3,7 +3,7 @@ import type { Hono } from "hono";
 import type { AppContext } from "../../app/context";
 import { requireUser } from "../../app/context";
 import { jsonError } from "../../app/services/audit-service";
-import { getApiDailyLimit, getOutboundLimit } from "../../app/services/config-service";
+import { getResolvedApiDailyLimit, getResolvedOutboundLimit } from "../../app/services/config-service";
 import type { AppStore, MailboxDetailRecord, OutboundMessageRecord, PersistedMessageRecord, UserRecord } from "../../core/bindings";
 
 const DARK_TONE = "#111827";
@@ -170,7 +170,13 @@ export function registerDashboardRoutes(app: Hono<AppContext>) {
       store.announcements.summary({ scope: user.role === "admin" ? "manage" : "visible", userRole: user.role }),
       store.announcements.listFeatured({ scope: user.role === "admin" ? "manage" : "visible", userRole: user.role }),
       user.role === "admin" ? store.invites.listPage({ page: 1, pageSize: 1 }) : Promise.resolve({ available: 0, invites: [], page: 1, pageSize: 1, total: 0 }),
-      store.quotas.getByUserId(user.id, getOutboundLimit(c.env), getApiDailyLimit(c.env)),
+      (async () => {
+        const [outboundLimit, apiDailyLimit] = await Promise.all([
+          getResolvedOutboundLimit(store, c.env),
+          getResolvedApiDailyLimit(store, c.env)
+        ]);
+        return store.quotas.getByUserId(user.id, outboundLimit, apiDailyLimit);
+      })(),
       user.role === "admin" ? store.users.summary() : Promise.resolve({ active: 1, total: 1 }),
       user.role === "admin" ? store.users.list({ page: 1, pageSize: 500 }) : Promise.resolve({ users: [], total: 0, page: 1, pageSize: 500 }),
       user.role === "admin" ? store.users.countActiveByRole("admin") : Promise.resolve(0),

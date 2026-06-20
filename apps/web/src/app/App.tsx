@@ -212,7 +212,10 @@ function AppContent() {
     return (
       <>
         {toastViewport}
-        <DesignSystemPage />
+        <DesignSystemPage
+          consoleHref={profile.profile?.preferences.landingPage ?? "/dashboard"}
+          isAuthenticated={Boolean(session)}
+        />
       </>
     );
   }

@@ -20,6 +20,7 @@ import type {
   OutboundMessageRecord,
   PersistedMessageRecord,
   QuotaRecord,
+  RuntimeSettingsRecord,
   UserPreferencesRecord
 } from "../../core/bindings";
 import {
@@ -1164,6 +1165,68 @@ export function createD1Store(db: D1Database): AppStore {
             .run();
         }
         return toggles;
+      }
+    },
+    runtimeSettings: {
+      async get() {
+        const result = await db
+          .prepare(
+            "SELECT key, value, updated_at FROM system_settings WHERE key IN (?, ?, ?, ?, ?, ?, ?)"
+          )
+          .bind(
+            "runtime.mailbox.limit",
+            "runtime.message.retentionDays",
+            "runtime.outbound.dailyLimit",
+            "runtime.api.dailyLimit",
+            "runtime.attachments.maxBytes",
+            "runtime.attachments.maxTotalBytes",
+            "runtime.ai.fallbackLimit"
+          )
+          .all();
+
+        const rows = result.results ?? [];
+        if (rows.length === 0) return null;
+        const map = new Map(rows.map((row: any) => [row.key, row.value as string]));
+        const updatedAt = rows
+          .map((row: any) => row.updated_at as string | null | undefined)
+          .filter((value): value is string => Boolean(value))
+          .sort()
+          .at(-1) ?? nowIso();
+
+        return {
+          mailboxLimit: map.get("runtime.mailbox.limit") ?? "",
+          messageRetentionDays: map.get("runtime.message.retentionDays") ?? "",
+          outboundDailyLimit: map.get("runtime.outbound.dailyLimit") ?? "",
+          apiDailyLimit: map.get("runtime.api.dailyLimit") ?? "",
+          maxAttachmentBytes: map.get("runtime.attachments.maxBytes") ?? "",
+          maxTotalAttachmentBytes: map.get("runtime.attachments.maxTotalBytes") ?? "",
+          aiFallbackLimit: map.get("runtime.ai.fallbackLimit") ?? "",
+          updatedAt
+        } satisfies RuntimeSettingsRecord;
+      },
+      async save(record) {
+        const updatedAt = nowIso();
+        const entries = [
+          ["runtime.mailbox.limit", record.mailboxLimit],
+          ["runtime.message.retentionDays", record.messageRetentionDays],
+          ["runtime.outbound.dailyLimit", record.outboundDailyLimit],
+          ["runtime.api.dailyLimit", record.apiDailyLimit],
+          ["runtime.attachments.maxBytes", record.maxAttachmentBytes],
+          ["runtime.attachments.maxTotalBytes", record.maxTotalAttachmentBytes],
+          ["runtime.ai.fallbackLimit", record.aiFallbackLimit]
+        ] as const;
+
+        for (const [key, value] of entries) {
+          await db
+            .prepare("INSERT OR REPLACE INTO system_settings (key, value, updated_at) VALUES (?, ?, ?)")
+            .bind(key, value, updatedAt)
+            .run();
+        }
+
+        return {
+          ...record,
+          updatedAt
+        };
       }
     },
     mailDomains: {

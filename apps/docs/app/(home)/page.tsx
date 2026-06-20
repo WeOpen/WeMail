@@ -37,6 +37,9 @@ const stackItems = [
   { label: "Search", value: "Local Orama" },
 ];
 
+const vercelDeployUrl =
+  "https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2FWeOpen%2FWeMail&root-directory=apps%2Fdocs&project-name=wemail-docs&repository-name=wemail-docs&env=NEXT_PUBLIC_SITE_URL&envDescription=Docs%20public%20origin%20used%20for%20Open%20Graph%20URLs&envLink=https%3A%2F%2Fgithub.com%2FWeOpen%2FWeMail%2Ftree%2Fmain%2Fapps%2Fdocs";
+
 export default function HomePage() {
   return (
     <main className="docs-home">
@@ -100,7 +103,7 @@ export default function HomePage() {
             className="docs-home-hero-logo"
             height={560}
             priority
-            src="/brand/WeMail.png"
+            src="/brand/WeMail-favicon.png"
             width={560}
           />
           <h1 id="docs-home-title">WeMail 文档中心</h1>
@@ -115,6 +118,10 @@ export default function HomePage() {
             <Link className="docs-home-secondary-action" href="/docs/cloudflare-resources">
               部署路线
             </Link>
+            <a className="docs-home-vercel-action" href={vercelDeployUrl} rel="noreferrer noopener" target="_blank">
+              <Rocket aria-hidden="true" />
+              一键部署
+            </a>
           </div>
         </div>
 

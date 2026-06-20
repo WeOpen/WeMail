@@ -2,6 +2,7 @@ import type { FeatureToggles, MailDomainSummary, UserRole } from "@wemail/shared
 
 import type { AppBindings, AppStore } from "../../core/bindings";
 import { resolveAppConfig } from "../../core/config";
+import { getRuntimeSettings } from "./runtime-settings-service";
 
 const MAIL_DOMAIN_PATTERN =
   /^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])$/;
@@ -12,10 +13,11 @@ export function normalizeMailDomain(value: string) {
   return domain;
 }
 
-export function normalizeMailDomains(values: string[]) {
+export function normalizeMailDomains(values: Array<string | null | undefined>) {
   const domains: string[] = [];
 
   for (const value of values) {
+    if (!value) continue;
     const domain = normalizeMailDomain(value);
     if (domain && !domains.includes(domain)) domains.push(domain);
   }
@@ -82,4 +84,16 @@ export function getOutboundLimit(env: Pick<AppBindings, "OUTBOUND_DAILY_LIMIT">)
 
 export function getApiDailyLimit(env: Pick<AppBindings, "API_DAILY_LIMIT">) {
   return resolveAppConfig(env as AppBindings).api.dailyLimit;
+}
+
+export async function getResolvedMailboxLimit(store: AppStore, env: AppBindings) {
+  return (await getRuntimeSettings(store, env)).mailbox.limit;
+}
+
+export async function getResolvedOutboundLimit(store: AppStore, env: AppBindings) {
+  return (await getRuntimeSettings(store, env)).outbound.dailyLimit;
+}
+
+export async function getResolvedApiDailyLimit(store: AppStore, env: AppBindings) {
+  return (await getRuntimeSettings(store, env)).api.dailyLimit;
 }

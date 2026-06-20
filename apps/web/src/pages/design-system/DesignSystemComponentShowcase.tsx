@@ -62,6 +62,14 @@ function PreviewCard({ children }: { children: ReactNode }) {
   return <div style={designSystemSharedStyles.previewCard}>{children}</div>;
 }
 
+function ComfortablePreviewGrid({ children }: { children: ReactNode }) {
+  return (
+    <div data-layout="comfortable-preview-grid" style={designSystemExampleStyles.comfortablePreviewGrid}>
+      {children}
+    </div>
+  );
+}
+
 function MiniChart() {
   return (
     <PreviewCard>
@@ -135,10 +143,10 @@ export function DesignSystemComponentShowcase({ componentId }: DesignSystemCompo
       </div>
     ),
     "data-display": (
-      <div style={designSystemExampleStyles.twoColumnGrid}>
+      <ComfortablePreviewGrid>
         <MetricCard kicker="KPI" title="活跃账号" value="128" caption="+8.4%" tone="hero" />
         <KVList items={[{ key: "环境", value: "Prod" }, { key: "区域", value: "APAC" }, { key: "健康度", value: "98.6%" }]} />
-      </div>
+      </ComfortablePreviewGrid>
     ),
     "design-tokens": (
       <div style={designSystemExampleStyles.previewGrid}>
@@ -214,10 +222,10 @@ export function DesignSystemComponentShowcase({ componentId }: DesignSystemCompo
       ]} />
     ),
     "metric-card": (
-      <div style={designSystemExampleStyles.twoColumnGrid}>
+      <ComfortablePreviewGrid>
         <MetricCard kicker="KPI" title="今日 API 调用" value="12,480" detail="20,000 daily limit" caption="剩余 37.6%" tone="hero" />
         <MetricCard title="活跃账号" value="128" caption="+8.4%" valueSize="lg" />
-      </div>
+      </ComfortablePreviewGrid>
     ),
     "multi-select": (
       <FormField label="标签筛选">

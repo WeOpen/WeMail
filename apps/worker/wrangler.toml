@@ -4,25 +4,14 @@ compatibility_date = "2025-04-01"
 compatibility_flags = ["nodejs_compat"]
 
 # Local defaults used by `wrangler dev`.
+# Business defaults such as domains, quotas, attachment limits, and feature
+# toggles are stored in D1 system_settings and edited from the admin UI.
 [vars]
 ENVIRONMENT = "local"
 APP_NAME = "WeMail"
-DEFAULT_MAIL_DOMAIN = "example.com"
 COOKIE_NAME = "wemail_session"
 COOKIE_SECURE = "false"
 CORS_ALLOWED_ORIGINS = "http://localhost:5173,http://127.0.0.1:5173"
-MAILBOX_LIMIT = "5"
-MESSAGE_RETENTION_DAYS = "7"
-OUTBOUND_DAILY_LIMIT = "20"
-API_DAILY_LIMIT = "20000"
-AI_FALLBACK_LIMIT = "20"
-MAX_ATTACHMENT_BYTES = "10485760"
-MAX_TOTAL_ATTACHMENT_BYTES = "15728640"
-ENABLE_AI = "true"
-ENABLE_TELEGRAM = "true"
-ENABLE_OUTBOUND = "true"
-ENABLE_MAILBOX_CREATION = "true"
-ADMIN_EMAILS = ""
 
 [[d1_databases]]
 binding = "DB"
@@ -36,29 +25,18 @@ id = "local-cache"
 preview_id = "local-cache-preview"
 
 # Remote deployments should use explicit environments so staging and
-# production can point at different D1 instances, domains, and secrets.
+# production can point at different D1 instances, origins, and secrets.
+# Keep D1 and KV IDs as placeholders in this open-source file; GitHub Actions
+# injects the real environment-specific IDs from GitHub Environment secrets.
 [env.staging]
 workers_dev = true
 
 [env.staging.vars]
 ENVIRONMENT = "staging"
 APP_NAME = "WeMail"
-DEFAULT_MAIL_DOMAIN = "staging.example.com"
 COOKIE_NAME = "wemail_session"
 COOKIE_SECURE = "true"
-CORS_ALLOWED_ORIGINS = "https://staging.example.com"
-MAILBOX_LIMIT = "5"
-MESSAGE_RETENTION_DAYS = "7"
-OUTBOUND_DAILY_LIMIT = "20"
-API_DAILY_LIMIT = "20000"
-AI_FALLBACK_LIMIT = "20"
-MAX_ATTACHMENT_BYTES = "10485760"
-MAX_TOTAL_ATTACHMENT_BYTES = "15728640"
-ENABLE_AI = "true"
-ENABLE_TELEGRAM = "true"
-ENABLE_OUTBOUND = "true"
-ENABLE_MAILBOX_CREATION = "true"
-ADMIN_EMAILS = ""
+CORS_ALLOWED_ORIGINS = "https://staging.wemail.willxue.com"
 
 [[env.staging.d1_databases]]
 binding = "DB"
@@ -71,32 +49,23 @@ binding = "CACHE"
 id = "replace-with-staging-kv-id"
 preview_id = "replace-with-staging-kv-preview-id"
 
+[[env.staging.r2_buckets]]
+binding = "ATTACHMENTS"
+bucket_name = "wemail-staging-attachments"
+
 [env.production]
 workers_dev = true
 
 [env.production.vars]
 ENVIRONMENT = "production"
 APP_NAME = "WeMail"
-DEFAULT_MAIL_DOMAIN = "example.com"
 COOKIE_NAME = "wemail_session"
 COOKIE_SECURE = "true"
-CORS_ALLOWED_ORIGINS = "https://example.com"
-MAILBOX_LIMIT = "5"
-MESSAGE_RETENTION_DAYS = "7"
-OUTBOUND_DAILY_LIMIT = "20"
-API_DAILY_LIMIT = "20000"
-AI_FALLBACK_LIMIT = "20"
-MAX_ATTACHMENT_BYTES = "10485760"
-MAX_TOTAL_ATTACHMENT_BYTES = "15728640"
-ENABLE_AI = "true"
-ENABLE_TELEGRAM = "true"
-ENABLE_OUTBOUND = "true"
-ENABLE_MAILBOX_CREATION = "true"
-ADMIN_EMAILS = ""
+CORS_ALLOWED_ORIGINS = "https://wemail.willxue.com"
 
 [[env.production.d1_databases]]
 binding = "DB"
-database_name = "wemail-production"
+database_name = "wemail"
 database_id = "replace-with-production-d1-id"
 migrations_dir = "src/infrastructure/db/migrations"
 
@@ -104,3 +73,7 @@ migrations_dir = "src/infrastructure/db/migrations"
 binding = "CACHE"
 id = "replace-with-production-kv-id"
 preview_id = "replace-with-production-kv-preview-id"
+
+[[env.production.r2_buckets]]
+binding = "ATTACHMENTS"
+bucket_name = "wemail-attachments"

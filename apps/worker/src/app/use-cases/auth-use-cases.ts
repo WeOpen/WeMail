@@ -5,7 +5,7 @@ import { resolveAppConfig } from "../../core/config";
 import { hashPassword, readSessionCookie, setSessionCookie, verifyPassword } from "../../shared/auth";
 import { toSessionResponse } from "../routes/dto/auth-dto";
 import { jsonError, recordAudit } from "../services/audit-service";
-import { getApiDailyLimit, getOutboundLimit } from "../services/config-service";
+import { getResolvedApiDailyLimit, getResolvedOutboundLimit } from "../services/config-service";
 import { sessionExpiryIso } from "../services/session-service";
 
 type AuthUseCaseContext = {
@@ -35,11 +35,15 @@ export async function registerUserWithInvite(
   });
 
   await c.store.invites.redeem(payload.inviteCode, user.id);
+  const [apiDailyLimit, dailyLimit] = await Promise.all([
+    getResolvedApiDailyLimit(c.store, c.env),
+    getResolvedOutboundLimit(c.store, c.env)
+  ]);
   await c.store.quotas.save({
     userId: user.id,
-    apiDailyLimit: getApiDailyLimit(c.env),
+    apiDailyLimit,
     apiCallsToday: 0,
-    dailyLimit: getOutboundLimit(c.env),
+    dailyLimit,
     sendsToday: 0,
     disabled: false,
     updatedAt: new Date().toISOString()

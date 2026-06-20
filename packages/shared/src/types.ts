@@ -35,6 +35,38 @@ export type MailDomainSettings = {
   primaryDomain: string;
 };
 
+export type RuntimeSettings = {
+  mailbox: {
+    limit: number;
+  };
+  message: {
+    retentionDays: number;
+  };
+  outbound: {
+    dailyLimit: number;
+  };
+  api: {
+    dailyLimit: number;
+  };
+  attachments: {
+    maxBytes: number;
+    maxTotalBytes: number;
+  };
+  ai: {
+    fallbackLimit: number;
+  };
+  lastUpdatedLabel: string;
+};
+
+export type RuntimeSettingsUpdateInput = {
+  mailbox?: Partial<RuntimeSettings["mailbox"]>;
+  message?: Partial<RuntimeSettings["message"]>;
+  outbound?: Partial<RuntimeSettings["outbound"]>;
+  api?: Partial<RuntimeSettings["api"]>;
+  attachments?: Partial<RuntimeSettings["attachments"]>;
+  ai?: Partial<RuntimeSettings["ai"]>;
+};
+
 export type UserSummary = {
   id: string;
   email: string;

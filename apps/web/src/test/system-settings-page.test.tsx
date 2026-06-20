@@ -1,11 +1,35 @@
 import { readFileSync } from "node:fs";
 
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import type { ComponentProps } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { RuntimeSettings } from "@wemail/shared";
 
 import { SystemSettingsPage } from "../pages/SystemSettingsPage";
 
 const sharedStyles = readFileSync("src/shared/styles/index.css", "utf8");
+const runtimeSettings: RuntimeSettings = {
+  ai: { fallbackLimit: 20 },
+  api: { dailyLimit: 20000 },
+  attachments: { maxBytes: 10485760, maxTotalBytes: 15728640 },
+  mailbox: { limit: 5 },
+  message: { retentionDays: 7 },
+  outbound: { dailyLimit: 20 },
+  lastUpdatedLabel: "2026-04-08T00:00:00.000Z"
+};
+
+function renderSystemSettingsPage(props: Partial<ComponentProps<typeof SystemSettingsPage>> = {}) {
+  return render(
+    <SystemSettingsPage
+      runtimeSettings={null}
+      resolvedTheme="light"
+      themePreference="system"
+      onSaveRuntimeSettings={vi.fn()}
+      onSelectThemePreference={vi.fn()}
+      {...props}
+    />
+  );
+}
 
 describe("SystemSettingsPage", () => {
   beforeEach(() => {
@@ -17,13 +41,7 @@ describe("SystemSettingsPage", () => {
   });
 
   it("renders a redesigned overview, main settings column, and status rail", () => {
-    render(
-      <SystemSettingsPage
-        resolvedTheme="light"
-        themePreference="system"
-        onSelectThemePreference={vi.fn()}
-      />
-    );
+    renderSystemSettingsPage();
 
     expect(screen.getByLabelText("系统设置概览")).toHaveClass("system-settings-overview-panel");
     expect(screen.getByLabelText("系统设置主设置")).toHaveClass("system-settings-main-column");
@@ -36,14 +54,7 @@ describe("SystemSettingsPage", () => {
   });
 
   it("summarizes theme state and domain management permission from real props", () => {
-    render(
-      <SystemSettingsPage
-        canManageDomains
-        resolvedTheme="dark"
-        themePreference="system"
-        onSelectThemePreference={vi.fn()}
-      />
-    );
+    renderSystemSettingsPage({ canManageDomains: true, resolvedTheme: "dark", runtimeSettings });
 
     expect(screen.getByLabelText("当前主题模式")).toHaveTextContent("跟随系统");
     expect(screen.getByLabelText("当前解析主题")).toHaveTextContent("深色");
@@ -54,13 +65,7 @@ describe("SystemSettingsPage", () => {
   it("offers light, dark, and system theme preferences", () => {
     const onSelectThemePreference = vi.fn();
 
-    render(
-      <SystemSettingsPage
-        resolvedTheme="dark"
-        themePreference="system"
-        onSelectThemePreference={onSelectThemePreference}
-      />
-    );
+    renderSystemSettingsPage({ resolvedTheme: "dark", onSelectThemePreference });
 
     fireEvent.click(screen.getByRole("button", { name: "浅色模式" }));
     fireEvent.click(screen.getByRole("button", { name: "深色模式" }));
@@ -72,13 +77,7 @@ describe("SystemSettingsPage", () => {
   });
 
   it("keeps theme options as the primary appearance controls", () => {
-    render(
-      <SystemSettingsPage
-        resolvedTheme="dark"
-        themePreference="system"
-        onSelectThemePreference={vi.fn()}
-      />
-    );
+    renderSystemSettingsPage({ resolvedTheme: "dark" });
 
     expect(screen.getByRole("button", { name: "浅色模式" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "深色模式" })).toBeInTheDocument();
@@ -96,7 +95,16 @@ describe("SystemSettingsPage", () => {
     );
   });
 
-  it("lets admins add and save mailbox domain suffixes", async () => {
+  it("keeps runtime save text legible on the contrast button", () => {
+    renderSystemSettingsPage({ canManageDomains: true, runtimeSettings });
+
+    const saveRuntimeButton = screen.getByRole("button", { name: "保存运行策略" });
+
+    expect(saveRuntimeButton).toHaveClass("system-runtime-save-button");
+    expect(sharedStyles).toMatch(/\.system-runtime-save-button\.ui-button-primary\s*\{[^}]*color:\s*#fff;/);
+  });
+
+  it("lets admins save mailbox domain suffixes without a separate add button", async () => {
     const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation((input, init) => {
       const url = typeof input === "string" ? input : input instanceof Request ? input.url : String(input);
 
@@ -130,14 +138,7 @@ describe("SystemSettingsPage", () => {
       return Promise.resolve(new Response(JSON.stringify({}), { headers: { "content-type": "application/json" } }));
     });
 
-    render(
-      <SystemSettingsPage
-        canManageDomains
-        resolvedTheme="dark"
-        themePreference="system"
-        onSelectThemePreference={vi.fn()}
-      />
-    );
+    renderSystemSettingsPage({ canManageDomains: true, resolvedTheme: "dark", runtimeSettings });
 
     expect(await screen.findByRole("heading", { name: "域名设置" })).toBeInTheDocument();
     expect(screen.getByLabelText("当前默认域名")).toHaveTextContent("@example.com");
@@ -145,17 +146,17 @@ describe("SystemSettingsPage", () => {
     expect(screen.getByText(/所有角色可用/)).toBeInTheDocument();
 
     const domainInput = screen.getByLabelText("新增域名后缀");
-    const addButton = screen.getByRole("button", { name: "添加域名" });
+    const saveDomainButton = screen.getByRole("button", { name: "保存域名设置" });
 
     fireEvent.change(domainInput, { target: { value: "bad-.example.com" } });
-    fireEvent.click(addButton);
+    expect(screen.queryByRole("button", { name: "添加域名" })).not.toBeInTheDocument();
+    expect(saveDomainButton.querySelector("svg")).not.toBeNull();
+    fireEvent.click(saveDomainButton);
     expect(screen.getByRole("alert")).toHaveTextContent("请输入有效的域名后缀");
 
     fireEvent.change(domainInput, { target: { value: "Mail.EXAMPLE.org" } });
     fireEvent.click(screen.getByRole("checkbox", { name: "成员" }));
-    fireEvent.click(addButton);
-    expect(screen.getByText("成员可用")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "保存域名设置" }));
+    fireEvent.click(saveDomainButton);
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(

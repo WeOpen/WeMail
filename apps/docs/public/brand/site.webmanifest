@@ -1,0 +1,15 @@
+{
+  "name": "WeMail Docs",
+  "short_name": "WeMail Docs",
+  "description": "WeMail deployment, development, and operations documentation.",
+  "theme_color": "#ff7a00",
+  "background_color": "#f5f1ea",
+  "icons": [
+    {
+      "src": "/brand/WeMail.png",
+      "sizes": "1254x1254",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}

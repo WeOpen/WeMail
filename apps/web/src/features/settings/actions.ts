@@ -1,4 +1,13 @@
-import { createApiKey, createTelegramLinkCode, revokeApiKey, saveTelegramSubscription, sendTelegramTestMessage } from "./api";
+import type { RuntimeSettingsUpdateInput } from "@wemail/shared";
+
+import {
+  createApiKey,
+  createTelegramLinkCode,
+  revokeApiKey,
+  saveTelegramSubscription,
+  sendTelegramTestMessage,
+  updateRuntimeSettings
+} from "./api";
 
 export async function createApiKeyAction(label: string) {
   return createApiKey(label);
@@ -18,4 +27,8 @@ export async function createTelegramLinkCodeAction() {
 
 export async function sendTelegramTestAction() {
   return sendTelegramTestMessage();
+}
+
+export async function saveRuntimeSettingsAction(payload: RuntimeSettingsUpdateInput) {
+  return updateRuntimeSettings(payload);
 }

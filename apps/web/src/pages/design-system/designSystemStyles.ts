@@ -55,6 +55,73 @@ export const designSystemPageStyles = {
     gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
     alignItems: "start"
   } satisfies CSSProperties,
+  groupGallery: {
+    display: "grid",
+    gap: "26px"
+  } satisfies CSSProperties,
+  groupCard: {
+    display: "grid",
+    gap: "22px",
+    alignItems: "start",
+    padding: "26px",
+    background: "var(--surface-muted)",
+    boxShadow: "0 18px 42px rgba(15, 23, 42, 0.08)"
+  } satisfies CSSProperties,
+  groupCardHeader: {
+    display: "flex",
+    alignItems: "start",
+    justifyContent: "space-between",
+    gap: "16px",
+    paddingBottom: "14px",
+    borderBottom: "1px solid var(--border-subtle, rgba(15, 23, 42, 0.08))"
+  } satisfies CSSProperties,
+  groupTitle: {
+    margin: 0,
+    fontSize: "clamp(1.35rem, 2vw, 2rem)",
+    lineHeight: 1.08,
+    letterSpacing: "0"
+  } satisfies CSSProperties,
+  componentGrid: {
+    display: "grid",
+    gap: "22px",
+    gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 420px), 1fr))",
+    alignItems: "start"
+  } satisfies CSSProperties,
+  componentCard: {
+    minWidth: 0,
+    display: "grid",
+    gap: "14px",
+    alignContent: "start",
+    paddingTop: "2px"
+  } satisfies CSSProperties,
+  componentCardHeader: {
+    minHeight: "42px",
+    display: "grid",
+    gap: "3px",
+    alignContent: "start"
+  } satisfies CSSProperties,
+  componentTitle: {
+    margin: 0,
+    color: "var(--text, #111827)",
+    fontSize: "1rem",
+    fontWeight: 760,
+    lineHeight: 1.15,
+    letterSpacing: "0"
+  } satisfies CSSProperties,
+  componentSubtitle: {
+    color: "var(--text-muted, #667085)",
+    fontSize: "12px",
+    lineHeight: 1.3
+  } satisfies CSSProperties,
+  componentPreviewSurface: {
+    minWidth: 0,
+    overflowX: "auto",
+    scrollbarGutter: "stable",
+    padding: "18px",
+    borderRadius: "20px",
+    border: "1px solid var(--border-subtle, rgba(15, 23, 42, 0.08))",
+    background: "var(--surface-secondary, rgba(15, 23, 42, 0.04))"
+  } satisfies CSSProperties,
   metaGrid: {
     display: "grid",
     gap: "12px"
@@ -151,6 +218,12 @@ export const designSystemExampleStyles = {
     display: "grid",
     gap: "12px",
     gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 180px), 1fr))"
+  } satisfies CSSProperties,
+  comfortablePreviewGrid: {
+    minWidth: 0,
+    display: "grid",
+    gap: "16px",
+    gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 240px), 1fr))"
   } satisfies CSSProperties,
   denseGrid: {
     minWidth: 0,

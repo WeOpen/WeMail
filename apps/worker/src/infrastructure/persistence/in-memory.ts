@@ -26,6 +26,7 @@ import type {
   OutboundMessageRecord,
   PersistedMessageRecord,
   QuotaRecord,
+  RuntimeSettingsRecord,
   SessionRecord,
   UserPreferencesRecord,
   TelegramSubscriptionRecord,
@@ -166,6 +167,7 @@ export function createInMemoryStore(): AppStore {
   const telegramSubscriptions = new Map<string, TelegramSubscriptionRecord>();
   const quotas = new Map<string, QuotaRecord>();
   const settings = new Map<keyof FeatureToggles, boolean>();
+  let runtimeSettings: RuntimeSettingsRecord | null = null;
   let mailDomains: MailDomainSummary[] | null = null;
   const dictionaryItems = new Map<string, DictionaryItemSummary>();
   const auditEvents: AuditEventRecord[] = [];
@@ -768,6 +770,18 @@ export function createInMemoryStore(): AppStore {
         settings.set("outboundEnabled", next.outboundEnabled);
         settings.set("mailboxCreationEnabled", next.mailboxCreationEnabled);
         return clone(next);
+      }
+    },
+    runtimeSettings: {
+      async get() {
+        return clone(runtimeSettings);
+      },
+      async save(record) {
+        runtimeSettings = clone({
+          ...record,
+          updatedAt: nowIso()
+        });
+        return clone(runtimeSettings);
       }
     },
     mailDomains: {

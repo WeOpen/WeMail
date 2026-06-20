@@ -5,6 +5,8 @@ import type {
   MailSettingsUpdateInput,
   MailDomainSettings,
   MailDomainSummary,
+  RuntimeSettings,
+  RuntimeSettingsUpdateInput,
   TelegramDeliverySummary,
   TelegramLinkCodeSummary,
   TelegramOverviewSummary,
@@ -93,6 +95,17 @@ export function updateSystemDomains(domains: MailDomainSummary[]) {
   return apiFetch<MailDomainSettings>("/api/system/domains", {
     method: "PATCH",
     body: JSON.stringify({ domains })
+  });
+}
+
+export function fetchRuntimeSettings() {
+  return apiFetch<{ settings: RuntimeSettings }>("/api/system/runtime-settings");
+}
+
+export function updateRuntimeSettings(payload: RuntimeSettingsUpdateInput) {
+  return apiFetch<{ settings: RuntimeSettings }>("/api/system/runtime-settings", {
+    method: "PATCH",
+    body: JSON.stringify(payload)
   });
 }
 

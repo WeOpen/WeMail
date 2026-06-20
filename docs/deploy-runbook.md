@@ -34,9 +34,10 @@
 4. 确认 `apps/worker/wrangler.toml` 已配置：
    - `env.staging`
    - `env.production`
-   - 对应 D1 database ID
-   - 对应 KV namespace ID
-   - 对应邮件域名
+   - D1 binding 声明和占位 ID
+   - KV binding 声明和占位 ID
+   - 真实 D1 / KV ID 已配置到 GitHub Environment secrets
+   - 系统设置里的默认邮箱域名已指向真实收件域名
 5. 确认 Cloudflare 资源可用：
    - D1
    - KV cache namespace
@@ -66,12 +67,16 @@
 | `CLOUDFLARE_API_TOKEN` | 必需 | 调用 Wrangler Action 部署 Worker / Pages |
 | `CLOUDFLARE_ACCOUNT_ID` | 必需 | Cloudflare Account ID |
 | `CLOUDFLARE_PAGES_PROJECT_NAME` | 必需 | Pages 目标项目名 |
+| `CLOUDFLARE_D1_DATABASE_ID` | 必需 | 当前环境的 D1 database ID，用于部署时注入 Worker 绑定 |
+| `CLOUDFLARE_KV_NAMESPACE_ID` | 必需 | 当前环境的 KV namespace ID，用于部署时注入 Worker 绑定 |
+| `CLOUDFLARE_KV_PREVIEW_NAMESPACE_ID` | 必需 | 当前环境的 KV preview namespace ID，用于部署时注入 Worker 绑定 |
 | `GITHUB_TOKEN` | 内建 | 同步 GitHub Deployments 状态 |
 
 `CLOUDFLARE_API_TOKEN` 最小权限建议：
 
 - Account / Workers Scripts: Edit
 - Account / D1: Edit（如果 workflow 需要迁移）
+- Account / Workers KV Storage: Edit
 - Account / Pages: Edit
 - Account / Workers Tail: Read（可选）
 
@@ -101,16 +106,16 @@ pnpm exec wrangler secret put TELEGRAM_WEBHOOK_SECRET --env production
 
 ### 3.4 Wrangler 非 secret 配置与绑定
 
-`apps/worker/wrangler.toml` 保存的是非敏感默认值和绑定声明，例如：
+`apps/worker/wrangler.toml` 只保存启动必需的非敏感配置和绑定声明，例如：
 
-- `DEFAULT_MAIL_DOMAIN`
-- `MAILBOX_LIMIT`
-- `OUTBOUND_DAILY_LIMIT`
-- `API_DAILY_LIMIT`
 - `CORS_ALLOWED_ORIGINS`（逗号分隔；跨域携带 Cookie 时必须显式列出 Pages / 自定义域名来源，不能依赖 `*`）
-- `ENABLE_AI`
-- `ENABLE_TELEGRAM`
 - `TELEGRAM_BOT_USERNAME`（用于生成 Telegram deep link）
+- `COOKIE_SECURE`
+- D1、KV、R2 等 Cloudflare bindings
+
+本仓库按开源场景处理 Cloudflare 资源 ID：`wrangler.toml` 中的 D1 / KV ID 保持 `replace-with-*` 占位值，`.github/workflows/deploy-cloudflare.yml` 会在部署时从当前 GitHub Environment secrets 读取真实 ID 并临时替换。不要把真实 production D1 / KV ID 提交进仓库。
+
+业务默认值不需要写入 `wrangler.toml`：邮箱域名、邮箱数量上限、邮件保留天数、默认发件额度、默认 API 调用额度、附件大小、AI fallback 次数由管理员在 WeMail「系统设置」维护；AI、Telegram、发件和邮箱创建功能开关在「用户设置」的功能开关面板维护。这些值保存在 D1 的 `system_settings` 中，KV 只做可失效缓存。
 
 新增环境时，不要假设 `vars` 和大多数 bindings 会自动继承；需要把必要字段完整写入。
 
@@ -174,7 +179,7 @@ pnpm exec wrangler secret put TELEGRAM_WEBHOOK_SECRET --env production
 - 没有明确回滚目标。
 - 没有 staging 验证计划。
 - D1 migration 不可回放或不可解释。
-- `wrangler.toml` 中目标环境仍存在占位绑定。
+- GitHub Environment 中缺少目标环境的 D1 / KV 绑定 secrets。
 - secrets / bindings 只在 staging 或 production 单边配置。
 - 生产变更依赖口头步骤但没有写入本文档或 PR 描述。
 
@@ -623,8 +628,8 @@ git log --oneline -20
 ## 14. 常见失败点
 
 - GitHub Environment 没有配置 Cloudflare deploy secrets
-- `wrangler.toml` 的 D1 database ID 仍是占位值
-- `wrangler.toml` 的 KV namespace ID 仍是占位值
+- GitHub Environment 没有配置 D1 / KV 绑定 secrets
+- `wrangler.toml` 的 D1 / KV 占位符名称和 workflow 注入逻辑不一致
 - production 从非 `main` 分支触发
 - Worker secrets 只更新了 staging 或 production 其中一个环境
 - Pages 项目生产分支设置与仓库 workflow 约定不一致
