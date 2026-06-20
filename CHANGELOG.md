@@ -40,6 +40,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Fixed Cloudflare production deployment configuration so D1 migrations resolve the production database and Pages deploy jobs can install Wrangler with pnpm.
 - Fixed the runtime settings save button contrast so its label remains readable.
 - Fixed runtime settings validation, docs metadata warnings, and stale deployment troubleshooting notes.
 - Fixed the docs homepage hero spacing so the logo, title, and console content sit closer to the navigation instead of leaving a large blank band.

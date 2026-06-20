@@ -65,7 +65,7 @@ CORS_ALLOWED_ORIGINS = "https://wemail.willxue.com"
 
 [[env.production.d1_databases]]
 binding = "DB"
-database_name = "wemail"
+database_name = "wemail-production"
 database_id = "replace-with-production-d1-id"
 migrations_dir = "src/infrastructure/db/migrations"
 
@@ -76,4 +76,4 @@ preview_id = "replace-with-production-kv-preview-id"
 
 [[env.production.r2_buckets]]
 binding = "ATTACHMENTS"
-bucket_name = "wemail-attachments"
+bucket_name = "wemail-production-attachments"

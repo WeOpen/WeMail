@@ -237,6 +237,11 @@ jobs:
           name: web-dist-${{ github.event.inputs.environment }}
           path: apps/web/dist
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.18.2
+
       - name: Deploy Pages staging preview via Wrangler
         if: ${{ needs.prepare.outputs.pages_branch != '' }}
         id: deploy_pages_staging
