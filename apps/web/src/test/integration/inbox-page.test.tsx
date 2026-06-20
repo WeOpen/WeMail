@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { MessageSummary } from "@wemail/shared";
 
 import { App } from "../../app/App";
+import { formatReceivedAt } from "../../features/inbox/formatters";
 import { InboxPage } from "../../pages/InboxPage";
 import { jsonResponse } from "../helpers/mock-api";
 
@@ -272,6 +273,12 @@ function getMailMessageRequestParams() {
     .map(([input]) => new URL(getFetchRequestUrl(input), "http://localhost"))
     .filter((url) => url.pathname === "/api/mail/messages")
     .map((url) => url.searchParams);
+}
+
+function formatLocalDateMinute(value: string) {
+  const date = new Date(value);
+  const pad = (part: number) => String(part).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
 describe("mail list integration", () => {
@@ -602,14 +609,15 @@ describe("mail list integration", () => {
     expect(firstMessageTop).not.toBeNull();
     expect(firstMessageMain).not.toBeNull();
     expect(firstMessage.querySelector(".message-item-preview")).toBeNull();
+    const firstMessageReceivedAt = formatReceivedAt(mockInboxMessages[0].receivedAt);
     expect(within(firstMessageHeader as HTMLElement).getByText(/^Acme$/i)).toHaveClass("message-item-sender-name");
-    expect(within(firstMessageHeader as HTMLElement).getByText(/^2026-04-08 08:00:00$/i)).toHaveClass("message-item-time");
+    expect(within(firstMessageHeader as HTMLElement).getByText(firstMessageReceivedAt)).toHaveClass("message-item-time");
     expect(within(firstMessageHeader as HTMLElement).queryByText(/^no-reply@acme.dev$/i)).not.toBeInTheDocument();
     expect(within(firstMessageHeader as HTMLElement).queryByText(/^482913$/i)).not.toBeInTheDocument();
     expect(within(firstMessageTop as HTMLElement).getByText(/^482913$/i)).toBeInTheDocument();
     expect((firstMessageTop as HTMLElement).querySelector(".message-extraction-chip-icon")).not.toBeNull();
     expect(within(firstMessageTop as HTMLElement).queryByText(/^Acme$/i)).not.toBeInTheDocument();
-    expect(within(firstMessageTop as HTMLElement).queryByText(/^2026-04-08 08:00:00$/i)).not.toBeInTheDocument();
+    expect(within(firstMessageTop as HTMLElement).queryByText(firstMessageReceivedAt)).not.toBeInTheDocument();
     expect(within(firstMessageMain as HTMLElement).getByText(/Verify your email/i)).toBeInTheDocument();
     expect(within(firstMessageMain as HTMLElement).queryByText(/^no-reply@acme.dev$/i)).not.toBeInTheDocument();
     expect(within(firstMessageMain as HTMLElement).queryByText(/^Use 482913 to finish sign in$/i)).not.toBeInTheDocument();
@@ -756,7 +764,8 @@ describe("mail list integration", () => {
     expect(within(qaSignupRow).getByText(/^QA Signup$/i)).toHaveAttribute("title", "QA Signup");
     expect(within(qaSignupRow).getByText(/^qa-signup@example.com$/i)).toHaveAttribute("title", "qa-signup@example.com");
     expect(within(qaSignupRow).getByText(/^Member User$/i)).toHaveAttribute("title", "Member User");
-    expect(within(qaSignupRow).getByText(/^2026-04-08 08:00$/i)).toHaveAttribute("title", "2026-04-08 08:00");
+    const createdAtLabel = formatLocalDateMinute(mockMailboxes[0].createdAt);
+    expect(within(qaSignupRow).getByText(createdAtLabel)).toHaveAttribute("title", createdAtLabel);
   });
 
   it("aligns the create-mailbox dialog with the account creation dialog pattern", async () => {
