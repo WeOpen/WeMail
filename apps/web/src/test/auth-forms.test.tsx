@@ -75,17 +75,18 @@ describe("AuthForms", () => {
     expect(screen.getByLabelText(/^邮箱/)).toHaveAttribute("aria-invalid", "true");
   });
 
-  it("renders a custom Chinese required message for the missing register invite code", () => {
+  it("submits registration when only the invite code is empty", () => {
     const onRegister = vi.fn();
     render(<AuthForms authError={null} mode="register" onLogin={vi.fn()} onRegister={onRegister} />);
 
+    fireEvent.change(screen.getByLabelText(/^用户名/), { target: { value: "Will Xue" } });
     fireEvent.change(screen.getByLabelText(/^邮箱/), { target: { value: "willxue@example.com" } });
     fireEvent.change(screen.getByLabelText(/^密码/), { target: { value: "password123" } });
     fireEvent.submit(screen.getByRole("button", { name: "立即注册" }).closest("form")!);
 
-    expect(onRegister).not.toHaveBeenCalled();
-    expect(screen.getByText("请输入邀请码")).toHaveClass("auth-field-validation");
-    expect(screen.getByLabelText(/^邀请码/)).toHaveAttribute("aria-invalid", "true");
+    expect(onRegister).toHaveBeenCalledOnce();
+    expect(screen.queryByText("请输入邀请码")).not.toBeInTheDocument();
+    expect(screen.getByLabelText(/^邀请码/)).not.toHaveAttribute("aria-invalid");
   });
 
   it("shows register backend errors in Chinese", async () => {

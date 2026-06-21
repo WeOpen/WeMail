@@ -16,15 +16,20 @@ type AuthUseCaseContext = {
 
 export async function registerUserWithInvite(
   c: AuthUseCaseContext,
-  payload: { email: string; name: string; password: string; inviteCode: string },
+  payload: { email: string; name: string; password: string; inviteCode: string | null },
   rawContext: any
 ) {
   if (await c.store.users.findByEmail(payload.email)) return jsonError("User already exists", 409);
-  const invite = await c.store.invites.findByCode(payload.inviteCode);
-  if (!invite || invite.redeemedAt || invite.disabledAt) return jsonError("Invite is invalid", 403);
+  const userCount = await c.store.users.count();
+  const canBootstrapWithoutInvite = userCount === 0 && !payload.inviteCode;
+  const invite = payload.inviteCode ? await c.store.invites.findByCode(payload.inviteCode) : null;
+
+  if (!canBootstrapWithoutInvite && (!invite || invite.redeemedAt || invite.disabledAt)) {
+    return jsonError("Invite is invalid", 403);
+  }
 
   const shouldBeAdmin =
-    (await c.store.users.count()) === 0 ||
+    userCount === 0 ||
     resolveAppConfig(c.env).adminEmails.includes(payload.email);
 
   const user = await c.store.users.create({
@@ -34,7 +39,7 @@ export async function registerUserWithInvite(
     role: shouldBeAdmin ? "admin" : "member"
   });
 
-  await c.store.invites.redeem(payload.inviteCode, user.id);
+  if (payload.inviteCode) await c.store.invites.redeem(payload.inviteCode, user.id);
   const [apiDailyLimit, dailyLimit] = await Promise.all([
     getResolvedApiDailyLimit(c.store, c.env),
     getResolvedOutboundLimit(c.store, c.env)

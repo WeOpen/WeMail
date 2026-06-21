@@ -35,6 +35,21 @@ describe("shared schemas", () => {
     });
   });
 
+  it("allows the initial register payload to omit an invite code", () => {
+    expect(
+      parseRegisterPayload({
+        email: "first-admin@example.com",
+        name: "First Admin",
+        password: "password123"
+      })
+    ).toEqual({
+      email: "first-admin@example.com",
+      name: "First Admin",
+      password: "password123",
+      inviteCode: null
+    });
+  });
+
   it("parses login payload", () => {
     expect(
       parseLoginPayload({

@@ -8,11 +8,12 @@ function resolveUserName(value: unknown, email: string) {
 export function parseRegisterPayload(input: unknown) {
   const payload = toRecordLike(input);
   const email = requireString(payload.email, "email");
+  const inviteCode = typeof payload.inviteCode === "string" && payload.inviteCode.trim().length > 0 ? payload.inviteCode.trim() : null;
   return {
     email,
     name: resolveUserName(payload.name, email),
     password: requireString(payload.password, "password"),
-    inviteCode: requireString(payload.inviteCode, "inviteCode")
+    inviteCode
   };
 }
 

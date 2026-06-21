@@ -127,6 +127,35 @@ describe("worker app", () => {
     });
   });
 
+  it("allows the first registered user to become admin without an invite", async () => {
+    const store = createInMemoryStore();
+    const app = createApp({ store });
+
+    const response = await app.request(
+      "/api/auth/register",
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          email: "first-admin@example.com",
+          name: "First Admin",
+          password: "password123"
+        })
+      },
+      env
+    );
+    const payload = (await response.json()) as {
+      user: { email: string; role: string };
+    };
+
+    expect(response.status).toBe(201);
+    expect(response.headers.get("set-cookie")).toContain("wemail_session=");
+    expect(payload.user).toMatchObject({
+      email: "first-admin@example.com",
+      role: "admin"
+    });
+  });
+
   it("paginates webhook endpoints for the current session user", async () => {
     const store = createInMemoryStore();
     const app = createApp({ store });

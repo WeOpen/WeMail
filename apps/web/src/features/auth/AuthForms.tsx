@@ -50,11 +50,6 @@ function validatePassword(value: string) {
   return null;
 }
 
-function validateInviteCode(value: string) {
-  if (!value.trim()) return getRequiredMessage("邀请码");
-  return null;
-}
-
 function compactFieldErrors(errors: AuthFieldErrors) {
   const visibleErrors: AuthFieldErrors = {};
 
@@ -156,8 +151,7 @@ export function AuthForms({ authError, onRegister, onLogin, mode }: AuthFormsPro
     const nextErrors: AuthFieldErrors = {
       registerName: validateName(registerName) ?? undefined,
       registerEmail: validateEmail(registerEmail) ?? undefined,
-      registerPassword: validatePassword(registerPassword) ?? undefined,
-      registerInviteCode: validateInviteCode(registerInviteCode) ?? undefined
+      registerPassword: validatePassword(registerPassword) ?? undefined
     };
     const visibleErrors = compactFieldErrors(nextErrors);
 
@@ -322,7 +316,7 @@ export function AuthForms({ authError, onRegister, onLogin, mode }: AuthFormsPro
                 {renderFieldValidation("registerPassword", "register-password")}
               </div>
             </FormField>
-            <FormField htmlFor="register-invite-code" label="邀请码" required>
+            <FormField htmlFor="register-invite-code" label="邀请码">
               <div className="auth-field-stack">
                 <div className={cx("auth-input-shell form-control-shell", fieldErrors.registerInviteCode && "is-invalid")}>
                   <span aria-hidden="true" className="auth-input-icon form-control-icon">
@@ -338,7 +332,6 @@ export function AuthForms({ authError, onRegister, onLogin, mode }: AuthFormsPro
                       clearFieldError("registerInviteCode");
                     }}
                     ref={registerInviteCodeRef}
-                    required
                     value={registerInviteCode}
                   />
                 </div>
