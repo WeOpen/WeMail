@@ -29,6 +29,10 @@
   background: transparent;
 }
 
+.landing-page .landing-back-to-top.ui-button {
+  bottom: max(76px, env(safe-area-inset-bottom));
+}
+
 .landing-page-main {
   display: grid;
 }
@@ -2336,6 +2340,21 @@
   border-radius: 999px;
   background: #5fd28d;
   display: inline-block;
+}
+
+.landing-footer-bottom span[data-state="checking"] i {
+  background: #f2a93b;
+  box-shadow: 0 0 0 6px rgba(242, 169, 59, 0.14);
+}
+
+.landing-footer-bottom span[data-state="healthy"] i {
+  background: #5fd28d;
+  box-shadow: 0 0 0 6px rgba(95, 210, 141, 0.14);
+}
+
+.landing-footer-bottom span[data-state="unavailable"] i {
+  background: #e16259;
+  box-shadow: 0 0 0 6px rgba(225, 98, 89, 0.14);
 }
 
 @keyframes landing-progress {

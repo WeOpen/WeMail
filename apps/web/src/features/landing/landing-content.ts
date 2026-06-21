@@ -236,7 +236,7 @@ export const footerQuickLinks = [
   },
   {
     name: "部署文档",
-    href: "/docs",
+    href: "https://doc.wemail.willxue.com",
     icon: "docs"
   }
 ] as const;

@@ -1,4 +1,4 @@
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter } from "react-router-dom";
 
@@ -113,16 +113,23 @@ describe("DesignSystemPage", () => {
     expect(within(tagCard).getByText("异常账号")).toBeInTheDocument();
   });
 
-  it("keeps theme switching isolated to the design system preview theme", () => {
+  it("uses the shared workspace theme control from its parent", () => {
+    const onToggleTheme = vi.fn();
+
     render(
       <MemoryRouter>
-        <DesignSystemPage />
+        <DesignSystemPage onToggleTheme={onToggleTheme} theme="dark" />
       </MemoryRouter>
     );
 
     expect(screen.getByRole("navigation", { name: "首页导航" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "WeMail 首页" })).toBeInTheDocument();
     expect(screen.getByText("WeMail Design System v1")).toBeInTheDocument();
+    expect(screen.getByText("深色模式")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "切换到浅色主题" }));
+
+    expect(onToggleTheme).toHaveBeenCalledTimes(1);
   });
 
   it("renders a floating back-to-top icon action in the lower-right corner", () => {
@@ -140,7 +147,8 @@ describe("DesignSystemPage", () => {
 
     const backToTopButton = screen.getByRole("button", { name: "返回顶部" });
 
-    expect(backToTopButton).toHaveClass("ui-button-icon-only");
-    expect(backToTopButton).toHaveStyle({ position: "fixed", right: "24px", bottom: "24px" });
+    expect(backToTopButton).toHaveClass("ui-button-icon-only", "floating-back-to-top");
+    fireEvent.click(backToTopButton);
+    expect(scrollTo).toHaveBeenCalledWith({ top: 0, behavior: "smooth" });
   });
 });

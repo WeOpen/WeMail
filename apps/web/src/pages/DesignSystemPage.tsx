@@ -1,11 +1,9 @@
-import { useEffect, useState } from "react";
-import { ArrowUp } from "lucide-react";
+import { useState } from "react";
 
 import { type WorkspaceTheme } from "../app/appStore";
 import { PublicSiteNavigation } from "../features/landing/PublicSiteNavigation";
 import { Badge } from "../shared/badge";
-import { Button } from "../shared/button";
-import { Icon } from "../shared/icon";
+import { FloatingBackToTopButton } from "../shared/FloatingBackToTopButton";
 import { DesignSystemComponentShowcase } from "./design-system/DesignSystemComponentShowcase";
 import { designSystemGroups } from "./design-system/designSystemContent";
 import {
@@ -13,12 +11,10 @@ import {
   designSystemSharedStyles
 } from "./design-system/designSystemStyles";
 
-const DESIGN_SYSTEM_THEME_STORAGE_KEY = "wemail-design-system-preview-theme";
-
-function resolveInitialPreviewTheme(): WorkspaceTheme {
+function resolveInitialTheme(): WorkspaceTheme {
   if (typeof window !== "undefined") {
-    const storedTheme = window.localStorage.getItem(DESIGN_SYSTEM_THEME_STORAGE_KEY);
-    if (storedTheme === "light" || storedTheme === "dark") return storedTheme;
+    const datasetTheme = document.documentElement.dataset.theme;
+    if (datasetTheme === "light" || datasetTheme === "dark") return datasetTheme;
 
     if (typeof window.matchMedia === "function") {
       return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
@@ -39,37 +35,26 @@ const totalComponentCount = groups.reduce((total, group) => total + group.compon
 type DesignSystemPageProps = {
   consoleHref?: string;
   isAuthenticated?: boolean;
+  onToggleTheme?: () => void;
+  theme?: WorkspaceTheme;
 };
 
-export function DesignSystemPage({ consoleHref, isAuthenticated = false }: DesignSystemPageProps = {}) {
-  const [previewTheme, setPreviewTheme] = useState<WorkspaceTheme>(resolveInitialPreviewTheme);
+export function DesignSystemPage({
+  consoleHref,
+  isAuthenticated = false,
+  onToggleTheme,
+  theme
+}: DesignSystemPageProps = {}) {
+  const [fallbackTheme, setFallbackTheme] = useState<WorkspaceTheme>(resolveInitialTheme);
+  const previewTheme = theme ?? fallbackTheme;
 
   function togglePreviewTheme() {
-    setPreviewTheme((current) => (current === "dark" ? "light" : "dark"));
+    if (onToggleTheme) {
+      onToggleTheme();
+      return;
+    }
+    setFallbackTheme((current) => (current === "dark" ? "light" : "dark"));
   }
-
-  function handleBackToTop() {
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  }
-
-  useEffect(() => {
-    const previousTheme = document.documentElement.dataset.theme;
-    const previousColorScheme = document.documentElement.style.colorScheme;
-
-    document.documentElement.dataset.theme = previewTheme;
-    document.documentElement.style.colorScheme = previewTheme;
-    window.localStorage.setItem(DESIGN_SYSTEM_THEME_STORAGE_KEY, previewTheme);
-
-    return () => {
-      if (previousTheme === "light" || previousTheme === "dark") {
-        document.documentElement.dataset.theme = previousTheme;
-      } else {
-        delete document.documentElement.dataset.theme;
-      }
-
-      document.documentElement.style.colorScheme = previousColorScheme;
-    };
-  }, [previewTheme]);
 
   return (
     <div className="design-system-public-page" data-testid="design-system-page">
@@ -138,16 +123,7 @@ export function DesignSystemPage({ consoleHref, isAuthenticated = false }: Desig
             </section>
           ))}
         </section>
-        <Button
-          aria-label="返回顶部"
-          iconOnly
-          onClick={handleBackToTop}
-          size="lg"
-          style={designSystemPageStyles.backToTopButton}
-          variant="icon"
-        >
-          <Icon decorative icon={ArrowUp} size="md" />
-        </Button>
+        <FloatingBackToTopButton />
       </main>
     </div>
   );

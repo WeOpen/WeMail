@@ -667,6 +667,46 @@ textarea:focus {
   width: 48px;
 }
 
+.floating-back-to-top.ui-button {
+  position: fixed;
+  right: max(24px, env(safe-area-inset-right));
+  bottom: max(24px, env(safe-area-inset-bottom));
+  z-index: 35;
+  border-color: color-mix(in srgb, var(--accent) 18%, var(--border-strong));
+  background: color-mix(in srgb, var(--surface-strong) 92%, transparent);
+  color: var(--text);
+  box-shadow:
+    0 18px 42px color-mix(in srgb, var(--surface-contrast) 16%, transparent),
+    inset 0 1px 0 color-mix(in srgb, white 36%, transparent);
+  backdrop-filter: blur(16px);
+}
+
+.floating-back-to-top.ui-button:hover,
+.floating-back-to-top.ui-button:focus-visible {
+  border-color: color-mix(in srgb, var(--accent) 36%, var(--border-strong));
+  background: color-mix(in srgb, var(--surface-strong) 82%, var(--accent) 10%);
+  color: var(--text);
+  box-shadow:
+    0 20px 46px color-mix(in srgb, var(--accent) 16%, transparent),
+    inset 0 1px 0 color-mix(in srgb, white 40%, transparent);
+}
+
+:root[data-theme="dark"] .floating-back-to-top.ui-button {
+  border-color: color-mix(in srgb, var(--accent) 24%, var(--border-strong));
+  background: color-mix(in srgb, var(--surface-strong) 84%, #000 16%);
+  color: var(--text);
+  box-shadow:
+    0 18px 46px rgba(0, 0, 0, 0.52),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+@media (max-width: 720px) {
+  .floating-back-to-top.ui-button {
+    right: max(16px, env(safe-area-inset-right));
+    bottom: max(16px, env(safe-area-inset-bottom));
+  }
+}
+
 .ui-button-label {
   min-width: 0;
 }

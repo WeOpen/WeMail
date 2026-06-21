@@ -215,6 +215,8 @@ function AppContent() {
         <DesignSystemPage
           consoleHref={profile.profile?.preferences.landingPage ?? "/dashboard"}
           isAuthenticated={Boolean(session)}
+          onToggleTheme={toggleTheme}
+          theme={theme}
         />
       </>
     );

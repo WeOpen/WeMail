@@ -14,9 +14,11 @@ import {
 } from "lucide-react";
 
 import { Button, ButtonLink } from "../../shared/button";
+import { FloatingBackToTopButton } from "../../shared/FloatingBackToTopButton";
 import { Switch } from "../../shared/switch";
 import { Tabs, TabsList, TabsPanel, TabsTrigger } from "../../shared/tabs";
 import { WemailBrandLockup } from "../../shared/WemailBrandLockup";
+import { fetchPublicSystemHealth } from "./api";
 import { AnimatedSphere } from "./AnimatedSphere";
 import { AnimatedTetrahedron } from "./AnimatedTetrahedron";
 import { AnimatedWave } from "./AnimatedWave";
@@ -68,6 +70,56 @@ function useCompactNavigation() {
   }, []);
 
   return isCompactNavigation;
+}
+
+type LandingSystemHealthState = {
+  detail: string;
+  label: string;
+  state: "checking" | "healthy" | "unavailable";
+};
+
+function useLandingSystemHealth(): LandingSystemHealthState {
+  const [health, setHealth] = useState<LandingSystemHealthState>({
+    detail: "正在从系统健康检查接口获取运行状态",
+    label: "正在检查系统状态",
+    state: "checking"
+  });
+
+  useEffect(() => {
+    let cancelled = false;
+
+    void fetchPublicSystemHealth()
+      .then((payload) => {
+        if (cancelled) return;
+        setHealth(
+          payload.ok
+            ? {
+                detail: `${payload.appName} ${payload.environment} health check ok`,
+                label: "系统运行正常",
+                state: "healthy"
+              }
+            : {
+                detail: `${payload.appName} ${payload.environment} health check returned not ok`,
+                label: "系统状态待确认",
+                state: "unavailable"
+              }
+        );
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setHealth({
+          detail: "系统健康检查接口暂时不可用",
+          label: "系统状态待确认",
+          state: "unavailable"
+        });
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  return health;
 }
 
 function useAutoIndex(length: number, delay: number, paused = false) {
@@ -919,6 +971,8 @@ function CtaSection({ consoleHref, isAuthenticated }: LandingAuthCtaProps) {
 }
 
 function FooterSection() {
+  const systemHealth = useLandingSystemHealth();
+
   return (
     <footer className="landing-footer">
       <div className="landing-footer-wave" aria-hidden="true">
@@ -950,9 +1004,9 @@ function FooterSection() {
       </div>
       <div className="landing-footer-bottom">
         <p>2026 WeMail. 版权所有。</p>
-        <span>
+        <span aria-label="系统健康状态" aria-live="polite" data-state={systemHealth.state} role="status" title={systemHealth.detail}>
           <i aria-hidden="true" />
-          系统运行正常
+          {systemHealth.label}
         </span>
       </div>
     </footer>
@@ -989,6 +1043,7 @@ export function WemailLandingPage({
         <CtaSection consoleHref={resolvedConsoleHref} isAuthenticated={isAuthenticated} />
       </main>
       <FooterSection />
+      <FloatingBackToTopButton className="landing-back-to-top" />
     </div>
   );
 }

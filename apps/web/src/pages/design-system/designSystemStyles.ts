@@ -191,14 +191,6 @@ export const designSystemPageStyles = {
     fontSize: "14px",
     fontWeight: 700,
     color: "var(--text, #111827)"
-  } satisfies CSSProperties,
-  backToTopButton: {
-    position: "fixed",
-    right: "24px",
-    bottom: "24px",
-    zIndex: 30,
-    boxShadow: "0 18px 42px rgba(15, 23, 42, 0.18)",
-    background: "var(--surface-primary, rgba(255, 255, 255, 0.96))"
   } satisfies CSSProperties
 };
 

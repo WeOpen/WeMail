@@ -7,7 +7,6 @@ import { apiInterfaceGroups } from "../features/settings/api-interface-catalog.g
 import { designSystemGroups } from "../pages/design-system/designSystemContent";
 import { jsonResponse } from "./helpers/mock-api";
 
-const DESIGN_SYSTEM_THEME_STORAGE_KEY = "wemail-design-system-preview-theme";
 const apiInterfaceCount = apiInterfaceGroups.reduce((total, group) => total + group.endpoints.length, 0);
 
 const originalMatchMedia = window.matchMedia;
@@ -29,6 +28,14 @@ function mockMemberSessionFetch(input: RequestInfo | URL) {
         outboundEnabled: true,
         mailboxCreationEnabled: true
       }
+    });
+  }
+
+  if (url.endsWith("/api/system/health")) {
+    return jsonResponse({
+      ok: true,
+      environment: "test",
+      appName: "WeMail"
     });
   }
 
@@ -153,6 +160,35 @@ describe("App", () => {
   );
 
   it(
+    "loads the landing footer health status from the public API and links to the hosted docs",
+    async () => {
+      vi.spyOn(globalThis, "fetch").mockImplementation((input: RequestInfo | URL) => {
+        const url = typeof input === "string" ? input : input instanceof Request ? input.url : String(input);
+        if (url.endsWith("/api/system/health")) {
+          return jsonResponse({
+            ok: true,
+            environment: "test",
+            appName: "WeMail"
+          });
+        }
+
+        return Promise.reject(new Error("not authenticated"));
+      });
+
+      render(<App />);
+
+      expect(await screen.findByRole("heading", { level: 1, name: /把临时邮箱/i })).toBeInTheDocument();
+      await waitFor(() => {
+        expect(screen.getByRole("status", { name: "系统健康状态" })).toHaveTextContent("系统运行正常");
+      });
+      expect(globalThis.fetch).toHaveBeenCalledWith(expect.stringContaining("/api/system/health"), expect.any(Object));
+      expect(screen.getByRole("link", { name: "部署文档" })).toHaveAttribute("href", "https://doc.wemail.willxue.com");
+      expect(screen.getByRole("button", { name: "返回顶部" })).toHaveClass("floating-back-to-top", "landing-back-to-top");
+    },
+    10000
+  );
+
+  it(
     "keeps the public landing page available for signed-in users and replaces auth actions with a console link",
     async () => {
       vi.spyOn(globalThis, "fetch").mockImplementation(mockMemberSessionFetch);
@@ -249,19 +285,23 @@ describe("App", () => {
   );
 
   it(
-    "keeps the design system preview theme separate from the workspace theme storage",
+    "syncs the design system theme toggle with the workspace theme storage",
     async () => {
       window.history.pushState({}, "", "/design-system");
+      installMatchMedia({ dark: true });
       vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("not authenticated"));
       render(<App />);
 
       expect(await screen.findByTestId("design-system-page")).toBeInTheDocument();
-      const workspaceThemeBeforeToggle = window.localStorage.getItem(WORKSPACE_THEME_STORAGE_KEY) ?? "__missing__";
-      const designSystemThemeBeforeToggle = window.localStorage.getItem(DESIGN_SYSTEM_THEME_STORAGE_KEY);
+      expect(document.documentElement.dataset.theme).toBe("dark");
+
       fireEvent.click(screen.getByRole("button", { name: /切换到浅色主题|切换到深色主题/i }));
 
-      expect(window.localStorage.getItem(WORKSPACE_THEME_STORAGE_KEY) ?? "__missing__").toBe(workspaceThemeBeforeToggle);
-      expect(window.localStorage.getItem(DESIGN_SYSTEM_THEME_STORAGE_KEY)).not.toBe(designSystemThemeBeforeToggle);
+      await waitFor(() => {
+        expect(document.documentElement.dataset.theme).toBe("light");
+      });
+      expect(window.localStorage.getItem(WORKSPACE_THEME_STORAGE_KEY)).toBe("light");
+      expect(window.localStorage.getItem("wemail-design-system-preview-theme")).toBeNull();
     },
     10000
   );
