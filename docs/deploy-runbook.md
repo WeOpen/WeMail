@@ -76,7 +76,12 @@
 
 | Variable | 是否必需 | 用途 |
 | --- | --- | --- |
-| `VITE_API_BASE_URL` | 必需 | Pages 构建时写入前端 bundle 的 Worker API 根地址，例如 `https://wemail.example.workers.dev`，不要带 `/api` |
+| `VITE_API_BASE_URL` | 必需 | Pages 构建时写入前端 bundle 的 Worker API 根地址，推荐同站 API 自定义域，例如 `https://wemail-api.example.com`，不要带 `/api` |
+
+`VITE_API_BASE_URL` 可以放 GitHub Environment variable，也可以放同名 secret。URL 本身通常不是 secret，优先使用 variable，便于排查。生产环境不要长期使用 `workers.dev` 作为前端 API base；它和自定义 Pages 域名跨站，登录 cookie 可能受浏览器限制。推荐：
+
+- `https://wemail-api.example.com` 这类同站 API 子域名。
+- 或者配置 Cloudflare route，让 `https://wemail.example.com/api/*` 指向 Worker。
 
 `CLOUDFLARE_API_TOKEN` 最小权限建议：
 

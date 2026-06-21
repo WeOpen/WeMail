@@ -41,6 +41,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Fixed Cloudflare Pages production builds so browser API requests target the configured Worker origin instead of the Pages `/api` path.
+- Clarified Cloudflare API domain setup so production deployments prefer same-site Worker custom domains over `workers.dev` for browser sessions.
 - Fixed first-user registration so an empty deployment can create its initial admin account without an invite code.
 - Fixed D1 migrations so a fresh Cloudflare database can initialize from the migration chain, including API key and Telegram subscription tables.
 - Fixed Cloudflare production deployment configuration so D1 migrations use the Worker DB binding and deploy jobs call the installed Wrangler CLI directly.

@@ -219,7 +219,9 @@ pnpm exec wrangler secret put TELEGRAM_WEBHOOK_SECRET --env production
 
 | Variable | 用途 |
 | --- | --- |
-| `VITE_API_BASE_URL` | Pages 构建时写入前端 bundle 的 Worker API 根地址，例如 `https://wemail.example.workers.dev`，不要带 `/api` |
+| `VITE_API_BASE_URL` | Pages 构建时写入前端 bundle 的 Worker API 根地址，推荐同站 API 自定义域，例如 `https://wemail-api.example.com`，不要带 `/api` |
+
+如果不用独立 API 域名，也可以在 Cloudflare 里把 Pages 域名的 `/api/*` 路由到 Worker，此时前端可以走同域 `/api`。不要把 `workers.dev` 当作 production 长期方案；它适合 smoke test，但和 Pages 自定义域跨站，session cookie 更容易受浏览器限制影响。
 
 `CLOUDFLARE_API_TOKEN` 建议最小权限：
 

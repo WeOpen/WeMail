@@ -110,7 +110,7 @@ COOKIE_SECURE = "true"
 ```yaml
 - name: Verify
   env:
-    VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}
+    VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL || secrets.VITE_API_BASE_URL }}
   run: |
     pnpm test
     pnpm typecheck
@@ -119,6 +119,8 @@ COOKIE_SECURE = "true"
 ```
 
 没有这一步时，即使你在 Cloudflare Pages 控制台配置了变量，也不会影响当前 workflow 已经构建好的 `apps/web/dist`。
+
+生产建议让 API base 使用同站自定义域，例如 `https://wemail-api.example.com`。`workers.dev` 适合临时 smoke test，但和 Pages 自定义域跨站，session cookie 更容易受浏览器限制。
 
 ## 3. 手动部署 Pages
 

@@ -49,7 +49,7 @@ jobs:
           CF_D1_DATABASE_ID: ${{ secrets.CLOUDFLARE_D1_DATABASE_ID }}
           CF_KV_NAMESPACE_ID: ${{ secrets.CLOUDFLARE_KV_NAMESPACE_ID }}
           CF_KV_PREVIEW_NAMESPACE_ID: ${{ secrets.CLOUDFLARE_KV_PREVIEW_NAMESPACE_ID }}
-          WEB_API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}
+          WEB_API_BASE_URL: ${{ vars.VITE_API_BASE_URL || secrets.VITE_API_BASE_URL }}
         run: |
           missing=()
           [[ -z "$CF_API_TOKEN" ]] && missing+=("CLOUDFLARE_API_TOKEN")
@@ -61,6 +61,7 @@ jobs:
           [[ -z "$WEB_API_BASE_URL" ]] && missing+=("VITE_API_BASE_URL")
           if (( ${#missing[@]} > 0 )); then
             printf 'Missing required secrets or variables for %s: %s\n' "${{ github.event.inputs.environment }}" "${missing[*]}" >&2
+            printf 'Set VITE_API_BASE_URL as a GitHub Environment variable or secret. Prefer a same-site Worker API custom domain such as https://wemail-api.example.com, without a trailing /api.\n' >&2
             exit 1
           fi
 
@@ -125,7 +126,7 @@ jobs:
 
       - name: Build
         env:
-          VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}
+          VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL || secrets.VITE_API_BASE_URL }}
         run: |
           pnpm build
 

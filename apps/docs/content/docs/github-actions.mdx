@@ -64,7 +64,7 @@ VITE_API_BASE_URL
 它应该指向 Worker API 根地址，例如：
 
 ```text
-https://wemail.example.workers.dev
+https://wemail-api.example.com
 ```
 
 不要在末尾添加 `/api`。构建后的浏览器请求会访问：
@@ -72,6 +72,12 @@ https://wemail.example.workers.dev
 ```text
 ${VITE_API_BASE_URL}/api/...
 ```
+
+这个值可以放 GitHub Environment variable，也可以放同名 secret。URL 本身通常不是 secret，优先使用 variable。
+
+生产建议使用同站 API 自定义域，例如 `https://wemail-api.example.com`。`workers.dev` 适合临时 smoke test，但如果 Pages 在 `https://wemail.example.com`，Worker 在 `https://*.workers.dev`，浏览器会把它们视为跨站请求，session cookie 更容易受限制。
+
+如果你选择同域 `/api` 模式，需要在 Cloudflare 里让 `/api/*` 指向 Worker，并确保 workflow 不注入其他 API base。
 
 ## 4. 创建 Cloudflare API Token
 
@@ -90,7 +96,7 @@ GitHub Environment variable 不会自动进入 shell。你需要在 workflow 的
 
 ```yaml
 env:
-  VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}
+  VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL || secrets.VITE_API_BASE_URL }}
 ```
 
 ## 5. workflow 做了什么
