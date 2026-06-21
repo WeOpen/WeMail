@@ -16,11 +16,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Changed the outbound summary row so the mailbox selector and three metric cards fill the desktop row with clearer bordered hover states.
 - Opened mailbox account list and mailbox domain management to member sessions while keeping account mutation and runtime policy controls admin-only.
 - Clarified runtime default quota fields for mailbox daily sending and API daily calls, with tests covering new-user quota grants from updated defaults.
 
 ### Fixed
 
+- Removed the docs app build-time Google Fonts fetch so root production builds do not fail on external font network errors.
 - Made the Worker dry-run build non-interactive so local `pnpm build` does not hang on Wrangler prompts.
 - Fixed the Cloudflare preview workflow so secret checks no longer use unsupported step-level secret expressions.
 

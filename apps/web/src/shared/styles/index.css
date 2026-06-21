@@ -10125,7 +10125,7 @@ button:disabled {
 
 .outbound-command-strip {
   display: grid;
-  grid-template-columns: minmax(320px, 2.1fr) repeat(4, minmax(0, 1fr));
+  grid-template-columns: minmax(340px, 1.7fr) repeat(3, minmax(180px, 1fr));
   align-items: stretch;
   gap: 10px;
   padding-top: 0;
@@ -10151,7 +10151,13 @@ button:disabled {
   background:
     linear-gradient(180deg, color-mix(in srgb, var(--surface) 88%, transparent), color-mix(in srgb, var(--surface-muted) 66%, transparent));
   color: var(--text-primary);
-  box-shadow: inset 0 1px 0 color-mix(in srgb, white 46%, transparent);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, white 46%, transparent),
+    0 1px 2px color-mix(in srgb, var(--shadow-color) 10%, transparent);
+  transition:
+    border-color 160ms ease,
+    background 160ms ease,
+    box-shadow 160ms ease;
 }
 
 .outbound-mailbox-trigger.ui-button::before,
@@ -10223,6 +10229,7 @@ button:disabled {
 }
 
 .outbound-stat-card {
+  --outbound-stat-accent: var(--accent);
   position: relative;
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
@@ -10235,11 +10242,17 @@ button:disabled {
   align-items: center;
   min-width: 0;
   padding: 13px 14px;
-  border: 1px solid color-mix(in srgb, var(--border-subtle) 86%, transparent);
+  border: 1px solid color-mix(in srgb, var(--outbound-stat-accent) 24%, var(--border-subtle));
   border-radius: 16px;
   background:
-    linear-gradient(180deg, color-mix(in srgb, var(--surface) 88%, transparent), color-mix(in srgb, var(--surface-muted) 66%, transparent));
-  box-shadow: inset 0 1px 0 color-mix(in srgb, white 44%, transparent);
+    linear-gradient(180deg, color-mix(in srgb, var(--outbound-stat-accent) 5%, var(--surface)), color-mix(in srgb, var(--surface-muted) 66%, transparent));
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, white 44%, transparent),
+    0 1px 2px color-mix(in srgb, var(--shadow-color) 10%, transparent);
+  transition:
+    border-color 160ms ease,
+    background 160ms ease,
+    box-shadow 160ms ease;
 }
 
 .outbound-stat-card p,
@@ -10285,9 +10298,7 @@ button:disabled {
 }
 
 .outbound-stat-card[data-tone="success"] {
-  border-color: color-mix(in srgb, #1fa971 26%, var(--border-subtle));
-  background:
-    linear-gradient(180deg, color-mix(in srgb, #1fa971 6%, var(--surface)), color-mix(in srgb, var(--surface-muted) 68%, transparent));
+  --outbound-stat-accent: #1fa971;
 }
 
 .outbound-stat-card[data-tone="danger"] .outbound-stat-icon {
@@ -10296,9 +10307,7 @@ button:disabled {
 }
 
 .outbound-stat-card[data-tone="danger"] {
-  border-color: color-mix(in srgb, #e16259 24%, var(--border-subtle));
-  background:
-    linear-gradient(180deg, color-mix(in srgb, #e16259 6%, var(--surface)), color-mix(in srgb, var(--surface-muted) 68%, transparent));
+  --outbound-stat-accent: #e16259;
 }
 
 .outbound-stat-card[data-tone="warning"] .outbound-stat-icon {
@@ -10307,9 +10316,43 @@ button:disabled {
 }
 
 .outbound-stat-card[data-tone="warning"] {
-  border-color: color-mix(in srgb, #f2a93b 28%, var(--border-subtle));
-  background:
-    linear-gradient(180deg, color-mix(in srgb, #f2a93b 7%, var(--surface)), color-mix(in srgb, var(--surface-muted) 68%, transparent));
+  --outbound-stat-accent: #f2a93b;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .outbound-mailbox-trigger.ui-button,
+  .outbound-stat-card {
+    transition:
+      border-color 160ms ease,
+      background 160ms ease,
+      box-shadow 160ms ease,
+      transform 160ms ease;
+  }
+}
+
+@media (hover: hover) {
+  .outbound-stat-card:hover {
+    border-color: color-mix(in srgb, var(--outbound-stat-accent) 42%, var(--border-strong));
+    background:
+      linear-gradient(180deg, color-mix(in srgb, var(--outbound-stat-accent) 9%, var(--surface)), color-mix(in srgb, var(--surface-muted) 72%, transparent));
+    box-shadow:
+      inset 0 1px 0 color-mix(in srgb, white 48%, transparent),
+      0 12px 28px color-mix(in srgb, var(--outbound-stat-accent) 9%, transparent);
+  }
+}
+
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .outbound-stat-card:hover {
+    transform: translateY(-2px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .outbound-mailbox-trigger.ui-button:hover,
+  .outbound-mailbox-trigger.ui-button:focus-visible,
+  .outbound-stat-card:hover {
+    transform: none;
+  }
 }
 
 .outbound-toolbar-row.ui-filter-bar {
