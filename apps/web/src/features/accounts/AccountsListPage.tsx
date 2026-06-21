@@ -9,7 +9,7 @@ import {
   RefreshCw,
   Trash2
 } from "lucide-react";
-import type { MailDomainSummary, MailboxDetail, MailboxStatus } from "@wemail/shared";
+import type { MailDomainSummary, MailboxDetail, MailboxStatus, UserRole } from "@wemail/shared";
 
 import { Badge } from "../../shared/badge";
 import { Button } from "../../shared/button";
@@ -36,6 +36,7 @@ type AccountsActiveRange = "all" | "7d" | "30d" | "90d";
 type AccountsListPageProps = {
   accounts: MailboxDetail[];
   availableDomains: MailDomainSummary[];
+  currentUserRole?: UserRole;
   total: number;
   page: number;
   pageSize: number;
@@ -174,6 +175,7 @@ function AccountActionMenu({ account, onDelete, onEdit, onToggleStatus }: Accoun
 export function AccountsListPage({
   accounts,
   availableDomains,
+  currentUserRole = "admin",
   total,
   page,
   pageSize,
@@ -213,6 +215,8 @@ export function AccountsListPage({
   const [isMutatingAccount, setIsMutatingAccount] = useState(false);
 
   const selectedCount = selectedIds.length;
+  const canManageAccounts = currentUserRole === "admin";
+  const visibleColumnCount = 6 + (canManageAccounts ? 3 : 0);
 
   const selectedAccounts = useMemo(
     () => accounts.filter((account) => selectedIds.includes(account.id)),
@@ -466,7 +470,7 @@ export function AccountsListPage({
             </div>
           </div>
 
-          {selectedCount > 0 ? (
+          {canManageAccounts && selectedCount > 0 ? (
             <section aria-label="批量操作条" className="panel workspace-card accounts-list-bulk-bar">
               <PageHeader
                 actions={
@@ -501,37 +505,41 @@ export function AccountsListPage({
             <Table className="accounts-list-table">
               <TableHead>
                 <TableRow>
-                  <TableHeaderCell align="center" className="ui-table-sticky-start" width={56}>
-                    <CheckboxField
-                      aria-label="选择全部账号"
-                      checked={allVisibleSelected}
-                      className="checkbox-row"
-                      label={<span className="sr-only">选择全部账号</span>}
-                      onChange={toggleSelectAll}
-                    />
-                  </TableHeaderCell>
+                  {canManageAccounts ? (
+                    <TableHeaderCell align="center" className="ui-table-sticky-start" width={56}>
+                      <CheckboxField
+                        aria-label="选择全部账号"
+                        checked={allVisibleSelected}
+                        className="checkbox-row"
+                        label={<span className="sr-only">选择全部账号</span>}
+                        onChange={toggleSelectAll}
+                      />
+                    </TableHeaderCell>
+                  ) : null}
                   <TableHeaderCell>地址</TableHeaderCell>
                   <TableHeaderCell>创建时间</TableHeaderCell>
                   <TableHeaderCell>状态</TableHeaderCell>
-                  <TableHeaderCell>创建人</TableHeaderCell>
+                  {canManageAccounts ? <TableHeaderCell>创建人</TableHeaderCell> : null}
                   <TableHeaderCell>最近活跃</TableHeaderCell>
                   <TableHeaderCell nowrap>邮件数量</TableHeaderCell>
                   <TableHeaderCell nowrap>发件数量</TableHeaderCell>
-                  <TableHeaderCell className="ui-table-sticky-end" nowrap width={128}>
-                    操作
-                  </TableHeaderCell>
+                  {canManageAccounts ? (
+                    <TableHeaderCell className="ui-table-sticky-end" nowrap width={128}>
+                      操作
+                    </TableHeaderCell>
+                  ) : null}
                 </TableRow>
               </TableHead>
               <TableBody>
                 {isLoading ? (
                   <TableRow>
-                    <TableCell colSpan={9}>
+                    <TableCell colSpan={visibleColumnCount}>
                       <div className="section-copy">加载中...</div>
                     </TableCell>
                   </TableRow>
                 ) : accounts.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={9}>
+                    <TableCell colSpan={visibleColumnCount}>
                       <div className="section-copy">暂无账号数据</div>
                     </TableCell>
                   </TableRow>
@@ -541,15 +549,17 @@ export function AccountsListPage({
 
                     return (
                       <TableRow isSelected={isSelected} key={account.id}>
-                        <TableCell align="center" className="ui-table-sticky-start" width={56}>
-                          <CheckboxField
-                            aria-label={`选择账号 ${account.address}`}
-                            checked={isSelected}
-                            className="checkbox-row"
-                            label={<span className="sr-only">选择账号 {account.address}</span>}
-                            onChange={() => toggleSelection(account.id)}
-                          />
-                        </TableCell>
+                        {canManageAccounts ? (
+                          <TableCell align="center" className="ui-table-sticky-start" width={56}>
+                            <CheckboxField
+                              aria-label={`选择账号 ${account.address}`}
+                              checked={isSelected}
+                              className="checkbox-row"
+                              label={<span className="sr-only">选择账号 {account.address}</span>}
+                              onChange={() => toggleSelection(account.id)}
+                            />
+                          </TableCell>
+                        ) : null}
                         <TableCell>{account.address}</TableCell>
                         <TableCell>{formatDate(account.createdAt)}</TableCell>
                         <TableCell>
@@ -560,20 +570,22 @@ export function AccountsListPage({
                             {account.deletedAt ? <div className="section-copy">软删于 {formatDate(account.deletedAt)}</div> : null}
                           </div>
                         </TableCell>
-                        <TableCell>{account.createdByName || "-"}</TableCell>
+                        {canManageAccounts ? <TableCell>{account.createdByName || "-"}</TableCell> : null}
                         <TableCell>{formatLastActive(account.lastActiveAt)}</TableCell>
                         <TableCell nowrap>{account.messageCount}</TableCell>
                         <TableCell nowrap>{account.outboundCount}</TableCell>
-                        <TableCell className="ui-table-sticky-end" nowrap width={128}>
-                          <div className="users-action-cell">
-                            <AccountActionMenu
-                              account={account}
-                              onDelete={openDeleteDialog}
-                              onEdit={openEditDialog}
-                              onToggleStatus={(nextAccount) => void handleToggleAccountStatus(nextAccount)}
-                            />
-                          </div>
-                        </TableCell>
+                        {canManageAccounts ? (
+                          <TableCell className="ui-table-sticky-end" nowrap width={128}>
+                            <div className="users-action-cell">
+                              <AccountActionMenu
+                                account={account}
+                                onDelete={openDeleteDialog}
+                                onEdit={openEditDialog}
+                                onToggleStatus={(nextAccount) => void handleToggleAccountStatus(nextAccount)}
+                              />
+                            </div>
+                          </TableCell>
+                        ) : null}
                       </TableRow>
                     );
                   })

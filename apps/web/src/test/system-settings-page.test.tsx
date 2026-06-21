@@ -58,7 +58,7 @@ describe("SystemSettingsPage", () => {
 
     expect(screen.getByLabelText("当前主题模式")).toHaveTextContent("跟随系统");
     expect(screen.getByLabelText("当前解析主题")).toHaveTextContent("深色");
-    expect(screen.getByLabelText("域名管理权限")).toHaveTextContent("可管理");
+    expect(screen.getByLabelText("域名管理权限")).toHaveTextContent("成员可管理");
     expect(screen.getByText("管理员")).toBeInTheDocument();
   });
 
@@ -96,15 +96,17 @@ describe("SystemSettingsPage", () => {
   });
 
   it("keeps runtime save text legible on the contrast button", () => {
-    renderSystemSettingsPage({ canManageDomains: true, runtimeSettings });
+    renderSystemSettingsPage({ canManageDomains: true, canManageRuntimeSettings: true, runtimeSettings });
 
     const saveRuntimeButton = screen.getByRole("button", { name: "保存运行策略" });
 
     expect(saveRuntimeButton).toHaveClass("system-runtime-save-button");
     expect(sharedStyles).toMatch(/\.system-runtime-save-button\.ui-button-primary\s*\{[^}]*color:\s*#fff;/);
+    expect(screen.getByLabelText("邮箱每日邮件发送上限")).toBeInTheDocument();
+    expect(screen.getByLabelText("每日 API 调用上限")).toBeInTheDocument();
   });
 
-  it("lets admins save mailbox domain suffixes without a separate add button", async () => {
+  it("lets session users save mailbox domain suffixes without a separate add button", async () => {
     const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation((input, init) => {
       const url = typeof input === "string" ? input : input instanceof Request ? input.url : String(input);
 
@@ -143,7 +145,10 @@ describe("SystemSettingsPage", () => {
     expect(await screen.findByRole("heading", { name: "域名设置" })).toBeInTheDocument();
     expect(screen.getByLabelText("当前默认域名")).toHaveTextContent("@example.com");
     expect(screen.getByRole("button", { name: "移除 example.com" })).toBeInTheDocument();
-    expect(screen.getByText(/所有角色可用/)).toBeInTheDocument();
+    expect(screen.getAllByText(/所有用户可用/).length).toBeGreaterThan(0);
+
+    fireEvent.focus(screen.getByRole("button", { name: "域名可用范围说明" }));
+    expect(await screen.findByRole("tooltip")).toHaveTextContent("不勾选角色时，域名默认对所有用户可用。");
 
     const domainInput = screen.getByLabelText("新增域名后缀");
     const saveDomainButton = screen.getByRole("button", { name: "保存域名设置" });

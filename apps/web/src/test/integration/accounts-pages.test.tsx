@@ -159,6 +159,43 @@ describe("accounts pages", () => {
     expect(screen.getByRole("button", { name: "新建账号" }).querySelector(".ui-button-icon-slot")).not.toBeNull();
   });
 
+  it("keeps member account lists scoped to list and create controls", () => {
+    renderWithRouter(
+      <AccountsListPage
+        accounts={mockAccounts}
+        activeRange="all"
+        availableDomains={mockAccountDomains}
+        currentUserRole="member"
+        isLoadingDomains={false}
+        isLoading={false}
+        onActiveRangeChange={vi.fn()}
+        onBulkDeleteAccounts={vi.fn()}
+        onCreateAccount={vi.fn()}
+        onDeleteAccount={vi.fn()}
+        onExportAccounts={vi.fn()}
+        onPageChange={vi.fn()}
+        onPageSizeChange={vi.fn()}
+        onQuickFilterChange={vi.fn()}
+        onRefresh={vi.fn()}
+        onSearchChange={vi.fn()}
+        onStatusFilterChange={vi.fn()}
+        onUpdateAccount={vi.fn()}
+        page={1}
+        pageSize={10}
+        quickFilter="none"
+        searchValue=""
+        statusFilter="all"
+        total={3}
+      />
+    );
+
+    expect(screen.getByRole("button", { name: "新建账号" })).toBeInTheDocument();
+    expect(screen.queryByRole("columnheader", { name: "创建人" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("columnheader", { name: "操作" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("checkbox", { name: "选择全部账号" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "操作" })).not.toBeInTheDocument();
+  });
+
   it("requires a configured domain selection when creating an account", async () => {
     const user = userEvent.setup();
     const onCreateAccount = vi.fn().mockResolvedValue(undefined);

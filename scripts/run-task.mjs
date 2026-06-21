@@ -18,7 +18,7 @@ const packageTasks = {
     lint: ["pnpm", ["exec", "eslint", "src", "tests"]],
     typecheck: ["pnpm", ["exec", "tsc", "-p", "tsconfig.json", "--noEmit"]],
     test: ["pnpm", ["exec", "vitest", "run"]],
-    build: ["pnpm", ["exec", "wrangler", "deploy", "--env=", "--dry-run", "--outdir", "dist"]]
+    build: ["node", ["../../scripts/wrangler-dry-run.mjs", "deploy", "--env=", "--dry-run", "--outdir", "dist"]]
   },
   web: {
     lint: ["pnpm", ["exec", "eslint", "src"]],
@@ -55,10 +55,14 @@ if (targets.length === 0) {
 }
 
 for (const target of targets) {
-  const [command, args] = packageTasks[target][task];
+  const [command, args, options = {}] = packageTasks[target][task];
   console.log(`\n==> ${task}:${target}`);
   const result = spawnSync(command, args, {
     cwd: packageDirs[target],
+    env: {
+      ...process.env,
+      ...(options.env ?? {})
+    },
     stdio: "inherit",
     shell: process.platform === "win32"
   });

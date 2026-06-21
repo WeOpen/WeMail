@@ -39,8 +39,22 @@ jobs:
           path: apps/web/dist
           retention-days: 7
 
+      - name: Detect Cloudflare preview config
+        id: preview_config
+        shell: bash
+        env:
+          CF_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CF_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CF_PAGES_PROJECT: ${{ secrets.CLOUDFLARE_PAGES_PROJECT_NAME }}
+        run: |
+          if [[ -n "$CF_API_TOKEN" && -n "$CF_ACCOUNT_ID" && -n "$CF_PAGES_PROJECT" ]]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Deploy Pages preview via Wrangler
-        if: ${{ secrets.CLOUDFLARE_API_TOKEN != '' && secrets.CLOUDFLARE_ACCOUNT_ID != '' && secrets.CLOUDFLARE_PAGES_PROJECT_NAME != '' }}
+        if: ${{ steps.preview_config.outputs.enabled == 'true' }}
         id: deploy_preview
         uses: cloudflare/wrangler-action@v3
         with:
@@ -60,7 +74,7 @@ jobs:
           echo "Alias URL: ${{ steps.deploy_preview.outputs.pages-deployment-alias-url }}" >> $GITHUB_STEP_SUMMARY
 
       - name: Preview skipped summary
-        if: ${{ !(secrets.CLOUDFLARE_API_TOKEN != '' && secrets.CLOUDFLARE_ACCOUNT_ID != '' && secrets.CLOUDFLARE_PAGES_PROJECT_NAME != '') }}
+        if: ${{ steps.preview_config.outputs.enabled != 'true' }}
         run: |
           echo "## Cloudflare Preview" >> $GITHUB_STEP_SUMMARY
           echo "Preview deployment skipped because required Cloudflare secrets are not configured." >> $GITHUB_STEP_SUMMARY

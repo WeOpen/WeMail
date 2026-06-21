@@ -112,7 +112,7 @@ export function registerAccountsRoutes(app: Hono<AppContext>) {
 
   app.get("/api/accounts/list", async (c) => {
     const user = requireUser(c);
-    if (!user || user.role !== "admin") return jsonError("Admin access required", 403);
+    if (!user) return jsonError("Authentication required", 401);
 
     const page = parsePositiveInteger(c.req.query("page"), 1);
     const pageSize = parseAccountListPageSize(c.req.query("pageSize"));
@@ -125,17 +125,18 @@ export function registerAccountsRoutes(app: Hono<AppContext>) {
     const accountPolicy = parseAccountPolicyRecord(policyRecord);
     const inactiveDays = getInactiveDaysFromPolicy(policyRecord);
 
-    if (policyRecord) {
+    if (user.role === "admin" && policyRecord) {
       await applyInactiveMailboxLifecycle(getAppServices(c), accountPolicy);
     }
 
     const result = await listAllMailboxesWithDetails(getAppServices(c), {
       page,
       pageSize,
+      userId: user.role === "admin" ? undefined : user.id,
       search,
       status,
       activeRange,
-      createdBy,
+      createdBy: user.role === "admin" ? createdBy : "all",
       inactiveDays,
       quickFilter: quickFilter === "anomaly" || quickFilter === "inactive" ? quickFilter : undefined
     });

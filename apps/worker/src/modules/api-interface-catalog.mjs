@@ -386,14 +386,14 @@ export const apiInterfaceGroups = [
         access: "管理员",
         example: { requestBody: { aiEnabled: true, mailboxCreationEnabled: true, outboundEnabled: true, telegramEnabled: true } }
       },
-      { method: "GET", path: "/api/system/domains", title: "邮箱域名", description: "读取允许创建邮箱的域名。", access: "管理员" },
+      { method: "GET", path: "/api/system/domains", title: "邮箱域名", description: "读取允许创建邮箱的域名。", access: "登录会话用户" },
       {
         method: "PATCH",
         path: "/api/system/domains",
         title: "更新邮箱域名",
         description: "保存域名与角色权限。",
-        access: "管理员",
-        example: { requestBody: { domains: ["example.com"], memberDomains: ["example.com"] } }
+        access: "登录会话用户",
+        example: { requestBody: { domains: [{ domain: "example.com", allowedRoles: [] }] } }
       },
       {
         method: "GET",

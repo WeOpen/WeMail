@@ -182,7 +182,7 @@ export function SystemRuntimeSettingsPanel({
             value={draft.messageRetentionDays}
           />
         </FormField>
-        <FormField description="新用户默认每日外发额度，单个用户仍可在用户设置中单独覆盖。" label="默认每日外发">
+        <FormField description="新用户注册或管理员新建用户时写入的默认发送额度，单个用户仍可单独覆盖。" label="邮箱每日邮件发送上限">
           <TextInput
             min={1}
             onChange={(event) => updateDraft("outboundDailyLimit", event.target.value)}
@@ -190,7 +190,7 @@ export function SystemRuntimeSettingsPanel({
             value={draft.outboundDailyLimit}
           />
         </FormField>
-        <FormField description="新用户默认每日 API 调用额度，单个用户仍可在用户设置中单独覆盖。" label="默认 API 调用">
+        <FormField description="新用户注册或管理员新建用户时写入的默认 API 额度，单个用户仍可单独覆盖。" label="每日 API 调用上限">
           <TextInput
             min={1}
             onChange={(event) => updateDraft("apiDailyLimit", event.target.value)}

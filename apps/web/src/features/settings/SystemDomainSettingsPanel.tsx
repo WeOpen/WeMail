@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
-import { Save, Trash2 } from "lucide-react";
+import { CircleHelp, Save, Trash2 } from "lucide-react";
 import type { MailDomainSummary, UserRole } from "@wemail/shared";
 
 import { Button } from "../../shared/button";
 import { FormField, TextInput } from "../../shared/form";
+import { Tooltip, TooltipContent, TooltipTrigger } from "../../shared/tooltip";
 import { fetchSystemDomains, updateSystemDomains } from "./api";
 
 const DOMAIN_PATTERN =
@@ -23,7 +24,7 @@ const roleOptions: Array<{ value: UserRole; label: string }> = [
 ];
 
 function formatAllowedRoles(allowedRoles: UserRole[]) {
-  if (allowedRoles.length === 0) return "所有角色可用";
+  if (allowedRoles.length === 0) return "所有用户可用";
   return allowedRoles.map((role) => roleOptions.find((option) => option.value === role)?.label ?? role).join("、") + "可用";
 }
 
@@ -138,7 +139,15 @@ export function SystemDomainSettingsPanel() {
       <div className="system-domain-settings-head">
         <div className="system-domain-settings-copy">
           <p className="panel-kicker">邮箱域名</p>
-          <h2>域名设置</h2>
+          <div className="system-domain-title-row">
+            <h2>域名设置</h2>
+            <Tooltip>
+              <TooltipTrigger aria-label="域名可用范围说明" className="system-domain-help-trigger">
+                <CircleHelp size={16} strokeWidth={1.9} aria-hidden="true" />
+              </TooltipTrigger>
+              <TooltipContent side="bottom">不勾选角色时，域名默认对所有用户可用。</TooltipContent>
+            </Tooltip>
+          </div>
           <p className="section-copy">管理新邮箱地址可使用的域名后缀。列表中的第一个域名会作为新建邮箱的默认后缀。</p>
         </div>
         {primaryDomain ? (
@@ -191,7 +200,8 @@ export function SystemDomainSettingsPanel() {
           />
         </FormField>
         <fieldset className="system-domain-role-picker">
-          <legend>可用角色</legend>
+          <legend>可用范围</legend>
+          <p className="system-domain-role-hint">默认所有用户可用；勾选角色后仅对应角色可用。</p>
           <div>
             {roleOptions.map((role) => (
               <label key={role.value}>

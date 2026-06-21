@@ -501,6 +501,61 @@ describe("worker admin integration", () => {
     expect(memberMailboxPayload.mailbox.address).toMatch(/@member\.example\.com$/);
   });
 
+  it("allows member sessions to manage mailbox domain suffixes for the workspace", async () => {
+    const { app, env, store } = await registerUserAndGetCookie({
+      email: "domain-admin@example.com",
+      inviteCode: "INVITE-DOMAINS-MEMBER-MANAGE-ADMIN"
+    });
+
+    await store.invites.create({
+      code: "INVITE-DOMAINS-MEMBER-MANAGE",
+      createdByUserId: "system"
+    });
+
+    const memberRegisterResponse = await app.request(
+      "/api/auth/register",
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          email: "domain-member@example.com",
+          password: "password123",
+          inviteCode: "INVITE-DOMAINS-MEMBER-MANAGE"
+        })
+      },
+      env
+    );
+    const memberCookie = memberRegisterResponse.headers.get("set-cookie") ?? "";
+
+    const defaultResponse = await app.request("/api/system/domains", { headers: { cookie: memberCookie } }, env);
+    expect(defaultResponse.status).toBe(200);
+
+    const updateResponse = await app.request(
+      "/api/system/domains",
+      {
+        method: "PATCH",
+        headers: {
+          "content-type": "application/json",
+          cookie: memberCookie
+        },
+        body: JSON.stringify({
+          domains: [{ domain: "team.example.com", allowedRoles: [] }]
+        })
+      },
+      env
+    );
+    const updatePayload = (await updateResponse.json()) as {
+      domains: Array<{ domain: string; allowedRoles: string[] }>;
+      primaryDomain: string;
+    };
+
+    expect(updateResponse.status).toBe(200);
+    expect(updatePayload).toEqual({
+      domains: [{ domain: "team.example.com", allowedRoles: [] }],
+      primaryDomain: "team.example.com"
+    });
+  });
+
   it("rejects admin routes without an admin session", async () => {
     const { app, env } = createWorkerTestHarness();
     const response = await app.request("/api/users", {}, env);

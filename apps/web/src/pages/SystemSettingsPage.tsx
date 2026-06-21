@@ -18,6 +18,7 @@ import { Page } from "../shared/page-layout";
 
 type SystemSettingsPageProps = {
   canManageDomains?: boolean;
+  canManageRuntimeSettings?: boolean;
   runtimeSettings: RuntimeSettings | null;
   resolvedTheme: WorkspaceTheme;
   themePreference: WorkspaceThemePreference;
@@ -67,6 +68,7 @@ function formatResolvedTheme(theme: WorkspaceTheme) {
 
 export function SystemSettingsPage({
   canManageDomains = false,
+  canManageRuntimeSettings = false,
   runtimeSettings,
   resolvedTheme,
   themePreference,
@@ -75,7 +77,7 @@ export function SystemSettingsPage({
 }: SystemSettingsPageProps) {
   const themePreferenceLabel = formatThemePreference(themePreference);
   const resolvedThemeLabel = formatResolvedTheme(resolvedTheme);
-  const domainPermissionLabel = canManageDomains ? "可管理" : "仅查看";
+  const domainPermissionLabel = canManageDomains ? "成员可管理" : "仅查看";
 
   return (
     <Page as="main" className="workspace-grid system-settings-grid system-settings-page">
@@ -90,7 +92,7 @@ export function SystemSettingsPage({
             <div className="system-settings-overview-badges">
               <Badge variant={resolvedTheme === "dark" ? "info" : "warning"}>{resolvedThemeLabel}界面</Badge>
               <Badge variant={canManageDomains ? "brand" : "neutral"}>
-                {canManageDomains ? "域名可管理" : "只读权限"}
+                {canManageDomains ? "域名开放管理" : "只读权限"}
               </Badge>
             </div>
           </div>
@@ -159,7 +161,7 @@ export function SystemSettingsPage({
               })}
             </div>
           </section>
-          {canManageDomains ? (
+          {canManageRuntimeSettings ? (
             <SystemRuntimeSettingsPanel
               runtimeSettings={runtimeSettings}
               onSaveRuntimeSettings={onSaveRuntimeSettings}

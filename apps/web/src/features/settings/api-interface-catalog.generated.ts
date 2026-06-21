@@ -730,21 +730,21 @@ export const apiInterfaceGroups: ApiInterfaceGroup[] = [
         "path": "/api/system/domains",
         "title": "邮箱域名",
         "description": "读取允许创建邮箱的域名。",
-        "access": "管理员"
+        "access": "登录会话用户"
       },
       {
         "method": "PATCH",
         "path": "/api/system/domains",
         "title": "更新邮箱域名",
         "description": "保存域名与角色权限。",
-        "access": "管理员",
+        "access": "登录会话用户",
         "example": {
           "requestBody": {
             "domains": [
-              "example.com"
-            ],
-            "memberDomains": [
-              "example.com"
+              {
+                "domain": "example.com",
+                "allowedRoles": []
+              }
             ]
           }
         }

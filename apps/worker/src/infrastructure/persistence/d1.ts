@@ -570,6 +570,11 @@ export function createD1Store(db: D1Database): AppStore {
         const whereConditions: string[] = [];
         const bindings: any[] = [];
 
+        if (query.userId) {
+          whereConditions.push("a.user_id = ?");
+          bindings.push(query.userId);
+        }
+
         if (query.search) {
           whereConditions.push("(a.id LIKE ? OR a.label LIKE ? OR a.address LIKE ? OR u.name LIKE ?)");
           const searchPattern = `%${query.search}%`;

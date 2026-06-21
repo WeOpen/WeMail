@@ -232,6 +232,7 @@ export type MailboxDetailListResult = {
 export type MailboxDetailListQuery = {
   page: number;
   pageSize: number;
+  userId?: string;
   search?: string;
   status?: string;
   activeRange?: "7d" | "30d" | "90d";

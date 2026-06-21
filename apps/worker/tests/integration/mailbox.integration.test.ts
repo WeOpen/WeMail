@@ -112,6 +112,24 @@ describe("worker mailbox integration", () => {
     expect(memberResponse.status).toBe(200);
     expect(memberPayload.mailboxes.map((mailbox) => mailbox.address)).toEqual(["member-enabled@example.com"]);
     expect(memberPayload.mailboxes[0].createdBy).toBeUndefined();
+
+    const memberDetailResponse = await app.request(
+      "/api/accounts/list?page=1&pageSize=10",
+      { headers: { cookie: memberCookie } },
+      env
+    );
+    const memberDetailPayload = (await memberDetailResponse.json()) as {
+      accounts: Array<{ address: string; createdBy: string | null }>;
+      total: number;
+    };
+
+    expect(memberDetailResponse.status).toBe(200);
+    expect(memberDetailPayload.total).toBe(2);
+    expect(memberDetailPayload.accounts.map((mailbox) => mailbox.address)).toEqual(
+      expect.arrayContaining(["member-enabled@example.com", "member-disabled@example.com"])
+    );
+    expect(memberDetailPayload.accounts.map((mailbox) => mailbox.address)).not.toContain("admin-enabled@example.com");
+    expect(memberDetailPayload.accounts.every((mailbox) => mailbox.createdBy === member!.id)).toBe(true);
   });
 
   it("returns role-available account domains and creates a mailbox with the selected domain", async () => {

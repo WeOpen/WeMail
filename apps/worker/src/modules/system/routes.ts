@@ -48,7 +48,7 @@ export function registerSystemRoutes(app: Hono<AppContext>) {
 
   app.get("/api/system/domains", async (c) => {
     const user = requireUser(c);
-    if (!user || user.role !== "admin" || !requireSessionAuth(c)) return jsonError("Admin session required", 403);
+    if (!user || !requireSessionAuth(c)) return jsonError("Session authentication required", 403);
     const payload = await cachedJson(c.env.CACHE, CACHE_KEYS.mailDomains, CACHE_TTL_SECONDS.systemDomains, () =>
       getMailDomainSettingsUseCase(getAppServices(c), c.env)
     );
@@ -57,7 +57,7 @@ export function registerSystemRoutes(app: Hono<AppContext>) {
 
   app.patch("/api/system/domains", async (c) => {
     const user = requireUser(c);
-    if (!user || user.role !== "admin" || !requireSessionAuth(c)) return jsonError("Admin session required", 403);
+    if (!user || !requireSessionAuth(c)) return jsonError("Session authentication required", 403);
 
     const result = await updateMailDomainsUseCase(getAppServices(c), await c.req.json(), user.id);
     if (result instanceof Response) return result;

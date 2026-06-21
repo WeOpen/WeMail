@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { MailDomainSummary, MailboxDetail, MailboxStatus } from "@wemail/shared";
+import type { MailDomainSummary, MailboxDetail, MailboxStatus, UserRole } from "@wemail/shared";
 
 import {
   bulkDeleteAccounts,
@@ -20,7 +20,11 @@ type AccountsActiveRange = "all" | "7d" | "30d" | "90d";
 
 const ACCOUNTS_EXPORT_PAGE_SIZE = 500;
 
-export function AccountsListRoutePage() {
+type AccountsListRoutePageProps = {
+  currentUserRole?: UserRole;
+};
+
+export function AccountsListRoutePage({ currentUserRole = "admin" }: AccountsListRoutePageProps) {
   const [accounts, setAccounts] = useState<MailboxDetail[]>([]);
   const [availableDomains, setAvailableDomains] = useState<MailDomainSummary[]>([]);
   const [requireCreatorNote, setRequireCreatorNote] = useState(false);
@@ -183,6 +187,7 @@ export function AccountsListRoutePage() {
       accounts={accounts}
       activeRange={activeRange}
       availableDomains={availableDomains}
+      currentUserRole={currentUserRole}
       error={error}
       isLoading={isLoading}
       isLoadingDomains={isLoadingDomains}

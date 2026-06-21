@@ -854,8 +854,8 @@ describe("worker settings integration", () => {
     expect(pausedTelegramPayload.error).toMatch(/enabled Telegram/i);
   });
 
-  it("reads runtime settings from env defaults and lets admins override them", async () => {
-    const { app, env, cookie } = await registerUserAndGetCookie({
+  it("reads runtime settings from env defaults, lets admins override them, and grants new users the updated defaults", async () => {
+    const { app, env, cookie, store } = await registerUserAndGetCookie({
       email: "runtime-admin@example.com",
       inviteCode: "INVITE-RUNTIME-SETTINGS"
     });
@@ -939,6 +939,58 @@ describe("worker settings integration", () => {
         },
         ai: { fallbackLimit: 35 }
       }
+    });
+
+    await store.invites.create({
+      code: "INVITE-RUNTIME-SETTINGS-MEMBER",
+      createdByUserId: "system"
+    });
+    const memberRegisterResponse = await app.request(
+      "/api/auth/register",
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          email: "runtime-member@example.com",
+          password: "password123",
+          inviteCode: "INVITE-RUNTIME-SETTINGS-MEMBER"
+        })
+      },
+      env
+    );
+    expect(memberRegisterResponse.status).toBe(201);
+    const member = await store.users.findByEmail("runtime-member@example.com");
+    expect(member).not.toBeNull();
+    const memberQuota = await store.quotas.getByUserId(member!.id, 1, 1);
+    expect(memberQuota).toMatchObject({
+      dailyLimit: 50,
+      apiDailyLimit: 50000
+    });
+
+    const createUserResponse = await app.request(
+      "/api/users",
+      {
+        method: "POST",
+        headers: {
+          cookie,
+          "content-type": "application/json"
+        },
+        body: JSON.stringify({
+          email: "runtime-created@example.com",
+          name: "Runtime Created",
+          password: "password123",
+          role: "member"
+        })
+      },
+      env
+    );
+    expect(createUserResponse.status).toBe(201);
+    const createdUser = await store.users.findByEmail("runtime-created@example.com");
+    expect(createdUser).not.toBeNull();
+    const createdQuota = await store.quotas.getByUserId(createdUser!.id, 1, 1);
+    expect(createdQuota).toMatchObject({
+      dailyLimit: 50,
+      apiDailyLimit: 50000
     });
   });
 

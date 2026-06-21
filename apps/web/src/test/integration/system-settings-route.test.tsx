@@ -99,6 +99,8 @@ describe("system settings route integration", () => {
     expect(screen.getByLabelText("系统设置主设置")).toBeInTheDocument();
     expect(screen.getByLabelText("系统设置状态侧栏")).toBeInTheDocument();
     expect(screen.getByText("主题模式")).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "域名设置" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: /^业务默认值$/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: /^外观设置$/i })).not.toBeInTheDocument();
   });
 

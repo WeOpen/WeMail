@@ -6957,6 +6957,36 @@ button:disabled {
   align-items: start;
 }
 
+.system-domain-title-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.system-domain-title-row h2 {
+  margin: 0;
+}
+
+.system-domain-help-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  color: var(--text-soft);
+  background: var(--surface-muted);
+}
+
+.system-domain-help-trigger:hover,
+.system-domain-help-trigger:focus-visible {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 34%, var(--border));
+  background: color-mix(in srgb, var(--accent-soft) 42%, var(--surface));
+}
+
 .system-domain-primary {
   display: grid;
   gap: 4px;
@@ -7021,6 +7051,14 @@ button:disabled {
   color: var(--text);
   font-size: 0.92rem;
   font-weight: 750;
+}
+
+.system-domain-role-hint {
+  margin: -2px 0 0;
+  color: var(--text-soft);
+  font-size: 0.82rem;
+  font-weight: 650;
+  line-height: 1.45;
 }
 
 .system-domain-role-picker > div {

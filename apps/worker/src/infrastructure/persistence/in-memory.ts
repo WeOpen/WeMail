@@ -443,6 +443,10 @@ export function createInMemoryStore(): AppStore {
       async listAllWithDetails(query: MailboxDetailListQuery) {
         let filtered = Array.from(mailboxes.values());
 
+        if (query.userId) {
+          filtered = filtered.filter((m) => m.userId === query.userId);
+        }
+
         if (query.search) {
           const searchLower = query.search.toLowerCase();
           filtered = filtered.filter(

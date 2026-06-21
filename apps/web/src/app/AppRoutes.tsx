@@ -289,7 +289,7 @@ export function AppRoutes({
   const preferredLandingPage = profile.profile?.preferences.landingPage ?? "/dashboard";
   const rootPage = profile.profile ? <Navigate replace to={preferredLandingPage} /> : dashboardPage;
 
-  const accountsListPage = <AccountsListRoutePage />;
+  const accountsListPage = <AccountsListRoutePage currentUserRole={session.user.role} />;
 
   const accountsSettingsPage = <AccountsSettingsPage />;
 
@@ -345,7 +345,8 @@ export function AppRoutes({
 
   const systemSettingsPage = (
     <SystemSettingsPage
-      canManageDomains={session.user.role === "admin"}
+      canManageDomains
+      canManageRuntimeSettings={session.user.role === "admin"}
       runtimeSettings={settings.runtimeSettings}
       resolvedTheme={appearance.theme}
       themePreference={appearance.themePreference}
