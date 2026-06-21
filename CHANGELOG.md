@@ -42,6 +42,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Fixed Cloudflare Pages production builds so browser API requests target the configured Worker origin instead of the Pages `/api` path.
 - Fixed registration on Cloudflare Workers by keeping PBKDF2 password hashing within the Workers WebCrypto iteration limit.
+- Fixed empty dashboard charts so fresh deployments do not render invalid SVG paths in the browser console.
 - Clarified Cloudflare API domain setup so production deployments prefer same-site Worker custom domains over `workers.dev` for browser sessions.
 - Fixed first-user registration so an empty deployment can create its initial admin account without an invite code.
 - Fixed D1 migrations so a fresh Cloudflare database can initialize from the migration chain, including API key and Telegram subscription tables.

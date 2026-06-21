@@ -216,7 +216,7 @@ describe("dashboard integration", () => {
       return jsonResponse({});
     });
 
-    render(<App />);
+    const { container } = render(<App />);
 
     expect(await screen.findByRole("heading", { name: "趋势" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "账号" })).toBeInTheDocument();
@@ -224,5 +224,9 @@ describe("dashboard integration", () => {
     expect(screen.getByRole("heading", { name: "增长" })).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "角色" })).not.toBeInTheDocument();
     expect(screen.queryByRole("img", { name: "用户角色环形图" })).not.toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "收发趋势图" }).querySelector("svg")).toBeNull();
+    expect(screen.getByRole("img", { name: "账号结构环形图" }).querySelector("svg")).toBeNull();
+    expect(screen.getByRole("img", { name: "账号和邮箱增长图" }).querySelector("svg")).toBeNull();
+    expect(container.querySelector('path[d="null"]')).toBeNull();
   }, 10000);
 });

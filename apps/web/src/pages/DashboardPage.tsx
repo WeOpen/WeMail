@@ -123,26 +123,31 @@ export function DashboardPage({ canViewRoleCard = false }: DashboardPageProps) {
     ],
     [contrastColor, dashboard.trend, trendRange]
   );
+  const hasTrendData = trendData.some((series) => series.data.length > 0);
 
   const distributionData = useMemo(
     () =>
-      accountDistribution.map((slice) => ({
-        id: slice.label,
-        label: slice.label,
-        value: slice.value,
-        color: slice.tone
-      })),
+      accountDistribution
+        .filter((slice) => slice.value > 0)
+        .map((slice) => ({
+          id: slice.label,
+          label: slice.label,
+          value: slice.value,
+          color: slice.tone
+        })),
     [accountDistribution]
   );
 
   const roleDistributionData = useMemo(
     () =>
-      userRoles.map((role) => ({
-        id: role.label,
-        label: role.label,
-        value: role.value,
-        color: role.tone
-      })),
+      userRoles
+        .filter((role) => role.value > 0)
+        .map((role) => ({
+          id: role.label,
+          label: role.label,
+          value: role.value,
+          color: role.tone
+        })),
     [userRoles]
   );
 
@@ -151,6 +156,7 @@ export function DashboardPage({ canViewRoleCard = false }: DashboardPageProps) {
     [contrastColor]
   );
   const growthData = useMemo(() => dashboard.growth[growthRange].map((point) => ({ ...point })), [dashboard.growth, growthRange]);
+  const hasGrowthData = growthData.length > 0;
 
   return (
     <main className="workspace-grid dashboard-grid">
@@ -206,27 +212,29 @@ export function DashboardPage({ canViewRoleCard = false }: DashboardPageProps) {
           </div>
 
           <div className="dashboard-trend-chart" role="img" aria-label="收发趋势图">
-            <ResponsiveLine
-              animate={false}
-              axisBottom={{ tickSize: 0, tickPadding: 12 }}
-              axisLeft={{ tickSize: 0, tickPadding: 10, tickValues: 4 }}
-              colors={{ datum: "color" }}
-              curve="monotoneX"
-              data={trendData}
-              enableArea
-              areaOpacity={0.08}
-              enableGridX={false}
-              gridYValues={4}
-              lineWidth={3}
-              margin={{ top: 24, right: 24, bottom: 40, left: 48 }}
-              pointBorderColor={{ from: "serieColor" }}
-              pointBorderWidth={2}
-              pointSize={7}
-              theme={nivoTheme}
-              useMesh
-              xScale={{ type: "point" }}
-              yScale={{ type: "linear", min: "auto", max: "auto" }}
-            />
+            {hasTrendData ? (
+              <ResponsiveLine
+                animate={false}
+                axisBottom={{ tickSize: 0, tickPadding: 12 }}
+                axisLeft={{ tickSize: 0, tickPadding: 10, tickValues: 4 }}
+                colors={{ datum: "color" }}
+                curve="monotoneX"
+                data={trendData}
+                enableArea
+                areaOpacity={0.08}
+                enableGridX={false}
+                gridYValues={4}
+                lineWidth={3}
+                margin={{ top: 24, right: 24, bottom: 40, left: 48 }}
+                pointBorderColor={{ from: "serieColor" }}
+                pointBorderWidth={2}
+                pointSize={7}
+                theme={nivoTheme}
+                useMesh
+                xScale={{ type: "point" }}
+                yScale={{ type: "linear", min: "auto", max: "auto" }}
+              />
+            ) : null}
           </div>
         </section>
 
@@ -238,20 +246,22 @@ export function DashboardPage({ canViewRoleCard = false }: DashboardPageProps) {
 
             <div className="dashboard-distribution-layout">
               <div className="dashboard-donut" role="img" aria-label="账号结构环形图">
-                <ResponsivePie
-                  activeOuterRadiusOffset={4}
-                  animate={false}
-                  borderWidth={0}
-                  colors={{ datum: "data.color" }}
-                  cornerRadius={4}
-                  data={distributionData}
-                  enableArcLabels={false}
-                  enableArcLinkLabels={false}
-                  innerRadius={0.62}
-                  margin={{ top: 4, right: 4, bottom: 4, left: 4 }}
-                  padAngle={1.5}
-                  theme={nivoTheme}
-                />
+                {distributionData.length > 0 ? (
+                  <ResponsivePie
+                    activeOuterRadiusOffset={4}
+                    animate={false}
+                    borderWidth={0}
+                    colors={{ datum: "data.color" }}
+                    cornerRadius={4}
+                    data={distributionData}
+                    enableArcLabels={false}
+                    enableArcLinkLabels={false}
+                    innerRadius={0.62}
+                    margin={{ top: 4, right: 4, bottom: 4, left: 4 }}
+                    padAngle={1.5}
+                    theme={nivoTheme}
+                  />
+                ) : null}
                 <div className="dashboard-donut-center">
                   <strong>{dashboard.accountTotal}</strong>
                   <span>总账号</span>
@@ -331,25 +341,27 @@ export function DashboardPage({ canViewRoleCard = false }: DashboardPageProps) {
           </div>
 
           <div className="dashboard-growth-chart" role="img" aria-label="账号和邮箱增长图">
-            <ResponsiveBar
-              animate={false}
-              axisBottom={{ tickSize: 0, tickPadding: 12 }}
-              axisLeft={{ tickSize: 0, tickPadding: 10, tickValues: 4 }}
-              borderRadius={6}
-              colors={({ id }) => growthColors[id as keyof typeof growthColors]}
-              data={growthData}
-              enableGridY
-              enableLabel={false}
-              gridYValues={4}
-              groupMode="grouped"
-              indexBy="label"
-              innerPadding={4}
-              keys={[...GROWTH_KEYS]}
-              margin={{ top: 16, right: 16, bottom: 36, left: 40 }}
-              padding={0.32}
-              theme={nivoTheme}
-              tooltipLabel={({ id }) => GROWTH_LABELS[id as keyof typeof GROWTH_LABELS]}
-            />
+            {hasGrowthData ? (
+              <ResponsiveBar
+                animate={false}
+                axisBottom={{ tickSize: 0, tickPadding: 12 }}
+                axisLeft={{ tickSize: 0, tickPadding: 10, tickValues: 4 }}
+                borderRadius={6}
+                colors={({ id }) => growthColors[id as keyof typeof growthColors]}
+                data={growthData}
+                enableGridY
+                enableLabel={false}
+                gridYValues={4}
+                groupMode="grouped"
+                indexBy="label"
+                innerPadding={4}
+                keys={[...GROWTH_KEYS]}
+                margin={{ top: 16, right: 16, bottom: 36, left: 40 }}
+                padding={0.32}
+                theme={nivoTheme}
+                tooltipLabel={({ id }) => GROWTH_LABELS[id as keyof typeof GROWTH_LABELS]}
+              />
+            ) : null}
           </div>
         </section>
 
@@ -361,20 +373,22 @@ export function DashboardPage({ canViewRoleCard = false }: DashboardPageProps) {
 
             <div className="dashboard-distribution-layout">
               <div className="dashboard-donut" role="img" aria-label="用户角色环形图">
-                <ResponsivePie
-                  activeOuterRadiusOffset={4}
-                  animate={false}
-                  borderWidth={0}
-                  colors={{ datum: "data.color" }}
-                  cornerRadius={4}
-                  data={roleDistributionData}
-                  enableArcLabels={false}
-                  enableArcLinkLabels={false}
-                  innerRadius={0.62}
-                  margin={{ top: 4, right: 4, bottom: 4, left: 4 }}
-                  padAngle={1.5}
-                  theme={nivoTheme}
-                />
+                {roleDistributionData.length > 0 ? (
+                  <ResponsivePie
+                    activeOuterRadiusOffset={4}
+                    animate={false}
+                    borderWidth={0}
+                    colors={{ datum: "data.color" }}
+                    cornerRadius={4}
+                    data={roleDistributionData}
+                    enableArcLabels={false}
+                    enableArcLinkLabels={false}
+                    innerRadius={0.62}
+                    margin={{ top: 4, right: 4, bottom: 4, left: 4 }}
+                    padAngle={1.5}
+                    theme={nivoTheme}
+                  />
+                ) : null}
                 <div className="dashboard-donut-center">
                   <strong>{dashboard.userTotal}</strong>
                   <span>总用户</span>
