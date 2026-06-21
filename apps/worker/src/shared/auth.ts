@@ -4,7 +4,10 @@ import { deleteCookie, getCookie, setCookie } from "hono/cookie";
 import { resolveAppConfig } from "../core/config";
 
 const textEncoder = new TextEncoder();
-const passwordIterations = 120_000;
+const passwordAlgorithm = "pbkdf2-sha256";
+// Cloudflare Workers WebCrypto currently rejects PBKDF2 iteration counts above
+// 100000, so keep the application default at the platform-supported ceiling.
+const passwordIterations = 100_000;
 
 function toHex(buffer: ArrayBuffer) {
   return Array.from(new Uint8Array(buffer))
@@ -16,7 +19,7 @@ export async function hashString(value: string) {
   return toHex(await crypto.subtle.digest("SHA-256", textEncoder.encode(value)));
 }
 
-async function derivePasswordHash(password: string, salt: string) {
+async function derivePasswordHash(password: string, salt: string, iterations = passwordIterations) {
   const keyMaterial = await crypto.subtle.importKey(
     "raw",
     textEncoder.encode(password),
@@ -28,7 +31,7 @@ async function derivePasswordHash(password: string, salt: string) {
     {
       name: "PBKDF2",
       hash: "SHA-256",
-      iterations: passwordIterations,
+      iterations,
       salt: textEncoder.encode(salt)
     },
     keyMaterial,
@@ -39,11 +42,22 @@ async function derivePasswordHash(password: string, salt: string) {
 
 export async function hashPassword(password: string) {
   const salt = crypto.randomUUID();
-  return `${salt}:${await derivePasswordHash(password, salt)}`;
+  return `${passwordAlgorithm}:${passwordIterations}:${salt}:${await derivePasswordHash(password, salt)}`;
 }
 
 export async function verifyPassword(password: string, stored: string) {
-  const [salt, digest] = stored.split(":");
+  const parts = stored.split(":");
+  if (parts.length === 4) {
+    const [algorithm, iterationsText, salt, digest] = parts;
+    const iterations = Number(iterationsText);
+    if (algorithm !== passwordAlgorithm || !Number.isInteger(iterations) || iterations < 1 || iterations > passwordIterations) {
+      return false;
+    }
+    if (!salt || !digest) return false;
+    return (await derivePasswordHash(password, salt, iterations)) === digest;
+  }
+
+  const [salt, digest] = parts;
   if (!salt || !digest) return false;
   return (await derivePasswordHash(password, salt)) === digest;
 }
