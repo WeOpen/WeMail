@@ -169,10 +169,10 @@ pnpm exec wrangler tail --env production
 
 | 现象 | 常见原因 | 处理 |
 | --- | --- | --- |
-| API 404 | 前端请求了 Pages 域名 `/api`，但没有 `/api/*` Worker route | 配同域路由，或构建时设置 `VITE_API_BASE_URL` |
+| API 404 / 405 | 前端请求了 Pages 域名 `/api`，但没有 `/api/*` Worker route | 配同域路由，或构建时设置 `VITE_API_BASE_URL` |
 | CORS error | `CORS_ALLOWED_ORIGINS` 没包含真实前端来源 | 写入完整 `https://...` 来源并重新部署 Worker |
 | 登录后刷新退出 | Cookie 域名关系不对，或 production 没开 secure cookie | 检查 `COOKIE_SECURE` 和前后端域名模式 |
-| workflow 缺 secrets | GitHub Environment 没配置 secret | 补 `CLOUDFLARE_API_TOKEN`、`CLOUDFLARE_ACCOUNT_ID`、`CLOUDFLARE_PAGES_PROJECT_NAME`、`CLOUDFLARE_D1_DATABASE_ID`、`CLOUDFLARE_KV_NAMESPACE_ID`、`CLOUDFLARE_KV_PREVIEW_NAMESPACE_ID` |
+| workflow 缺 secrets 或 variables | GitHub Environment 没配置 secret / variable | 补 `CLOUDFLARE_API_TOKEN`、`CLOUDFLARE_ACCOUNT_ID`、`CLOUDFLARE_PAGES_PROJECT_NAME`、`CLOUDFLARE_D1_DATABASE_ID`、`CLOUDFLARE_KV_NAMESPACE_ID`、`CLOUDFLARE_KV_PREVIEW_NAMESPACE_ID`、`VITE_API_BASE_URL` |
 | D1 migration 失败 | database ID 配错或 migration 状态异常 | 停止部署，检查 D1 和 migration 记录 |
 | 收不到邮件 | Email Routing 没指向 Worker 或邮箱地址不存在 | 检查路由、域名、Worker 日志和 WeMail 邮箱账号 |
 | 附件下载失败 | 没有 R2 `ATTACHMENTS` binding | 创建 R2 并配置 binding 后重新部署 |

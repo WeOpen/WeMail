@@ -6,8 +6,10 @@ const css = readFileSync(resolve(process.cwd(), "app", "global.css"), "utf8");
 const homePage = readFileSync(resolve(process.cwd(), "app", "(home)", "page.tsx"), "utf8");
 const layoutPage = readFileSync(resolve(process.cwd(), "app", "layout.tsx"), "utf8");
 const deploymentPage = readFileSync(resolve(process.cwd(), "content", "docs", "deployment.mdx"), "utf8");
+const githubActionsPage = readFileSync(resolve(process.cwd(), "content", "docs", "github-actions.mdx"), "utf8");
 const operationsPage = readFileSync(resolve(process.cwd(), "content", "docs", "operations.mdx"), "utf8");
 const deployRunbook = readFileSync(resolve(process.cwd(), "..", "..", "docs", "deploy-runbook.md"), "utf8");
+const deployWorkflow = readFileSync(resolve(process.cwd(), "..", "..", ".github", "workflows", "deploy-cloudflare.yml"), "utf8");
 
 function readCssBlock(selector) {
   const match = css.match(new RegExp(`${selector.replaceAll(".", "\\.")}\\s*\\{([\\s\\S]*?)\\n\\}`));
@@ -49,6 +51,13 @@ assert.ok(deploymentPage.includes("Deploy with Vercel"));
 assert.ok(operationsPage.includes("CLOUDFLARE_D1_DATABASE_ID"));
 assert.ok(operationsPage.includes("CLOUDFLARE_KV_NAMESPACE_ID"));
 assert.ok(operationsPage.includes("CLOUDFLARE_KV_PREVIEW_NAMESPACE_ID"));
+assert.ok(operationsPage.includes("API 404 / 405"));
+assert.ok(operationsPage.includes("VITE_API_BASE_URL"));
+assert.ok(githubActionsPage.includes("当前 Cloudflare workflow 会在构建 Pages 前校验并注入"));
+assert.ok(githubActionsPage.includes("${VITE_API_BASE_URL}/api/..."));
+assert.ok(deployRunbook.includes("VITE_API_BASE_URL"));
+assert.ok(deployWorkflow.includes("WEB_API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}"));
+assert.ok(deployWorkflow.includes("VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}"));
 
 assert.ok(deployRunbook.includes("系统设置里的默认邮箱域名"));
 assert.ok(!deployRunbook.includes("对应邮件域名"));

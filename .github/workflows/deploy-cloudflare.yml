@@ -49,6 +49,7 @@ jobs:
           CF_D1_DATABASE_ID: ${{ secrets.CLOUDFLARE_D1_DATABASE_ID }}
           CF_KV_NAMESPACE_ID: ${{ secrets.CLOUDFLARE_KV_NAMESPACE_ID }}
           CF_KV_PREVIEW_NAMESPACE_ID: ${{ secrets.CLOUDFLARE_KV_PREVIEW_NAMESPACE_ID }}
+          WEB_API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}
         run: |
           missing=()
           [[ -z "$CF_API_TOKEN" ]] && missing+=("CLOUDFLARE_API_TOKEN")
@@ -57,8 +58,9 @@ jobs:
           [[ -z "$CF_D1_DATABASE_ID" ]] && missing+=("CLOUDFLARE_D1_DATABASE_ID")
           [[ -z "$CF_KV_NAMESPACE_ID" ]] && missing+=("CLOUDFLARE_KV_NAMESPACE_ID")
           [[ -z "$CF_KV_PREVIEW_NAMESPACE_ID" ]] && missing+=("CLOUDFLARE_KV_PREVIEW_NAMESPACE_ID")
+          [[ -z "$WEB_API_BASE_URL" ]] && missing+=("VITE_API_BASE_URL")
           if (( ${#missing[@]} > 0 )); then
-            printf 'Missing required secrets for %s: %s\n' "${{ github.event.inputs.environment }}" "${missing[*]}" >&2
+            printf 'Missing required secrets or variables for %s: %s\n' "${{ github.event.inputs.environment }}" "${missing[*]}" >&2
             exit 1
           fi
 
@@ -93,6 +95,7 @@ jobs:
   verify:
     needs: prepare
     runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -119,6 +122,11 @@ jobs:
           pnpm test
           pnpm typecheck
           pnpm lint
+
+      - name: Build
+        env:
+          VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}
+        run: |
           pnpm build
 
       - name: Upload web bundle

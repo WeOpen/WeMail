@@ -215,6 +215,12 @@ pnpm exec wrangler secret put TELEGRAM_WEBHOOK_SECRET --env production
 | `CLOUDFLARE_KV_NAMESPACE_ID` | 当前环境的 KV namespace ID |
 | `CLOUDFLARE_KV_PREVIEW_NAMESPACE_ID` | 当前环境的 KV preview namespace ID |
 
+每个 environment 还需要配置 GitHub Environment variable：
+
+| Variable | 用途 |
+| --- | --- |
+| `VITE_API_BASE_URL` | Pages 构建时写入前端 bundle 的 Worker API 根地址，例如 `https://wemail.example.workers.dev`，不要带 `/api` |
+
 `CLOUDFLARE_API_TOKEN` 建议最小权限：
 
 - Workers Scripts: Edit

@@ -72,6 +72,12 @@
 | `CLOUDFLARE_KV_PREVIEW_NAMESPACE_ID` | 必需 | 当前环境的 KV preview namespace ID，用于部署时注入 Worker 绑定 |
 | `GITHUB_TOKEN` | 内建 | 同步 GitHub Deployments 状态 |
 
+还需要在同一个 GitHub Environment 里配置 variable：
+
+| Variable | 是否必需 | 用途 |
+| --- | --- | --- |
+| `VITE_API_BASE_URL` | 必需 | Pages 构建时写入前端 bundle 的 Worker API 根地址，例如 `https://wemail.example.workers.dev`，不要带 `/api` |
+
 `CLOUDFLARE_API_TOKEN` 最小权限建议：
 
 - Account / Workers Scripts: Edit

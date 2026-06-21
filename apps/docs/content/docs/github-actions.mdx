@@ -53,7 +53,27 @@ production
 
 `GITHUB_TOKEN` 是 GitHub Actions 内建 token，不需要手动配置。
 
-## 3. 创建 Cloudflare API Token
+## 3. 配置 Environment variables
+
+当前 Cloudflare workflow 会在构建 Pages 前校验并注入：
+
+```text
+VITE_API_BASE_URL
+```
+
+它应该指向 Worker API 根地址，例如：
+
+```text
+https://wemail.example.workers.dev
+```
+
+不要在末尾添加 `/api`。构建后的浏览器请求会访问：
+
+```text
+${VITE_API_BASE_URL}/api/...
+```
+
+## 4. 创建 Cloudflare API Token
 
 建议使用最小权限 token。需要覆盖：
 
@@ -66,22 +86,12 @@ production
 
 如果团队权限允许，staging 和 production 使用不同 token，减少误操作风险。
 
-## 4. 可选：配置 Environment variables
-
-如果你选择独立 Worker API 域名，前端构建需要：
-
-```text
-VITE_API_BASE_URL
-```
-
 GitHub Environment variable 不会自动进入 shell。你需要在 workflow 的 build 步骤显式传入：
 
 ```yaml
 env:
   VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}
 ```
-
-如果你选择同域 `/api` 模式，可以不设置这个变量。
 
 ## 5. workflow 做了什么
 
