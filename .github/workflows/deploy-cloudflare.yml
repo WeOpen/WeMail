@@ -25,7 +25,6 @@ jobs:
     runs-on: ubuntu-latest
     environment: ${{ github.event.inputs.environment }}
     outputs:
-      d1_database_name: ${{ steps.target.outputs.d1_database_name }}
       worker_command: ${{ steps.target.outputs.worker_command }}
       worker_environment: ${{ steps.target.outputs.worker_environment }}
       pages_branch: ${{ steps.target.outputs.pages_branch }}
@@ -196,32 +195,29 @@ jobs:
           fi
 
       - name: Apply D1 migrations
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          workingDirectory: apps/worker
-          command: >-
-            d1 migrations apply ${{ needs.prepare.outputs.d1_database_name }}
-            --env ${{ needs.prepare.outputs.worker_environment }}
-            --remote
+        shell: bash
+        working-directory: apps/worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          TARGET_ENV: ${{ needs.prepare.outputs.worker_environment }}
+        run: pnpm exec wrangler d1 migrations apply DB --env "$TARGET_ENV" --remote
 
-      - name: Deploy Worker with Wrangler Action
-        id: deploy_worker
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          workingDirectory: apps/worker
-          command: ${{ needs.prepare.outputs.worker_command }}
+      - name: Deploy Worker with Wrangler
+        shell: bash
+        working-directory: apps/worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          TARGET_ENV: ${{ needs.prepare.outputs.worker_environment }}
+        run: pnpm exec wrangler deploy --env "$TARGET_ENV"
 
       - name: Worker deploy summary
-        if: ${{ steps.deploy_worker.outcome == 'success' }}
         shell: bash
         run: |
           echo "## Worker Deploy" >> "$GITHUB_STEP_SUMMARY"
           echo "- Environment: ${{ needs.prepare.outputs.worker_environment }}" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Deployment URL: ${{ steps.deploy_worker.outputs.deployment-url }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- D1 migrations: applied through binding DB" >> "$GITHUB_STEP_SUMMARY"
 
   deploy-pages:
     needs: [prepare, verify]
@@ -242,41 +238,42 @@ jobs:
         with:
           version: 10.18.2
 
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
       - name: Deploy Pages staging preview via Wrangler
         if: ${{ needs.prepare.outputs.pages_branch != '' }}
-        id: deploy_pages_staging
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          gitHubToken: ${{ secrets.GITHUB_TOKEN }}
-          command: >-
-            pages deploy apps/web/dist
-            --project-name=${{ secrets.CLOUDFLARE_PAGES_PROJECT_NAME }}
-            --branch=${{ needs.prepare.outputs.pages_branch }}
+        shell: bash
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_PAGES_PROJECT_NAME: ${{ secrets.CLOUDFLARE_PAGES_PROJECT_NAME }}
+          PAGES_BRANCH: ${{ needs.prepare.outputs.pages_branch }}
+        run: >-
+          pnpm exec wrangler pages deploy apps/web/dist
+          --project-name="$CLOUDFLARE_PAGES_PROJECT_NAME"
+          --branch="$PAGES_BRANCH"
 
       - name: Deploy Pages production via Wrangler
         if: ${{ needs.prepare.outputs.pages_branch == '' }}
-        id: deploy_pages_production
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          gitHubToken: ${{ secrets.GITHUB_TOKEN }}
-          command: >-
-            pages deploy apps/web/dist
-            --project-name=${{ secrets.CLOUDFLARE_PAGES_PROJECT_NAME }}
-
-      - name: Publish Pages summary
-        if: ${{ steps.deploy_pages_staging.outcome == 'success' || steps.deploy_pages_production.outcome == 'success' }}
         shell: bash
         env:
-          DEPLOYMENT_URL: ${{ steps.deploy_pages_staging.outputs.deployment-url || steps.deploy_pages_production.outputs.deployment-url }}
-          ALIAS_URL: ${{ steps.deploy_pages_staging.outputs.pages-deployment-alias-url || steps.deploy_pages_production.outputs.pages-deployment-alias-url }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_PAGES_PROJECT_NAME: ${{ secrets.CLOUDFLARE_PAGES_PROJECT_NAME }}
+        run: >-
+          pnpm exec wrangler pages deploy apps/web/dist
+          --project-name="$CLOUDFLARE_PAGES_PROJECT_NAME"
+
+      - name: Publish Pages summary
+        shell: bash
         run: |
           echo "## Pages Deploy" >> "$GITHUB_STEP_SUMMARY"
           echo "- Mode: ${{ needs.prepare.outputs.pages_mode }}" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Deployment URL: ${DEPLOYMENT_URL}" >> "$GITHUB_STEP_SUMMARY"
-          if [[ -n "${ALIAS_URL}" ]]; then
-            echo "- Alias URL: ${ALIAS_URL}" >> "$GITHUB_STEP_SUMMARY"
-          fi
+          echo "- Bundle: apps/web/dist" >> "$GITHUB_STEP_SUMMARY"
