@@ -225,16 +225,201 @@ pnpm exec wrangler secret put RESEND_FROM --env production
 
 ### Telegram
 
-如果启用 Telegram：
+WeMail 的 Telegram 集成分两部分：
+
+- Worker 运行时配置：Bot token、Bot username、Webhook secret。
+- WeMail 后台配置：全局功能开关和用户自己的 Telegram 绑定。
+
+推荐先在 staging 跑通，再复制到 production。
+
+#### 7.1 创建 Telegram Bot
+
+打开 Telegram，搜索 `@BotFather`，按下面流程创建 Bot：
+
+1. 发送 `/newbot`。
+2. 按提示填写 Bot 展示名称，例如 `WeMail Staging`。
+3. 按提示填写 Bot username，必须以 `bot` 结尾，例如 `wemail_staging_bot`。
+4. BotFather 会返回一串 token，格式类似 `123456789:AA...`。
+
+保存这两个值：
+
+| 值 | 示例 | 放在哪里 |
+| --- | --- | --- |
+| Bot token | `123456789:AA...` | `TELEGRAM_BOT_TOKEN` secret |
+| Bot username | `wemail_staging_bot` | `TELEGRAM_BOT_USERNAME` var |
+
+production 建议使用独立 Bot，例如 `wemail_bot`。不要让 staging 和 production 共用同一个 Bot，否则 webhook URL 会互相覆盖。
+
+#### 7.2 写入 Bot token
+
+进入 Worker 目录：
+
+```bash
+cd apps/worker
+```
+
+写入 staging：
 
 ```bash
 pnpm exec wrangler secret put TELEGRAM_BOT_TOKEN --env staging
+```
+
+粘贴 BotFather 返回的 token，回车确认。
+
+写入 production：
+
+```bash
 pnpm exec wrangler secret put TELEGRAM_BOT_TOKEN --env production
+```
+
+#### 7.3 配置 Bot username
+
+`TELEGRAM_BOT_USERNAME` 不是强 secret，用来生成用户可直接打开的 Telegram deep link。把它写到 `wrangler.toml` 对应环境的 vars：
+
+```toml
+[env.staging.vars]
+TELEGRAM_BOT_USERNAME = "wemail_staging_bot"
+
+[env.production.vars]
+TELEGRAM_BOT_USERNAME = "wemail_bot"
+```
+
+如果只做本地开发，也可以写在根 `[vars]`：
+
+```toml
+[vars]
+TELEGRAM_BOT_USERNAME = "wemail_local_bot"
+```
+
+不要带 `@`。代码会接受 `@name`，但文档和配置里统一写纯 username，排查时更清楚。
+
+#### 7.4 生成并写入 Webhook secret
+
+Telegram 支持在 webhook 请求里带 `X-Telegram-Bot-Api-Secret-Token` 请求头。WeMail 会用 `TELEGRAM_WEBHOOK_SECRET` 校验这个请求头，生产环境建议必须配置。
+
+生成一个随机值：
+
+```bash
+openssl rand -hex 32
+```
+
+分别写入 staging 和 production：
+
+```bash
 pnpm exec wrangler secret put TELEGRAM_WEBHOOK_SECRET --env staging
 pnpm exec wrangler secret put TELEGRAM_WEBHOOK_SECRET --env production
 ```
 
-`TELEGRAM_BOT_USERNAME` 不是强 secret，但如果用于生成 deep link，也要配置到 Worker 运行环境。当前 `.env.example` 把它列为本地参考值。
+每个环境可以使用不同的 secret。后面调用 Telegram `setWebhook` 时，`secret_token` 必须和当前环境的 `TELEGRAM_WEBHOOK_SECRET` 完全一致。
+
+#### 7.5 设置 Telegram webhook
+
+先确认 Worker API 已经有可公网访问的 HTTPS 地址。推荐使用自定义 API 域名：
+
+```text
+https://wemail-api.example.com
+```
+
+Webhook URL 固定是：
+
+```text
+https://wemail-api.example.com/api/telegram/webhook
+```
+
+设置 staging webhook：
+
+```bash
+export TELEGRAM_BOT_TOKEN="paste-staging-bot-token"
+export TELEGRAM_WEBHOOK_SECRET="paste-staging-webhook-secret"
+export API_BASE_URL="https://staging-wemail-api.example.com"
+
+curl -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/setWebhook" \
+  -H "Content-Type: application/json" \
+  -d "{
+    \"url\": \"${API_BASE_URL}/api/telegram/webhook\",
+    \"secret_token\": \"${TELEGRAM_WEBHOOK_SECRET}\",
+    \"allowed_updates\": [\"message\", \"channel_post\"],
+    \"drop_pending_updates\": true
+  }"
+```
+
+production 用 production Bot token、production webhook secret 和 production API 域名重复执行一次。
+
+检查 webhook 状态：
+
+```bash
+curl "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getWebhookInfo"
+```
+
+期望看到：
+
+- `ok` 是 `true`。
+- `result.url` 是当前环境的 `/api/telegram/webhook`。
+- `last_error_message` 为空或不存在。
+
+如果要清空旧 webhook：
+
+```bash
+curl -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/deleteWebhook" \
+  -H "Content-Type: application/json" \
+  -d "{\"drop_pending_updates\": true}"
+```
+
+#### 7.6 在 WeMail 后台启用 Telegram
+
+部署 Worker 后，用管理员账号进入 WeMail：
+
+```text
+用户设置 -> 功能开关
+```
+
+确认 Telegram 已开启。未配置 Bot token 时可以先关闭，避免用户看到可用但实际无法发送的通知入口。
+
+然后普通用户或管理员进入：
+
+```text
+Telegram
+```
+
+完成绑定：
+
+1. 点击生成绑定码。
+2. 如果已配置 `TELEGRAM_BOT_USERNAME`，页面会提供可直接打开的 deep link。
+3. 如果没有 deep link，把页面上的 `/start wm_...` 命令复制到你的 Bot 对话里发送。
+4. 收到 `Telegram 已绑定` 回复后，回到 WeMail 发送测试通知。
+
+绑定码有效期是 15 分钟，只能使用一次。过期或已使用后重新生成即可。
+
+#### 7.7 验证通知链路
+
+推荐按这个顺序检查：
+
+1. `curl "$API_BASE_URL/api/system/health"` 返回 `ok: true`。
+2. `getWebhookInfo` 里的 URL 指向当前环境。
+3. WeMail 的 Telegram 页面显示 Bot 已配置。
+4. 用户绑定后订阅状态里能看到 Chat ID。
+5. 点击测试通知，Telegram 能收到消息。
+6. 收一封测试邮件，确认新邮件或识别结果通知能到达。
+
+常见问题：
+
+| 现象 | 检查点 |
+| --- | --- |
+| 页面没有 deep link | `TELEGRAM_BOT_USERNAME` 没有配置，或 username 带错了 |
+| webhook 返回 401 | `setWebhook` 的 `secret_token` 和 `TELEGRAM_WEBHOOK_SECRET` 不一致 |
+| 绑定码一直无效 | 用户发送的不是当前页面生成的 `/start wm_...`，或绑定码已过期 |
+| 测试通知显示 `bot_not_configured` | 当前 Worker 环境缺少 `TELEGRAM_BOT_TOKEN` |
+| 测试通知显示 `telegram_api_failed` | Chat ID 无效、Bot 被用户拉黑，或 token 属于另一个 Bot |
+| staging 设置后 production 失效 | 两个环境共用了同一个 Bot，后一次 `setWebhook` 覆盖了前一次 |
+
+#### 7.8 配置项速查
+
+| 配置项 | 类型 | 必需 | 说明 |
+| --- | --- | --- | --- |
+| `TELEGRAM_BOT_TOKEN` | Worker secret | 启用 Telegram 时必需 | BotFather 返回的 Bot token |
+| `TELEGRAM_WEBHOOK_SECRET` | Worker secret | 生产建议必需 | 校验 Telegram webhook 请求头 |
+| `TELEGRAM_BOT_USERNAME` | Wrangler var | 推荐 | 生成 `https://t.me/...` deep link |
+| Telegram 功能开关 | 后台设置 | 启用 Telegram 时必需 | 控制用户是否能使用 Telegram 通知 |
 
 ## 8. 可选：配置 R2 附件绑定
 

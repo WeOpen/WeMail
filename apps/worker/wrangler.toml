@@ -63,6 +63,7 @@ APP_NAME = "WeMail"
 COOKIE_NAME = "wemail_session"
 COOKIE_SECURE = "true"
 CORS_ALLOWED_ORIGINS = "https://wemail.willxue.com"
+TELEGRAM_BOT_USERNAME = "WeMailProBot"
 
 [[env.production.d1_databases]]
 binding = "DB"
