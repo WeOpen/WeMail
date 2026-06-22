@@ -9,7 +9,6 @@
 ## ✅ 放什么
 - Worker 源码
 - `wrangler.toml`
-- `.env.example`
 - 后端测试
 - 与 Cloudflare Worker 运行时直接相关的配置
 
@@ -34,18 +33,12 @@ pnpm install
 
 - `apps/worker/src/core/config.ts`：代码侧的类型化配置解析
 - `apps/worker/wrangler.toml`：Worker 本地 vars、D1 绑定、环境配置
-- `apps/worker/.env.example`：本地开发配置参考模板
-
-如果你需要一份自己的本地参考文件，可以复制：
-
-```bash
-cp apps/worker/.env.example apps/worker/.env
-```
+- Wrangler / Cloudflare secrets：第三方 token、webhook secret、发件密钥等敏感配置
 
 说明：
-- `.env` 只作为本地开发参考模板，不提交仓库
-- Worker 本地运行仍以 `wrangler.toml` 和 Wrangler / Cloudflare secrets 为准
-- 运行时 secrets 不应直接写入已提交文件
+- Worker 本地运行以 `wrangler.toml` 的 `[vars]` 和本地 Cloudflare 模拟绑定为准
+- 不再维护 `apps/worker/.env`；业务默认值由后台 D1 设置或代码常量兜底
+- 运行时 secrets 不应直接写入已提交文件，也不要放进 `wrangler.toml`
 
 ### 3. 启动 Worker 本地开发
 
@@ -70,9 +63,11 @@ pnpm --dir apps/worker run dev
 本地开发默认读取 `apps/worker/wrangler.toml` 中的本地配置，包括：
 
 - `ENVIRONMENT=local`
+- Cookie 和 CORS 基础 vars
 - 本地 D1 绑定 `DB`
 - 本地 KV 缓存绑定 `CACHE`
-- 本地默认 vars
+
+域名、额度、附件限制和功能开关属于后台业务配置：优先读取 D1，D1 未配置时使用代码常量兜底，不需要写回 `wrangler.toml`。
 
 KV 只作为可失效的读缓存层使用，D1 仍是系统配置、字典、账号策略和邮件设置的权威数据源。邮箱域名、业务默认额度、附件限制和功能开关应通过后台设置写入 D1，不要作为生产业务配置提交到 `wrangler.toml`。远端环境需要先创建对应 namespace：
 
@@ -137,7 +132,6 @@ pnpm build
 - `apps/worker/wrangler.toml`
 - 本地 D1 绑定
 - 本地 vars
-- `apps/worker/.env.example`
 
 如需远端环境 secrets，使用 Wrangler 写入：
 

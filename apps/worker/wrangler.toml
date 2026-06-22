@@ -5,7 +5,8 @@ compatibility_flags = ["nodejs_compat"]
 
 # Local defaults used by `wrangler dev`.
 # Business defaults such as domains, quotas, attachment limits, and feature
-# toggles are stored in D1 system_settings and edited from the admin UI.
+# toggles are stored in D1 system_settings and edited from the admin UI. When
+# those D1 settings are empty, code-level defaults from @wemail/shared apply.
 [vars]
 ENVIRONMENT = "local"
 APP_NAME = "WeMail"

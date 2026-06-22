@@ -31,5 +31,4 @@
   - `bindings.ts`
   - `config.ts`
   - `wrangler.toml`
-  - `.env.example`
   - 相关 README 或 docs

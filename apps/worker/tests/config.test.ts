@@ -1,8 +1,12 @@
+import { readFileSync } from "node:fs";
+
 import { describe, expect, it } from "vitest";
 
 import type { AppBindings } from "../src/core/bindings";
 import { resolveAppConfig } from "../src/core/config";
 import { workerTestEnv } from "./helpers/test-env";
+
+const wranglerConfig = readFileSync("wrangler.toml", "utf8");
 
 describe("worker config", () => {
   it("parses bindings into a typed app config", () => {
@@ -77,5 +81,31 @@ describe("worker config", () => {
       mailboxCreationEnabled: true
     });
     expect(config.adminEmails).toEqual([]);
+  });
+
+  it("keeps backend-managed defaults and secrets out of committed wrangler vars", () => {
+    const backendManagedVars = [
+      "DEFAULT_MAIL_DOMAIN",
+      "MAILBOX_LIMIT",
+      "MESSAGE_RETENTION_DAYS",
+      "OUTBOUND_DAILY_LIMIT",
+      "API_DAILY_LIMIT",
+      "AI_FALLBACK_LIMIT",
+      "MAX_ATTACHMENT_BYTES",
+      "MAX_TOTAL_ATTACHMENT_BYTES",
+      "ENABLE_AI",
+      "ENABLE_TELEGRAM",
+      "ENABLE_OUTBOUND",
+      "ENABLE_MAILBOX_CREATION"
+    ];
+    const secretVars = [
+      "RESEND_API_KEY",
+      "TELEGRAM_BOT_TOKEN",
+      "TELEGRAM_WEBHOOK_SECRET"
+    ];
+
+    for (const key of [...backendManagedVars, ...secretVars]) {
+      expect(wranglerConfig).not.toContain(`${key} =`);
+    }
   });
 });
