@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Refined Webhook side-rail endpoint action buttons with compact balanced spacing and a lighter delete state.
 - Changed the landing footer docs shortcut to the hosted documentation domain and added the shared floating back-to-top action to the homepage.
 - Changed the public design system page to share the workspace theme toggle and theme storage with the homepage.
 - Changed the outbound summary row so the mailbox selector and three metric cards fill the desktop row with clearer bordered hover states.

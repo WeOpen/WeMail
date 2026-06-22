@@ -6572,11 +6572,72 @@ button:disabled {
 }
 
 .webhook-side-actions {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(72px, 1fr));
+  align-items: stretch;
+  gap: 8px;
+  padding-top: 2px;
 }
 
 .webhook-side-actions .ui-button {
   width: 100%;
+  min-height: 40px;
+  justify-content: center;
+  gap: 7px;
+  padding-inline: 10px;
+  border-radius: 999px;
+  font-size: 0.86rem;
+  font-weight: 760;
+  box-shadow: none;
+}
+
+.webhook-side-actions .ui-button .ui-button-icon-slot {
+  flex: 0 0 auto;
+}
+
+.webhook-side-actions .ui-button-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.webhook-side-actions .ui-button-secondary {
+  border-color: color-mix(in srgb, var(--border) 88%, transparent);
+  background: color-mix(in srgb, var(--surface-strong) 74%, transparent);
+  color: var(--text);
+}
+
+.webhook-side-actions .ui-button-secondary:hover,
+.webhook-side-actions .ui-button-secondary:focus-visible {
+  border-color: color-mix(in srgb, var(--accent) 30%, var(--border));
+  background: color-mix(in srgb, var(--accent-soft) 50%, var(--surface-strong));
+  box-shadow: 0 8px 18px color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+.webhook-side-actions .ui-button-danger {
+  border-color: color-mix(in srgb, #d64545 34%, var(--border));
+  background: color-mix(in srgb, #d64545 9%, var(--surface-strong));
+  color: color-mix(in srgb, #c93434 90%, var(--text));
+  box-shadow: none;
+}
+
+.webhook-side-actions .ui-button-danger:hover,
+.webhook-side-actions .ui-button-danger:focus-visible {
+  border-color: color-mix(in srgb, #d64545 48%, var(--border));
+  background: color-mix(in srgb, #d64545 14%, var(--surface-strong));
+  color: color-mix(in srgb, #b72f2f 94%, var(--text));
+  box-shadow: 0 8px 18px rgba(214, 69, 69, 0.14);
+}
+
+:root[data-theme="dark"] .webhook-side-actions .ui-button-danger {
+  border-color: color-mix(in srgb, #ff7474 34%, var(--border));
+  background: color-mix(in srgb, #d64545 14%, var(--surface-strong));
+  color: color-mix(in srgb, #ff9d9d 86%, var(--text));
+}
+
+:root[data-theme="dark"] .webhook-side-actions .ui-button-danger:hover,
+:root[data-theme="dark"] .webhook-side-actions .ui-button-danger:focus-visible {
+  border-color: color-mix(in srgb, #ff8b8b 46%, var(--border));
+  background: color-mix(in srgb, #d64545 20%, var(--surface-strong));
+  box-shadow: 0 8px 18px rgba(255, 116, 116, 0.16);
 }
 
 .webhook-delivery-detail-grid {
