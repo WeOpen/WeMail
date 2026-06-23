@@ -1,4 +1,4 @@
-import { loginWithPassword, logoutSession, registerWithInvite } from "./api";
+import { finalizeOAuthLogin, loginWithPassword, logoutSession, registerWithInvite } from "./api";
 
 export async function registerWithInviteAction(payload: {
   email: FormDataEntryValue | null;
@@ -14,6 +14,14 @@ export async function loginWithPasswordAction(payload: {
   password: FormDataEntryValue | null;
 }) {
   return loginWithPassword(payload);
+}
+
+export async function finalizeOAuthLoginAction(payload: {
+  provider: "github" | "linuxdo";
+  ticket: string;
+  inviteCode: string;
+}) {
+  return finalizeOAuthLogin(payload);
 }
 
 export async function logoutSessionAction() {

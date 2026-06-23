@@ -1,9 +1,12 @@
 import type { FormEvent, KeyboardEvent } from "react";
+import { useState } from "react";
 import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 
 import { AuthForms } from "../features/auth/AuthForms";
 import { WemailLandingPage } from "../features/landing/WemailLandingPage";
 import { Button } from "../shared/button";
+import { FormField, TextInput } from "../shared/form";
+import { OverlayDialog } from "../shared/overlay";
 import { WemailLogo } from "../shared/WemailLogo";
 import { WemailWordmark } from "../shared/WemailWordmark";
 
@@ -11,16 +14,34 @@ type AuthPageProps = {
   authError: string | null;
   onRegister: (event: FormEvent<HTMLFormElement>) => Promise<void>;
   onLogin: (event: FormEvent<HTMLFormElement>) => Promise<void>;
+  onOAuthFinalize: (payload: { provider: "github" | "linuxdo"; ticket: string; inviteCode: string }) => Promise<void>;
   onToggleTheme: () => void;
   theme: "dark" | "light";
 };
 
 const AUTH_MODES = ["login", "register"] as const;
 
-export function AuthPage({ authError, onRegister, onLogin, onToggleTheme, theme }: AuthPageProps) {
+function resolveOAuthNext(search: string) {
+  const next = new URLSearchParams(search).get("next");
+  if (!next || !next.startsWith("/") || next.startsWith("//")) return "/dashboard";
+  if (next.startsWith("/login") || next.startsWith("/register")) return "/dashboard";
+  return next;
+}
+
+function isOAuthProvider(value: string | null): value is "github" | "linuxdo" {
+  return value === "github" || value === "linuxdo";
+}
+
+export function AuthPage({ authError, onRegister, onLogin, onOAuthFinalize, onToggleTheme, theme }: AuthPageProps) {
   const location = useLocation();
   const navigate = useNavigate();
   const mode = location.pathname === "/register" ? "register" : "login";
+  const searchParams = new URLSearchParams(location.search);
+  const oauthProvider = searchParams.get("provider");
+  const oauthTicket = searchParams.get("ticket");
+  const isOAuthInviteOpen = searchParams.get("oauth") === "invite" && isOAuthProvider(oauthProvider) && Boolean(oauthTicket);
+  const [oauthInviteCode, setOAuthInviteCode] = useState("");
+  const [isOAuthInviteSubmitting, setIsOAuthInviteSubmitting] = useState(false);
 
   function switchMode(nextMode: (typeof AUTH_MODES)[number]) {
     if (nextMode === mode) return;
@@ -47,6 +68,25 @@ export function AuthPage({ authError, onRegister, onLogin, onToggleTheme, theme 
     const direction = event.key === "ArrowLeft" || event.key === "ArrowUp" ? -1 : 1;
     const nextIndex = (currentIndex + direction + AUTH_MODES.length) % AUTH_MODES.length;
     switchMode(AUTH_MODES[nextIndex]);
+  }
+
+  async function handleOAuthInviteSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!isOAuthProvider(oauthProvider) || !oauthTicket || isOAuthInviteSubmitting) return;
+    setIsOAuthInviteSubmitting(true);
+    try {
+      await onOAuthFinalize({
+        provider: oauthProvider,
+        ticket: oauthTicket,
+        inviteCode: oauthInviteCode
+      });
+    } finally {
+      setIsOAuthInviteSubmitting(false);
+    }
+  }
+
+  function closeOAuthInviteDialog() {
+    void navigate("/login", { replace: true });
   }
 
   if (location.pathname === "/") {
@@ -99,8 +139,40 @@ export function AuthPage({ authError, onRegister, onLogin, onToggleTheme, theme 
             注册
           </Button>
         </div>
-        <AuthForms authError={authError} onRegister={onRegister} onLogin={onLogin} mode={mode} />
+        <AuthForms authError={authError} onRegister={onRegister} onLogin={onLogin} mode={mode} oauthNext={resolveOAuthNext(location.search)} />
       </section>
+      {isOAuthInviteOpen ? (
+        <OverlayDialog
+          className="auth-oauth-invite-dialog"
+          closeLabel="关闭邀请码输入"
+          closeOnBackdrop={false}
+          onClose={closeOAuthInviteDialog}
+          size="sm"
+          title="输入邀请码"
+        >
+          <form className="auth-oauth-invite-form" noValidate onSubmit={handleOAuthInviteSubmit}>
+            {authError ? <p className="error-banner">{authError}</p> : null}
+            <FormField htmlFor="oauth-invite-code" label="邀请码" required>
+              <TextInput
+                autoFocus
+                id="oauth-invite-code"
+                name="inviteCode"
+                onChange={(event) => setOAuthInviteCode(event.target.value)}
+                required
+                value={oauthInviteCode}
+              />
+            </FormField>
+            <div className="workspace-dialog-actions">
+              <Button onClick={closeOAuthInviteDialog} variant="secondary">
+                取消
+              </Button>
+              <Button isLoading={isOAuthInviteSubmitting} loadingLabel="验证中" type="submit" variant="primary">
+                继续进入
+              </Button>
+            </div>
+          </form>
+        </OverlayDialog>
+      ) : null}
     </div>
   );
 }

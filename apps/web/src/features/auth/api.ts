@@ -28,6 +28,20 @@ export function loginWithPassword(payload: {
   });
 }
 
+export function finalizeOAuthLogin(payload: {
+  provider: "github" | "linuxdo";
+  ticket: string;
+  inviteCode: string;
+}) {
+  return apiFetch<SessionSummary>(`/api/auth/oauth/${payload.provider}/finalize`, {
+    method: "POST",
+    body: JSON.stringify({
+      ticket: payload.ticket,
+      inviteCode: payload.inviteCode
+    })
+  });
+}
+
 export function logoutSession() {
   return apiFetch("/api/auth/logout", { method: "POST" });
 }

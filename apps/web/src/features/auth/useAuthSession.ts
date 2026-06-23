@@ -4,7 +4,7 @@ import type { SessionSummary } from "@wemail/shared";
 
 import { useAppStore } from "../../app/appStore";
 import type { WemailToastInput } from "../../shared/toast";
-import { loginWithPasswordAction, logoutSessionAction, registerWithInviteAction } from "./actions";
+import { finalizeOAuthLoginAction, loginWithPasswordAction, logoutSessionAction, registerWithInviteAction } from "./actions";
 import { queryCurrentSession } from "./queries";
 
 type UseAuthSessionOptions = {
@@ -20,6 +20,9 @@ const AUTH_ERROR_MESSAGES: Record<string, string> = {
   "email is required": "请输入邮箱。",
   "password is required": "请输入密码。",
   "inviteCode is required": "请输入邀请码。",
+  "OAuth provider is not configured": "该快捷登录暂未配置，请使用邮箱密码登录。",
+  "OAuth ticket is invalid": "快捷登录状态已失效，请重新发起登录。",
+  "OAuth ticket is required": "快捷登录状态已失效，请重新发起登录。",
   "Not authenticated": "登录状态已失效，请重新登录。",
   "User not found": "账号不存在。"
 };
@@ -115,12 +118,27 @@ export function useAuthSession({ onSignedIn, onSignedOut, onToast }: UseAuthSess
     onToast({ message: "已退出登录。", tone: "info" });
   }, [onSignedOut, onToast]);
 
+  const handleOAuthFinalize = useCallback(
+    async (payload: { provider: "github" | "linuxdo"; ticket: string; inviteCode: string }) => {
+      try {
+        const nextSession = await finalizeOAuthLoginAction(payload);
+        onSignedIn(nextSession);
+        onToast({ message: "登录成功。", tone: "success" });
+        setAuthError(null);
+      } catch (error) {
+        setAuthError(localizeAuthError(error));
+      }
+    },
+    [onSignedIn, onToast, setAuthError]
+  );
+
   return {
     authError,
     loadingSession,
     refreshSession,
     handleRegister,
     handleLogin,
+    handleOAuthFinalize,
     handleLogout
   };
 }

@@ -1,8 +1,8 @@
 import type { FormEvent, ReactNode } from "react";
-import { CircleAlert, Eye, EyeOff, KeyRound, Mail, Ticket, UserRound } from "lucide-react";
+import { CircleAlert, Code2, Globe2, Eye, EyeOff, KeyRound, Mail, Ticket, UserRound } from "lucide-react";
 import { useRef, useState } from "react";
 
-import { Button } from "../../shared/button";
+import { Button, ButtonAnchor } from "../../shared/button";
 import { FormField, TextInput } from "../../shared/form";
 
 type AuthFormsProps = {
@@ -10,6 +10,7 @@ type AuthFormsProps = {
   onRegister: (event: FormEvent<HTMLFormElement>) => Promise<void>;
   onLogin: (event: FormEvent<HTMLFormElement>) => Promise<void>;
   mode: "login" | "register";
+  oauthNext?: string;
 };
 
 type AuthFieldId =
@@ -69,7 +70,7 @@ function AuthFieldValidation({ children, id }: { children: ReactNode; id: string
   );
 }
 
-export function AuthForms({ authError, onRegister, onLogin, mode }: AuthFormsProps) {
+export function AuthForms({ authError, onRegister, onLogin, mode, oauthNext = "/dashboard" }: AuthFormsProps) {
   const [isLoginPasswordVisible, setIsLoginPasswordVisible] = useState(false);
   const [isRegisterPasswordVisible, setIsRegisterPasswordVisible] = useState(false);
   const [loginEmail, setLoginEmail] = useState("");
@@ -168,6 +169,24 @@ export function AuthForms({ authError, onRegister, onLogin, mode }: AuthFormsPro
   return (
     <div className="auth-form-shell">
       {authError ? <p className="error-banner">{authError}</p> : null}
+      <div className="auth-oauth-list" aria-label="快捷登录">
+        <ButtonAnchor
+          fullWidth
+          href={`/api/auth/oauth/github/start?next=${encodeURIComponent(oauthNext)}`}
+          leadingIcon={<Code2 aria-hidden="true" />}
+          variant="secondary"
+        >
+          使用 GitHub 登录
+        </ButtonAnchor>
+        <ButtonAnchor
+          fullWidth
+          href={`/api/auth/oauth/linuxdo/start?next=${encodeURIComponent(oauthNext)}`}
+          leadingIcon={<Globe2 aria-hidden="true" />}
+          variant="secondary"
+        >
+          使用 LinuxDo 登录
+        </ButtonAnchor>
+      </div>
       {mode === "login" ? (
         <div aria-labelledby="auth-tab-login" className="auth-form-panel" id="auth-panel-login" role="tabpanel">
           <form className="auth-form" noValidate onSubmit={handleLoginSubmit}>

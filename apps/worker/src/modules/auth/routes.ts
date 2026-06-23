@@ -3,10 +3,18 @@ import type { Hono } from "hono";
 import type { AppContext } from "../../app/context";
 import { requireUser } from "../../app/context";
 import { jsonError } from "../../app/services/audit-service";
+import { isOAuthProviderId } from "../../app/services/oauth-provider-service";
 import { toSessionResponse } from "../../app/routes/dto/auth-dto";
-import { parseLoginRequest, parseRegisterRequest } from "../../app/routes/requests/auth-request";
+import { parseLoginRequest, parseOAuthFinalizeRequest, parseRegisterRequest } from "../../app/routes/requests/auth-request";
 import { clearSessionCookie } from "../../shared/auth";
-import { loginUser, logoutUser, registerUserWithInvite } from "../../app/use-cases/auth-use-cases";
+import {
+  finalizeOAuthLogin,
+  handleOAuthCallback,
+  loginUser,
+  logoutUser,
+  registerUserWithInvite,
+  startOAuthLogin
+} from "../../app/use-cases/auth-use-cases";
 
 export function registerAuthRoutes(app: Hono<AppContext>) {
   app.post("/api/auth/register", async (c) => {
@@ -43,6 +51,60 @@ export function registerAuthRoutes(app: Hono<AppContext>) {
     await logoutUser({ store: c.get("store") }, c);
     clearSessionCookie(c);
     return c.json({ ok: true });
+  });
+
+  app.get("/api/auth/oauth/:provider/start", async (c) => {
+    const provider = c.req.param("provider");
+    if (!isOAuthProviderId(provider)) return jsonError("OAuth provider not found", 404);
+    const url = new URL(c.req.url);
+    return startOAuthLogin(
+      {
+        store: c.get("store"),
+        featureToggles: c.var.featureToggles,
+        env: c.env,
+        rawContext: c,
+        redirect: (location) => c.redirect(location)
+      },
+      provider,
+      url.searchParams.get("next")
+    );
+  });
+
+  app.get("/api/auth/oauth/:provider/callback", async (c) => {
+    const provider = c.req.param("provider");
+    if (!isOAuthProviderId(provider)) return jsonError("OAuth provider not found", 404);
+    const url = new URL(c.req.url);
+    return handleOAuthCallback(
+      {
+        store: c.get("store"),
+        featureToggles: c.var.featureToggles,
+        env: c.env,
+        rawContext: c,
+        redirect: (location) => c.redirect(location)
+      },
+      provider,
+      url.searchParams.get("code"),
+      url.searchParams.get("state")
+    );
+  });
+
+  app.post("/api/auth/oauth/:provider/finalize", async (c) => {
+    const provider = c.req.param("provider");
+    if (!isOAuthProviderId(provider)) return jsonError("OAuth provider not found", 404);
+    const payload = await parseOAuthFinalizeRequest(c.req.raw);
+    const result = await finalizeOAuthLogin(
+      {
+        store: c.get("store"),
+        featureToggles: c.var.featureToggles,
+        env: c.env,
+        rawContext: c,
+        redirect: (location) => c.redirect(location)
+      },
+      provider,
+      payload
+    );
+    if (result instanceof Response) return result;
+    return c.json(result);
   });
 
   app.get("/api/auth/session", async (c) => {
