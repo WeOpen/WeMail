@@ -1,12 +1,9 @@
-﻿import { useCallback, useEffect, useMemo, useState } from "react";
+﻿import { lazy, Suspense, useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { BrowserRouter, Navigate, useLocation } from "react-router-dom";
 
 import { AppLayout } from "./AppLayout";
 import { AppRoutes } from "./AppRoutes";
-import { AuthPage } from "../pages/AuthPage";
-import { DesignSystemPage } from "../pages/DesignSystemPage";
 import { acknowledgeAnnouncement, fetchAnnouncements, type AnnouncementItem } from "../features/announcements/api";
-import { WemailLandingPage } from "../features/landing/WemailLandingPage";
 import type { MailboxCreatePayload } from "../features/inbox/api";
 import { Button } from "../shared/button";
 import { OverlayDialog } from "../shared/overlay";
@@ -16,6 +13,10 @@ import { useAppStore } from "./appStore";
 import { buildWorkspaceShellState } from "./workspaceShell";
 import { useAppShell } from "./useAppShell";
 import { useWorkspaceTheme } from "./useWorkspaceTheme";
+
+const AuthPage = lazy(() => import("../pages/AuthPage").then((module) => ({ default: module.AuthPage })));
+const DesignSystemPage = lazy(() => import("../pages/DesignSystemPage").then((module) => ({ default: module.DesignSystemPage })));
+const WemailLandingPage = lazy(() => import("../features/landing/WemailLandingPage").then((module) => ({ default: module.WemailLandingPage })));
 
 function hasExplicitPostAuthPath(search: string) {
   return new URLSearchParams(search).has("next");
@@ -83,6 +84,10 @@ function formatAnnouncementTime(value: string | null | undefined) {
     hour: "2-digit",
     minute: "2-digit"
   }).format(date);
+}
+
+function LazyPublicPage({ children }: { children: ReactNode }) {
+  return <Suspense fallback={<WemailLoadingShell />}>{children}</Suspense>;
 }
 
 function AppContent() {
@@ -212,12 +217,14 @@ function AppContent() {
     return (
       <>
         {toastViewport}
-        <DesignSystemPage
-          consoleHref={profile.profile?.preferences.landingPage ?? "/dashboard"}
-          isAuthenticated={Boolean(session)}
-          onToggleTheme={toggleTheme}
-          theme={theme}
-        />
+        <LazyPublicPage>
+          <DesignSystemPage
+            consoleHref={profile.profile?.preferences.landingPage ?? "/dashboard"}
+            isAuthenticated={Boolean(session)}
+            onToggleTheme={toggleTheme}
+            theme={theme}
+          />
+        </LazyPublicPage>
       </>
     );
   }
@@ -235,13 +242,15 @@ function AppContent() {
     return (
       <>
         {toastViewport}
-        <AuthPage
-          authError={auth.authError}
-          onLogin={auth.handleLogin}
-          onRegister={auth.handleRegister}
-          onToggleTheme={toggleTheme}
-          theme={theme}
-        />
+        <LazyPublicPage>
+          <AuthPage
+            authError={auth.authError}
+            onLogin={auth.handleLogin}
+            onRegister={auth.handleRegister}
+            onToggleTheme={toggleTheme}
+            theme={theme}
+          />
+        </LazyPublicPage>
       </>
     );
   }
@@ -263,12 +272,14 @@ function AppContent() {
     return (
       <>
         {toastViewport}
-        <WemailLandingPage
-          consoleHref={profile.profile?.preferences.landingPage ?? "/dashboard"}
-          isAuthenticated
-          onToggleTheme={toggleTheme}
-          theme={theme}
-        />
+        <LazyPublicPage>
+          <WemailLandingPage
+            consoleHref={profile.profile?.preferences.landingPage ?? "/dashboard"}
+            isAuthenticated
+            onToggleTheme={toggleTheme}
+            theme={theme}
+          />
+        </LazyPublicPage>
       </>
     );
   }

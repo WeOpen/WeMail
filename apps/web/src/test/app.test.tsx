@@ -731,8 +731,9 @@ describe("App", () => {
       const { container } = render(<App />);
 
       expect(await screen.findByRole("columnheader", { name: "地址" })).toBeInTheDocument();
+      expect(await screen.findByText("ops@example.com")).toBeInTheDocument();
       expect(screen.queryByText("账号列表先以占位页承接")).not.toBeInTheDocument();
-      expect(container.querySelectorAll(".ui-badge")).toHaveLength(3);
+      await waitFor(() => expect(container.querySelectorAll(".ui-badge")).toHaveLength(3));
       expect(container.querySelector(".accounts-list-bulk-bar")).toBeNull();
     },
     10000
