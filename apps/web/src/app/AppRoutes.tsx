@@ -1,4 +1,4 @@
-import type { FormEvent } from "react";
+import { lazy, Suspense, type FormEvent, type ReactNode } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 
 import type {
@@ -32,25 +32,26 @@ import type {
   OutboundListQueryInput
 } from "../features/inbox/api";
 import type { OutboundHistoryDetail, OutboundHistoryItem, OutboundHistorySummary } from "../features/inbox/types";
-import { AccountsListRoutePage } from "../features/accounts/AccountsListRoutePage";
-import { AccountsSettingsPage } from "../features/accounts/AccountsSettingsPage";
-import { OutboundPage } from "../features/outbound/OutboundPage";
-import { ApiInterfacesPage } from "../features/settings/ApiInterfacesPage";
-import { ApiKeysPage } from "../features/settings/ApiKeysPage";
-import { MailSettingsPage } from "../features/settings/MailSettingsPage";
-import { TelegramSettingsPage } from "../features/settings/TelegramSettingsPage";
-import { WebhookPage } from "../features/settings/WebhookPage";
-import { AnnouncementsPage } from "../pages/AnnouncementsPage";
-import { DashboardPage } from "../pages/DashboardPage";
-import { InboxPage } from "../pages/InboxPage";
-import { SystemSettingsPage } from "../pages/SystemSettingsPage";
-import { SystemProfilePage } from "../pages/SystemProfilePage";
-import { UsersGlobalSettingsPage } from "../pages/UsersGlobalSettingsPage";
-import { UsersListRoutePage } from "../pages/UsersListRoutePage";
-import { AboutPage } from "../pages/AboutPage";
 import { Button } from "../shared/button";
-import { WorkspacePlaceholderPage } from "../pages/WorkspacePlaceholderPage";
 import type { WorkspaceTheme, WorkspaceThemePreference } from "./useWorkspaceTheme";
+
+const AboutPage = lazy(() => import("../pages/AboutPage").then((module) => ({ default: module.AboutPage })));
+const AccountsListRoutePage = lazy(() => import("../features/accounts/AccountsListRoutePage").then((module) => ({ default: module.AccountsListRoutePage })));
+const AccountsSettingsPage = lazy(() => import("../features/accounts/AccountsSettingsPage").then((module) => ({ default: module.AccountsSettingsPage })));
+const AnnouncementsPage = lazy(() => import("../pages/AnnouncementsPage").then((module) => ({ default: module.AnnouncementsPage })));
+const ApiInterfacesPage = lazy(() => import("../features/settings/ApiInterfacesPage").then((module) => ({ default: module.ApiInterfacesPage })));
+const ApiKeysPage = lazy(() => import("../features/settings/ApiKeysPage").then((module) => ({ default: module.ApiKeysPage })));
+const DashboardPage = lazy(() => import("../pages/DashboardPage").then((module) => ({ default: module.DashboardPage })));
+const InboxPage = lazy(() => import("../pages/InboxPage").then((module) => ({ default: module.InboxPage })));
+const MailSettingsPage = lazy(() => import("../features/settings/MailSettingsPage").then((module) => ({ default: module.MailSettingsPage })));
+const OutboundPage = lazy(() => import("../features/outbound/OutboundPage").then((module) => ({ default: module.OutboundPage })));
+const SystemProfilePage = lazy(() => import("../pages/SystemProfilePage").then((module) => ({ default: module.SystemProfilePage })));
+const SystemSettingsPage = lazy(() => import("../pages/SystemSettingsPage").then((module) => ({ default: module.SystemSettingsPage })));
+const TelegramSettingsPage = lazy(() => import("../features/settings/TelegramSettingsPage").then((module) => ({ default: module.TelegramSettingsPage })));
+const UsersGlobalSettingsPage = lazy(() => import("../pages/UsersGlobalSettingsPage").then((module) => ({ default: module.UsersGlobalSettingsPage })));
+const UsersListRoutePage = lazy(() => import("../pages/UsersListRoutePage").then((module) => ({ default: module.UsersListRoutePage })));
+const WebhookPage = lazy(() => import("../features/settings/WebhookPage").then((module) => ({ default: module.WebhookPage })));
+const WorkspacePlaceholderPage = lazy(() => import("../pages/WorkspacePlaceholderPage").then((module) => ({ default: module.WorkspacePlaceholderPage })));
 
 type AppRoutesProps = {
   session: SessionSummary;
@@ -160,6 +161,25 @@ type AppRoutesProps = {
   };
   onLogout: () => void;
 };
+
+function WorkspaceRouteFallback() {
+  return (
+    <main className="workspace-grid">
+      <section className="panel workspace-card page-panel">
+        <p className="panel-kicker">页面加载</p>
+        <h2>正在打开工作台页面</h2>
+      </section>
+    </main>
+  );
+}
+
+function LazyWorkspaceRoute({ children }: { children: ReactNode }) {
+  return <Suspense fallback={<WorkspaceRouteFallback />}>{children}</Suspense>;
+}
+
+function lazyRoute(element: ReactNode) {
+  return <LazyWorkspaceRoute>{element}</LazyWorkspaceRoute>;
+}
 
 export function AppRoutes({
   session,
@@ -394,31 +414,31 @@ export function AppRoutes({
 
   return (
     <Routes>
-      <Route path="/" element={rootPage} />
-      <Route path="/dashboard" element={dashboardPage} />
-      <Route path="/accounts" element={accountsListPage} />
-      <Route path="/accounts/list" element={accountsListPage} />
-      <Route path="/accounts/settings" element={accountsSettingsPage} />
-      <Route path="/mail" element={inboxPage} />
-      <Route path="/mail/list" element={inboxPage} />
+      <Route path="/" element={lazyRoute(rootPage)} />
+      <Route path="/dashboard" element={lazyRoute(dashboardPage)} />
+      <Route path="/accounts" element={lazyRoute(accountsListPage)} />
+      <Route path="/accounts/list" element={lazyRoute(accountsListPage)} />
+      <Route path="/accounts/settings" element={lazyRoute(accountsSettingsPage)} />
+      <Route path="/mail" element={lazyRoute(inboxPage)} />
+      <Route path="/mail/list" element={lazyRoute(inboxPage)} />
       <Route path="/mail/unassigned" element={<Navigate replace to={{ pathname: "/mail/outbound", search: "?view=failed" }} />} />
-      <Route path="/mail/outbound" element={mailOutboundPage} />
-      <Route path="/mail/settings" element={mailSettingsPage} />
-      <Route path="/users" element={usersListPage} />
-      <Route path="/users/list" element={usersListPage} />
-      <Route path="/users/settings" element={usersSettingsPage} />
-      <Route path="/admin" element={usersSettingsPage} />
-      <Route path="/settings" element={apiKeysPage} />
-      <Route path="/api-keys" element={apiKeysPage} />
-      <Route path="/api-keys/interfaces" element={apiInterfacesPage} />
-      <Route path="/webhook" element={webhookPage} />
-      <Route path="/telegram" element={telegramPage} />
-      <Route path="/docs" element={docsPage} />
-      <Route path="/announcements" element={announcementsPage} />
+      <Route path="/mail/outbound" element={lazyRoute(mailOutboundPage)} />
+      <Route path="/mail/settings" element={lazyRoute(mailSettingsPage)} />
+      <Route path="/users" element={lazyRoute(usersListPage)} />
+      <Route path="/users/list" element={lazyRoute(usersListPage)} />
+      <Route path="/users/settings" element={lazyRoute(usersSettingsPage)} />
+      <Route path="/admin" element={lazyRoute(usersSettingsPage)} />
+      <Route path="/settings" element={lazyRoute(apiKeysPage)} />
+      <Route path="/api-keys" element={lazyRoute(apiKeysPage)} />
+      <Route path="/api-keys/interfaces" element={lazyRoute(apiInterfacesPage)} />
+      <Route path="/webhook" element={lazyRoute(webhookPage)} />
+      <Route path="/telegram" element={lazyRoute(telegramPage)} />
+      <Route path="/docs" element={lazyRoute(docsPage)} />
+      <Route path="/announcements" element={lazyRoute(announcementsPage)} />
       <Route path="/system" element={<Navigate replace to="/system/settings" />} />
-      <Route path="/system/settings" element={systemSettingsPage} />
-      <Route path="/system/profile" element={systemProfilePage} />
-      <Route path="/system/about" element={<AboutPage />} />
+      <Route path="/system/settings" element={lazyRoute(systemSettingsPage)} />
+      <Route path="/system/profile" element={lazyRoute(systemProfilePage)} />
+      <Route path="/system/about" element={lazyRoute(<AboutPage />)} />
     </Routes>
   );
 }

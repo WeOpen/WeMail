@@ -24,6 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Changed the outbound summary row so the mailbox selector and three metric cards fill the desktop row with clearer bordered hover states.
 - Opened mailbox account list and mailbox domain management to member sessions while keeping account mutation and runtime policy controls admin-only.
 - Clarified runtime default quota fields for mailbox daily sending and API daily calls, with tests covering new-user quota grants from updated defaults.
+- Changed the web app routing to lazy-load public and workspace pages so the initial production bundle is smaller while preserving Nivo chart rendering.
 
 ### Fixed
 

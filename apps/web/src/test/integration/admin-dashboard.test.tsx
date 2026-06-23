@@ -95,7 +95,7 @@ describe("admin dashboard integration", () => {
       expect(sidebar).toBeInTheDocument();
       expect(within(sidebar).getByRole("link", { name: /^用户(?:\s|$)/i })).toBeInTheDocument();
       expect(await screen.findByRole("navigation", { name: /用户 二级菜单/i })).toBeInTheDocument();
-      expect(screen.getByRole("heading", { name: /邀请与入场/i })).toBeInTheDocument();
+      expect(await screen.findByRole("heading", { name: /邀请与入场/i })).toBeInTheDocument();
       expect(screen.getByRole("heading", { name: /能力开关/i })).toBeInTheDocument();
       expect(screen.getByRole("heading", { name: /配额策略/i })).toBeInTheDocument();
       expect(screen.getByRole("heading", { name: /邮箱监管/i })).toBeInTheDocument();
