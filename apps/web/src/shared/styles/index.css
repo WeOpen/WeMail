@@ -1366,6 +1366,36 @@ button:disabled {
   gap: 16px;
 }
 
+.auth-oauth-list,
+.auth-oauth-invite-form {
+  display: grid;
+  gap: 12px;
+}
+
+.auth-oauth-list {
+  grid-template-columns: 1fr 1fr;
+}
+
+.auth-divider {
+  display: flex;
+  align-items: center;
+  text-align: center;
+  color: var(--text-soft);
+  font-size: 0.875rem;
+  margin: 8px 0;
+}
+
+.auth-divider::before,
+.auth-divider::after {
+  content: "";
+  flex: 1;
+  border-bottom: 1px solid var(--border);
+}
+
+.auth-divider span {
+  padding: 0 16px;
+}
+
 .auth-field-stack {
   display: grid;
   gap: 8px;

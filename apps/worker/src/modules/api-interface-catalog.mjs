@@ -22,6 +22,30 @@ export const apiInterfaceGroups = [
         example: { requestBody: { email: "member@example.com", password: "Passw0rd!" } }
       },
       {
+        method: "GET",
+        path: "/api/auth/oauth/:provider/start",
+        title: "发起快捷登录",
+        description: "跳转到 GitHub 或 LinuxDo 授权页。",
+        access: "公开",
+        example: { pathParameters: { provider: "github" }, queryParameters: { next: "/dashboard" } }
+      },
+      {
+        method: "GET",
+        path: "/api/auth/oauth/:provider/callback",
+        title: "快捷登录回调",
+        description: "处理第三方授权回调并跳转回应用。",
+        access: "公开",
+        example: { pathParameters: { provider: "github" }, queryParameters: { code: "oauth-code", state: "oauth-state" } }
+      },
+      {
+        method: "POST",
+        path: "/api/auth/oauth/:provider/finalize",
+        title: "完成快捷登录",
+        description: "新第三方用户提交邀请码后创建会话。",
+        access: "公开",
+        example: { pathParameters: { provider: "github" }, requestBody: { ticket: "oauth-ticket", inviteCode: "INVITE-2026" } }
+      },
+      {
         method: "POST",
         path: "/api/auth/logout",
         title: "退出登录",

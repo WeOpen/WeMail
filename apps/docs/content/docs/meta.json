@@ -5,6 +5,7 @@
     "quickstart",
     "cloudflare-resources",
     "worker-config",
+    "oauth-login",
     "email-routing",
     "pages-deploy",
     "github-actions",

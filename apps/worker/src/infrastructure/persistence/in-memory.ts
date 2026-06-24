@@ -23,6 +23,9 @@ import type {
   MailboxDetailRecord,
   MailboxDetailListQuery,
   MailboxRecord,
+  OAuthIdentityRecord,
+  OAuthPendingLoginRecord,
+  OAuthStateRecord,
   OutboundMessageRecord,
   PersistedMessageRecord,
   QuotaRecord,
@@ -158,6 +161,9 @@ export function createInMemoryStore(): AppStore {
   const users = new Map<string, UserRecord>();
   const userPreferences = new Map<string, UserPreferencesRecord>();
   const sessions = new Map<string, SessionRecord>();
+  const oauthStates = new Map<string, OAuthStateRecord>();
+  const oauthPendingLogins = new Map<string, OAuthPendingLoginRecord>();
+  const oauthIdentities = new Map<string, OAuthIdentityRecord>();
   const invites = new Map<string, InviteRecord>();
   const mailboxes = new Map<string, StoredMailboxRecord>();
   const messages = new Map<string, PersistedMessageRecord>();
@@ -268,6 +274,9 @@ export function createInMemoryStore(): AppStore {
         for (const [sessionId, session] of sessions) {
           if (session.userId === id) sessions.delete(sessionId);
         }
+        for (const [identityId, identity] of oauthIdentities) {
+          if (identity.userId === id) oauthIdentities.delete(identityId);
+        }
         for (const [keyId, key] of apiKeys) {
           if (key.userId === id) apiKeys.delete(keyId);
         }
@@ -336,6 +345,98 @@ export function createInMemoryStore(): AppStore {
       async deleteByUserId(userId) {
         for (const [sessionId, session] of sessions) {
           if (session.userId === userId) sessions.delete(sessionId);
+        }
+      }
+    },
+    oauthStates: {
+      async create(input) {
+        const record: OAuthStateRecord = {
+          id: `${crypto.randomUUID()}-${Math.random().toString(36).slice(2, 10)}`,
+          provider: input.provider,
+          redirectTo: input.redirectTo,
+          expiresAt: input.expiresAt,
+          createdAt: nowIso()
+        };
+        oauthStates.set(record.id, record);
+        return clone(record);
+      },
+      async consume(id) {
+        const record = oauthStates.get(id) ?? null;
+        oauthStates.delete(id);
+        if (!record || new Date(record.expiresAt) <= new Date()) return null;
+        return clone(record);
+      }
+    },
+    oauthPendingLogins: {
+      async create(input) {
+        const record: OAuthPendingLoginRecord = {
+          id: `${crypto.randomUUID()}-${Math.random().toString(36).slice(2, 10)}`,
+          provider: input.provider,
+          providerUserId: input.providerUserId,
+          providerEmail: input.providerEmail,
+          providerName: input.providerName,
+          providerLogin: input.providerLogin,
+          redirectTo: input.redirectTo,
+          expiresAt: input.expiresAt,
+          createdAt: nowIso()
+        };
+        oauthPendingLogins.set(record.id, record);
+        return clone(record);
+      },
+      async findById(id) {
+        const record = oauthPendingLogins.get(id) ?? null;
+        if (!record) return null;
+        if (new Date(record.expiresAt) > new Date()) return clone(record);
+        oauthPendingLogins.delete(id);
+        return null;
+      },
+      async consume(id) {
+        const record = oauthPendingLogins.get(id) ?? null;
+        oauthPendingLogins.delete(id);
+        if (!record || new Date(record.expiresAt) <= new Date()) return null;
+        return clone(record);
+      }
+    },
+    oauthIdentities: {
+      async findByProviderUser(provider, providerUserId) {
+        const record = Array.from(oauthIdentities.values()).find(
+          (identity) => identity.provider === provider && identity.providerUserId === providerUserId
+        );
+        return clone(record ?? null);
+      },
+      async upsert(input) {
+        const existing = Array.from(oauthIdentities.values()).find(
+          (identity) => identity.provider === input.provider && identity.providerUserId === input.providerUserId
+        );
+        const updatedAt = nowIso();
+        if (existing) {
+          const next: OAuthIdentityRecord = {
+            ...existing,
+            userId: input.userId,
+            providerEmail: input.providerEmail,
+            providerLogin: input.providerLogin,
+            updatedAt
+          };
+          oauthIdentities.set(next.id, next);
+          return clone(next);
+        }
+
+        const record: OAuthIdentityRecord = {
+          id: crypto.randomUUID(),
+          userId: input.userId,
+          provider: input.provider,
+          providerUserId: input.providerUserId,
+          providerEmail: input.providerEmail,
+          providerLogin: input.providerLogin,
+          createdAt: updatedAt,
+          updatedAt
+        };
+        oauthIdentities.set(record.id, record);
+        return clone(record);
+      },
+      async deleteByUserId(userId) {
+        for (const [identityId, identity] of oauthIdentities) {
+          if (identity.userId === userId) oauthIdentities.delete(identityId);
         }
       }
     },

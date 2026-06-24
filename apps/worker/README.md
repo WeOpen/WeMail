@@ -141,6 +141,19 @@ pnpm exec wrangler secret put RESEND_API_KEY --env staging
 pnpm exec wrangler secret put RESEND_API_KEY --env production
 ```
 
+第三方快捷登录也通过 Worker secrets 配置。GitHub 和 LinuxDo 分别需要：
+
+```bash
+pnpm exec wrangler secret put GITHUB_OAUTH_CLIENT_ID --env staging
+pnpm exec wrangler secret put GITHUB_OAUTH_CLIENT_SECRET --env staging
+pnpm exec wrangler secret put GITHUB_OAUTH_CALLBACK_URL --env staging
+pnpm exec wrangler secret put LINUXDO_OAUTH_CLIENT_ID --env staging
+pnpm exec wrangler secret put LINUXDO_OAUTH_CLIENT_SECRET --env staging
+pnpm exec wrangler secret put LINUXDO_OAUTH_CALLBACK_URL --env staging
+```
+
+回调地址应指向 Worker API，例如 `https://api.example.com/api/auth/oauth/github/callback` 和 `https://api.example.com/api/auth/oauth/linuxdo/callback`。未配置的 provider 会返回 503，不会创建登录态。
+
 ## 🚀 部署流程
 
 ### staging / production 部署

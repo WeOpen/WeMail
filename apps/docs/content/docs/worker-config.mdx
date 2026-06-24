@@ -223,6 +223,12 @@ pnpm exec wrangler secret put RESEND_FROM --env staging
 pnpm exec wrangler secret put RESEND_FROM --env production
 ```
 
+### OAuth 快捷登录
+
+GitHub 和 LinuxDo 快捷登录也通过 Worker secrets 启用。每个 provider 都必须配置 Client ID、Client Secret 和 callback URL 三项；缺任意一项时，该 provider 会返回 503。
+
+详细步骤见 [OAuth 快捷登录配置](/docs/oauth-login)，其中包含 GitHub / LinuxDo 应用创建、回调地址选择、邀请码验收和常见错误排查。
+
 ### Telegram
 
 WeMail 的 Telegram 集成分两部分：
@@ -475,6 +481,7 @@ curl -i "$PRODUCTION_API_BASE_URL/api/system/health"
 - [ ] production 的 `COOKIE_SECURE = "true"`。
 - [ ] 系统设置里的默认邮箱域名是真实收件域名。
 - [ ] `CORS_ALLOWED_ORIGINS` 包含真实前端域名。
+- [ ] 如启用 OAuth，GitHub / LinuxDo 的 Worker secrets 和回调地址已按 [OAuth 快捷登录配置](/docs/oauth-login) 完成。
 - [ ] D1、KV 的 staging / production ID 不混用。
 - [ ] 已通过 `wrangler secret put` 写入启用能力所需 secrets。
 - [ ] 如果启用 R2，已声明 `ATTACHMENTS` binding。

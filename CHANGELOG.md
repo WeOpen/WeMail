@@ -14,6 +14,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Added detailed OAuth provider configuration documentation to the docs site.
+- Added GitHub and LinuxDo OAuth quick login with invite-gated onboarding for new third-party users.
+
 ### Changed
 
 - Expanded the Worker configuration docs with an end-to-end Telegram Bot setup guide covering BotFather, secrets, webhook setup, admin toggles, user binding, and troubleshooting.

@@ -1,9 +1,11 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
 
 import { resetAppStore } from "../app/appStore";
 import { AuthForms } from "../features/auth/AuthForms";
 import { useAuthSession } from "../features/auth/useAuthSession";
+import { AuthPage } from "../pages/AuthPage";
 import { jsonResponse } from "./helpers/mock-api";
 
 const authFormProps = {
@@ -41,12 +43,12 @@ describe("AuthForms", () => {
   });
 
   it("keeps login and register email values independent across mode switches", () => {
-    const { rerender } = render(<AuthForms {...authFormProps} mode="login" />);
+    const { rerender } = render(<AuthForms {...authFormProps} mode="login" oauthNext="/mail/inbox" />);
     const loginEmailInput = screen.getByLabelText(/^邮箱/);
 
     fireEvent.change(loginEmailInput, { target: { value: "login@example.com" } });
 
-    rerender(<AuthForms {...authFormProps} mode="register" />);
+    rerender(<AuthForms {...authFormProps} mode="register" oauthNext="/mail/inbox" />);
     const registerEmailInput = screen.getByLabelText(/^邮箱/);
 
     expect(registerEmailInput).toHaveValue("");
@@ -54,9 +56,55 @@ describe("AuthForms", () => {
     fireEvent.change(registerEmailInput, { target: { value: "register@example.com" } });
     fireEvent.change(registerEmailInput, { target: { value: "" } });
 
-    rerender(<AuthForms {...authFormProps} mode="login" />);
+    rerender(<AuthForms {...authFormProps} mode="login" oauthNext="/mail/inbox" />);
 
     expect(screen.getByLabelText(/^邮箱/)).toHaveValue("login@example.com");
+  });
+
+  it("renders GitHub and LinuxDo OAuth links with the post-auth target", () => {
+    render(<AuthForms {...authFormProps} mode="login" oauthNext="/settings/profile" />);
+
+    expect(screen.getByRole("link", { name: "使用 GitHub 登录" })).toHaveAttribute(
+      "href",
+      "/api/auth/oauth/github/start?next=%2Fsettings%2Fprofile"
+    );
+    expect(screen.getByRole("link", { name: "使用 LinuxDo 登录" })).toHaveAttribute(
+      "href",
+      "/api/auth/oauth/linuxdo/start?next=%2Fsettings%2Fprofile"
+    );
+  });
+
+  it("asks OAuth newcomers for an invite code before finalizing login", () => {
+    const onOAuthFinalize = vi.fn();
+
+    render(
+      <MemoryRouter initialEntries={["/login?oauth=invite&provider=github&ticket=ticket-1&next=%2Fdashboard"]}>
+        <Routes>
+          <Route
+            path="/login"
+            element={
+              <AuthPage
+                authError={null}
+                onLogin={vi.fn()}
+                onOAuthFinalize={onOAuthFinalize}
+                onRegister={vi.fn()}
+                onToggleTheme={vi.fn()}
+                theme="dark"
+              />
+            }
+          />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    fireEvent.change(screen.getByLabelText(/^邀请码/), { target: { value: "INVITE-OAUTH" } });
+    fireEvent.submit(screen.getByRole("button", { name: "继续进入" }).closest("form")!);
+
+    expect(onOAuthFinalize).toHaveBeenCalledWith({
+      inviteCode: "INVITE-OAUTH",
+      provider: "github",
+      ticket: "ticket-1"
+    });
   });
 
   it("renders custom Chinese required messages and blocks empty login submissions", () => {
