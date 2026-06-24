@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added detailed OAuth provider configuration documentation to the docs site.
 - Added GitHub and LinuxDo OAuth quick login with invite-gated onboarding for new third-party users.
 
 ### Changed
