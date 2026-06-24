@@ -64,11 +64,11 @@ describe("AuthForms", () => {
   it("renders GitHub and LinuxDo OAuth links with the post-auth target", () => {
     render(<AuthForms {...authFormProps} mode="login" oauthNext="/settings/profile" />);
 
-    expect(screen.getByRole("link", { name: "使用 GitHub 登录" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "GitHub" })).toHaveAttribute(
       "href",
       "/api/auth/oauth/github/start?next=%2Fsettings%2Fprofile"
     );
-    expect(screen.getByRole("link", { name: "使用 LinuxDo 登录" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "LinuxDo" })).toHaveAttribute(
       "href",
       "/api/auth/oauth/linuxdo/start?next=%2Fsettings%2Fprofile"
     );
