@@ -179,6 +179,39 @@ export type SessionRecord = {
   createdAt: string;
 };
 
+export type OAuthProviderId = "github" | "linuxdo";
+
+export type OAuthIdentityRecord = {
+  id: string;
+  userId: string;
+  provider: OAuthProviderId;
+  providerUserId: string;
+  providerEmail: string;
+  providerLogin: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type OAuthStateRecord = {
+  id: string;
+  provider: OAuthProviderId;
+  redirectTo: string;
+  expiresAt: string;
+  createdAt: string;
+};
+
+export type OAuthPendingLoginRecord = {
+  id: string;
+  provider: OAuthProviderId;
+  providerUserId: string;
+  providerEmail: string;
+  providerName: string;
+  providerLogin: string | null;
+  redirectTo: string;
+  expiresAt: string;
+  createdAt: string;
+};
+
 export type UserPreferencesRecord = {
   userId: string;
   bio: string;
@@ -414,6 +447,34 @@ export interface AppStore {
     delete: (id: string) => Promise<void>;
     deleteByUserId: (userId: string) => Promise<void>;
   };
+  oauthStates: {
+    create: (input: { provider: OAuthProviderId; redirectTo: string; expiresAt: string }) => Promise<OAuthStateRecord>;
+    consume: (id: string) => Promise<OAuthStateRecord | null>;
+  };
+  oauthPendingLogins: {
+    create: (input: {
+      provider: OAuthProviderId;
+      providerUserId: string;
+      providerEmail: string;
+      providerName: string;
+      providerLogin: string | null;
+      redirectTo: string;
+      expiresAt: string;
+    }) => Promise<OAuthPendingLoginRecord>;
+    findById: (id: string) => Promise<OAuthPendingLoginRecord | null>;
+    consume: (id: string) => Promise<OAuthPendingLoginRecord | null>;
+  };
+  oauthIdentities: {
+    findByProviderUser: (provider: OAuthProviderId, providerUserId: string) => Promise<OAuthIdentityRecord | null>;
+    upsert: (input: {
+      userId: string;
+      provider: OAuthProviderId;
+      providerUserId: string;
+      providerEmail: string;
+      providerLogin: string | null;
+    }) => Promise<OAuthIdentityRecord>;
+    deleteByUserId: (userId: string) => Promise<void>;
+  };
   invites: {
     create: (input: { code: string; createdByUserId: string | null }) => Promise<InviteRecord>;
     findByCode: (code: string) => Promise<InviteRecord | null>;
@@ -588,6 +649,12 @@ export type AppBindings = {
   SESSION_TTL_HOURS?: string;
   RESEND_API_KEY?: string;
   RESEND_FROM?: string;
+  GITHUB_OAUTH_CLIENT_ID?: string;
+  GITHUB_OAUTH_CLIENT_SECRET?: string;
+  GITHUB_OAUTH_CALLBACK_URL?: string;
+  LINUXDO_OAUTH_CLIENT_ID?: string;
+  LINUXDO_OAUTH_CLIENT_SECRET?: string;
+  LINUXDO_OAUTH_CALLBACK_URL?: string;
   TELEGRAM_BOT_TOKEN?: string;
   TELEGRAM_BOT_USERNAME?: string;
   TELEGRAM_WEBHOOK_SECRET?: string;

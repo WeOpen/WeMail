@@ -44,6 +44,20 @@ export type AppConfig = {
     telegramBotUsername?: string;
     telegramWebhookSecret?: string;
   };
+  oauth: {
+    providers: {
+      github?: {
+        clientId: string;
+        clientSecret: string;
+        callbackUrl: string;
+      };
+      linuxdo?: {
+        clientId: string;
+        clientSecret: string;
+        callbackUrl: string;
+      };
+    };
+  };
 };
 
 function parseBoolean(value: string | undefined, fallback: boolean) {
@@ -59,6 +73,11 @@ function parseNumber(value: string | undefined, fallback: number) {
 function parseList(value: string | undefined) {
   if (!value) return [];
   return value.split(",").map((entry) => entry.trim()).filter(Boolean);
+}
+
+function resolveOAuthProvider(clientId?: string, clientSecret?: string, callbackUrl?: string) {
+  if (!clientId || !clientSecret || !callbackUrl) return undefined;
+  return { clientId, clientSecret, callbackUrl };
 }
 
 export function resolveAppConfig(env: AppBindings): AppConfig {
@@ -157,6 +176,13 @@ export function resolveAppConfig(env: AppBindings): AppConfig {
       telegramBotToken: env.TELEGRAM_BOT_TOKEN,
       telegramBotUsername: env.TELEGRAM_BOT_USERNAME,
       telegramWebhookSecret: env.TELEGRAM_WEBHOOK_SECRET
+    },
+
+    oauth: {
+      providers: {
+        github: resolveOAuthProvider(env.GITHUB_OAUTH_CLIENT_ID, env.GITHUB_OAUTH_CLIENT_SECRET, env.GITHUB_OAUTH_CALLBACK_URL),
+        linuxdo: resolveOAuthProvider(env.LINUXDO_OAUTH_CLIENT_ID, env.LINUXDO_OAUTH_CLIENT_SECRET, env.LINUXDO_OAUTH_CALLBACK_URL)
+      }
     }
   };
 }

@@ -1366,6 +1366,16 @@ button:disabled {
   gap: 16px;
 }
 
+.auth-oauth-list,
+.auth-oauth-invite-form {
+  display: grid;
+  gap: 12px;
+}
+
+.auth-oauth-list {
+  grid-template-columns: 1fr;
+}
+
 .auth-field-stack {
   display: grid;
   gap: 8px;

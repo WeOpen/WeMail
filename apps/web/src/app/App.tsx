@@ -246,6 +246,7 @@ function AppContent() {
           <AuthPage
             authError={auth.authError}
             onLogin={auth.handleLogin}
+            onOAuthFinalize={auth.handleOAuthFinalize}
             onRegister={auth.handleRegister}
             onToggleTheme={toggleTheme}
             theme={theme}

@@ -17,6 +17,10 @@ import type {
   AttachmentRecord,
   MailboxDetailListQuery,
   MailboxDetailRecord,
+  OAuthIdentityRecord,
+  OAuthPendingLoginRecord,
+  OAuthProviderId,
+  OAuthStateRecord,
   OutboundMessageRecord,
   PersistedMessageRecord,
   QuotaRecord,
@@ -97,6 +101,47 @@ function toDictionaryItem(row: any): DictionaryItemSummary {
     enabled: toBool(row.enabled),
     metadata: parseJson<Record<string, unknown>>(row.metadata_json, {}),
     updatedAt: row.updated_at
+  };
+}
+
+function parseOAuthProvider(value: unknown): OAuthProviderId {
+  return value === "linuxdo" ? "linuxdo" : "github";
+}
+
+function toOAuthIdentityRecord(row: any): OAuthIdentityRecord {
+  return {
+    id: row.id,
+    userId: row.user_id,
+    provider: parseOAuthProvider(row.provider),
+    providerUserId: row.provider_user_id,
+    providerEmail: row.provider_email,
+    providerLogin: row.provider_login ?? null,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at
+  };
+}
+
+function toOAuthStateRecord(row: any): OAuthStateRecord {
+  return {
+    id: row.id,
+    provider: parseOAuthProvider(row.provider),
+    redirectTo: row.redirect_to,
+    expiresAt: row.expires_at,
+    createdAt: row.created_at
+  };
+}
+
+function toOAuthPendingLoginRecord(row: any): OAuthPendingLoginRecord {
+  return {
+    id: row.id,
+    provider: parseOAuthProvider(row.provider),
+    providerUserId: row.provider_user_id,
+    providerEmail: row.provider_email,
+    providerName: row.provider_name,
+    providerLogin: row.provider_login ?? null,
+    redirectTo: row.redirect_to,
+    expiresAt: row.expires_at,
+    createdAt: row.created_at
   };
 }
 
@@ -324,6 +369,7 @@ export function createD1Store(db: D1Database): AppStore {
         const existing = await this.findById(id);
         if (!existing) return false;
         await db.prepare("DELETE FROM auth_sessions WHERE user_id = ?").bind(id).run();
+        await db.prepare("DELETE FROM oauth_identities WHERE user_id = ?").bind(id).run();
         await db.prepare("DELETE FROM user_send_quotas WHERE user_id = ?").bind(id).run();
         await db.prepare("DELETE FROM api_keys WHERE user_id = ?").bind(id).run();
         await db.prepare("DELETE FROM telegram_subscriptions WHERE user_id = ?").bind(id).run();
@@ -425,6 +471,96 @@ export function createD1Store(db: D1Database): AppStore {
       },
       async deleteByUserId(userId) {
         await db.prepare("DELETE FROM auth_sessions WHERE user_id = ?").bind(userId).run();
+      }
+    },
+    oauthStates: {
+      async create(input) {
+        const id = `${crypto.randomUUID()}-${Math.random().toString(36).slice(2, 10)}`;
+        const createdAt = nowIso();
+        await db
+          .prepare("INSERT INTO oauth_states (id, provider, redirect_to, expires_at, created_at) VALUES (?, ?, ?, ?, ?)")
+          .bind(id, input.provider, input.redirectTo, input.expiresAt, createdAt)
+          .run();
+        return { id, provider: input.provider, redirectTo: input.redirectTo, expiresAt: input.expiresAt, createdAt };
+      },
+      async consume(id) {
+        const row = await db.prepare("SELECT * FROM oauth_states WHERE id = ?").bind(id).first<any>();
+        await db.prepare("DELETE FROM oauth_states WHERE id = ?").bind(id).run();
+        if (!row) return null;
+        const record = toOAuthStateRecord(row);
+        return new Date(record.expiresAt) > new Date() ? record : null;
+      }
+    },
+    oauthPendingLogins: {
+      async create(input) {
+        const id = `${crypto.randomUUID()}-${Math.random().toString(36).slice(2, 10)}`;
+        const createdAt = nowIso();
+        await db
+          .prepare(
+            "INSERT INTO oauth_pending_logins (id, provider, provider_user_id, provider_email, provider_name, provider_login, redirect_to, expires_at, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
+          )
+          .bind(
+            id,
+            input.provider,
+            input.providerUserId,
+            input.providerEmail,
+            input.providerName,
+            input.providerLogin,
+            input.redirectTo,
+            input.expiresAt,
+            createdAt
+          )
+          .run();
+        return { id, ...input, createdAt };
+      },
+      async findById(id) {
+        const row = await db.prepare("SELECT * FROM oauth_pending_logins WHERE id = ?").bind(id).first<any>();
+        if (!row) return null;
+        const record = toOAuthPendingLoginRecord(row);
+        if (new Date(record.expiresAt) > new Date()) return record;
+        await db.prepare("DELETE FROM oauth_pending_logins WHERE id = ?").bind(id).run();
+        return null;
+      },
+      async consume(id) {
+        const row = await db.prepare("SELECT * FROM oauth_pending_logins WHERE id = ?").bind(id).first<any>();
+        await db.prepare("DELETE FROM oauth_pending_logins WHERE id = ?").bind(id).run();
+        if (!row) return null;
+        const record = toOAuthPendingLoginRecord(row);
+        return new Date(record.expiresAt) > new Date() ? record : null;
+      }
+    },
+    oauthIdentities: {
+      async findByProviderUser(provider, providerUserId) {
+        const row = await db
+          .prepare("SELECT * FROM oauth_identities WHERE provider = ? AND provider_user_id = ?")
+          .bind(provider, providerUserId)
+          .first<any>();
+        return row ? toOAuthIdentityRecord(row) : null;
+      },
+      async upsert(input) {
+        const existing = await this.findByProviderUser(input.provider, input.providerUserId);
+        const updatedAt = nowIso();
+        if (existing) {
+          await db
+            .prepare(
+              "UPDATE oauth_identities SET user_id = ?, provider_email = ?, provider_login = ?, updated_at = ? WHERE id = ?"
+            )
+            .bind(input.userId, input.providerEmail, input.providerLogin, updatedAt, existing.id)
+            .run();
+          return { ...existing, userId: input.userId, providerEmail: input.providerEmail, providerLogin: input.providerLogin, updatedAt };
+        }
+
+        const id = crypto.randomUUID();
+        await db
+          .prepare(
+            "INSERT INTO oauth_identities (id, user_id, provider, provider_user_id, provider_email, provider_login, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+          )
+          .bind(id, input.userId, input.provider, input.providerUserId, input.providerEmail, input.providerLogin, updatedAt, updatedAt)
+          .run();
+        return { id, ...input, createdAt: updatedAt, updatedAt };
+      },
+      async deleteByUserId(userId) {
+        await db.prepare("DELETE FROM oauth_identities WHERE user_id = ?").bind(userId).run();
       }
     },
     invites: {
