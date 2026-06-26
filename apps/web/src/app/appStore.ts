@@ -110,8 +110,8 @@ type AppActions = {
   setSelectedMessageId: (selectedMessageId: string | null) => void;
   setOutboundHistory: (outboundHistory: OutboundHistoryItem[]) => void;
   setSettingsData: (
-    apiKeys: ApiKeySummary[],
-    telegramOverview: TelegramOverviewSummary,
+    apiKeys?: ApiKeySummary[],
+    telegramOverview?: TelegramOverviewSummary,
     telegramDeliveries?: TelegramDeliverySummary[],
     runtimeSettings?: RuntimeSettings | null
   ) => void;
@@ -240,18 +240,19 @@ export const useAppStore = create<AppStore>()((set) => ({
     }),
   setSelectedMessageId: (selectedMessageId) => set({ selectedMessageId }),
   setOutboundHistory: (outboundHistory) => set({ outboundHistory }),
-  setSettingsData: (apiKeys, telegramOverview, telegramDeliveries = [], runtimeSettings = null) => {
-    const nextTelegramOverview = telegramOverview ?? emptyTelegramOverview;
-    return set({
-      apiKeys,
-      telegram: nextTelegramOverview.subscription
-        ? { chatId: nextTelegramOverview.subscription.chatId, enabled: nextTelegramOverview.subscription.enabled }
-        : null,
-      telegramOverview: nextTelegramOverview,
-      telegramDeliveries,
-      runtimeSettings
-    });
-  },
+  setSettingsData: (apiKeys, telegramOverview, telegramDeliveries, runtimeSettings) =>
+    set((state) => {
+      const nextTelegramOverview = telegramOverview ?? state.telegramOverview ?? emptyTelegramOverview;
+      return {
+        apiKeys: apiKeys ?? state.apiKeys,
+        telegram: nextTelegramOverview.subscription
+          ? { chatId: nextTelegramOverview.subscription.chatId, enabled: nextTelegramOverview.subscription.enabled }
+          : null,
+        telegramOverview: nextTelegramOverview,
+        telegramDeliveries: telegramDeliveries ?? state.telegramDeliveries,
+        runtimeSettings: typeof runtimeSettings === "undefined" ? state.runtimeSettings : runtimeSettings
+      };
+    }),
   setAdminDashboard: (dashboard) =>
     set({
       adminUsers: dashboard.users,

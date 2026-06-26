@@ -31,6 +31,7 @@ type AppLayoutProps = {
   session: SessionSummary;
   onOpenAnnouncement?: (announcement: AnnouncementItem) => void;
   onLogout: () => void;
+  onPrefetchRoute?: (to: string) => void;
   onToggleTheme: () => void;
   theme: WorkspaceTheme;
   shell: WorkspaceShellState;
@@ -83,6 +84,7 @@ export function AppLayout({
   announcements = [],
   onOpenAnnouncement,
   onLogout,
+  onPrefetchRoute,
   onToggleTheme,
   theme,
   shell,
@@ -214,7 +216,13 @@ export function AppLayout({
               >
                 <TabsList className="workspace-pill-nav workspace-secondary-nav">
                   {shell.secondaryNav.map((item) => (
-                    <TabsTrigger className="workspace-pill-link" key={item.to} value={item.to}>
+                    <TabsTrigger
+                      className="workspace-pill-link"
+                      key={item.to}
+                      onFocus={() => onPrefetchRoute?.(item.to)}
+                      onMouseEnter={() => onPrefetchRoute?.(item.to)}
+                      value={item.to}
+                    >
                       {item.label}
                     </TabsTrigger>
                   ))}
@@ -336,6 +344,8 @@ export function AppLayout({
                       className={({ isActive }) =>
                         `workspace-rail-link${isActive || item.id === shell.activePrimaryId ? " active" : ""}`
                       }
+                      onFocus={() => onPrefetchRoute?.(item.to)}
+                      onMouseEnter={() => onPrefetchRoute?.(item.to)}
                       to={item.to}
                     >
                       <span className="workspace-rail-icon-chip">
@@ -367,6 +377,8 @@ export function AppLayout({
                   `workspace-mobile-dock-item workspace-mobile-settings-item${isActive || item.id === shell.activePrimaryId ? " active" : ""}`
                 }
                 key={`mobile-settings-${item.id}`}
+                onFocus={() => onPrefetchRoute?.(item.to)}
+                onMouseEnter={() => onPrefetchRoute?.(item.to)}
                 onClick={() => setIsMobileSettingsMenuOpen(false)}
                 role="menuitem"
                 to={item.to}
@@ -386,6 +398,8 @@ export function AppLayout({
                 `workspace-mobile-dock-item workspace-mobile-workspace-item${isActive || item.id === shell.activePrimaryId ? " active" : ""}`
               }
               key={`mobile-workspace-${item.id}`}
+              onFocus={() => onPrefetchRoute?.(item.to)}
+              onMouseEnter={() => onPrefetchRoute?.(item.to)}
               onClick={() => setIsMobileSettingsMenuOpen(false)}
               to={item.to}
             >

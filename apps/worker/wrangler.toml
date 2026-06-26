@@ -31,6 +31,9 @@ preview_id = "local-cache-preview"
 # injects the real environment-specific IDs from GitHub Environment secrets.
 [env.staging]
 workers_dev = true
+routes = [
+  { pattern = "staging.wemail.willxue.com/api/*", zone_name = "willxue.com" }
+]
 
 [env.staging.vars]
 ENVIRONMENT = "staging"
@@ -56,6 +59,9 @@ bucket_name = "wemail-staging-attachments"
 
 [env.production]
 workers_dev = true
+routes = [
+  { pattern = "wemail.willxue.com/api/*", zone_name = "willxue.com" }
+]
 
 [env.production.vars]
 ENVIRONMENT = "production"

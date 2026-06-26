@@ -1,0 +1,223 @@
+---
+title: OAuth 快捷登录配置
+description: 配置 GitHub 和 LinuxDo 第三方登录、回调地址、Worker secrets 与邀请码验收
+---
+
+WeMail 当前支持 GitHub 和 LinuxDo 快捷登录。OAuth 是可选能力：某个 provider 只有在 Worker 运行时同时拿到 `clientId`、`clientSecret` 和 `callbackUrl` 时才会启用。缺任意一项时，点击对应快捷登录会返回 503，不会创建登录态。
+
+新第三方用户仍然受邀请码控制。OAuth 回调只会先创建一个短期 ticket，前端会弹出邀请码输入框，邀请码验证通过后才创建用户和 session。
+
+## 1. 登录流程
+
+| 阶段 | Worker 路由 | 结果 |
+| --- | --- | --- |
+| 发起登录 | `GET /api/auth/oauth/:provider/start?next=/dashboard` | 创建 10 分钟有效的 OAuth state，并跳转到第三方授权页 |
+| Provider 回调 | `GET /api/auth/oauth/:provider/callback` | 校验 state、换取用户资料、判断是否已有 WeMail 用户 |
+| 旧用户登录 | callback 内完成 | 写入 session cookie，并跳转到 `next` 指定的页面 |
+| 新用户待验证 | callback 内完成 | 创建 15 分钟有效的 ticket，并跳回 `/login?oauth=invite...` |
+| 新用户完成登录 | `POST /api/auth/oauth/:provider/finalize` | 校验邀请码，创建用户、绑定 OAuth 身份、写入 session cookie |
+
+`next` 只接受站内相对路径。空值、外部 URL、`//...`、`/login` 和 `/register` 都会被兜底到 `/dashboard`。
+
+## 2. 前置条件
+
+- Worker 已部署到一个公网 HTTPS 地址。
+- 前端域名的 `/api/auth/oauth/*` 能路由到 Worker。推荐直接配置前端同域 `/api/*` Worker route。
+- 目标 D1 已执行包含 `0013-oauth-login.sql` 的 migrations。
+- 新用户可用的邀请码已经存在。第一次部署时，建议先用邮箱密码创建初始管理员，或手动预置邀请码；OAuth 新用户不会绕过邀请码。
+- GitHub 和 LinuxDo 分别创建 staging / production 应用，不共用 client secret。
+
+当前 OAuth 按钮是普通浏览器跳转，不走 `apps/web/src/shared/api/client.ts`，所以只设置 `VITE_API_BASE_URL` 不能让快捷登录自动改到独立 API 域名。如果你的普通 API 使用独立域名，也要至少把前端域名上的 `/api/auth/oauth/*` 路由到 Worker。
+
+## 3. 选择回调地址
+
+优先使用前端正式域名下的 `/api` Worker route：
+
+```text
+https://mail.example.com/api/auth/oauth/github/callback
+https://mail.example.com/api/auth/oauth/linuxdo/callback
+```
+
+如果 staging 使用独立前端域名：
+
+```text
+https://staging-mail.example.com/api/auth/oauth/github/callback
+https://staging-mail.example.com/api/auth/oauth/linuxdo/callback
+```
+
+不要把回调地址填成文档站域名，也不要只填 Worker API 独立域名后就让前端按钮继续访问 Pages 的 `/api`。OAuth callback 成功后会返回相对跳转路径，并写入当前域名的 session cookie；让回调落在前端域名的 `/api` route 上，登录体验和刷新后的 session 最稳定。
+
+## 4. 配置 GitHub OAuth App
+
+在 GitHub 进入：
+
+```text
+Settings -> Developer settings -> OAuth Apps -> New OAuth App
+```
+
+按环境创建应用。staging 示例：
+
+| 字段 | 示例值 |
+| --- | --- |
+| Application name | `WeMail Staging` |
+| Homepage URL | `https://staging-mail.example.com` |
+| Authorization callback URL | `https://staging-mail.example.com/api/auth/oauth/github/callback` |
+
+production 使用 production 前端域名重复创建一次。保存后记录：
+
+- Client ID。
+- Client Secret。
+- Authorization callback URL。
+
+WeMail 会在授权请求里自动带上 GitHub scope：
+
+```text
+read:user user:email
+```
+
+GitHub 用户必须有已验证邮箱。代码会优先读取 primary verified email，如果没有，会读取任意 verified email；都没有时登录失败。
+
+进入 Worker 目录写入 staging secrets：
+
+```bash
+cd apps/worker
+pnpm exec wrangler secret put GITHUB_OAUTH_CLIENT_ID --env staging
+pnpm exec wrangler secret put GITHUB_OAUTH_CLIENT_SECRET --env staging
+pnpm exec wrangler secret put GITHUB_OAUTH_CALLBACK_URL --env staging
+```
+
+production 也要写入独立值：
+
+```bash
+cd apps/worker
+pnpm exec wrangler secret put GITHUB_OAUTH_CLIENT_ID --env production
+pnpm exec wrangler secret put GITHUB_OAUTH_CLIENT_SECRET --env production
+pnpm exec wrangler secret put GITHUB_OAUTH_CALLBACK_URL --env production
+```
+
+`GITHUB_OAUTH_CALLBACK_URL` 的值必须和 GitHub OAuth App 里的 callback URL 完全一致。
+
+## 5. 配置 LinuxDo OAuth App
+
+在 LinuxDo Connect / OAuth 应用管理中创建应用。staging 示例：
+
+| 字段 | 示例值 |
+| --- | --- |
+| 应用名称 | `WeMail Staging` |
+| 首页地址 | `https://staging-mail.example.com` |
+| 回调地址 | `https://staging-mail.example.com/api/auth/oauth/linuxdo/callback` |
+
+WeMail 使用的 LinuxDo OAuth 端点和 scope 如下：
+
+| 项 | 值 |
+| --- | --- |
+| Authorization endpoint | `https://connect.linux.do/oauth2/authorize` |
+| Token endpoint | `https://connect.linux.do/oauth2/token` |
+| User info endpoint | `https://connect.linux.do/api/user` |
+| Scope | `openid profile email` |
+
+保存后记录 Client ID、Client Secret 和回调地址。写入 staging secrets：
+
+```bash
+cd apps/worker
+pnpm exec wrangler secret put LINUXDO_OAUTH_CLIENT_ID --env staging
+pnpm exec wrangler secret put LINUXDO_OAUTH_CLIENT_SECRET --env staging
+pnpm exec wrangler secret put LINUXDO_OAUTH_CALLBACK_URL --env staging
+```
+
+production 使用 production 应用和 production 域名：
+
+```bash
+cd apps/worker
+pnpm exec wrangler secret put LINUXDO_OAUTH_CLIENT_ID --env production
+pnpm exec wrangler secret put LINUXDO_OAUTH_CLIENT_SECRET --env production
+pnpm exec wrangler secret put LINUXDO_OAUTH_CALLBACK_URL --env production
+```
+
+LinuxDo 返回的用户资料必须包含稳定用户 ID 和邮箱。缺邮箱时，Worker 会返回 `LinuxDo email is required`。
+
+## 6. 运行 migrations 并部署
+
+如果通过当前 GitHub Actions 发布，workflow 会在 Worker 部署前执行 D1 migrations。手动部署时，在 Worker 目录执行：
+
+```bash
+cd apps/worker
+pnpm exec wrangler d1 migrations apply DB --env staging --remote
+pnpm exec wrangler deploy --env staging
+```
+
+production：
+
+```bash
+cd apps/worker
+pnpm exec wrangler d1 migrations apply DB --env production --remote
+pnpm exec wrangler deploy --env production
+```
+
+OAuth 相关 migration 会创建：
+
+| 表 | 用途 |
+| --- | --- |
+| `oauth_identities` | 记录 WeMail 用户与 provider 用户 ID 的绑定 |
+| `oauth_states` | 保存 10 分钟有效的一次性 OAuth state |
+| `oauth_pending_logins` | 保存新用户的邀请码确认 ticket，有效期 15 分钟 |
+
+## 7. 验收
+
+先确认 Worker health：
+
+```bash
+curl -i "https://mail.example.com/api/system/health"
+```
+
+再检查 OAuth start 是否跳转到 provider：
+
+```bash
+curl -i "https://mail.example.com/api/auth/oauth/github/start?next=/dashboard"
+curl -i "https://mail.example.com/api/auth/oauth/linuxdo/start?next=/dashboard"
+```
+
+期望：
+
+- HTTP 302。
+- `Location` 指向 GitHub 或 LinuxDo 授权页。
+- `client_id` 是当前环境的 OAuth app。
+- `redirect_uri` 是当前环境配置的 callback URL。
+
+浏览器验收按两个路径跑：
+
+1. 旧用户：先用邮箱密码注册或已有用户邮箱登录一次，再用同邮箱的 GitHub / LinuxDo 账号授权。回调后应直接进入 `next` 页面，不出现邀请码弹窗。
+2. 新用户：用系统里不存在的 provider 邮箱授权。回调后应回到登录页并弹出邀请码输入框。填错邀请码不会创建用户；填对邀请码后创建用户并进入系统。
+
+## 8. 常见问题
+
+| 现象 | 常见原因 | 处理 |
+| --- | --- | --- |
+| 点击快捷登录后 404 | 前端域名的 `/api/auth/oauth/*` 没有路由到 Worker | 给前端域名配置 `/api/*` 或至少 `/api/auth/oauth/*` Worker route |
+| 返回 `OAuth provider is not configured` | 当前 provider 缺 `CLIENT_ID`、`CLIENT_SECRET` 或 `CALLBACK_URL` 任一项 | 用 `wrangler secret put` 补齐当前环境的三项配置 |
+| Provider 提示 callback mismatch | OAuth App 里的 callback URL 与 Worker secret 不完全一致 | 核对协议、域名、路径和 staging / production 环境 |
+| 回调后跳到 API 域名的 `/login` | callback URL 使用了独立 API 域名 | 改用前端域名下的 `/api/auth/oauth/:provider/callback` route |
+| 返回 `OAuth state is invalid` | state 过期、重复使用、provider 不匹配，或 D1 表缺失 | 重新发起登录，并确认 migrations 已执行 |
+| 返回 `OAuth ticket is invalid` | 新用户 ticket 过期、已消费，或 finalize 的 provider 不一致 | 重新发起登录并在 15 分钟内提交邀请码 |
+| GitHub 登录失败并提示 verified email | GitHub 账号没有可读取的已验证邮箱 | 在 GitHub 验证邮箱，并确认授权包含 `user:email` |
+| LinuxDo 登录提示缺邮箱 | LinuxDo 用户资料没有返回 email | 检查应用 scope 是否包含 `email`，以及账号是否提供邮箱 |
+| 登录成功后刷新变成未登录 | Cookie 域名或路由模式不一致 | 优先使用前端同域 `/api` route，并确认 production `COOKIE_SECURE = "true"` |
+| 新用户没有弹邀请码就进入系统 | Provider 邮箱已匹配现有 WeMail 用户 | 这是预期行为；旧用户不需要重新兑换邀请码 |
+
+## 9. 配置速查
+
+| Provider | Worker env | 说明 |
+| --- | --- | --- |
+| GitHub | `GITHUB_OAUTH_CLIENT_ID` | GitHub OAuth App 的 Client ID |
+| GitHub | `GITHUB_OAUTH_CLIENT_SECRET` | GitHub OAuth App 的 Client Secret |
+| GitHub | `GITHUB_OAUTH_CALLBACK_URL` | `https://<frontend-domain>/api/auth/oauth/github/callback` |
+| LinuxDo | `LINUXDO_OAUTH_CLIENT_ID` | LinuxDo OAuth App 的 Client ID |
+| LinuxDo | `LINUXDO_OAUTH_CLIENT_SECRET` | LinuxDo OAuth App 的 Client Secret |
+| LinuxDo | `LINUXDO_OAUTH_CALLBACK_URL` | `https://<frontend-domain>/api/auth/oauth/linuxdo/callback` |
+
+相关文档：
+
+- [Worker 配置](/docs/worker-config)
+- [Pages 前端部署](/docs/pages-deploy)
+- [GitHub Actions 发布](/docs/github-actions)
+- [上线验收与排障](/docs/operations)

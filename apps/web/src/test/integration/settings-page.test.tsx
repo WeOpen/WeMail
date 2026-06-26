@@ -290,8 +290,11 @@ describe("settings pages", () => {
 
     renderWithRouter(
       <TelegramSettingsPage
+        canConfigureBotMenu={false}
         deliveries={telegramDeliveries}
         overview={telegramOverview}
+        onConfigureBotMenu={vi.fn()}
+        onConfigureWebhook={vi.fn()}
         onCreateTelegramLinkCode={onCreateTelegramLinkCode}
         onRefreshTelegram={onRefreshTelegram}
         onSaveTelegram={onSaveTelegram}
@@ -346,14 +349,70 @@ describe("settings pages", () => {
     expect(onSaveTelegram).toHaveBeenCalledWith({ chatId: "87654321", enabled: true });
   });
 
+  it("lets admins configure the telegram bot menu from the page", async () => {
+    const user = userEvent.setup();
+    const onConfigureBotMenu = vi.fn().mockResolvedValue(undefined);
+    const onConfigureWebhook = vi.fn().mockResolvedValue({
+      ok: true,
+      reason: null,
+      url: "https://api.example.com/api/telegram/webhook",
+      allowedUpdates: ["message", "channel_post"]
+    });
+
+    renderWithRouter(
+      <TelegramSettingsPage
+        canConfigureBotMenu
+        deliveries={telegramDeliveries}
+        overview={telegramOverview}
+        onConfigureBotMenu={onConfigureBotMenu}
+        onConfigureWebhook={onConfigureWebhook}
+        onCreateTelegramLinkCode={vi.fn()}
+        onRefreshTelegram={vi.fn()}
+        onSaveTelegram={vi.fn()}
+        onSendTelegramTest={vi.fn()}
+      />
+    );
+
+    await user.click(screen.getByRole("button", { name: /配置 Webhook/i }));
+    expect(onConfigureWebhook).toHaveBeenCalledTimes(1);
+    expect(await screen.findByText(/Webhook 已配置：https:\/\/api\.example\.com\/api\/telegram\/webhook/i)).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /配置 Bot 菜单/i }));
+
+    expect(onConfigureBotMenu).toHaveBeenCalledTimes(1);
+    expect(await screen.findByText(/Bot 菜单已配置/i)).toBeInTheDocument();
+  });
+
+  it("hides the telegram bot menu action from non-admin users", () => {
+    renderWithRouter(
+      <TelegramSettingsPage
+        canConfigureBotMenu={false}
+        deliveries={telegramDeliveries}
+        overview={telegramOverview}
+        onConfigureBotMenu={vi.fn()}
+        onConfigureWebhook={vi.fn()}
+        onCreateTelegramLinkCode={vi.fn()}
+        onRefreshTelegram={vi.fn()}
+        onSaveTelegram={vi.fn()}
+        onSendTelegramTest={vi.fn()}
+      />
+    );
+
+    expect(screen.queryByRole("button", { name: /配置 Bot 菜单/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /配置 Webhook/i })).not.toBeInTheDocument();
+  });
+
   it("renders telegram test-message backend errors in the validation panel", async () => {
     const user = userEvent.setup();
     const onSendTelegramTest = vi.fn().mockRejectedValue(new Error("Telegram subscription paused"));
 
     renderWithRouter(
       <TelegramSettingsPage
+        canConfigureBotMenu={false}
         deliveries={[]}
         overview={telegramOverview}
+        onConfigureBotMenu={vi.fn()}
+        onConfigureWebhook={vi.fn()}
         onCreateTelegramLinkCode={vi.fn()}
         onRefreshTelegram={vi.fn()}
         onSaveTelegram={vi.fn()}

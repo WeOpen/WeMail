@@ -226,7 +226,7 @@ export const footerQuickLinks = [
   },
   {
     name: "Telegram",
-    href: "#",
+    href: "https://t.me/WeMailHub",
     icon: "telegram"
   },
   {

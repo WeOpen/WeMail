@@ -1,6 +1,5 @@
-import { type CSSProperties, useCallback, useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, type CSSProperties, useCallback, useEffect, useMemo, useState } from "react";
 import { Archive, Megaphone, Pencil, Plus, Trash2 } from "lucide-react";
-import { ResponsivePie } from "@nivo/pie";
 
 import {
   acknowledgeAnnouncement,
@@ -18,6 +17,8 @@ import { nivoTheme } from "../shared/chart";
 import { Checkbox, FormField, SelectInput, TextareaInput, TextInput } from "../shared/form";
 import { OverlayDialog } from "../shared/overlay";
 import { Pagination } from "../shared/pagination";
+import { Skeleton } from "../shared/skeleton";
+import { ViewportDeferred } from "../shared/ViewportDeferred";
 
 type AnnouncementsPageProps = {
   canPublish?: boolean;
@@ -41,6 +42,7 @@ type AnnouncementDialogMode = "create" | "edit" | "view";
 const ANNOUNCEMENTS_PAGE_SIZE = 4;
 const ANNOUNCEMENTS_PAGE_SIZE_OPTIONS = [4, 10, 20] as const;
 const PINNED_CAROUSEL_INTERVAL_MS = 5000;
+const ResponsivePieChart = lazy(() => import("@nivo/pie").then((module) => ({ default: module.ResponsivePie })));
 
 const announcementFilters = {
   type: [
@@ -77,6 +79,10 @@ const announcementStatusLabels = announcementFilters.status
   .filter((option) => option.value !== "all")
   .map((option) => option.label);
 const announcementStatusLabelSet = new Set(announcementStatusLabels);
+
+function AnnouncementsChartSkeleton() {
+  return <Skeleton animated className="announcements-chart-skeleton" rounded="full" />;
+}
 
 const emptyFormState: AnnouncementFormState = {
   audience: "全部成员",
@@ -505,20 +511,24 @@ export function AnnouncementsPage({ canPublish = false }: AnnouncementsPageProps
                 role="img"
               >
                 {overviewChartData.length > 0 ? (
-                  <ResponsivePie
-                    activeOuterRadiusOffset={4}
-                    animate={false}
-                    borderWidth={0}
-                    colors={{ datum: "data.color" }}
-                    cornerRadius={4}
-                    data={overviewChartData}
-                    enableArcLabels={false}
-                    enableArcLinkLabels={false}
-                    innerRadius={0.62}
-                    margin={{ top: 4, right: 4, bottom: 4, left: 4 }}
-                    padAngle={1.5}
-                    theme={nivoTheme}
-                  />
+                  <ViewportDeferred fallback={<AnnouncementsChartSkeleton />}>
+                    <Suspense fallback={<AnnouncementsChartSkeleton />}>
+                      <ResponsivePieChart
+                        activeOuterRadiusOffset={4}
+                        animate={false}
+                        borderWidth={0}
+                        colors={{ datum: "data.color" }}
+                        cornerRadius={4}
+                        data={overviewChartData}
+                        enableArcLabels={false}
+                        enableArcLinkLabels={false}
+                        innerRadius={0.62}
+                        margin={{ top: 4, right: 4, bottom: 4, left: 4 }}
+                        padAngle={1.5}
+                        theme={nivoTheme}
+                      />
+                    </Suspense>
+                  </ViewportDeferred>
                 ) : null}
                 <div className="announcements-overview-donut-center">
                   <strong>{total}</strong>

@@ -201,6 +201,7 @@ CREATE TABLE IF NOT EXISTS telegram_subscriptions (
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );
+CREATE UNIQUE INDEX IF NOT EXISTS idx_telegram_subscriptions_chat_id ON telegram_subscriptions(chat_id);
 
 CREATE TABLE IF NOT EXISTS user_send_quotas (
   user_id TEXT PRIMARY KEY,

@@ -92,6 +92,12 @@ export function createPreview(text: string) {
 
 export function buildTelegramClient(token: string | undefined): TelegramApiClient | null {
   if (!token) return null;
+  async function parseTelegramApiError(response: Response, fallback: string) {
+    if (response.ok) return null;
+    const payload = (await response.json().catch(() => null)) as { description?: string } | null;
+    return payload?.description ?? fallback;
+  }
+
   return {
     async getChat({ chatId }: { chatId: string }) {
       const response = await fetch(`https://api.telegram.org/bot${token}/getChat`, {
@@ -99,11 +105,7 @@ export function buildTelegramClient(token: string | undefined): TelegramApiClien
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ chat_id: chatId })
       });
-      let description: string | null = null;
-      if (!response.ok) {
-        const payload = (await response.json().catch(() => null)) as { description?: string } | null;
-        description = payload?.description ?? `Telegram getChat failed: ${response.status}`;
-      }
+      const description = await parseTelegramApiError(response, `Telegram getChat failed: ${response.status}`);
       return { ok: response.ok, description };
     },
     async sendMessage({ chatId, text }: { chatId: string; text: string }) {
@@ -117,6 +119,48 @@ export function buildTelegramClient(token: string | undefined): TelegramApiClien
         })
       });
       return { ok: response.ok };
+    },
+    async setMyCommands({ commands }: { commands: Array<{ command: string; description: string }> }) {
+      const response = await fetch(`https://api.telegram.org/bot${token}/setMyCommands`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ commands })
+      });
+      const description = await parseTelegramApiError(response, `Telegram setMyCommands failed: ${response.status}`);
+      return { ok: response.ok, description };
+    },
+    async setChatMenuButton() {
+      const response = await fetch(`https://api.telegram.org/bot${token}/setChatMenuButton`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ menu_button: { type: "commands" } })
+      });
+      const description = await parseTelegramApiError(response, `Telegram setChatMenuButton failed: ${response.status}`);
+      return { ok: response.ok, description };
+    },
+    async setWebhook({
+      allowedUpdates,
+      dropPendingUpdates,
+      secretToken,
+      url
+    }: {
+      allowedUpdates: string[];
+      dropPendingUpdates: boolean;
+      secretToken?: string;
+      url: string;
+    }) {
+      const response = await fetch(`https://api.telegram.org/bot${token}/setWebhook`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          url,
+          allowed_updates: allowedUpdates,
+          drop_pending_updates: dropPendingUpdates,
+          ...(secretToken ? { secret_token: secretToken } : {})
+        })
+      });
+      const description = await parseTelegramApiError(response, `Telegram setWebhook failed: ${response.status}`);
+      return { ok: response.ok, description };
     }
   };
 }

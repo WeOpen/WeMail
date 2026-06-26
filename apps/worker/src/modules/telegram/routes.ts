@@ -1,11 +1,13 @@
 import type { Hono } from "hono";
 
 import type { AppContext } from "../../app/context";
-import { getAppServices, requireUser } from "../../app/context";
+import { getAppServices, requireSessionAuth, requireUser } from "../../app/context";
 import { jsonError } from "../../app/services/audit-service";
 import { parseTelegramUpdateRequest } from "../../app/routes/requests/settings-request";
 import { resolveAppConfig } from "../../core/config";
 import {
+  configureTelegramBotMenuUseCase,
+  configureTelegramWebhookUseCase,
   createTelegramLinkCodeUseCase,
   getTelegramOverviewUseCase,
   getTelegramSubscription,
@@ -46,8 +48,29 @@ export function registerTelegramRoutes(app: Hono<AppContext>) {
     return c.json({ link });
   });
 
+  app.post("/api/telegram/bot-menu", async (c) => {
+    const user = requireUser(c);
+    if (!user || user.role !== "admin" || !requireSessionAuth(c)) return jsonError("Admin session required", 403);
+    const result = await configureTelegramBotMenuUseCase(getAppServices(c));
+    if (result instanceof Response) return result;
+    return c.json({ result });
+  });
+
+  app.post("/api/telegram/webhook/configure", async (c) => {
+    const user = requireUser(c);
+    if (!user || user.role !== "admin" || !requireSessionAuth(c)) return jsonError("Admin session required", 403);
+    const webhookUrl = `${new URL(c.req.url).origin}/api/telegram/webhook`;
+    const result = await configureTelegramWebhookUseCase(getAppServices(c), webhookUrl);
+    if (result instanceof Response) return result;
+    return c.json({ result });
+  });
+
   app.post("/api/telegram/webhook", async (c) => {
-    const secret = resolveAppConfig(c.env).integrations.telegramWebhookSecret;
+    const config = resolveAppConfig(c.env);
+    const secret = config.integrations.telegramWebhookSecret;
+    if (config.features.telegramEnabled && config.environment !== "local" && !secret) {
+      return jsonError("Telegram webhook secret is not configured", 503);
+    }
     if (secret && c.req.header("x-telegram-bot-api-secret-token") !== secret) {
       return jsonError("Invalid Telegram webhook secret", 401);
     }

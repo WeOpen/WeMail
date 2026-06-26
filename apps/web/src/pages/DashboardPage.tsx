@@ -1,7 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
-import { ResponsiveBar } from "@nivo/bar";
-import { ResponsiveLine } from "@nivo/line";
-import { ResponsivePie } from "@nivo/pie";
+import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { Inbox, KeyRound, Megaphone, Send, Webhook as WebhookIcon, type LucideIcon } from "lucide-react";
 
 import { useWorkspaceTheme } from "../app/useWorkspaceTheme";
@@ -11,6 +8,8 @@ import {
 } from "../features/dashboard/api";
 import { nivoTheme } from "../shared/chart";
 import { MetricCard } from "../shared/metric-card";
+import { Skeleton } from "../shared/skeleton";
+import { ViewportDeferred } from "../shared/ViewportDeferred";
 
 const GROWTH_KEYS = ["accounts", "mailboxes"] as const;
 const GROWTH_LABELS: Record<(typeof GROWTH_KEYS)[number], string> = {
@@ -20,6 +19,9 @@ const GROWTH_LABELS: Record<(typeof GROWTH_KEYS)[number], string> = {
 
 const INBOUND_COLOR = "#ff7a00";
 const KPI_ICONS = [Inbox, Send, KeyRound, WebhookIcon, Megaphone] satisfies LucideIcon[];
+const ResponsiveBarChart = lazy(() => import("@nivo/bar").then((module) => ({ default: module.ResponsiveBar })));
+const ResponsiveLineChart = lazy(() => import("@nivo/line").then((module) => ({ default: module.ResponsiveLine })));
+const ResponsivePieChart = lazy(() => import("@nivo/pie").then((module) => ({ default: module.ResponsivePie })));
 const TREND_RANGE_OPTIONS = [
   { label: "周", value: "week" },
   { label: "月", value: "month" },
@@ -58,6 +60,21 @@ function resolveDashboardTone(tone: string, contrastColor: string, theme: string
   if (tone === "#111827") return contrastColor;
   if (tone === "#e5e7eb") return theme === "dark" ? "#2e2e34" : tone;
   return tone;
+}
+
+function DashboardChartSkeleton({ variant = "area" }: { variant?: "area" | "donut" }) {
+  if (variant === "donut") {
+    return <Skeleton animated className="dashboard-chart-skeleton dashboard-chart-skeleton-donut" rounded="full" />;
+  }
+
+  return (
+    <div className="dashboard-chart-skeleton dashboard-chart-skeleton-area">
+      {Array.from({ length: 4 }, (_, index) => (
+        <Skeleton animated height={1} key={index} rounded="full" width="100%" />
+      ))}
+      <Skeleton animated height={96} rounded="lg" width="100%" />
+    </div>
+  );
 }
 
 export function DashboardPage({ canViewRoleCard = false }: DashboardPageProps) {
@@ -213,27 +230,31 @@ export function DashboardPage({ canViewRoleCard = false }: DashboardPageProps) {
 
           <div className="dashboard-trend-chart" role="img" aria-label="收发趋势图">
             {hasTrendData ? (
-              <ResponsiveLine
-                animate={false}
-                axisBottom={{ tickSize: 0, tickPadding: 12 }}
-                axisLeft={{ tickSize: 0, tickPadding: 10, tickValues: 4 }}
-                colors={{ datum: "color" }}
-                curve="monotoneX"
-                data={trendData}
-                enableArea
-                areaOpacity={0.08}
-                enableGridX={false}
-                gridYValues={4}
-                lineWidth={3}
-                margin={{ top: 24, right: 24, bottom: 40, left: 48 }}
-                pointBorderColor={{ from: "serieColor" }}
-                pointBorderWidth={2}
-                pointSize={7}
-                theme={nivoTheme}
-                useMesh
-                xScale={{ type: "point" }}
-                yScale={{ type: "linear", min: "auto", max: "auto" }}
-              />
+              <ViewportDeferred fallback={<DashboardChartSkeleton />}>
+                <Suspense fallback={<DashboardChartSkeleton />}>
+                  <ResponsiveLineChart
+                    animate={false}
+                    axisBottom={{ tickSize: 0, tickPadding: 12 }}
+                    axisLeft={{ tickSize: 0, tickPadding: 10, tickValues: 4 }}
+                    colors={{ datum: "color" }}
+                    curve="monotoneX"
+                    data={trendData}
+                    enableArea
+                    areaOpacity={0.08}
+                    enableGridX={false}
+                    gridYValues={4}
+                    lineWidth={3}
+                    margin={{ top: 24, right: 24, bottom: 40, left: 48 }}
+                    pointBorderColor={{ from: "serieColor" }}
+                    pointBorderWidth={2}
+                    pointSize={7}
+                    theme={nivoTheme}
+                    useMesh
+                    xScale={{ type: "point" }}
+                    yScale={{ type: "linear", min: "auto", max: "auto" }}
+                  />
+                </Suspense>
+              </ViewportDeferred>
             ) : null}
           </div>
         </section>
@@ -247,20 +268,24 @@ export function DashboardPage({ canViewRoleCard = false }: DashboardPageProps) {
             <div className="dashboard-distribution-layout">
               <div className="dashboard-donut" role="img" aria-label="账号结构环形图">
                 {distributionData.length > 0 ? (
-                  <ResponsivePie
-                    activeOuterRadiusOffset={4}
-                    animate={false}
-                    borderWidth={0}
-                    colors={{ datum: "data.color" }}
-                    cornerRadius={4}
-                    data={distributionData}
-                    enableArcLabels={false}
-                    enableArcLinkLabels={false}
-                    innerRadius={0.62}
-                    margin={{ top: 4, right: 4, bottom: 4, left: 4 }}
-                    padAngle={1.5}
-                    theme={nivoTheme}
-                  />
+                  <ViewportDeferred fallback={<DashboardChartSkeleton variant="donut" />}>
+                    <Suspense fallback={<DashboardChartSkeleton variant="donut" />}>
+                      <ResponsivePieChart
+                        activeOuterRadiusOffset={4}
+                        animate={false}
+                        borderWidth={0}
+                        colors={{ datum: "data.color" }}
+                        cornerRadius={4}
+                        data={distributionData}
+                        enableArcLabels={false}
+                        enableArcLinkLabels={false}
+                        innerRadius={0.62}
+                        margin={{ top: 4, right: 4, bottom: 4, left: 4 }}
+                        padAngle={1.5}
+                        theme={nivoTheme}
+                      />
+                    </Suspense>
+                  </ViewportDeferred>
                 ) : null}
                 <div className="dashboard-donut-center">
                   <strong>{dashboard.accountTotal}</strong>
@@ -342,25 +367,29 @@ export function DashboardPage({ canViewRoleCard = false }: DashboardPageProps) {
 
           <div className="dashboard-growth-chart" role="img" aria-label="账号和邮箱增长图">
             {hasGrowthData ? (
-              <ResponsiveBar
-                animate={false}
-                axisBottom={{ tickSize: 0, tickPadding: 12 }}
-                axisLeft={{ tickSize: 0, tickPadding: 10, tickValues: 4 }}
-                borderRadius={6}
-                colors={({ id }) => growthColors[id as keyof typeof growthColors]}
-                data={growthData}
-                enableGridY
-                enableLabel={false}
-                gridYValues={4}
-                groupMode="grouped"
-                indexBy="label"
-                innerPadding={4}
-                keys={[...GROWTH_KEYS]}
-                margin={{ top: 16, right: 16, bottom: 36, left: 40 }}
-                padding={0.32}
-                theme={nivoTheme}
-                tooltipLabel={({ id }) => GROWTH_LABELS[id as keyof typeof GROWTH_LABELS]}
-              />
+              <ViewportDeferred fallback={<DashboardChartSkeleton />}>
+                <Suspense fallback={<DashboardChartSkeleton />}>
+                  <ResponsiveBarChart
+                    animate={false}
+                    axisBottom={{ tickSize: 0, tickPadding: 12 }}
+                    axisLeft={{ tickSize: 0, tickPadding: 10, tickValues: 4 }}
+                    borderRadius={6}
+                    colors={({ id }) => growthColors[id as keyof typeof growthColors]}
+                    data={growthData}
+                    enableGridY
+                    enableLabel={false}
+                    gridYValues={4}
+                    groupMode="grouped"
+                    indexBy="label"
+                    innerPadding={4}
+                    keys={[...GROWTH_KEYS]}
+                    margin={{ top: 16, right: 16, bottom: 36, left: 40 }}
+                    padding={0.32}
+                    theme={nivoTheme}
+                    tooltipLabel={({ id }) => GROWTH_LABELS[id as keyof typeof GROWTH_LABELS]}
+                  />
+                </Suspense>
+              </ViewportDeferred>
             ) : null}
           </div>
         </section>
@@ -374,20 +403,24 @@ export function DashboardPage({ canViewRoleCard = false }: DashboardPageProps) {
             <div className="dashboard-distribution-layout">
               <div className="dashboard-donut" role="img" aria-label="用户角色环形图">
                 {roleDistributionData.length > 0 ? (
-                  <ResponsivePie
-                    activeOuterRadiusOffset={4}
-                    animate={false}
-                    borderWidth={0}
-                    colors={{ datum: "data.color" }}
-                    cornerRadius={4}
-                    data={roleDistributionData}
-                    enableArcLabels={false}
-                    enableArcLinkLabels={false}
-                    innerRadius={0.62}
-                    margin={{ top: 4, right: 4, bottom: 4, left: 4 }}
-                    padAngle={1.5}
-                    theme={nivoTheme}
-                  />
+                  <ViewportDeferred fallback={<DashboardChartSkeleton variant="donut" />}>
+                    <Suspense fallback={<DashboardChartSkeleton variant="donut" />}>
+                      <ResponsivePieChart
+                        activeOuterRadiusOffset={4}
+                        animate={false}
+                        borderWidth={0}
+                        colors={{ datum: "data.color" }}
+                        cornerRadius={4}
+                        data={roleDistributionData}
+                        enableArcLabels={false}
+                        enableArcLinkLabels={false}
+                        innerRadius={0.62}
+                        margin={{ top: 4, right: 4, bottom: 4, left: 4 }}
+                        padAngle={1.5}
+                        theme={nivoTheme}
+                      />
+                    </Suspense>
+                  </ViewportDeferred>
                 ) : null}
                 <div className="dashboard-donut-center">
                   <strong>{dashboard.userTotal}</strong>

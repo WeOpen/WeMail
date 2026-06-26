@@ -226,6 +226,47 @@ describe("worker app", () => {
     expect(pagePayload.endpoints).toHaveLength(1);
   });
 
+  it("rejects webhook endpoints that target private or local literal addresses", async () => {
+    const store = createInMemoryStore();
+    const app = createApp({ store });
+    const cookie = await registerSessionUser({ app, store, email: "webhook-ssrf@example.com" });
+    const privateTargets = [
+      "https://localhost/hooks",
+      "https://127.1/hooks",
+      "https://0x7f000001/hooks",
+      "https://169.254.1.1/hooks",
+      "https://10.0.0.5/hooks",
+      "https://[::1]/hooks",
+      "https://[fc00::1]/hooks",
+      "https://[fe80::1]/hooks",
+      "https://[::ffff:127.0.0.1]/hooks"
+    ];
+
+    for (const url of privateTargets) {
+      const response = await app.request(
+        "/api/webhook/endpoints",
+        {
+          method: "POST",
+          headers: {
+            cookie,
+            "content-type": "application/json"
+          },
+          body: JSON.stringify({
+            enabled: true,
+            events: ["message.received"],
+            name: "Blocked endpoint",
+            url
+          })
+        },
+        env
+      );
+      const payload = (await response.json()) as { error?: string };
+
+      expect(response.status, url).toBe(400);
+      expect(payload.error, url).toMatch(/local|private/i);
+    }
+  });
+
   it("paginates announcements for signed-in users while keeping publishing admin-only", async () => {
     const store = createInMemoryStore();
     const app = createApp({ store });

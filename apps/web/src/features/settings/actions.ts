@@ -1,6 +1,8 @@
 import type { RuntimeSettingsUpdateInput } from "@wemail/shared";
 
 import {
+  configureTelegramBotMenu,
+  configureTelegramWebhook,
   createApiKey,
   createTelegramLinkCode,
   revokeApiKey,
@@ -23,6 +25,14 @@ export async function saveTelegramAction(payload: { chatId: string; enabled: boo
 
 export async function createTelegramLinkCodeAction() {
   return createTelegramLinkCode();
+}
+
+export async function configureTelegramBotMenuAction() {
+  return configureTelegramBotMenu();
+}
+
+export async function configureTelegramWebhookAction() {
+  return configureTelegramWebhook();
 }
 
 export async function sendTelegramTestAction() {

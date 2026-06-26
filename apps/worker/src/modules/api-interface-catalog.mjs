@@ -361,9 +361,25 @@ export const apiInterfaceGroups = [
       },
       {
         method: "POST",
+        path: "/api/telegram/bot-menu",
+        title: "配置 Bot 菜单",
+        description: "把 WeMail 常用快捷命令写入 Telegram Bot 菜单。",
+        access: "管理员",
+        example: { requestBody: null }
+      },
+      {
+        method: "POST",
+        path: "/api/telegram/webhook/configure",
+        title: "配置 Webhook",
+        description: "把当前 Worker API 的 Telegram Webhook 地址写入 BotFather 机器人配置。",
+        access: "管理员",
+        example: { requestBody: null }
+      },
+      {
+        method: "POST",
         path: "/api/telegram/webhook",
         title: "Telegram Webhook",
-        description: "接收 Telegram Bot 回调并完成绑定事件处理。",
+        description: "接收 Telegram Bot 回调并完成绑定和快捷命令处理。",
         access: "签名校验",
         example: {
           headers: ["X-Telegram-Bot-Api-Secret-Token: <secret>", "Content-Type: application/json"],

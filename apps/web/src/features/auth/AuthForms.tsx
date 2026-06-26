@@ -237,6 +237,7 @@ export function AuthForms({ authError, onRegister, onLogin, mode, oauthNext = "/
             </div>
             <div className="auth-oauth-list" aria-label="快捷登录">
               <ButtonAnchor
+                aria-label="使用 GitHub 登录"
                 href={`/api/auth/oauth/github/start?next=${encodeURIComponent(oauthNext)}`}
                 leadingIcon={
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
@@ -248,6 +249,7 @@ export function AuthForms({ authError, onRegister, onLogin, mode, oauthNext = "/
                 GitHub
               </ButtonAnchor>
               <ButtonAnchor
+                aria-label="使用 LinuxDo 登录"
                 href={`/api/auth/oauth/linuxdo/start?next=${encodeURIComponent(oauthNext)}`}
                 leadingIcon={
                   <img src="/icons/linuxdo.svg" width="20" height="20" alt="" aria-hidden="true" />
@@ -372,6 +374,7 @@ export function AuthForms({ authError, onRegister, onLogin, mode, oauthNext = "/
             </div>
             <div className="auth-oauth-list" aria-label="快捷登录">
               <ButtonAnchor
+                aria-label="使用 GitHub 登录"
                 href={`/api/auth/oauth/github/start?next=${encodeURIComponent(oauthNext)}`}
                 leadingIcon={
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
@@ -383,6 +386,7 @@ export function AuthForms({ authError, onRegister, onLogin, mode, oauthNext = "/
                 GitHub
               </ButtonAnchor>
               <ButtonAnchor
+                aria-label="使用 LinuxDo 登录"
                 href={`/api/auth/oauth/linuxdo/start?next=${encodeURIComponent(oauthNext)}`}
                 leadingIcon={
                   <img src="/icons/linuxdo.svg" width="20" height="20" alt="" aria-hidden="true" />

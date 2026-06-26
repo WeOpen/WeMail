@@ -127,7 +127,7 @@ Body: hello
 检查：
 
 - `TELEGRAM_BOT_TOKEN` 已写入。
-- `TELEGRAM_WEBHOOK_SECRET` 已写入，生产建议开启。
+- `TELEGRAM_WEBHOOK_SECRET` 已写入；staging/production 启用 Telegram 时必须配置，除非 `ENABLE_TELEGRAM=false`。
 - 用户能生成绑定码。
 - Telegram Bot 能完成绑定。
 - 测试消息能发送。

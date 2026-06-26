@@ -220,6 +220,91 @@ describe("App", () => {
   );
 
   it(
+    "keeps non-dashboard workspace data requests out of the dashboard entry path",
+    async () => {
+      window.history.pushState({}, "", "/dashboard");
+      const requestedUrls: string[] = [];
+      vi.spyOn(globalThis, "fetch").mockImplementation((input: RequestInfo | URL) => {
+        const url = typeof input === "string" ? input : input instanceof Request ? input.url : String(input);
+        requestedUrls.push(url);
+
+        if (url.endsWith("/api/auth/session")) {
+          return jsonResponse({
+            user: {
+              id: "member-1",
+              email: "member@example.com",
+              role: "member",
+              createdAt: "2026-04-08T00:00:00.000Z"
+            },
+            featureToggles: {
+              aiEnabled: true,
+              telegramEnabled: true,
+              outboundEnabled: true,
+              mailboxCreationEnabled: true
+            }
+          });
+        }
+
+        if (url.endsWith("/api/profile")) {
+          return jsonResponse({
+            profile: {
+              user: {
+                id: "member-1",
+                email: "member@example.com",
+                role: "member",
+                createdAt: "2026-04-08T00:00:00.000Z",
+                name: "Member User",
+                bio: ""
+              },
+              preferences: {
+                landingPage: "/dashboard",
+                dashboardDensity: "comfortable"
+              }
+            }
+          });
+        }
+
+        if (url.endsWith("/api/dashboard")) {
+          return jsonResponse({
+            kpis: [
+              { kicker: "今日收件", label: "收件总量", value: "0", detail: "暂无收件数据", change: "较昨日 0" },
+              { kicker: "今日发件", label: "发件总量", value: "0", detail: "暂无发件数据", change: "失败重试 0 次" },
+              { kicker: "API 密钥数", label: "活跃密钥", value: "0", detail: "0 个正在使用", change: "0 个待轮换" },
+              { kicker: "Webhook", label: "投递端点", value: "0", detail: "0 个正常投递", change: "失败重试 0 次" },
+              { kicker: "公告", label: "已发布公告", value: "0", detail: "0 条正在展示", change: "本周发布 0 条" }
+            ],
+            trend: { week: [], month: [], year: [] },
+            accountDistribution: [],
+            accountTotal: 0,
+            resources: [],
+            growth: { week: [], month: [], year: [] },
+            userRoles: [],
+            userTotal: 0
+          });
+        }
+        if (url.endsWith("/api/accounts")) return jsonResponse({ mailboxes: [] });
+        if (url.includes("/api/announcements")) return jsonResponse({ announcements: [], page: 1, pageSize: 5, total: 0 });
+        return jsonResponse({});
+      });
+
+      render(<App />);
+
+      expect(await screen.findByLabelText("仪表盘核心指标")).toBeInTheDocument();
+      await waitFor(() => expect(requestedUrls.some((url) => url.endsWith("/api/dashboard"))).toBe(true));
+
+      expect(requestedUrls.some((url) => url.endsWith("/api/api-keys"))).toBe(false);
+      expect(requestedUrls.some((url) => url.includes("/api/telegram/"))).toBe(false);
+      expect(requestedUrls.some((url) => url.includes("/api/dictionaries"))).toBe(false);
+      expect(requestedUrls.some((url) => url.includes("/api/system/runtime-settings"))).toBe(false);
+      expect(requestedUrls.some((url) => url.endsWith("/api/accounts"))).toBe(false);
+      expect(requestedUrls.some((url) => url.includes("/api/accounts/domains"))).toBe(false);
+      expect(requestedUrls.some((url) => url.includes("/api/accounts/settings"))).toBe(false);
+      expect(requestedUrls.some((url) => url.includes("/api/mail/outbound"))).toBe(false);
+    },
+    10000
+  );
+
+  it(
     "renders the design system as a public grouped component gallery",
     async () => {
       window.history.pushState({}, "", "/design-system");

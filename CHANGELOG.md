@@ -16,11 +16,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added detailed OAuth provider configuration documentation to the docs site.
 - Added GitHub and LinuxDo OAuth quick login with invite-gated onboarding for new third-party users.
+- Added Telegram Bot command menu configuration and bound-chat quick commands for status, accounts, recent messages, pause/resume, and test notifications.
+- Added an admin Telegram Webhook configuration action that writes the current Worker API endpoint to Telegram from the settings page.
 
 ### Changed
 
-- Expanded the Worker configuration docs with an end-to-end Telegram Bot setup guide covering BotFather, secrets, webhook setup, admin toggles, user binding, and troubleshooting.
+- Changed the Telegram settings page so admin sessions can configure the Bot command menu with an in-page button instead of a manual curl command.
+- Expanded the Worker configuration docs with an end-to-end Telegram Bot setup guide covering BotFather, secrets, button-based webhook/menu setup, admin toggles, user binding, and troubleshooting.
 - Removed the Worker `.env` template workflow and kept backend-managed defaults out of committed Wrangler vars.
 - Refined Webhook side-rail endpoint action buttons with compact balanced spacing and a lighter delete state.
 - Changed the landing footer docs shortcut to the hosted documentation domain and added the shared floating back-to-top action to the homepage.
@@ -29,14 +33,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Opened mailbox account list and mailbox domain management to member sessions while keeping account mutation and runtime policy controls admin-only.
 - Clarified runtime default quota fields for mailbox daily sending and API daily calls, with tests covering new-user quota grants from updated defaults.
 - Changed the web app routing to lazy-load public and workspace pages so the initial production bundle is smaller while preserving Nivo chart rendering.
+- Changed lazy-loaded workspace routes to show a dashboard-shaped skeleton while page chunks load.
+- Deferred Nivo dashboard and announcement charts into async page-level chunks with lightweight chart skeletons.
+- Split the authenticated workspace shell into its own lazy chunk so public and signed-out entry paths avoid loading inbox, settings, admin, and workspace layout code up front.
+- Scoped workspace startup data fetching to the active route so dashboard entry avoids preloading API keys, Telegram, dictionaries, runtime settings, mailbox setup, admin dashboard, and outbound history data.
+- Added hover/focus prefetching for lazy workspace route chunks and deferred expensive chart mounts until their chart regions approach the viewport.
+- Narrowed settings action refreshes so API key, Telegram, and runtime-setting saves only refetch the settings domain they changed.
+- Added frontend GET request deduplication, short-lived cache entries for low-frequency configuration data, and cached route-data prefetches for lightweight workspace targets.
+- Added stable Vite vendor chunk grouping, production bundle budget checks, and offscreen rendering containment for repeated mail and announcement list items.
+- Clarified that `TELEGRAM_WEBHOOK_SECRET` is required in staging and production when Telegram is enabled.
 
 ### Fixed
 
 - Fixed the public landing footer so its system status is loaded from the real health API instead of hardcoded copy.
+- Fixed OAuth quick-login link accessible names so screen readers announce the full login action.
 - Fixed the floating back-to-top action contrast in dark mode.
 - Removed the docs app build-time Google Fonts fetch so root production builds do not fail on external font network errors.
 - Made the Worker dry-run build non-interactive so local `pnpm build` does not hang on Wrangler prompts.
 - Fixed the Cloudflare preview workflow so secret checks no longer use unsupported step-level secret expressions.
+- Fixed frontend API handling for successful empty responses and prevented invalidated in-flight GET requests from rewriting stale cache entries.
+- Fixed outbound summary style regression coverage to match the current balanced desktop command strip layout.
+
+### Security
+
+- Required Telegram webhook secret validation outside local Worker environments so production webhook calls fail closed when the secret is missing or invalid.
+- Hardened webhook endpoint URL validation against local, private, reserved, and IPv4-mapped IPv6 literal targets.
+- Pinned GitHub Actions workflow dependencies to commit SHAs and upgraded vulnerable Hono, React Router, Vite, Vitest, Wrangler, Miniflare, undici, ws, and jsdom dependency paths.
+- Ensured a Telegram chat can only be bound to one WeMail user so bot commands cannot resolve to an ambiguous account.
 
 ## [0.1.3] - 2026-06-21
 

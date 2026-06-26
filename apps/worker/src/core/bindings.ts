@@ -21,6 +21,17 @@ export type RateLimiterBinding = {
 export type TelegramApiClient = {
   sendMessage: (params: { chatId: string; text: string }) => Promise<{ ok: boolean }>;
   getChat: (params: { chatId: string }) => Promise<{ ok: boolean; description: string | null }>;
+  setMyCommands: (params: { commands: Array<{ command: string; description: string }> }) => Promise<{
+    ok: boolean;
+    description: string | null;
+  }>;
+  setChatMenuButton: () => Promise<{ ok: boolean; description: string | null }>;
+  setWebhook: (params: {
+    allowedUpdates: string[];
+    dropPendingUpdates: boolean;
+    secretToken?: string;
+    url: string;
+  }) => Promise<{ ok: boolean; description: string | null }>;
 };
 
 export type ResendClient = {
@@ -552,6 +563,7 @@ export interface AppStore {
   telegram: {
     upsert: (input: { userId: string; chatId: string; enabled: boolean }) => Promise<TelegramSubscriptionRecord>;
     findByUserId: (userId: string) => Promise<TelegramSubscriptionRecord | null>;
+    findByChatId: (chatId: string) => Promise<TelegramSubscriptionRecord | null>;
   };
   quotas: {
     getByUserId: (userId: string, fallbackLimit: number, fallbackApiDailyLimit: number) => Promise<QuotaRecord>;

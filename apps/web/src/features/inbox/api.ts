@@ -12,6 +12,8 @@ import type {
 import { apiFetch } from "../../shared/api/client";
 import type { OutboundHistoryDetail } from "./types";
 
+const MAILBOX_SETUP_CACHE_TTL_MS = 30_000;
+
 export type MailboxListQueryInput = {
   page?: number;
   pageSize?: number;
@@ -49,11 +51,15 @@ export type MailboxCreatePayload = {
 };
 
 export function fetchMailboxDomains() {
-  return apiFetch<MailDomainSettings>("/api/accounts/domains");
+  return apiFetch<MailDomainSettings>("/api/accounts/domains", {
+    cacheTtlMs: MAILBOX_SETUP_CACHE_TTL_MS
+  });
 }
 
 export function fetchMailboxPolicy() {
-  return apiFetch<{ policy: AccountPolicy }>("/api/accounts/settings");
+  return apiFetch<{ policy: AccountPolicy }>("/api/accounts/settings", {
+    cacheTtlMs: MAILBOX_SETUP_CACHE_TTL_MS
+  });
 }
 
 export function createMailbox(payload: MailboxCreatePayload) {

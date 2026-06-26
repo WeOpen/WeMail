@@ -22,20 +22,32 @@ const emptyTelegramOverview: TelegramOverviewSummary = {
   supportedEvents: []
 };
 
-export async function querySettingsData(options?: { includeRuntimeSettings?: boolean }) {
+export type SettingsDataQueryOptions = {
+  includeApiKeys?: boolean;
+  includeDictionaries?: boolean;
+  includeRuntimeSettings?: boolean;
+  includeTelegram?: boolean;
+};
+
+export async function querySettingsData(options?: SettingsDataQueryOptions) {
+  const shouldFetchApiKeys = options?.includeApiKeys ?? true;
+  const shouldFetchDictionaries = options?.includeDictionaries ?? true;
+  const shouldFetchRuntimeSettings = options?.includeRuntimeSettings ?? false;
+  const shouldFetchTelegram = options?.includeTelegram ?? true;
+
   const [keyPayload, telegramPayload, deliveryPayload, dictionaryPayload, runtimeSettingsPayload] = await Promise.all([
-    fetchApiKeys(),
-    fetchTelegramOverview(),
-    fetchTelegramDeliveries(),
-    fetchDictionaries(),
-    options?.includeRuntimeSettings ? fetchRuntimeSettings() : Promise.resolve({ settings: null })
+    shouldFetchApiKeys ? fetchApiKeys() : Promise.resolve(null),
+    shouldFetchTelegram ? fetchTelegramOverview() : Promise.resolve(null),
+    shouldFetchTelegram ? fetchTelegramDeliveries() : Promise.resolve(null),
+    shouldFetchDictionaries ? fetchDictionaries() : Promise.resolve(null),
+    shouldFetchRuntimeSettings ? fetchRuntimeSettings() : Promise.resolve(null)
   ]);
 
   return {
-    apiKeys: keyPayload.keys as ApiKeySummary[],
-    dictionaries: (dictionaryPayload.dictionaries ?? []) as DictionaryCatalogGroup[],
-    runtimeSettings: (runtimeSettingsPayload.settings ?? null) as RuntimeSettings | null,
-    telegramOverview: (telegramPayload.overview ?? emptyTelegramOverview) as TelegramOverviewSummary,
-    telegramDeliveries: (deliveryPayload.deliveries ?? []) as TelegramDeliverySummary[]
+    apiKeys: keyPayload ? (keyPayload.keys as ApiKeySummary[]) : undefined,
+    dictionaries: dictionaryPayload ? ((dictionaryPayload.dictionaries ?? []) as DictionaryCatalogGroup[]) : undefined,
+    runtimeSettings: runtimeSettingsPayload ? ((runtimeSettingsPayload.settings ?? null) as RuntimeSettings | null) : undefined,
+    telegramOverview: telegramPayload ? ((telegramPayload.overview ?? emptyTelegramOverview) as TelegramOverviewSummary) : undefined,
+    telegramDeliveries: deliveryPayload ? ((deliveryPayload.deliveries ?? []) as TelegramDeliverySummary[]) : undefined
   };
 }

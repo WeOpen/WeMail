@@ -18,22 +18,25 @@ async function visitDesignSystem(page: Page, theme: "light" | "dark") {
 
   await page.goto("/design-system");
   await expect(page.getByRole("navigation", { name: "首页导航" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Foundations" })).toBeVisible();
-  await expect(page.getByRole("navigation", { name: /design system sidebar/i })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "Components" })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Component groups" })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Foundations 组件组" })).toBeVisible();
+  await expect(page.getByRole("navigation", { name: /design system sidebar/i })).toHaveCount(0);
   await expect(page.getByTestId("design-system-page")).toBeVisible();
   await expect
     .poll(async () => page.evaluate(() => document.documentElement.dataset.theme), { timeout: 10_000 })
     .toBe(theme);
 }
 
-test("shows the design system page as a sidebar-driven public docsite", async ({ page }) => {
+test("shows the design system page as a grouped component gallery", async ({ page }) => {
   await visitDesignSystem(page, "light");
 
-  const sidebarButtons = page.getByRole("navigation", { name: /design system sidebar/i }).getByRole("button");
-  await expect(sidebarButtons).toHaveCount(35);
-  await expect(page.getByText("WeMail Design System v1")).toBeVisible();
-  await expect(page.getByRole("button", { name: "打开对话框" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "打开抽屉" })).toBeVisible();
+  await expect(page.getByTestId("design-system-group-card").first()).toBeVisible();
+  await expect(page.getByTestId("design-system-component-card").first()).toBeVisible();
+  const buttonCard = page.getByRole("article", { name: "Button 组件展示" });
+  await expect(buttonCard).toBeVisible();
+  await expect(buttonCard.getByRole("button", { name: "保存变更" })).toBeVisible();
+  await expect(buttonCard.getByRole("button", { name: "查看历史" })).toBeVisible();
 });
 
 test.describe("design system visual regression scaffold", () => {

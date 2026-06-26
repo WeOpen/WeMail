@@ -16,7 +16,22 @@ import type {
   UserProfileUpdateInput
 } from "@wemail/shared";
 
-import { apiFetch } from "../../shared/api/client";
+import { apiFetch, invalidateApiCache } from "../../shared/api/client";
+
+const SETTINGS_CACHE_TTL_MS = 30_000;
+
+export type TelegramBotMenuResult = {
+  ok: boolean;
+  reason: string | null;
+  commands: Array<{ command: string; description: string }>;
+};
+
+export type TelegramWebhookConfigureResult = {
+  ok: boolean;
+  reason: string | null;
+  url: string;
+  allowedUpdates: string[];
+};
 
 export type WebhookEndpointSummary = {
   id: string;
@@ -38,10 +53,13 @@ export function fetchDictionaries(options?: { groupKeys?: string[]; includeDisab
   if (options?.groupKeys?.length) params.set("groups", options.groupKeys.join(","));
   if (options?.includeDisabled) params.set("includeDisabled", "true");
   const queryString = params.toString();
-  return apiFetch<{ dictionaries?: DictionaryCatalogGroup[] }>(`/api/dictionaries${queryString ? `?${queryString}` : ""}`);
+  return apiFetch<{ dictionaries?: DictionaryCatalogGroup[] }>(`/api/dictionaries${queryString ? `?${queryString}` : ""}`, {
+    cacheTtlMs: SETTINGS_CACHE_TTL_MS
+  });
 }
 
 export function createApiKey(label: string) {
+  invalidateApiCache("/api/api-keys");
   return apiFetch<{ key: { secret: string; prefix: string } }>("/api/api-keys", {
     method: "POST",
     body: JSON.stringify({ label })
@@ -49,6 +67,7 @@ export function createApiKey(label: string) {
 }
 
 export function revokeApiKey(keyId: string) {
+  invalidateApiCache("/api/api-keys");
   return apiFetch(`/api/api-keys/${keyId}`, { method: "DELETE" });
 }
 
@@ -57,7 +76,9 @@ export function fetchTelegramSubscription() {
 }
 
 export function fetchTelegramOverview() {
-  return apiFetch<{ overview: TelegramOverviewSummary }>("/api/telegram/overview");
+  return apiFetch<{ overview: TelegramOverviewSummary }>("/api/telegram/overview", {
+    cacheTtlMs: SETTINGS_CACHE_TTL_MS
+  });
 }
 
 export function fetchTelegramDeliveries() {
@@ -70,11 +91,24 @@ export function createTelegramLinkCode() {
   });
 }
 
+export function configureTelegramBotMenu() {
+  return apiFetch<{ result: TelegramBotMenuResult }>("/api/telegram/bot-menu", {
+    method: "POST"
+  });
+}
+
+export function configureTelegramWebhook() {
+  return apiFetch<{ result: TelegramWebhookConfigureResult }>("/api/telegram/webhook/configure", {
+    method: "POST"
+  });
+}
+
 export function fetchWebhookEndpoints() {
   return apiFetch<{ endpoints: WebhookEndpointSummary[] }>("/api/webhook/endpoints");
 }
 
 export function saveTelegramSubscription(payload: { chatId: string; enabled: boolean }) {
+  invalidateApiCache("/api/telegram/overview");
   return apiFetch("/api/telegram/subscription", {
     method: "PUT",
     body: JSON.stringify(payload)
@@ -82,16 +116,20 @@ export function saveTelegramSubscription(payload: { chatId: string; enabled: boo
 }
 
 export function sendTelegramTestMessage() {
+  invalidateApiCache("/api/telegram/overview");
   return apiFetch<{ result: TelegramTestMessageResult }>("/api/telegram/test-message", {
     method: "POST"
   });
 }
 
 export function fetchSystemDomains() {
-  return apiFetch<MailDomainSettings>("/api/system/domains");
+  return apiFetch<MailDomainSettings>("/api/system/domains", {
+    cacheTtlMs: SETTINGS_CACHE_TTL_MS
+  });
 }
 
 export function updateSystemDomains(domains: MailDomainSummary[]) {
+  invalidateApiCache("/api/system/domains");
   return apiFetch<MailDomainSettings>("/api/system/domains", {
     method: "PATCH",
     body: JSON.stringify({ domains })
@@ -99,10 +137,13 @@ export function updateSystemDomains(domains: MailDomainSummary[]) {
 }
 
 export function fetchRuntimeSettings() {
-  return apiFetch<{ settings: RuntimeSettings }>("/api/system/runtime-settings");
+  return apiFetch<{ settings: RuntimeSettings }>("/api/system/runtime-settings", {
+    cacheTtlMs: SETTINGS_CACHE_TTL_MS
+  });
 }
 
 export function updateRuntimeSettings(payload: RuntimeSettingsUpdateInput) {
+  invalidateApiCache("/api/system/runtime-settings");
   return apiFetch<{ settings: RuntimeSettings }>("/api/system/runtime-settings", {
     method: "PATCH",
     body: JSON.stringify(payload)
@@ -121,10 +162,13 @@ export function updateUserProfile(payload: UserProfileUpdateInput) {
 }
 
 export function fetchMailSettings() {
-  return apiFetch<{ settings: MailSettings }>("/api/mail/settings");
+  return apiFetch<{ settings: MailSettings }>("/api/mail/settings", {
+    cacheTtlMs: SETTINGS_CACHE_TTL_MS
+  });
 }
 
 export function updateMailSettings(payload: MailSettingsUpdateInput) {
+  invalidateApiCache("/api/mail/settings");
   return apiFetch<{ settings: MailSettings }>("/api/mail/settings", {
     method: "PUT",
     body: JSON.stringify(payload)
