@@ -785,11 +785,22 @@ export function createInMemoryStore(): AppStore {
           createdAt: existing?.createdAt ?? nowIso(),
           updatedAt: nowIso()
         };
+        for (const [userId, subscription] of telegramSubscriptions) {
+          if (userId !== input.userId && subscription.chatId === input.chatId) {
+            telegramSubscriptions.delete(userId);
+          }
+        }
         telegramSubscriptions.set(input.userId, next);
         return clone(next);
       },
       async findByUserId(userId) {
         return clone(telegramSubscriptions.get(userId) ?? null);
+      },
+      async findByChatId(chatId) {
+        const subscription = Array.from(telegramSubscriptions.values())
+          .filter((entry) => entry.chatId === chatId)
+          .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0];
+        return clone(subscription ?? null);
       }
     },
     quotas: {

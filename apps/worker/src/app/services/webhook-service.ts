@@ -22,16 +22,51 @@ type WebhookDispatchPayload = {
   eventType: string;
 };
 
-const privateIpv4Ranges = [
-  /^10\./,
-  /^127\./,
-  /^169\.254\./,
-  /^192\.168\./,
-  /^172\.(1[6-9]|2\d|3[0-1])\./
-];
-
 function bytesToHex(buffer: ArrayBuffer) {
   return Array.from(new Uint8Array(buffer), (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+function parseIpv4Address(hostname: string) {
+  const parts = hostname.split(".");
+  if (parts.length !== 4) return null;
+  const bytes = parts.map((part) => Number(part));
+  if (bytes.some((byte, index) => !Number.isInteger(byte) || byte < 0 || byte > 255 || String(byte) !== parts[index])) {
+    return null;
+  }
+  return bytes as [number, number, number, number];
+}
+
+function isPrivateOrReservedIpv4(hostname: string) {
+  const bytes = parseIpv4Address(hostname);
+  if (!bytes) return false;
+  const [first, second] = bytes;
+  return (
+    first === 0 ||
+    first === 10 ||
+    first === 127 ||
+    (first === 100 && second >= 64 && second <= 127) ||
+    (first === 169 && second === 254) ||
+    (first === 172 && second >= 16 && second <= 31) ||
+    (first === 192 && second === 0) ||
+    (first === 192 && second === 168) ||
+    (first === 198 && (second === 18 || second === 19)) ||
+    first >= 224
+  );
+}
+
+function isPrivateOrReservedIpv6(hostname: string) {
+  if (!hostname.startsWith("[") || !hostname.endsWith("]")) return false;
+  const value = hostname.slice(1, -1).toLowerCase();
+  if (value === "::" || value === "::1") return true;
+  if (value.startsWith("fc") || value.startsWith("fd")) return true;
+  if (/^fe[89ab][0-9a-f]?:/.test(value)) return true;
+  const mappedIpv4 = value.match(/^::ffff:(\d{1,3}(?:\.\d{1,3}){3})$/);
+  if (mappedIpv4) return isPrivateOrReservedIpv4(mappedIpv4[1]);
+  const mappedIpv4Hex = value.match(/^::ffff:([0-9a-f]{1,4}):([0-9a-f]{1,4})$/);
+  if (!mappedIpv4Hex) return false;
+  const high = Number.parseInt(mappedIpv4Hex[1], 16);
+  const low = Number.parseInt(mappedIpv4Hex[2], 16);
+  return isPrivateOrReservedIpv4(`${high >> 8}.${high & 255}.${low >> 8}.${low & 255}`);
 }
 
 function truncateText(value: string, maxLength = 2000) {
@@ -91,10 +126,10 @@ export function validateWebhookTargetUrl(value: string) {
   if (parsed.username || parsed.password) throw new Error("Webhook URL must not include credentials");
 
   const hostname = parsed.hostname.toLowerCase();
-  if (hostname === "localhost" || hostname === "0.0.0.0" || hostname === "::1" || hostname.endsWith(".local")) {
+  if (hostname === "localhost" || hostname.endsWith(".localhost") || hostname.endsWith(".local")) {
     throw new Error("Webhook URL must not target local addresses");
   }
-  if (privateIpv4Ranges.some((range) => range.test(hostname))) {
+  if (isPrivateOrReservedIpv4(hostname) || isPrivateOrReservedIpv6(hostname)) {
     throw new Error("Webhook URL must not target private network addresses");
   }
 

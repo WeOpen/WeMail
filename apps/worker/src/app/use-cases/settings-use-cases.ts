@@ -7,6 +7,8 @@ import { defaultMailDomains, getMailDomains, normalizeMailDomainEntries } from "
 import { jsonError, recordAudit } from "../services/audit-service";
 import { CACHE_KEYS, deleteCacheKeys } from "../services/cache-service";
 import {
+  configureTelegramBotMenu,
+  configureTelegramWebhook,
   createTelegramLinkCode,
   getTelegramSupportedEvents,
   handleTelegramWebhookUpdate,
@@ -130,6 +132,26 @@ export async function createTelegramLinkCodeUseCase(context: SettingsUseCaseCont
 
 export async function handleTelegramWebhookUseCase(context: SettingsUseCaseContext, update: unknown) {
   return handleTelegramWebhookUpdate(context, update);
+}
+
+export async function configureTelegramBotMenuUseCase(context: SettingsUseCaseContext) {
+  if (!context.featureToggles.telegramEnabled) {
+    return jsonError("Telegram disabled", 403);
+  }
+
+  const result = await configureTelegramBotMenu(context);
+  if (!result.ok) return jsonError(result.reason ?? "Telegram bot menu configuration failed", 503);
+  return result;
+}
+
+export async function configureTelegramWebhookUseCase(context: SettingsUseCaseContext, webhookUrl: string) {
+  if (!context.featureToggles.telegramEnabled) {
+    return jsonError("Telegram disabled", 403);
+  }
+
+  const result = await configureTelegramWebhook(context, webhookUrl);
+  if (!result.ok) return jsonError(result.reason ?? "Telegram webhook configuration failed", 503);
+  return result;
 }
 
 export async function listApiKeys(context: SettingsUseCaseContext, userId: string) {

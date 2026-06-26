@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { defaultMailSettings } from "@wemail/shared";
 
-import { registerUserAndGetCookie } from "../helpers/test-env";
+import { createWorkerTestHarness, registerUserAndGetCookie } from "../helpers/test-env";
 
 describe("worker settings integration", () => {
   afterEach(() => {
@@ -381,6 +381,231 @@ describe("worker settings integration", () => {
     await expect(store.telegram.findByUserId(user!.id)).resolves.toMatchObject({ chatId: "99887766" });
   });
 
+  it("moves a telegram chat binding to the newest linked user before handling commands", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ ok: true }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+    const { app, env, store } = createWorkerTestHarness();
+
+    async function register(email: string, inviteCode: string) {
+      await store.invites.create({ code: inviteCode, createdByUserId: "system" });
+      const response = await app.request(
+        "/api/auth/register",
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            email,
+            password: "password123",
+            inviteCode
+          })
+        },
+        env
+      );
+      const user = await store.users.findByEmail(email);
+      expect(response.status).toBe(201);
+      expect(user).not.toBeNull();
+      return { cookie: response.headers.get("set-cookie") ?? "", user: user! };
+    }
+
+    const first = await register("telegram-first-chat-owner@example.com", "INVITE-TELEGRAM-FIRST-OWNER");
+    const second = await register("telegram-second-chat-owner@example.com", "INVITE-TELEGRAM-SECOND-OWNER");
+
+    await store.mailboxes.create({ userId: first.user.id, address: "first-chat-owner@example.com", label: "First owner" });
+    await store.mailboxes.create({ userId: second.user.id, address: "second-chat-owner-a@example.com", label: "Second owner A" });
+    await store.mailboxes.create({ userId: second.user.id, address: "second-chat-owner-b@example.com", label: "Second owner B" });
+
+    const firstSaveResponse = await app.request(
+      "/api/telegram/subscription",
+      {
+        method: "PUT",
+        headers: {
+          cookie: first.cookie,
+          "content-type": "application/json"
+        },
+        body: JSON.stringify({ chatId: "889900", enabled: true })
+      },
+      env
+    );
+    const secondSaveResponse = await app.request(
+      "/api/telegram/subscription",
+      {
+        method: "PUT",
+        headers: {
+          cookie: second.cookie,
+          "content-type": "application/json"
+        },
+        body: JSON.stringify({ chatId: "889900", enabled: true })
+      },
+      env
+    );
+
+    expect(firstSaveResponse.status).toBe(200);
+    expect(secondSaveResponse.status).toBe(200);
+    await expect(store.telegram.findByUserId(first.user.id)).resolves.toBeNull();
+    await expect(store.telegram.findByUserId(second.user.id)).resolves.toMatchObject({ chatId: "889900", enabled: true });
+    await expect(store.telegram.findByChatId("889900")).resolves.toMatchObject({ userId: second.user.id });
+
+    const commandResponse = await app.request(
+      "/api/telegram/webhook",
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          update_id: 1003,
+          message: {
+            text: "/status",
+            chat: { id: 889900 }
+          }
+        })
+      },
+      {
+        ...env,
+        TELEGRAM_BOT_TOKEN: "test-token"
+      }
+    );
+
+    expect(commandResponse.status).toBe(200);
+    const commandPayload = (await commandResponse.json()) as { result: { ok: boolean; userId: string } };
+    expect(commandPayload.result).toMatchObject({ ok: true, userId: second.user.id });
+    const replyBodies = fetchMock.mock.calls
+      .filter(([url]) => String(url).endsWith("/sendMessage"))
+      .map(([, init]) => JSON.parse(String((init as RequestInit).body)) as { chat_id: string; text: string });
+    expect(replyBodies.at(-1)).toMatchObject({
+      chat_id: "889900",
+      text: expect.stringContaining("邮箱账号：2")
+    });
+    expect(replyBodies.at(-1)?.text).not.toContain("邮箱账号：1");
+  });
+
+  it("replies to telegram bot commands for a linked chat", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ ok: true }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { app, env, store } = await registerUserAndGetCookie({
+      email: "telegram-command@example.com",
+      inviteCode: "INVITE-TELEGRAM-COMMAND"
+    });
+    const user = await store.users.findByEmail("telegram-command@example.com");
+    expect(user).not.toBeNull();
+
+    await store.telegram.upsert({ userId: user!.id, chatId: "445566", enabled: true });
+    await store.mailboxes.create({
+      userId: user!.id,
+      address: "ops@example.com",
+      label: "Ops"
+    });
+
+    const response = await app.request(
+      "/api/telegram/webhook",
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          update_id: 1002,
+          message: {
+            text: "/status",
+            chat: { id: 445566 }
+          }
+        })
+      },
+      {
+        ...env,
+        TELEGRAM_BOT_TOKEN: "test-token"
+      }
+    );
+
+    const payload = (await response.json()) as { result: { ok: boolean; command: string } };
+    expect(response.status).toBe(200);
+    expect(payload.result).toMatchObject({ ok: true, command: "status" });
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://api.telegram.org/bottest-token/sendMessage",
+      expect.objectContaining({
+        method: "POST",
+        body: expect.stringContaining("邮箱账号：1")
+      })
+    );
+  });
+
+  it("configures telegram bot command menu from an admin session", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ ok: true }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { app, env, cookie } = await registerUserAndGetCookie({
+      email: "admin@example.com",
+      inviteCode: "INVITE-TELEGRAM-MENU"
+    });
+
+    const response = await app.request(
+      "/api/telegram/bot-menu",
+      {
+        method: "POST",
+        headers: { cookie }
+      },
+      {
+        ...env,
+        TELEGRAM_BOT_TOKEN: "test-token"
+      }
+    );
+
+    const payload = (await response.json()) as { result: { ok: boolean; commands: Array<{ command: string }> } };
+    expect(response.status).toBe(200);
+    expect(payload.result.ok).toBe(true);
+    expect(payload.result.commands).toContainEqual(expect.objectContaining({ command: "status" }));
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://api.telegram.org/bottest-token/setMyCommands",
+      expect.objectContaining({
+        method: "POST",
+        body: expect.stringContaining('"command":"status"')
+      })
+    );
+  });
+
+  it("configures telegram webhook from an admin session", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ ok: true }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { app, env, cookie } = await registerUserAndGetCookie({
+      email: "admin@example.com",
+      inviteCode: "INVITE-TELEGRAM-WEBHOOK"
+    });
+
+    const response = await app.request(
+      "https://api.example.com/api/telegram/webhook/configure",
+      {
+        method: "POST",
+        headers: { cookie }
+      },
+      {
+        ...env,
+        ENVIRONMENT: "production",
+        TELEGRAM_BOT_TOKEN: "test-token",
+        TELEGRAM_WEBHOOK_SECRET: "expected-secret"
+      }
+    );
+
+    const payload = (await response.json()) as {
+      result: { ok: boolean; url: string; allowedUpdates: string[] };
+    };
+    expect(response.status).toBe(200);
+    expect(payload.result).toMatchObject({
+      ok: true,
+      url: "https://api.example.com/api/telegram/webhook",
+      allowedUpdates: ["message", "channel_post"]
+    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://api.telegram.org/bottest-token/setWebhook",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({
+          url: "https://api.example.com/api/telegram/webhook",
+          allowed_updates: ["message", "channel_post"],
+          drop_pending_updates: true,
+          secret_token: "expected-secret"
+        })
+      })
+    );
+  });
+
   it("rejects telegram webhook calls with an invalid secret token", async () => {
     const { app, env } = await registerUserAndGetCookie({
       email: "telegram-secret@example.com",
@@ -411,6 +636,36 @@ describe("worker settings integration", () => {
 
     expect(response.status).toBe(401);
     expect(payload.error).toMatch(/secret/i);
+  });
+
+  it("rejects non-local telegram webhook calls when the secret is not configured", async () => {
+    const { app, env } = await registerUserAndGetCookie({
+      email: "telegram-missing-secret@example.com",
+      inviteCode: "INVITE-TELEGRAM-MISSING-SECRET"
+    });
+
+    const response = await app.request(
+      "/api/telegram/webhook",
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          message: {
+            text: "/status",
+            chat: { id: 12345678 }
+          }
+        })
+      },
+      {
+        ...env,
+        ENVIRONMENT: "production",
+        TELEGRAM_BOT_TOKEN: "test-token"
+      }
+    );
+    const payload = (await response.json()) as { error?: string };
+
+    expect(response.status).toBe(503);
+    expect(payload.error).toMatch(/webhook secret/i);
   });
 
   it("rejects enabled telegram subscriptions when the configured bot cannot access the chat", async () => {

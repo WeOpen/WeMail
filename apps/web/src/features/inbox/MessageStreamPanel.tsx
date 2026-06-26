@@ -69,7 +69,14 @@ export function MessageStreamPanel({
     <section aria-label="消息筛选与列表" className="panel workspace-card inbox-panel message-workbench-panel">
       <div className="panel-header workspace-card-header message-panel-header">
         <p className="panel-kicker">邮件列表</p>
-        <Button leadingIcon={<RefreshCw size={15} strokeWidth={1.9} aria-hidden="true" />} onClick={onRefreshMessages} size="sm" variant="primary">
+        <Button
+          isLoading={isLoading}
+          leadingIcon={<RefreshCw size={15} strokeWidth={1.9} aria-hidden="true" />}
+          loadingLabel="刷新中"
+          onClick={onRefreshMessages}
+          size="sm"
+          variant="primary"
+        >
           刷新
         </Button>
       </div>

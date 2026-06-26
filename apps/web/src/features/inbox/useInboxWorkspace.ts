@@ -24,6 +24,8 @@ import { selectMessage } from "./selectors";
 
 type UseInboxWorkspaceOptions = {
   enabled: boolean;
+  loadMailboxCreationOptions?: boolean;
+  loadSelectedMessageDetail?: boolean;
   onToast: (toast: WemailToastInput) => void;
 };
 
@@ -61,7 +63,12 @@ function normalizeMessageQuery(
   };
 }
 
-export function useInboxWorkspace({ enabled, onToast }: UseInboxWorkspaceOptions) {
+export function useInboxWorkspace({
+  enabled,
+  loadMailboxCreationOptions = true,
+  loadSelectedMessageDetail = true,
+  onToast
+}: UseInboxWorkspaceOptions) {
   const mailboxes = useAppStore((state) => state.mailboxes);
   const selectedMailboxId = useAppStore((state) => state.selectedMailboxId);
   const messages = useAppStore((state) => state.messages);
@@ -237,13 +244,14 @@ export function useInboxWorkspace({ enabled, onToast }: UseInboxWorkspaceOptions
   }, [enabled]);
 
   useEffect(() => {
+    if (!loadMailboxCreationOptions) return;
     void refreshMailboxCreationOptions();
-  }, [refreshMailboxCreationOptions]);
+  }, [loadMailboxCreationOptions, refreshMailboxCreationOptions]);
 
   useEffect(() => {
-    if (!enabled) return;
+    if (!enabled || !loadSelectedMessageDetail) return;
     void refreshSelectedMessage(selectedMessageId);
-  }, [enabled, refreshSelectedMessage, selectedMessageId]);
+  }, [enabled, loadSelectedMessageDetail, refreshSelectedMessage, selectedMessageId]);
 
   const createMailbox = useCallback(
     async (input: MailboxCreatePayload) => {

@@ -88,6 +88,16 @@ describe("inbox list styles", () => {
     expect(detailSubjectRule).toContain("white-space: nowrap");
     expect(detailActionGroupRule).toContain("justify-content: flex-end");
   });
+
+  it("skips offscreen work for repeated list items with content visibility", () => {
+    const messageItemRule = getRuleBody(".message-item.ui-button");
+    const announcementsItemRule = getRuleBody(".announcements-item");
+
+    expect(messageItemRule).toContain("content-visibility: auto");
+    expect(messageItemRule).toContain("contain-intrinsic-size: 132px");
+    expect(announcementsItemRule).toContain("content-visibility: auto");
+    expect(announcementsItemRule).toContain("contain-intrinsic-size:");
+  });
 });
 
 describe("shared tooltip styles", () => {

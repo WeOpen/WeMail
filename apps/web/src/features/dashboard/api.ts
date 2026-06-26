@@ -1,5 +1,7 @@
 import { apiFetch } from "../../shared/api/client";
 
+const DASHBOARD_CACHE_TTL_MS = 5_000;
+
 export type DashboardKpi = {
   kicker: string;
   label: string;
@@ -46,5 +48,7 @@ export type DashboardPayload = {
 };
 
 export function fetchDashboard() {
-  return apiFetch<DashboardPayload>("/api/dashboard");
+  return apiFetch<DashboardPayload>("/api/dashboard", {
+    cacheTtlMs: DASHBOARD_CACHE_TTL_MS
+  });
 }

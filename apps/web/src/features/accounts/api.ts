@@ -8,7 +8,9 @@ import type {
   MailboxStatus
 } from "@wemail/shared";
 
-import { apiFetch } from "../../shared/api/client";
+import { apiFetch, invalidateApiCache } from "../../shared/api/client";
+
+const ACCOUNT_SETTINGS_CACHE_TTL_MS = 30_000;
 
 export type AccountsListQuery = {
   page: number;
@@ -67,14 +69,19 @@ export function fetchAccountsList(query: AccountsListQuery) {
 }
 
 export function fetchAccountDomains() {
-  return apiFetch<MailDomainSettings>("/api/accounts/domains");
+  return apiFetch<MailDomainSettings>("/api/accounts/domains", {
+    cacheTtlMs: ACCOUNT_SETTINGS_CACHE_TTL_MS
+  });
 }
 
 export function fetchAccountPolicy() {
-  return apiFetch<{ policy: AccountPolicy }>("/api/accounts/settings");
+  return apiFetch<{ policy: AccountPolicy }>("/api/accounts/settings", {
+    cacheTtlMs: ACCOUNT_SETTINGS_CACHE_TTL_MS
+  });
 }
 
 export function updateAccountPolicy(payload: AccountPolicyUpdateInput) {
+  invalidateApiCache("/api/accounts/settings");
   return apiFetch<{ policy: AccountPolicy }>("/api/accounts/settings", {
     method: "PUT",
     body: JSON.stringify(payload)

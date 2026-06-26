@@ -1,5 +1,6 @@
 import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { useCallback, useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { MessageSummary } from "@wemail/shared";
@@ -1013,6 +1014,114 @@ describe("mail list integration", () => {
     await waitFor(() => {
       expect(onRefreshMessages.mock.calls.length).toBeGreaterThan(initialRefreshCount);
     }, { timeout: 200 });
+  });
+
+  it("shows the refresh button as loading while messages are refreshing", () => {
+    render(
+      <InboxPage
+        availableDomains={[]}
+        isLoadingMessages
+        isLoadingDomains={false}
+        mailboxes={[]}
+        messageListError={null}
+        selectedMailboxId={null}
+        messages={[]}
+        messageListPage={1}
+        messageListPageSize={10}
+        messageListSummary={{ messageCount: 0, extractionCount: 0, attachmentCount: 0 }}
+        messageListTotal={0}
+        selectedMessage={null}
+        selectedMessageId={null}
+        isLoadingSelectedMessage={false}
+        selectedMessageError={null}
+        outboundHistory={[]}
+        mailboxComposerOpen={false}
+        messageRefreshIntervalMs={0}
+        onCloseMailboxComposer={vi.fn()}
+        onCreateMailbox={vi.fn()}
+        onOpenMailboxComposer={vi.fn()}
+        onQueryMailboxes={vi.fn().mockResolvedValue({ mailboxes: [], total: 0, page: 1, pageSize: 4 })}
+        onRefreshMessages={vi.fn()}
+        onRetrySelectedMessage={vi.fn()}
+        onSelectMailbox={vi.fn()}
+        onSelectMessage={vi.fn()}
+        onSendMail={vi.fn()}
+      />
+    );
+
+    const refreshButton = screen.getByRole("button", { name: /^刷新中$/i });
+
+    expect(refreshButton).toBeDisabled();
+    expect(refreshButton).toHaveAttribute("aria-busy", "true");
+  });
+
+  it("shows the refresh button as loading when automatic polling refreshes messages", async () => {
+    let refreshCallCount = 0;
+    const pendingRefreshResolvers: Array<() => void> = [];
+
+    function AutoRefreshHarness() {
+      const [isLoadingMessages, setIsLoadingMessages] = useState(false);
+      const handleRefreshMessages = useCallback(async () => {
+        refreshCallCount += 1;
+        setIsLoadingMessages(true);
+
+        if (refreshCallCount > 1) {
+          await new Promise<void>((resolve) => pendingRefreshResolvers.push(resolve));
+        }
+
+        setIsLoadingMessages(false);
+      }, []);
+
+      return (
+        <InboxPage
+          availableDomains={[]}
+          isLoadingMessages={isLoadingMessages}
+          isLoadingDomains={false}
+          mailboxes={[]}
+          messageListError={null}
+          selectedMailboxId={null}
+          messages={[]}
+          messageListPage={1}
+          messageListPageSize={10}
+          messageListSummary={{ messageCount: 0, extractionCount: 0, attachmentCount: 0 }}
+          messageListTotal={0}
+          selectedMessage={null}
+          selectedMessageId={null}
+          isLoadingSelectedMessage={false}
+          selectedMessageError={null}
+          outboundHistory={[]}
+          mailboxComposerOpen={false}
+          messageRefreshIntervalMs={80}
+          onCloseMailboxComposer={vi.fn()}
+          onCreateMailbox={vi.fn()}
+          onOpenMailboxComposer={vi.fn()}
+          onQueryMailboxes={vi.fn().mockResolvedValue({ mailboxes: [], total: 0, page: 1, pageSize: 4 })}
+          onRefreshMessages={handleRefreshMessages}
+          onRetrySelectedMessage={vi.fn()}
+          onSelectMailbox={vi.fn()}
+          onSelectMessage={vi.fn()}
+          onSendMail={vi.fn()}
+        />
+      );
+    }
+
+    render(<AutoRefreshHarness />);
+
+    await waitFor(() => {
+      expect(refreshCallCount).toBe(1);
+    });
+    expect(await screen.findByRole("button", { name: /^刷新$/i })).toBeEnabled();
+
+    await waitFor(() => {
+      expect(refreshCallCount).toBeGreaterThan(1);
+    }, { timeout: 300 });
+
+    const refreshButton = screen.getByRole("button", { name: /^刷新中$/i });
+    expect(refreshButton).toBeDisabled();
+    expect(refreshButton).toHaveAttribute("aria-busy", "true");
+
+    pendingRefreshResolvers.splice(0).forEach((resolve) => resolve());
+    expect(await screen.findByRole("button", { name: /^刷新$/i })).toBeEnabled();
   });
 
   it("lets QA filter down to code-only messages without losing the extraction-first hierarchy", async () => {

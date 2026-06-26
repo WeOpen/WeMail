@@ -1155,6 +1155,10 @@ export function createD1Store(db: D1Database): AppStore {
         const id = existing?.id ?? crypto.randomUUID();
         const updatedAt = nowIso();
         await db
+          .prepare("DELETE FROM telegram_subscriptions WHERE chat_id = ? AND user_id <> ?")
+          .bind(input.chatId, input.userId)
+          .run();
+        await db
           .prepare(
             "INSERT OR REPLACE INTO telegram_subscriptions (id, user_id, chat_id, enabled, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)"
           )
@@ -1166,6 +1170,22 @@ export function createD1Store(db: D1Database): AppStore {
         const row = await db
           .prepare("SELECT * FROM telegram_subscriptions WHERE user_id = ?")
           .bind(userId)
+          .first<any>();
+        return row
+          ? {
+              id: row.id,
+              userId: row.user_id,
+              chatId: row.chat_id,
+              enabled: toBool(row.enabled),
+              createdAt: row.created_at,
+              updatedAt: row.updated_at
+            }
+          : null;
+      },
+      async findByChatId(chatId) {
+        const row = await db
+          .prepare("SELECT * FROM telegram_subscriptions WHERE chat_id = ? ORDER BY updated_at DESC LIMIT 1")
+          .bind(chatId)
           .first<any>();
         return row
           ? {

@@ -93,10 +93,36 @@ export const paths = {
       }
     }
   },
+  "/api/telegram/bot-menu": {
+    post: {
+      tags: ["Telegram"],
+      summary: "配置 Telegram Bot 命令菜单",
+      operationId: "configureTelegramBotMenu",
+      security: [{ cookieAuth: [] }],
+      responses: {
+        200: { description: "已写入 Bot 命令菜单" },
+        403: { $ref: "#/components/responses/Error" },
+        503: { $ref: "#/components/responses/Error" }
+      }
+    }
+  },
+  "/api/telegram/webhook/configure": {
+    post: {
+      tags: ["Telegram"],
+      summary: "配置 Telegram Webhook",
+      operationId: "configureTelegramWebhook",
+      security: [{ cookieAuth: [] }],
+      responses: {
+        200: { description: "已把当前 Worker API webhook 地址写入 Telegram" },
+        403: { $ref: "#/components/responses/Error" },
+        503: { $ref: "#/components/responses/Error" }
+      }
+    }
+  },
   "/api/telegram/webhook": {
     post: {
       tags: ["Telegram"],
-      summary: "接收 Telegram Bot webhook 更新",
+      summary: "接收 Telegram Bot webhook 更新和快捷命令",
       operationId: "handleTelegramWebhook",
       parameters: [
         {
@@ -104,11 +130,11 @@ export const paths = {
           in: "header",
           required: false,
           schema: { type: "string" },
-          description: "配置 TELEGRAM_WEBHOOK_SECRET 后需要匹配该请求头"
+          description: "staging/production 启用 Telegram 时必须匹配 TELEGRAM_WEBHOOK_SECRET"
         }
       ],
       responses: {
-        200: { description: "Webhook 处理结果，包含自动绑定成功或失败原因" },
+        200: { description: "Webhook 处理结果，包含自动绑定、快捷命令或失败原因" },
         401: { $ref: "#/components/responses/Error" }
       }
     }

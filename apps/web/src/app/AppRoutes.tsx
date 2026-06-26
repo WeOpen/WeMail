@@ -24,6 +24,8 @@ import type {
 } from "@wemail/shared";
 
 import type { AdminUserStats, AdminUsersQuery, InviteSummary } from "../features/admin/types";
+import type { TelegramBotMenuResult, TelegramWebhookConfigureResult } from "../features/settings/api";
+import type { SettingsDataQueryOptions } from "../features/settings/queries";
 import type {
   MailboxCreatePayload,
   MailboxListQueryInput,
@@ -33,25 +35,51 @@ import type {
 } from "../features/inbox/api";
 import type { OutboundHistoryDetail, OutboundHistoryItem, OutboundHistorySummary } from "../features/inbox/types";
 import { Button } from "../shared/button";
+import { Skeleton } from "../shared/skeleton";
 import type { WorkspaceTheme, WorkspaceThemePreference } from "./useWorkspaceTheme";
 
-const AboutPage = lazy(() => import("../pages/AboutPage").then((module) => ({ default: module.AboutPage })));
-const AccountsListRoutePage = lazy(() => import("../features/accounts/AccountsListRoutePage").then((module) => ({ default: module.AccountsListRoutePage })));
-const AccountsSettingsPage = lazy(() => import("../features/accounts/AccountsSettingsPage").then((module) => ({ default: module.AccountsSettingsPage })));
-const AnnouncementsPage = lazy(() => import("../pages/AnnouncementsPage").then((module) => ({ default: module.AnnouncementsPage })));
-const ApiInterfacesPage = lazy(() => import("../features/settings/ApiInterfacesPage").then((module) => ({ default: module.ApiInterfacesPage })));
-const ApiKeysPage = lazy(() => import("../features/settings/ApiKeysPage").then((module) => ({ default: module.ApiKeysPage })));
-const DashboardPage = lazy(() => import("../pages/DashboardPage").then((module) => ({ default: module.DashboardPage })));
-const InboxPage = lazy(() => import("../pages/InboxPage").then((module) => ({ default: module.InboxPage })));
-const MailSettingsPage = lazy(() => import("../features/settings/MailSettingsPage").then((module) => ({ default: module.MailSettingsPage })));
-const OutboundPage = lazy(() => import("../features/outbound/OutboundPage").then((module) => ({ default: module.OutboundPage })));
-const SystemProfilePage = lazy(() => import("../pages/SystemProfilePage").then((module) => ({ default: module.SystemProfilePage })));
-const SystemSettingsPage = lazy(() => import("../pages/SystemSettingsPage").then((module) => ({ default: module.SystemSettingsPage })));
-const TelegramSettingsPage = lazy(() => import("../features/settings/TelegramSettingsPage").then((module) => ({ default: module.TelegramSettingsPage })));
-const UsersGlobalSettingsPage = lazy(() => import("../pages/UsersGlobalSettingsPage").then((module) => ({ default: module.UsersGlobalSettingsPage })));
-const UsersListRoutePage = lazy(() => import("../pages/UsersListRoutePage").then((module) => ({ default: module.UsersListRoutePage })));
-const WebhookPage = lazy(() => import("../features/settings/WebhookPage").then((module) => ({ default: module.WebhookPage })));
-const WorkspacePlaceholderPage = lazy(() => import("../pages/WorkspacePlaceholderPage").then((module) => ({ default: module.WorkspacePlaceholderPage })));
+const loadAboutPage = () => import("../pages/AboutPage").then((module) => ({ default: module.AboutPage }));
+const loadAccountsListRoutePage = () =>
+  import("../features/accounts/AccountsListRoutePage").then((module) => ({ default: module.AccountsListRoutePage }));
+const loadAccountsSettingsPage = () =>
+  import("../features/accounts/AccountsSettingsPage").then((module) => ({ default: module.AccountsSettingsPage }));
+const loadAnnouncementsPage = () => import("../pages/AnnouncementsPage").then((module) => ({ default: module.AnnouncementsPage }));
+const loadApiInterfacesPage = () =>
+  import("../features/settings/ApiInterfacesPage").then((module) => ({ default: module.ApiInterfacesPage }));
+const loadApiKeysPage = () => import("../features/settings/ApiKeysPage").then((module) => ({ default: module.ApiKeysPage }));
+const loadDashboardPage = () => import("../pages/DashboardPage").then((module) => ({ default: module.DashboardPage }));
+const loadInboxPage = () => import("../pages/InboxPage").then((module) => ({ default: module.InboxPage }));
+const loadMailSettingsPage = () =>
+  import("../features/settings/MailSettingsPage").then((module) => ({ default: module.MailSettingsPage }));
+const loadOutboundPage = () => import("../features/outbound/OutboundPage").then((module) => ({ default: module.OutboundPage }));
+const loadSystemProfilePage = () => import("../pages/SystemProfilePage").then((module) => ({ default: module.SystemProfilePage }));
+const loadSystemSettingsPage = () => import("../pages/SystemSettingsPage").then((module) => ({ default: module.SystemSettingsPage }));
+const loadTelegramSettingsPage = () =>
+  import("../features/settings/TelegramSettingsPage").then((module) => ({ default: module.TelegramSettingsPage }));
+const loadUsersGlobalSettingsPage = () =>
+  import("../pages/UsersGlobalSettingsPage").then((module) => ({ default: module.UsersGlobalSettingsPage }));
+const loadUsersListRoutePage = () => import("../pages/UsersListRoutePage").then((module) => ({ default: module.UsersListRoutePage }));
+const loadWebhookPage = () => import("../features/settings/WebhookPage").then((module) => ({ default: module.WebhookPage }));
+const loadWorkspacePlaceholderPage = () =>
+  import("../pages/WorkspacePlaceholderPage").then((module) => ({ default: module.WorkspacePlaceholderPage }));
+
+const AboutPage = lazy(loadAboutPage);
+const AccountsListRoutePage = lazy(loadAccountsListRoutePage);
+const AccountsSettingsPage = lazy(loadAccountsSettingsPage);
+const AnnouncementsPage = lazy(loadAnnouncementsPage);
+const ApiInterfacesPage = lazy(loadApiInterfacesPage);
+const ApiKeysPage = lazy(loadApiKeysPage);
+const DashboardPage = lazy(loadDashboardPage);
+const InboxPage = lazy(loadInboxPage);
+const MailSettingsPage = lazy(loadMailSettingsPage);
+const OutboundPage = lazy(loadOutboundPage);
+const SystemProfilePage = lazy(loadSystemProfilePage);
+const SystemSettingsPage = lazy(loadSystemSettingsPage);
+const TelegramSettingsPage = lazy(loadTelegramSettingsPage);
+const UsersGlobalSettingsPage = lazy(loadUsersGlobalSettingsPage);
+const UsersListRoutePage = lazy(loadUsersListRoutePage);
+const WebhookPage = lazy(loadWebhookPage);
+const WorkspacePlaceholderPage = lazy(loadWorkspacePlaceholderPage);
 
 type AppRoutesProps = {
   session: SessionSummary;
@@ -98,7 +126,9 @@ type AppRoutesProps = {
     revokeApiKey: (keyId: string) => Promise<void>;
     saveTelegram: (payload: { chatId: string; enabled: boolean }) => Promise<void>;
     createTelegramLinkCode: () => Promise<TelegramLinkCodeSummary>;
-    refreshSettingsData: () => Promise<void>;
+    configureTelegramBotMenu: () => Promise<TelegramBotMenuResult>;
+    configureTelegramWebhook: () => Promise<TelegramWebhookConfigureResult>;
+    refreshSettingsData: (options?: SettingsDataQueryOptions) => Promise<void>;
     saveRuntimeSettings: (payload: RuntimeSettingsUpdateInput) => Promise<void>;
     sendTelegramTest: () => Promise<TelegramTestMessageResult>;
   };
@@ -164,10 +194,45 @@ type AppRoutesProps = {
 
 function WorkspaceRouteFallback() {
   return (
-    <main className="workspace-grid">
-      <section className="panel workspace-card page-panel">
-        <p className="panel-kicker">页面加载</p>
-        <h2>正在打开工作台页面</h2>
+    <main aria-busy="true" aria-label="工作台页面加载中" className="workspace-grid workspace-route-skeleton" role="status">
+      <section aria-hidden="true" className="workspace-route-skeleton-kpis">
+        {Array.from({ length: 5 }, (_, index) => (
+          <article className={`panel workspace-card workspace-route-skeleton-kpi${index === 0 ? " is-featured" : ""}`} key={index}>
+            <Skeleton animated height={10} rounded="full" width="42%" />
+            <Skeleton animated height={index === 0 ? 46 : 34} rounded="md" width={index === 0 ? "46%" : "38%"} />
+            <Skeleton animated height={12} rounded="full" width="72%" />
+            <Skeleton animated height={12} rounded="full" width="54%" />
+            <Skeleton animated className="workspace-route-skeleton-kpi-mark" height={64} rounded="lg" width={64} />
+          </article>
+        ))}
+      </section>
+
+      <section aria-hidden="true" className="workspace-route-skeleton-main">
+        <article className="panel workspace-card workspace-route-skeleton-panel workspace-route-skeleton-chart">
+          <div className="workspace-route-skeleton-panel-head">
+            <Skeleton animated height={14} rounded="full" width="18%" />
+            <Skeleton animated height={34} rounded="full" width={132} />
+          </div>
+          <div className="workspace-route-skeleton-chart-lines">
+            {Array.from({ length: 4 }, (_, index) => (
+              <Skeleton animated height={1} key={index} rounded="full" width="100%" />
+            ))}
+          </div>
+          <Skeleton animated className="workspace-route-skeleton-chart-curve" height={112} rounded="lg" width="100%" />
+        </article>
+
+        <article className="panel workspace-card workspace-route-skeleton-panel workspace-route-skeleton-side">
+          <Skeleton animated height={14} rounded="full" width="34%" />
+          <Skeleton animated height={180} rounded="full" width={180} />
+          <div className="workspace-route-skeleton-list">
+            {Array.from({ length: 3 }, (_, index) => (
+              <div className="workspace-route-skeleton-list-item" key={index}>
+                <Skeleton animated shape="circle" width={12} />
+                <Skeleton animated height={12} rounded="full" width={`${66 - index * 10}%`} />
+              </div>
+            ))}
+          </div>
+        </article>
       </section>
     </main>
   );
@@ -232,8 +297,11 @@ export function AppRoutes({
 
   const telegramPage = (
     <TelegramSettingsPage
+      canConfigureBotMenu={session.user.role === "admin"}
       deliveries={settings.telegramDeliveries}
       overview={settings.telegramOverview}
+      onConfigureBotMenu={settings.configureTelegramBotMenu}
+      onConfigureWebhook={settings.configureTelegramWebhook}
       onCreateTelegramLinkCode={settings.createTelegramLinkCode}
       onRefreshTelegram={settings.refreshSettingsData}
       onSaveTelegram={settings.saveTelegram}

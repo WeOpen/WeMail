@@ -24,6 +24,7 @@ import { Button, ButtonAnchor } from "../../shared/button";
 import { CopyButton } from "../../shared/copy-button";
 import { CheckboxField, FormField, TextInput } from "../../shared/form";
 
+import type { TelegramWebhookConfigureResult } from "./api";
 import { SettingsSupportCard } from "./SettingsSupport";
 
 type SaveTelegramPayload = {
@@ -32,8 +33,11 @@ type SaveTelegramPayload = {
 };
 
 type TelegramSettingsPageProps = {
+  canConfigureBotMenu: boolean;
   deliveries: TelegramDeliverySummary[];
   overview: TelegramOverviewSummary;
+  onConfigureBotMenu: () => Promise<unknown>;
+  onConfigureWebhook: () => Promise<TelegramWebhookConfigureResult>;
   onCreateTelegramLinkCode: () => Promise<TelegramLinkCodeSummary>;
   onRefreshTelegram: () => Promise<void>;
   onSaveTelegram: (payload: SaveTelegramPayload) => Promise<void>;
@@ -96,8 +100,11 @@ function formatTelegramTimestamp(value: string) {
 }
 
 export function TelegramSettingsPage({
+  canConfigureBotMenu,
   deliveries,
   overview,
+  onConfigureBotMenu,
+  onConfigureWebhook,
   onCreateTelegramLinkCode,
   onRefreshTelegram,
   onSaveTelegram,
@@ -115,6 +122,12 @@ export function TelegramSettingsPage({
   const [isSendingTest, setIsSendingTest] = useState(false);
   const [testResult, setTestResult] = useState<TelegramTestMessageResult | null>(null);
   const [testError, setTestError] = useState<string | null>(null);
+  const [isConfiguringBotMenu, setIsConfiguringBotMenu] = useState(false);
+  const [botMenuMessage, setBotMenuMessage] = useState<string | null>(null);
+  const [botMenuError, setBotMenuError] = useState<string | null>(null);
+  const [isConfiguringWebhook, setIsConfiguringWebhook] = useState(false);
+  const [webhookMessage, setWebhookMessage] = useState<string | null>(null);
+  const [webhookError, setWebhookError] = useState<string | null>(null);
 
   useEffect(() => {
     setChatId(subscription?.chatId ?? "");
@@ -123,6 +136,10 @@ export function TelegramSettingsPage({
     setLinkError(null);
     setTestResult(null);
     setTestError(null);
+    setBotMenuMessage(null);
+    setBotMenuError(null);
+    setWebhookMessage(null);
+    setWebhookError(null);
   }, [subscription]);
 
   const savedChatId = subscription?.chatId ?? "";
@@ -163,6 +180,18 @@ export function TelegramSettingsPage({
         ? `后端已在 ${testResult.attemptedAt} 向 Chat ${savedChatId} 发送测试消息。`
         : `后端已尝试发送，但 Telegram 返回失败：${testResult.reason ?? "unknown"}。`
       : testHelpText;
+  const canRunBotMenuSetup = canConfigureBotMenu && resolvedOverview.featureEnabled && resolvedOverview.botConfigured;
+  const canRunWebhookSetup = canConfigureBotMenu && resolvedOverview.featureEnabled && resolvedOverview.botConfigured;
+  const botMenuHelpText = !resolvedOverview.featureEnabled
+    ? "Telegram 功能开启后可配置 Bot 菜单。"
+    : !resolvedOverview.botConfigured
+      ? "后端配置 Bot Token 后可写入 Telegram 命令菜单。"
+      : "把 /status、/accounts、/messages 等命令写入 Telegram Bot 菜单。";
+  const webhookHelpText = !resolvedOverview.featureEnabled
+    ? "Telegram 功能开启后可配置 webhook。"
+    : !resolvedOverview.botConfigured
+      ? "后端配置 Bot Token 后可把当前 API 域名写入 Telegram webhook。"
+      : "把当前 API 域名写入 Telegram webhook，用于接收绑定码和 Bot 命令。";
 
   const statusCards: TelegramStatusCard[] = [
     {
@@ -241,6 +270,34 @@ export function TelegramSettingsPage({
       setTestError(error instanceof Error ? error.message : "Telegram test message failed");
     } finally {
       setIsSendingTest(false);
+    }
+  };
+
+  const handleConfigureBotMenu = async () => {
+    setIsConfiguringBotMenu(true);
+    try {
+      await onConfigureBotMenu();
+      setBotMenuMessage("Bot 菜单已配置");
+      setBotMenuError(null);
+    } catch (error) {
+      setBotMenuMessage(null);
+      setBotMenuError(error instanceof Error ? error.message : "Telegram bot menu configuration failed");
+    } finally {
+      setIsConfiguringBotMenu(false);
+    }
+  };
+
+  const handleConfigureWebhook = async () => {
+    setIsConfiguringWebhook(true);
+    try {
+      const result = await onConfigureWebhook();
+      setWebhookMessage(`Webhook 已配置：${result.url}`);
+      setWebhookError(null);
+    } catch (error) {
+      setWebhookMessage(null);
+      setWebhookError(error instanceof Error ? error.message : "Telegram webhook configuration failed");
+    } finally {
+      setIsConfiguringWebhook(false);
     }
   };
 
@@ -417,6 +474,64 @@ export function TelegramSettingsPage({
         </section>
 
         <aside className="integration-secondary-column telegram-side-rail">
+          {canConfigureBotMenu ? (
+            <>
+              <SettingsSupportCard kicker="管理员工具" title="Webhook 配置" description={webhookHelpText}>
+                <div className="telegram-link-card">
+                  <div className="telegram-link-actions">
+                    <Button
+                      disabled={!canRunWebhookSetup}
+                      isLoading={isConfiguringWebhook}
+                      leadingIcon={<Radio size={16} strokeWidth={1.8} />}
+                      loadingLabel="配置中..."
+                      onClick={() => void handleConfigureWebhook()}
+                      variant="secondary"
+                    >
+                      配置 Webhook
+                    </Button>
+                  </div>
+                  {webhookError ? (
+                    <p className="telegram-link-error" role="alert">
+                      {webhookError}
+                    </p>
+                  ) : null}
+                  {webhookMessage ? (
+                    <p className="form-message" data-tone="success" role="status">
+                      {webhookMessage}
+                    </p>
+                  ) : null}
+                </div>
+              </SettingsSupportCard>
+
+              <SettingsSupportCard kicker="管理员工具" title="Bot 菜单配置" description={botMenuHelpText}>
+                <div className="telegram-link-card">
+                  <div className="telegram-link-actions">
+                    <Button
+                      disabled={!canRunBotMenuSetup}
+                      isLoading={isConfiguringBotMenu}
+                      leadingIcon={<Bot size={16} strokeWidth={1.8} />}
+                      loadingLabel="配置中..."
+                      onClick={() => void handleConfigureBotMenu()}
+                      variant="secondary"
+                    >
+                      配置 Bot 菜单
+                    </Button>
+                  </div>
+                  {botMenuError ? (
+                    <p className="telegram-link-error" role="alert">
+                      {botMenuError}
+                    </p>
+                  ) : null}
+                  {botMenuMessage ? (
+                    <p className="form-message" data-tone="success" role="status">
+                      {botMenuMessage}
+                    </p>
+                  ) : null}
+                </div>
+              </SettingsSupportCard>
+            </>
+          ) : null}
+
           <SettingsSupportCard kicker="自动绑定" title="Telegram 自动绑定" description="生成一次性命令后，在 Bot 私聊里发送即可完成当前账号绑定。">
             <div className="telegram-link-card">
               <div className="telegram-link-actions">
