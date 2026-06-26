@@ -14,6 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.4] - 2026-06-27
+
 ### Added
 
 - Added detailed OAuth provider configuration documentation to the docs site.
@@ -231,7 +233,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Established the current tracked baseline from the existing monorepo package versions.
 
-[Unreleased]: https://github.com/WeOpen/WeMail/compare/v0.1.3...HEAD
+[Unreleased]: https://github.com/WeOpen/WeMail/compare/v0.1.4...HEAD
+[0.1.4]: https://github.com/WeOpen/WeMail/releases/tag/v0.1.4
 [0.1.3]: https://github.com/WeOpen/WeMail/releases/tag/v0.1.3
 [0.1.2]: https://github.com/WeOpen/WeMail/releases/tag/v0.1.2
 [0.1.1]: https://github.com/WeOpen/WeMail/releases/tag/v0.1.1
