@@ -1121,7 +1121,9 @@ describe("mail list integration", () => {
     expect(refreshButton).toHaveAttribute("aria-busy", "true");
 
     pendingRefreshResolvers.splice(0).forEach((resolve) => resolve());
-    expect(await screen.findByRole("button", { name: /^刷新$/i })).toBeEnabled();
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /^刷新$/i })).toBeEnabled();
+    });
   });
 
   it("lets QA filter down to code-only messages without losing the extraction-first hierarchy", async () => {
