@@ -29,6 +29,9 @@ jobs:
       - name: Install Playwright Chromium
         run: pnpm dlx playwright install --with-deps chromium
 
+      - name: Build web preview
+        run: pnpm --dir apps/web exec vite build
+
       - name: Run E2E
         run: pnpm test:e2e
 
