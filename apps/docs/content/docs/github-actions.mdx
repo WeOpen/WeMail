@@ -88,9 +88,13 @@ ${VITE_API_BASE_URL}/api/...
 | Workers Scripts | Edit |
 | D1 | Edit |
 | Pages | Edit |
+| Workers Routes | Edit, zone 级别；`wrangler.toml` 配了 `/api/*` routes 时必需 |
+| Zone | Read, zone 级别；使用 `zone_name` route 时用于解析 zone ID |
 | Workers Tail | Read，可选 |
 
 如果团队权限允许，staging 和 production 使用不同 token，减少误操作风险。
+
+如果 `deploy-worker` 在 `wrangler deploy` 阶段提示 `Some triggers failed to deploy` 或 `/zones/.../workers/routes` 失败，通常就是 `CLOUDFLARE_API_TOKEN` 缺少 `Workers Routes: Edit`，或者 token 没有被授权到 `wrangler.toml` 中 route 所属的 zone。
 
 GitHub Environment variable 不会自动进入 shell。你需要在 workflow 的 build 步骤显式传入：
 
@@ -284,6 +288,15 @@ workflow 会直接失败。这是预期保护。
 - 当前 GitHub Environment 的 `CLOUDFLARE_D1_DATABASE_ID` 配错。
 - migrations 已部分执行。
 - migration 文件与当前 schema 不兼容。
+
+### `Some triggers failed to deploy`
+
+如果 Worker 已经上传，但 `deploy-worker` 在 route trigger 阶段失败，检查当前 environment 的 `CLOUDFLARE_API_TOKEN` 是否有目标 zone 权限：
+
+- `Zone / Workers Routes: Edit`
+- `Zone / Zone: Read`
+
+`apps/worker/wrangler.toml` 里 staging 和 production 都配置了 `zone_name` route。缺少这些权限时，Wrangler 可以部署到 `workers.dev`，但不能更新 `wemail.example.com/api/*` 这类自定义域名路由。
 
 ### Pages 部署成功但页面请求错 API
 

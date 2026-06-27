@@ -89,9 +89,13 @@
 - Account / D1: Edit（如果 workflow 需要迁移）
 - Account / Workers KV Storage: Edit
 - Account / Pages: Edit
+- Zone / Workers Routes: Edit（`wrangler.toml` 配了 `/api/*` route 时必需）
+- Zone / Zone: Read（使用 `zone_name` route 时用于解析 zone ID）
 - Account / Workers Tail: Read（可选）
 
 若能分环境拆分 token，优先拆分，避免 production 被 staging 凭证误用。
+
+如果 `deploy-worker` 日志中出现 `Some triggers failed to deploy` 或 `/zones/.../workers/routes`，通常说明 Worker 已上传，但 token 不能更新自定义域名 route。给当前 environment 的 `CLOUDFLARE_API_TOKEN` 补上对应 zone 的 `Workers Routes: Edit` 后重新触发部署。
 
 ### 3.3 Worker 运行时 secrets
 

@@ -155,6 +155,8 @@ mail.example.com/api/*
 
 指向 Worker，把其他页面流量交给 Pages。
 
+如果这条 route 写在 `wrangler.toml` 的 `routes` 里，GitHub Actions 使用的 `CLOUDFLARE_API_TOKEN` 还必须拥有目标 zone 的 `Workers Routes: Edit` 和 `Zone: Read` 权限。否则 Worker 代码会上传成功，但 `wrangler deploy` 会在 `Some triggers failed to deploy` 或 `/zones/.../workers/routes` 阶段失败。
+
 ### 模式 B：独立 Worker API 域名
 
 如果 Worker API 是独立域名：

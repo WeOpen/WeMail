@@ -203,6 +203,77 @@ jobs:
             exit 1
           fi
 
+      - name: Validate Worker route permissions
+        shell: bash
+        working-directory: apps/worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          TARGET_ENV: ${{ needs.prepare.outputs.worker_environment }}
+        run: |
+          mapfile -t route_zone_names < <(TARGET_ENV="$TARGET_ENV" perl -0ne 'if (/\[env\.\Q$ENV{TARGET_ENV}\E\](.*?)(?=\n\[env\.|\z)/s) { while ($1 =~ /zone_name\s*=\s*"([^"]+)"/g) { print "$1\n"; } }' wrangler.toml | sort -u)
+
+          if (( ${#route_zone_names[@]} == 0 )); then
+            echo "No zone_name Worker routes configured for ${TARGET_ENV}; skipping route permission check."
+            exit 0
+          fi
+
+          print_cloudflare_errors() {
+            node -e '
+              const fs = require("node:fs");
+              try {
+                const body = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+                for (const error of body.errors ?? []) {
+                  console.error(`Cloudflare API: ${error.message}`);
+                }
+              } catch {
+                // Ignore non-JSON responses; curl already reported the HTTP status.
+              }
+            ' "$1"
+          }
+
+          for route_zone_name in "${route_zone_names[@]}"; do
+            echo "Checking Cloudflare Worker route permissions for zone ${route_zone_name}..."
+
+            zone_response="$(mktemp)"
+            zone_status="$(curl -sS -o "$zone_response" -w "%{http_code}" \
+              -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
+              -H "Content-Type: application/json" \
+              "https://api.cloudflare.com/client/v4/zones?name=${route_zone_name}")"
+
+            if [[ "$zone_status" -lt 200 || "$zone_status" -ge 300 ]]; then
+              echo "Cloudflare API token cannot read zone ${route_zone_name}." >&2
+              echo "Grant Zone / Zone: Read for this zone, or switch wrangler.toml routes to zone_id." >&2
+              print_cloudflare_errors "$zone_response"
+              exit 1
+            fi
+
+            zone_id="$(node -e '
+              const fs = require("node:fs");
+              const body = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+              const zone = Array.isArray(body.result) ? body.result[0] : undefined;
+              if (!body.success || !zone?.id) process.exit(1);
+              process.stdout.write(zone.id);
+            ' "$zone_response")" || {
+              echo "Cloudflare API token did not return a zone ID for ${route_zone_name}." >&2
+              echo "Check that the token can access the target zone and that the zone_name in wrangler.toml is correct." >&2
+              print_cloudflare_errors "$zone_response"
+              exit 1
+            }
+
+            routes_response="$(mktemp)"
+            routes_status="$(curl -sS -o "$routes_response" -w "%{http_code}" \
+              -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
+              -H "Content-Type: application/json" \
+              "https://api.cloudflare.com/client/v4/zones/${zone_id}/workers/routes")"
+
+            if [[ "$routes_status" -lt 200 || "$routes_status" -ge 300 ]]; then
+              echo "Cloudflare API token cannot access Worker routes for zone ${route_zone_name}." >&2
+              echo "Grant Zone / Workers Routes: Edit for this zone before running wrangler deploy." >&2
+              print_cloudflare_errors "$routes_response"
+              exit 1
+            fi
+          done
+
       - name: Apply D1 migrations
         shell: bash
         working-directory: apps/worker

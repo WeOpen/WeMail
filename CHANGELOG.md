@@ -14,6 +14,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Added a Cloudflare Worker route permission preflight and deployment docs for `Workers Routes: Edit` token failures.
+
 ## [0.1.4] - 2026-06-27
 
 ### Added
