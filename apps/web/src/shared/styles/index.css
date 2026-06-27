@@ -5717,21 +5717,21 @@ button:disabled {
 .telegram-control-grid {
   display: grid;
   grid-template-columns: minmax(0, 1.18fr) minmax(310px, 0.82fr);
-  grid-template-areas:
-    "control side"
-    "preferences side"
-    "delivery side";
+  grid-template-areas: "primary side";
   gap: 16px;
   align-items: start;
 }
 
-.telegram-control-panel {
-  grid-area: control;
-  gap: 20px;
+.telegram-primary-column {
+  display: grid;
+  grid-area: primary;
+  gap: 16px;
+  align-content: start;
+  min-width: 0;
 }
 
-.telegram-preferences-panel {
-  grid-area: preferences;
+.telegram-control-panel {
+  gap: 20px;
 }
 
 .telegram-control-header .ui-button,
@@ -5888,7 +5888,6 @@ button:disabled {
 }
 
 .telegram-delivery-panel {
-  grid-area: delivery;
   align-content: start;
 }
 
@@ -9762,10 +9761,8 @@ button:disabled {
   .telegram-control-grid {
     grid-template-columns: minmax(0, 1fr);
     grid-template-areas:
-      "control"
-      "side"
-      "preferences"
-      "delivery";
+      "primary"
+      "side";
   }
 }
 

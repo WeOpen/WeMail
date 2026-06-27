@@ -310,6 +310,7 @@ export function TelegramSettingsPage({
       </section>
 
       <div className="telegram-control-grid">
+        <div className="telegram-primary-column">
         <section className="panel workspace-card page-panel integration-surface-card telegram-control-panel">
           <div className="workspace-card-header telegram-control-header">
             <div className="integration-card-copy">
@@ -472,6 +473,7 @@ export function TelegramSettingsPage({
             )}
           </div>
         </section>
+        </div>
 
         <aside className="integration-secondary-column telegram-side-rail">
           {canConfigureBotMenu ? (

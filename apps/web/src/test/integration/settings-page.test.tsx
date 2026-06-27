@@ -319,6 +319,11 @@ describe("settings pages", () => {
     expect(screen.getByRole("heading", { name: /测试通知/i })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /绑定流程/i })).toBeInTheDocument();
     expect(screen.queryByText(/如何选择这三种接入/i)).not.toBeInTheDocument();
+    const telegramPrimaryColumn = screen.getByRole("heading", { name: /Telegram 通知控制台/i }).closest(".telegram-primary-column");
+    expect(telegramPrimaryColumn).not.toBeNull();
+    expect(within(telegramPrimaryColumn as HTMLElement).getByRole("heading", { name: /最近投递/i })).toBeInTheDocument();
+    expect(getStyleRule(".telegram-control-grid")).toContain('grid-template-areas: "primary side"');
+    expect(getStyleRule(".telegram-primary-column")).toContain("gap: 16px");
 
     await user.click(screen.getByRole("button", { name: /生成绑定码/i }));
 
