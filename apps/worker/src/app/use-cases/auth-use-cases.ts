@@ -10,6 +10,8 @@ import {
   buildOAuthAuthorizationUrl,
   fetchOAuthProfile,
   getOAuthProviderConfig,
+  OAuthProviderError,
+  type OAuthFailureReason,
   type OAuthProfile
 } from "../services/oauth-provider-service";
 import { sessionExpiryIso } from "../services/session-service";
@@ -43,6 +45,20 @@ function buildOAuthInviteRedirect(ticket: string, provider: OAuthProviderId, red
     next: redirectTo
   });
   return `/login?${params.toString()}`;
+}
+
+function buildOAuthErrorRedirect(provider: OAuthProviderId, redirectTo: string, reason: OAuthFailureReason) {
+  const params = new URLSearchParams({
+    oauth: "error",
+    provider,
+    reason,
+    next: redirectTo
+  });
+  return `/login?${params.toString()}`;
+}
+
+function resolveOAuthFailureReason(error: unknown): OAuthFailureReason {
+  return error instanceof OAuthProviderError ? error.reason : "provider_unavailable";
 }
 
 async function initializeUserQuota(c: Pick<AuthUseCaseContext, "store" | "env">, userId: string) {
@@ -166,7 +182,12 @@ export async function handleOAuthCallback(c: OAuthUseCaseContext, provider: OAut
   const runtimeConfig = getOAuthProviderConfig(resolveAppConfig(c.env), provider);
   if (!runtimeConfig) return jsonError("OAuth provider is not configured", 503);
 
-  const profile = await fetchOAuthProfile(provider, runtimeConfig, code);
+  let profile: OAuthProfile;
+  try {
+    profile = await fetchOAuthProfile(provider, runtimeConfig, code);
+  } catch (error) {
+    return c.redirect(buildOAuthErrorRedirect(provider, state.redirectTo, resolveOAuthFailureReason(error)));
+  }
   const existingUser = await findOAuthUser(c, profile);
   if (existingUser) {
     const result = await loginOAuthUser(c, existingUser.id, profile, "oauth_login");

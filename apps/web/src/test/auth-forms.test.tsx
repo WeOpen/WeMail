@@ -107,6 +107,30 @@ describe("AuthForms", () => {
     });
   });
 
+  it("shows a visible GitHub OAuth email error after callback failure", () => {
+    render(
+      <MemoryRouter initialEntries={["/login?oauth=error&provider=github&reason=email_required&next=%2Fdashboard"]}>
+        <Routes>
+          <Route
+            path="/login"
+            element={
+              <AuthPage
+                authError={null}
+                onLogin={vi.fn()}
+                onOAuthFinalize={vi.fn()}
+                onRegister={vi.fn()}
+                onToggleTheme={vi.fn()}
+                theme="dark"
+              />
+            }
+          />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    expect(screen.getByRole("alert")).toHaveTextContent("GitHub 没有返回可用邮箱");
+  });
+
   it("renders custom Chinese required messages and blocks empty login submissions", () => {
     const onLogin = vi.fn();
     render(<AuthForms authError={null} mode="login" onLogin={onLogin} onRegister={vi.fn()} />);

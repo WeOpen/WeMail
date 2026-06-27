@@ -75,7 +75,7 @@ WeMail 会在授权请求里自动带上 GitHub scope：
 read:user user:email
 ```
 
-GitHub 用户必须有已验证邮箱。代码会优先读取 primary verified email，如果没有，会读取任意 verified email；都没有时登录失败。
+GitHub 用户必须有可读取邮箱。代码会优先读取 primary verified email，其次读取任意 verified email；如果 private email 列表为空但 GitHub profile 返回了公开邮箱，会使用公开邮箱继续邀请码流程。都没有时会回到登录页并显示邮箱不可用提示。
 
 进入 Worker 目录写入 staging secrets：
 
@@ -199,7 +199,7 @@ curl -i "https://mail.example.com/api/auth/oauth/linuxdo/start?next=/dashboard"
 | 回调后跳到 API 域名的 `/login` | callback URL 使用了独立 API 域名 | 改用前端域名下的 `/api/auth/oauth/:provider/callback` route |
 | 返回 `OAuth state is invalid` | state 过期、重复使用、provider 不匹配，或 D1 表缺失 | 重新发起登录，并确认 migrations 已执行 |
 | 返回 `OAuth ticket is invalid` | 新用户 ticket 过期、已消费，或 finalize 的 provider 不一致 | 重新发起登录并在 15 分钟内提交邀请码 |
-| GitHub 登录失败并提示 verified email | GitHub 账号没有可读取的已验证邮箱 | 在 GitHub 验证邮箱，并确认授权包含 `user:email` |
+| GitHub 回调后没有邀请码弹窗并提示邮箱不可用 | GitHub 账号没有可读取邮箱，或授权没有返回 `user:email` 邮箱列表 | 在 GitHub 验证邮箱，确认授权包含 `user:email`，或在 GitHub profile 公开一个邮箱后重新登录 |
 | LinuxDo 登录提示缺邮箱 | LinuxDo 用户资料没有返回 email | 检查应用 scope 是否包含 `email`，以及账号是否提供邮箱 |
 | 登录成功后刷新变成未登录 | Cookie 域名或路由模式不一致 | 优先使用前端同域 `/api` route，并确认 production `COOKIE_SECURE = "true"` |
 | 新用户没有弹邀请码就进入系统 | Provider 邮箱已匹配现有 WeMail 用户 | 这是预期行为；旧用户不需要重新兑换邀请码 |

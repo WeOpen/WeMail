@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added a Cloudflare Worker route permission preflight and deployment docs for `Workers Routes: Edit` token failures.
 - Tightened Telegram settings page left-column card spacing so the support rail no longer stretches the main card stack.
 - Stabilized design system lazy-route assertions under slower CI test runs.
+- Fixed GitHub OAuth callbacks so missing private email data no longer fails silently and public profile emails can continue to the invite-code flow.
 
 ## [0.1.4] - 2026-06-27
 

@@ -32,6 +32,17 @@ function isOAuthProvider(value: string | null): value is "github" | "linuxdo" {
   return value === "github" || value === "linuxdo";
 }
 
+function resolveOAuthCallbackError(searchParams: URLSearchParams) {
+  const provider = searchParams.get("provider");
+  if (searchParams.get("oauth") !== "error" || !isOAuthProvider(provider)) return null;
+
+  const providerName = provider === "github" ? "GitHub" : "LinuxDo";
+  if (searchParams.get("reason") === "email_required") {
+    return `${providerName} 没有返回可用邮箱。请确认账号邮箱已验证，并重新授权登录。`;
+  }
+  return `${providerName} 登录暂时失败，请稍后重试。`;
+}
+
 export function AuthPage({ authError, onRegister, onLogin, onOAuthFinalize, onToggleTheme, theme }: AuthPageProps) {
   const location = useLocation();
   const navigate = useNavigate();
@@ -40,6 +51,7 @@ export function AuthPage({ authError, onRegister, onLogin, onOAuthFinalize, onTo
   const oauthProvider = searchParams.get("provider");
   const oauthTicket = searchParams.get("ticket");
   const isOAuthInviteOpen = searchParams.get("oauth") === "invite" && isOAuthProvider(oauthProvider) && Boolean(oauthTicket);
+  const oauthCallbackError = resolveOAuthCallbackError(searchParams);
   const [oauthInviteCode, setOAuthInviteCode] = useState("");
   const [isOAuthInviteSubmitting, setIsOAuthInviteSubmitting] = useState(false);
 
@@ -139,6 +151,11 @@ export function AuthPage({ authError, onRegister, onLogin, onOAuthFinalize, onTo
             注册
           </Button>
         </div>
+        {oauthCallbackError ? (
+          <p className="error-banner" role="alert">
+            {oauthCallbackError}
+          </p>
+        ) : null}
         <AuthForms authError={authError} onRegister={onRegister} onLogin={onLogin} mode={mode} oauthNext={resolveOAuthNext(location.search)} />
       </section>
       {isOAuthInviteOpen ? (

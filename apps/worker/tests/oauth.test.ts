@@ -60,6 +60,44 @@ function mockGithubFetch() {
   );
 }
 
+function mockGithubFetchWithPublicEmailOnly() {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (input: RequestInfo | URL) => {
+      const url = input.toString();
+      if (url === "https://github.com/login/oauth/access_token") {
+        return Response.json({ access_token: "github-access-token", token_type: "bearer" });
+      }
+      if (url === "https://api.github.com/user") {
+        return Response.json({ id: 12345, login: "octo", name: "Octo User", email: "public-octo@example.com" });
+      }
+      if (url === "https://api.github.com/user/emails") {
+        return Response.json([]);
+      }
+      throw new Error(`Unexpected fetch ${url}`);
+    })
+  );
+}
+
+function mockGithubFetchWithoutEmail() {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (input: RequestInfo | URL) => {
+      const url = input.toString();
+      if (url === "https://github.com/login/oauth/access_token") {
+        return Response.json({ access_token: "github-access-token", token_type: "bearer" });
+      }
+      if (url === "https://api.github.com/user") {
+        return Response.json({ id: 12345, login: "octo", name: "Octo User", email: null });
+      }
+      if (url === "https://api.github.com/user/emails") {
+        return Response.json([]);
+      }
+      throw new Error(`Unexpected fetch ${url}`);
+    })
+  );
+}
+
 function mockLinuxDoFetch() {
   vi.stubGlobal(
     "fetch",
@@ -143,6 +181,45 @@ describe("oauth authentication", () => {
       name: "Octo User",
       role: "admin"
     });
+  });
+
+  it("uses the GitHub public profile email when the verified email list is empty", async () => {
+    const store = createInMemoryStore();
+    const app = createApp({ store });
+    mockGithubFetchWithPublicEmailOnly();
+
+    const startResponse = await app.request("/api/auth/oauth/github/start?next=/dashboard", {}, env);
+    const authorizeLocation = readLocation(startResponse);
+    const state = readSearchParam(authorizeLocation, "state");
+
+    const callbackResponse = await app.request(`/api/auth/oauth/github/callback?code=github-code&state=${state}`, {}, env);
+    const callbackLocation = readLocation(callbackResponse);
+
+    expect(callbackResponse.status).toBe(302);
+    expect(callbackLocation).toContain("/login");
+    expect(readSearchParam(callbackLocation, "oauth")).toBe("invite");
+    expect(readSearchParam(callbackLocation, "provider")).toBe("github");
+    expect(readSearchParam(callbackLocation, "ticket")).toBeTruthy();
+  });
+
+  it("redirects GitHub callback failures back to login with a visible OAuth error", async () => {
+    const store = createInMemoryStore();
+    const app = createApp({ store });
+    mockGithubFetchWithoutEmail();
+
+    const startResponse = await app.request("/api/auth/oauth/github/start?next=/dashboard", {}, env);
+    const authorizeLocation = readLocation(startResponse);
+    const state = readSearchParam(authorizeLocation, "state");
+
+    const callbackResponse = await app.request(`/api/auth/oauth/github/callback?code=github-code&state=${state}`, {}, env);
+    const callbackLocation = readLocation(callbackResponse);
+
+    expect(callbackResponse.status).toBe(302);
+    expect(callbackLocation).toContain("/login");
+    expect(readSearchParam(callbackLocation, "oauth")).toBe("error");
+    expect(readSearchParam(callbackLocation, "provider")).toBe("github");
+    expect(readSearchParam(callbackLocation, "reason")).toBe("email_required");
+    expect(readSearchParam(callbackLocation, "next")).toBe("/dashboard");
   });
 
   it("logs in an existing LinuxDo user by verified email without asking for an invite", async () => {

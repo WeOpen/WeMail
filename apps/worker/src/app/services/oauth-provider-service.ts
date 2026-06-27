@@ -9,6 +9,15 @@ export type OAuthProfile = {
   login: string | null;
 };
 
+export type OAuthFailureReason = "email_required" | "provider_unavailable";
+
+export class OAuthProviderError extends Error {
+  constructor(message: string, readonly reason: OAuthFailureReason) {
+    super(message);
+    this.name = "OAuthProviderError";
+  }
+}
+
 type OAuthTokenResponse = {
   access_token?: string;
   token_type?: string;
@@ -62,7 +71,7 @@ export function buildOAuthAuthorizationUrl(provider: OAuthProviderId, runtimeCon
 }
 
 async function readJsonResponse<T>(response: Response, fallbackMessage: string) {
-  if (!response.ok) throw new Error(fallbackMessage);
+  if (!response.ok) throw new OAuthProviderError(fallbackMessage, "provider_unavailable");
   return response.json() as Promise<T>;
 }
 
@@ -85,12 +94,12 @@ async function exchangeOAuthCode(provider: OAuthProviderId, runtimeConfig: OAuth
     body
   });
   const payload = await readJsonResponse<OAuthTokenResponse>(tokenResponse, "OAuth token exchange failed");
-  if (!payload.access_token) throw new Error("OAuth token exchange failed");
+  if (!payload.access_token) throw new OAuthProviderError("OAuth token exchange failed", "provider_unavailable");
   return payload.access_token;
 }
 
 async function fetchGithubProfile(accessToken: string): Promise<OAuthProfile> {
-  const user = await readJsonResponse<{ id?: number | string; login?: string; name?: string | null }>(
+  const user = await readJsonResponse<{ id?: number | string; login?: string; name?: string | null; email?: string | null }>(
     await fetch("https://api.github.com/user", {
       headers: {
         accept: "application/vnd.github+json",
@@ -100,18 +109,26 @@ async function fetchGithubProfile(accessToken: string): Promise<OAuthProfile> {
     }),
     "GitHub profile fetch failed"
   );
-  const emails = await readJsonResponse<Array<{ email?: string; primary?: boolean; verified?: boolean }>>(
-    await fetch("https://api.github.com/user/emails", {
-      headers: {
-        accept: "application/vnd.github+json",
-        authorization: `Bearer ${accessToken}`,
-        "user-agent": "WeMail"
-      }
-    }),
-    "GitHub email fetch failed"
-  );
-  const email = emails.find((entry) => entry.primary && entry.verified)?.email ?? emails.find((entry) => entry.verified)?.email;
-  if (!user.id || !email) throw new Error("GitHub verified email is required");
+  const publicEmail = user.email?.trim() || null;
+  let emails: Array<{ email?: string; primary?: boolean; verified?: boolean }> = [];
+  try {
+    emails = await readJsonResponse<Array<{ email?: string; primary?: boolean; verified?: boolean }>>(
+      await fetch("https://api.github.com/user/emails", {
+        headers: {
+          accept: "application/vnd.github+json",
+          authorization: `Bearer ${accessToken}`,
+          "user-agent": "WeMail"
+        }
+      }),
+      "GitHub email fetch failed"
+    );
+  } catch (error) {
+    if (!publicEmail) throw error;
+  }
+  const verifiedEmail = emails.find((entry) => entry.primary && entry.verified)?.email?.trim() ?? emails.find((entry) => entry.verified)?.email?.trim();
+  const email = verifiedEmail || publicEmail;
+  if (!user.id) throw new OAuthProviderError("GitHub profile fetch failed", "provider_unavailable");
+  if (!email) throw new OAuthProviderError("GitHub verified email is required", "email_required");
   const login = user.login ?? null;
 
   return {
@@ -142,7 +159,8 @@ async function fetchLinuxDoProfile(accessToken: string): Promise<OAuthProfile> {
   );
   const providerUserId = user.sub ?? (user.id ? String(user.id) : "");
   const email = user.email?.trim();
-  if (!providerUserId || !email) throw new Error("LinuxDo email is required");
+  if (!providerUserId) throw new OAuthProviderError("LinuxDo profile fetch failed", "provider_unavailable");
+  if (!email) throw new OAuthProviderError("LinuxDo email is required", "email_required");
   const login = user.username ?? user.login ?? null;
 
   return {
