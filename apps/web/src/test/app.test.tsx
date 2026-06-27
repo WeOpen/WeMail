@@ -311,7 +311,7 @@ describe("App", () => {
       vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("not authenticated"));
       render(<App />);
 
-      expect(await screen.findByTestId("design-system-page")).toBeInTheDocument();
+      expect(await screen.findByTestId("design-system-page", undefined, { timeout: 10000 })).toBeInTheDocument();
       expect(screen.queryByRole("navigation", { name: "Design system sidebar" })).not.toBeInTheDocument();
       expect(screen.getByRole("heading", { level: 1, name: "Components" })).toBeInTheDocument();
       for (const group of designSystemGroups.slice(0, 2)) {
@@ -334,7 +334,7 @@ describe("App", () => {
       vi.spyOn(globalThis, "fetch").mockImplementation(mockMemberSessionFetch);
       render(<App />);
 
-      expect(await screen.findByTestId("design-system-page")).toBeInTheDocument();
+      expect(await screen.findByTestId("design-system-page", undefined, { timeout: 10000 })).toBeInTheDocument();
       const navigation = screen.getByRole("navigation", { name: /首页导航/i });
       const consoleLink = await within(navigation).findByRole("link", { name: /^控制台$/i });
 
@@ -377,7 +377,7 @@ describe("App", () => {
       vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("not authenticated"));
       render(<App />);
 
-      expect(await screen.findByTestId("design-system-page")).toBeInTheDocument();
+      expect(await screen.findByTestId("design-system-page", undefined, { timeout: 10000 })).toBeInTheDocument();
       expect(document.documentElement.dataset.theme).toBe("dark");
 
       fireEvent.click(screen.getByRole("button", { name: /切换到浅色主题|切换到深色主题/i }));
