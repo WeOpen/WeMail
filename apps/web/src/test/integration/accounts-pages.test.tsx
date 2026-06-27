@@ -90,6 +90,37 @@ const mockAccountPolicy = {
   lastUpdatedLabel: "2026-04-20T00:00:00.000Z"
 };
 
+function renderAccountsList(overrides?: Partial<Parameters<typeof AccountsListPage>[0]>) {
+  return renderWithRouter(
+    <AccountsListPage
+      accounts={mockAccounts}
+      activeRange="all"
+      availableDomains={mockAccountDomains}
+      isLoadingDomains={false}
+      isLoading={false}
+      onActiveRangeChange={vi.fn()}
+      onBulkDeleteAccounts={vi.fn()}
+      onCreateAccount={vi.fn()}
+      onDeleteAccount={vi.fn()}
+      onExportAccounts={vi.fn()}
+      onPageChange={vi.fn()}
+      onPageSizeChange={vi.fn()}
+      onQuickFilterChange={vi.fn()}
+      onRefresh={vi.fn()}
+      onSearchChange={vi.fn()}
+      onStatusFilterChange={vi.fn()}
+      onUpdateAccount={vi.fn()}
+      page={1}
+      pageSize={10}
+      quickFilter="none"
+      searchValue=""
+      statusFilter="all"
+      total={3}
+      {...overrides}
+    />
+  );
+}
+
 describe("accounts pages", () => {
   afterEach(() => {
     cleanup();
@@ -157,6 +188,48 @@ describe("accounts pages", () => {
     expect(screen.getByRole("combobox", { name: "每页条数" })).toHaveTextContent("10");
     expect(screen.queryByText("账号列表先以占位页承接")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "新建账号" }).querySelector(".ui-button-icon-slot")).not.toBeNull();
+  });
+
+  it("uses table state cards for loading and empty account lists", () => {
+    const { rerender } = renderAccountsList({ accounts: [], isLoading: true, total: 0 });
+
+    const loadingState = screen.getByRole("status", { name: "正在加载账号列表" });
+    expect(loadingState).toHaveClass("ui-table-state-card");
+    expect(loadingState).toHaveTextContent("正在加载账号列表");
+    expect(screen.queryByText("暂无账号数据")).not.toBeInTheDocument();
+
+    rerender(
+      <MemoryRouter>
+        <AccountsListPage
+          accounts={[]}
+          activeRange="all"
+          availableDomains={mockAccountDomains}
+          isLoadingDomains={false}
+          isLoading={false}
+          onActiveRangeChange={vi.fn()}
+          onBulkDeleteAccounts={vi.fn()}
+          onCreateAccount={vi.fn()}
+          onDeleteAccount={vi.fn()}
+          onExportAccounts={vi.fn()}
+          onPageChange={vi.fn()}
+          onPageSizeChange={vi.fn()}
+          onQuickFilterChange={vi.fn()}
+          onRefresh={vi.fn()}
+          onSearchChange={vi.fn()}
+          onStatusFilterChange={vi.fn()}
+          onUpdateAccount={vi.fn()}
+          page={1}
+          pageSize={10}
+          quickFilter="none"
+          searchValue=""
+          statusFilter="all"
+          total={0}
+        />
+      </MemoryRouter>
+    );
+
+    const emptyState = screen.getByRole("region", { name: "暂无账号数据" });
+    expect(emptyState).toHaveClass("ui-table-state-card", "ui-empty-state");
   });
 
   it("keeps member account lists scoped to list and create controls", () => {

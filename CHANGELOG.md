@@ -20,6 +20,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Tightened Telegram settings page left-column card spacing so the support rail no longer stretches the main card stack.
 - Stabilized design system lazy-route assertions under slower CI test runs.
 - Fixed GitHub OAuth callbacks so missing private email data no longer fails silently and public profile emails can continue to the invite-code flow.
+- Shortened long profile email displays with hover titles so LinuxDo relay addresses no longer overflow personal settings cards.
+- Replaced inline table loading and zero-data text with reusable loading and empty state cards across user, account, and mailbox selector tables.
 
 ## [0.1.4] - 2026-06-27
 

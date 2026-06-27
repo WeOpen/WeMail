@@ -12,7 +12,7 @@ import { Button } from "../shared/button";
 import { FormField, SearchInput, SelectInput, TextInput } from "../shared/form";
 import { OverlayDialog } from "../shared/overlay";
 import { Pagination } from "../shared/pagination";
-import { Table, TableBody, TableCell, TableContainer, TableHead, TableHeaderCell, TableRow } from "../shared/table";
+import { Table, TableBody, TableCell, TableContainer, TableHead, TableHeaderCell, TableRow, TableStateCard } from "../shared/table";
 
 type InboxPageProps = {
   availableDomains: MailDomainSummary[];
@@ -454,8 +454,8 @@ export function InboxPage({
                   ) : null}
                   {!isLoadingMailboxSelector && !mailboxSelectorError && mailboxSelectorMailboxes.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={mailboxSelectorColumnCount}>
-                        <p className="empty-state">没有匹配的邮箱。</p>
+                      <TableCell className="ui-table-state-cell" colSpan={mailboxSelectorColumnCount}>
+                        <TableStateCard description="调整搜索关键词后，可选邮箱会显示在这里。" title="没有匹配的邮箱" />
                       </TableCell>
                     </TableRow>
                   ) : null}

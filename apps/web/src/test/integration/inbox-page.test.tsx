@@ -720,7 +720,16 @@ describe("mail list integration", () => {
     });
     expect(within(dialog).getByRole("row", { name: /Mailbox 5/i })).toBeInTheDocument();
 
-    await user.type(within(dialog).getByLabelText("搜索邮箱"), "mailbox-2");
+    const mailboxSearch = within(dialog).getByLabelText("搜索邮箱");
+    await user.type(mailboxSearch, "not-found");
+
+    await waitFor(() => {
+      expect(getAccountRequestParams().some((params) => params.get("search") === "not-found")).toBe(true);
+    });
+    expect(within(dialog).getByRole("region", { name: "没有匹配的邮箱" })).toHaveClass("ui-table-state-card", "ui-empty-state");
+
+    await user.clear(mailboxSearch);
+    await user.type(mailboxSearch, "mailbox-2");
 
     await waitFor(() => {
       expect(getAccountRequestParams().some((params) => params.get("search") === "mailbox-2")).toBe(true);

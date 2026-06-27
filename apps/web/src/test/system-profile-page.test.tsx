@@ -98,6 +98,28 @@ describe("SystemProfilePage", () => {
     expect(densityCompact).toBeChecked();
   });
 
+  it("shortens long profile emails while keeping the full address available on hover", () => {
+    const longEmail = "5dcn5bfvq26x9a3mceg7t3mbhy00swdpn3hxaxj213f4h110bk@privaterelay.linux.do";
+
+    render(
+      <SystemProfilePage
+        isSavingPreferences={false}
+        isSavingProfile={false}
+        profile={{ ...profile, user: { ...profile.user, email: longEmail } }}
+        onLogoutCurrentDevice={vi.fn()}
+        onSavePreferences={vi.fn()}
+        onSaveProfile={vi.fn()}
+      />
+    );
+
+    const shortenedEmail = "5dcn5bfv...h110bk@privaterelay.linux.do";
+
+    expect(screen.getByLabelText("邮箱")).toHaveValue(shortenedEmail);
+    expect(screen.getAllByText(shortenedEmail)).toHaveLength(2);
+    expect(screen.getAllByTitle(longEmail)).toHaveLength(3);
+    expect(screen.queryByText(longEmail)).not.toBeInTheDocument();
+  });
+
   it("formats account dates with the saved profile date preference", () => {
     render(
       <SystemProfilePage

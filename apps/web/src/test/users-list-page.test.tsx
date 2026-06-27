@@ -174,8 +174,22 @@ describe("UsersListPage", () => {
       totalUsers: 0
     });
 
-    expect(screen.getByRole("status", { name: "正在加载用户列表" })).toHaveTextContent("正在加载用户列表");
-    expect(screen.getByText("暂无符合条件的用户。")).toBeInTheDocument();
+    const loadingState = screen.getByRole("status", { name: "正在加载用户列表" });
+    expect(loadingState).toHaveClass("ui-table-state-card");
+    expect(loadingState).toHaveTextContent("正在加载用户列表");
+    expect(screen.queryByText("暂无符合条件的用户。")).not.toBeInTheDocument();
+
+    rerender(
+      <UsersListPage
+        {...createUsersListProps({
+          adminUsers: [],
+          totalUsers: 0
+        })}
+      />
+    );
+
+    const emptyState = screen.getByRole("region", { name: "暂无符合条件的用户" });
+    expect(emptyState).toHaveClass("ui-table-state-card", "ui-empty-state");
 
     rerender(
       <UsersListPage

@@ -60,6 +60,12 @@ function resolveDisplayName(profile: UserProfileSummary) {
   return profile.user.name.trim() || profile.user.email.split("@")[0] || profile.user.email;
 }
 
+function formatDisplayEmail(email: string) {
+  const [localPart, domainPart] = email.split("@");
+  if (!localPart || !domainPart || localPart.length <= 18) return email;
+  return `${localPart.slice(0, 8)}...${localPart.slice(-6)}@${domainPart}`;
+}
+
 function formatLocale(locale: UserProfileSummary["preferences"]["locale"]) {
   return locale === "zh-CN" ? "简体中文" : "English";
 }
@@ -92,6 +98,7 @@ export function SystemProfilePage({
   const [profileSubmitError, setProfileSubmitError] = useState<string | null>(null);
   const [preferencesSubmitError, setPreferencesSubmitError] = useState<string | null>(null);
   const roleLabel = formatRole(profile.user.role);
+  const displayEmail = formatDisplayEmail(profile.user.email);
   const hasProfileChanges = displayName !== resolveDisplayName(profile) || bio !== profile.preferences.bio;
   const hasPreferenceChanges =
     locale !== profile.preferences.locale ||
@@ -165,7 +172,9 @@ export function SystemProfilePage({
             <h1>{displayName}</h1>
             <div className="profile-overview-email">
               <Mail size={16} strokeWidth={1.8} />
-              <span>{profile.user.email}</span>
+              <span className="profile-email-text" title={profile.user.email}>
+                {displayEmail}
+              </span>
             </div>
             <div className="profile-overview-badges">
               <Badge variant="brand">{roleLabel}</Badge>
@@ -215,7 +224,13 @@ export function SystemProfilePage({
                   />
                 </FormField>
                 <FormField className="profile-field" label="邮箱">
-                  <TextInput aria-label="邮箱" disabled value={profile.user.email} />
+                  <TextInput
+                    aria-label="邮箱"
+                    className="profile-email-input"
+                    readOnly
+                    title={profile.user.email}
+                    value={displayEmail}
+                  />
                 </FormField>
                 <FormField className="profile-field profile-field-wide" label="个人简介">
                   <TextareaInput
@@ -379,7 +394,9 @@ export function SystemProfilePage({
             <div className="profile-security-list">
               <div className="profile-security-row">
                 <strong>当前会话</strong>
-                <span>{profile.user.email}</span>
+                <span className="profile-email-text" title={profile.user.email}>
+                  {displayEmail}
+                </span>
                 <small>当前设备已通过会话认证</small>
               </div>
               <div className="profile-security-row">

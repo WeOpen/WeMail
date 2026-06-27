@@ -26,7 +26,8 @@ import {
   TableContainer,
   TableHead,
   TableHeaderCell,
-  TableRow
+  TableRow,
+  TableStateCard
 } from "../../shared/table";
 
 type AccountsStatusFilter = "all" | "enabled" | "disabled" | "archived" | "soft_deleted";
@@ -533,14 +534,14 @@ export function AccountsListPage({
               <TableBody>
                 {isLoading ? (
                   <TableRow>
-                    <TableCell colSpan={visibleColumnCount}>
-                      <div className="section-copy">加载中...</div>
+                    <TableCell className="ui-table-state-cell" colSpan={visibleColumnCount}>
+                      <TableStateCard state="loading" title="正在加载账号列表" />
                     </TableCell>
                   </TableRow>
                 ) : accounts.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={visibleColumnCount}>
-                      <div className="section-copy">暂无账号数据</div>
+                    <TableCell className="ui-table-state-cell" colSpan={visibleColumnCount}>
+                      <TableStateCard description="创建账号或调整筛选后，可用邮箱账号会显示在这里。" title="暂无账号数据" />
                     </TableCell>
                   </TableRow>
                 ) : (

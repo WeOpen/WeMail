@@ -5,5 +5,6 @@ export {
   TableContainer,
   TableHead,
   TableHeaderCell,
-  TableRow
+  TableRow,
+  TableStateCard
 } from "./TablePrimitives";

@@ -18,7 +18,8 @@ import {
   TableContainer,
   TableHead,
   TableHeaderCell,
-  TableRow
+  TableRow,
+  TableStateCard
 } from "../shared/table";
 
 type UsersRoleFilter = "all" | "admin" | "member";
@@ -554,37 +555,44 @@ export function UsersListPage({
               ) : null}
             </div>
           ) : (
-            <>
-              {isLoadingUsers ? (
-                <p aria-busy="true" aria-label="正在加载用户列表" className="users-list-status" role="status">
-                  正在加载用户列表
-                </p>
-              ) : null}
-              <TableContainer density="compact" variant="liquid">
-                <Table className="users-list-table">
-                  <TableHead>
+            <TableContainer density="compact" variant="liquid">
+              <Table className="users-list-table">
+                <TableHead>
+                  <TableRow>
+                    <TableHeaderCell align="center" className="ui-table-sticky-start" width={56}>
+                      <CheckboxField
+                        aria-label="选择全部用户"
+                        checked={allVisibleSelected}
+                        className="checkbox-row"
+                        label={<span className="sr-only">选择全部用户</span>}
+                        onChange={toggleSelectAll}
+                      />
+                    </TableHeaderCell>
+                    <TableHeaderCell>用户名</TableHeaderCell>
+                    <TableHeaderCell>邮箱</TableHeaderCell>
+                    <TableHeaderCell>角色</TableHeaderCell>
+                    <TableHeaderCell>创建时间</TableHeaderCell>
+                    <TableHeaderCell>状态</TableHeaderCell>
+                    <TableHeaderCell className="ui-table-sticky-end" nowrap width={128}>
+                      操作
+                    </TableHeaderCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {isLoadingUsers ? (
                     <TableRow>
-                      <TableHeaderCell align="center" className="ui-table-sticky-start" width={56}>
-                        <CheckboxField
-                          aria-label="选择全部用户"
-                          checked={allVisibleSelected}
-                          className="checkbox-row"
-                          label={<span className="sr-only">选择全部用户</span>}
-                          onChange={toggleSelectAll}
-                        />
-                      </TableHeaderCell>
-                      <TableHeaderCell>用户名</TableHeaderCell>
-                      <TableHeaderCell>邮箱</TableHeaderCell>
-                      <TableHeaderCell>角色</TableHeaderCell>
-                      <TableHeaderCell>创建时间</TableHeaderCell>
-                      <TableHeaderCell>状态</TableHeaderCell>
-                      <TableHeaderCell className="ui-table-sticky-end" nowrap width={128}>
-                        操作
-                      </TableHeaderCell>
+                      <TableCell className="ui-table-state-cell" colSpan={7}>
+                        <TableStateCard state="loading" title="正在加载用户列表" />
+                      </TableCell>
                     </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {visibleUsers.map((user) => {
+                  ) : visibleUsers.length === 0 ? (
+                    <TableRow>
+                      <TableCell className="ui-table-state-cell" colSpan={7}>
+                        <TableStateCard description="调整搜索、角色或状态筛选后，符合条件的用户会显示在这里。" title="暂无符合条件的用户" />
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    visibleUsers.map((user) => {
                       const isSelected = selectedUserIds.includes(user.id);
                       const status = resolveStatus(user);
 
@@ -624,18 +632,11 @@ export function UsersListPage({
                           </TableCell>
                         </TableRow>
                       );
-                    })}
-                    {visibleUsers.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={7}>
-                          <p className="empty-state">暂无符合条件的用户。</p>
-                        </TableCell>
-                      </TableRow>
-                    ) : null}
-                  </TableBody>
-                </Table>
-              </TableContainer>
-            </>
+                    })
+                  )}
+                </TableBody>
+              </Table>
+            </TableContainer>
           )}
           <Pagination
             aria-label="用户列表分页"

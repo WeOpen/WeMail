@@ -8,7 +8,8 @@ import {
   TableContainer,
   TableHead,
   TableHeaderCell,
-  TableRow
+  TableRow,
+  TableStateCard
 } from "../shared/table";
 
 describe("shared table primitives", () => {
@@ -95,5 +96,23 @@ describe("shared table primitives", () => {
     expect(row).toHaveClass("ui-table-row", "is-selected", "is-interactive");
     expect(row).toHaveAttribute("data-selected", "true");
     expect(row).toHaveAttribute("data-interactive", "true");
+  });
+
+  it("renders loading and empty table state cards", () => {
+    render(
+      <>
+        <TableStateCard state="loading" title="正在加载账号列表" />
+        <TableStateCard description="创建账号后会显示在这里。" title="暂无账号数据" />
+      </>
+    );
+
+    expect(screen.getByRole("status", { name: "正在加载账号列表" })).toHaveClass(
+      "ui-table-state-card",
+      "ui-table-state-card-loading"
+    );
+    expect(screen.getByRole("region", { name: "暂无账号数据" })).toHaveClass(
+      "ui-table-state-card",
+      "ui-empty-state"
+    );
   });
 });

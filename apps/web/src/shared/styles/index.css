@@ -834,6 +834,46 @@ textarea:focus {
   --table-cell-padding-inline: 18px;
 }
 
+.ui-table-state-cell.ui-table-cell {
+  padding: 18px;
+  white-space: normal;
+}
+
+.ui-table-state-card {
+  width: min(100%, 520px);
+  min-height: 138px;
+  margin: 10px auto;
+  border-radius: 8px;
+  border: 1px solid color-mix(in srgb, var(--border) 74%, transparent);
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--surface-strong) 88%, transparent), color-mix(in srgb, var(--surface-muted) 84%, transparent)),
+    radial-gradient(circle at 18% 8%, color-mix(in srgb, var(--accent) 12%, transparent), transparent 42%);
+  box-shadow: 0 16px 34px color-mix(in srgb, #111 10%, transparent);
+}
+
+.ui-table-state-card-loading {
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 10px;
+  color: var(--text-soft);
+  text-align: center;
+}
+
+.ui-table-state-card-loading .ui-spinner {
+  justify-content: center;
+}
+
+.ui-table-state-description {
+  margin: 0;
+  color: var(--text-soft);
+  font-size: 0.9rem;
+}
+
+.ui-table-state-card.ui-empty-state {
+  padding: 26px;
+}
+
 .ui-table {
   width: 100%;
   border-collapse: separate;
@@ -7759,6 +7799,19 @@ button:disabled {
 
 .profile-overview-email {
   color: var(--text-soft);
+}
+
+.profile-email-text,
+.profile-email-input.form-control {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.profile-email-input.form-control[readonly] {
+  color: var(--text-soft);
+  cursor: default;
 }
 
 .profile-overview-stats {

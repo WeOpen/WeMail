@@ -7,6 +7,9 @@ import {
   type ThHTMLAttributes
 } from "react";
 
+import { EmptyState } from "../empty-state";
+import { Spinner } from "../spinner";
+
 type TableAlign = "start" | "center" | "end";
 type TableDensity = "compact" | "comfortable" | "spacious";
 type TableVariant = "liquid" | "solid";
@@ -25,6 +28,12 @@ type TableContainerProps = HTMLAttributes<HTMLDivElement> & {
 type TableRowProps = HTMLAttributes<HTMLTableRowElement> & {
   isInteractive?: boolean;
   isSelected?: boolean;
+};
+
+type TableStateCardProps = HTMLAttributes<HTMLElement> & {
+  description?: string;
+  state?: "empty" | "loading";
+  title: string;
 };
 
 function cx(...parts: Array<string | false | null | undefined>) {
@@ -119,3 +128,34 @@ export const TableCell = forwardRef<HTMLTableCellElement, TableCellProps>(
     );
   }
 );
+
+export const TableStateCard = forwardRef<HTMLElement, TableStateCardProps>(function TableStateCard(
+  { className, description, state = "empty", title, ...props },
+  ref
+) {
+  if (state === "loading") {
+    return (
+      <section
+        {...props}
+        aria-busy="true"
+        aria-label={title}
+        className={cx("ui-table-state-card", "ui-table-state-card-loading", className)}
+        ref={ref}
+        role="status"
+      >
+        <Spinner decorative showLabel label={title} size="md" tone="accent" />
+        {description ? <p className="ui-table-state-description">{description}</p> : null}
+      </section>
+    );
+  }
+
+  return (
+    <EmptyState
+      {...props}
+      className={cx("ui-table-state-card", "ui-table-state-card-empty", className)}
+      description={description}
+      ref={ref}
+      title={title}
+    />
+  );
+});
