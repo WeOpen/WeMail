@@ -14,6 +14,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Fixed session recovery when browsers send both stale host-only and current domain-scoped login cookies.
+
 ## [0.1.5] - 2026-06-28
 
 ### Fixed

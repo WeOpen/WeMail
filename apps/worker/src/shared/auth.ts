@@ -73,6 +73,9 @@ export async function createApiKeySecret() {
 export function setSessionCookie(c: Context<any>, token: string) {
   const config = resolveAppConfig(c.env);
   const secure = config.cookie.secure || new URL(c.req.url).protocol === "https:";
+  if (config.cookie.domain) {
+    deleteCookie(c, config.cookie.name, { path: "/" });
+  }
   setCookie(c, config.cookie.name, token, {
     httpOnly: true,
     sameSite: "Lax",
@@ -85,10 +88,30 @@ export function setSessionCookie(c: Context<any>, token: string) {
 
 export function clearSessionCookie(c: Context<any>) {
   const config = resolveAppConfig(c.env);
+  deleteCookie(c, config.cookie.name, { path: "/" });
   deleteCookie(c, config.cookie.name, { domain: config.cookie.domain, path: "/" });
 }
 
 export function readSessionCookie(c: Context<any>) {
   const config = resolveAppConfig(c.env);
   return getCookie(c, config.cookie.name) ?? null;
+}
+
+export function readSessionCookies(c: Context<any>) {
+  const config = resolveAppConfig(c.env);
+  const cookieHeader = c.req.header("cookie");
+  if (!cookieHeader) return [];
+
+  const tokens: string[] = [];
+  const seen = new Set<string>();
+  for (const part of cookieHeader.split(";")) {
+    const [rawName, ...rawValueParts] = part.trim().split("=");
+    if (rawName !== config.cookie.name) continue;
+    const value = rawValueParts.join("=");
+    if (!value || seen.has(value)) continue;
+    seen.add(value);
+    tokens.push(value);
+  }
+
+  return tokens;
 }

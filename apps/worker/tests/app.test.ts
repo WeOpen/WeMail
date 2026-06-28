@@ -1186,6 +1186,45 @@ describe("worker app", () => {
     expect(response.headers.get("set-cookie")).toContain("Secure");
   });
 
+  it("accepts a valid domain session when a stale host cookie is sent first", async () => {
+    const store = createInMemoryStore();
+    const app = createApp({ store });
+    const invite = await store.invites.create({
+      code: "INVITE-DUPLICATE-COOKIE",
+      createdByUserId: "system"
+    });
+    const domainEnv = { ...env, COOKIE_DOMAIN: ".example.com" };
+
+    const response = await app.request(
+      "/api/auth/register",
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          email: "duplicate-cookie@example.com",
+          name: "Duplicate Cookie",
+          password: "password123",
+          inviteCode: invite.code
+        })
+      },
+      domainEnv
+    );
+    const cookie = response.headers.get("set-cookie") ?? "";
+    const sessionId = cookie.match(/wemail_session=([^;]+)/)?.[1] ?? "";
+
+    const sessionResponse = await app.request(
+      "/api/auth/session",
+      {
+        headers: { cookie: `wemail_session=stale-host-only-token; wemail_session=${sessionId}` }
+      },
+      domainEnv
+    );
+    const sessionPayload = (await sessionResponse.json()) as { user: { email: string } };
+
+    expect(sessionResponse.status).toBe(200);
+    expect(sessionPayload.user.email).toBe("duplicate-cookie@example.com");
+  });
+
   it("uses SESSION_TTL_HOURS from config for both the cookie and stored session expiry", async () => {
     const store = createInMemoryStore();
     const app = createApp({ store });

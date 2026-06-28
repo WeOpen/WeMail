@@ -2,7 +2,7 @@ import type { FeatureToggles } from "@wemail/shared";
 
 import type { AppBindings, AppStore, OAuthPendingLoginRecord, OAuthProviderId } from "../../core/bindings";
 import { resolveAppConfig } from "../../core/config";
-import { hashPassword, readSessionCookie, setSessionCookie, verifyPassword } from "../../shared/auth";
+import { hashPassword, readSessionCookies, setSessionCookie, verifyPassword } from "../../shared/auth";
 import { toSessionResponse } from "../routes/dto/auth-dto";
 import { jsonError, recordAudit } from "../services/audit-service";
 import { getResolvedApiDailyLimit, getResolvedOutboundLimit } from "../services/config-service";
@@ -259,6 +259,6 @@ export async function finalizeOAuthLogin(
 }
 
 export async function logoutUser(c: Pick<AuthUseCaseContext, "store">, rawContext: any) {
-  const sessionToken = readSessionCookie(rawContext);
-  if (sessionToken) await c.store.sessions.delete(sessionToken);
+  const sessionTokens = readSessionCookies(rawContext);
+  await Promise.all(sessionTokens.map((sessionToken) => c.store.sessions.delete(sessionToken)));
 }

@@ -280,7 +280,9 @@ describe("oauth authentication", () => {
       },
       domainEnv
     );
-    expect(registerResponse.headers.get("set-cookie")).toContain("Domain=.example.test");
+    const registerCookie = registerResponse.headers.get("set-cookie") ?? "";
+    expect(registerCookie).toContain("Domain=.example.test");
+    expect(registerCookie).toContain("Max-Age=0");
     mockLinuxDoFetch();
 
     const startResponse = await app.request("/api/auth/oauth/linuxdo/start?next=/settings/profile", {}, domainEnv);
@@ -292,6 +294,8 @@ describe("oauth authentication", () => {
     );
 
     expect(callbackResponse.status).toBe(302);
-    expect(callbackResponse.headers.get("set-cookie")).toContain("Domain=.example.test");
+    const callbackCookie = callbackResponse.headers.get("set-cookie") ?? "";
+    expect(callbackCookie).toContain("Domain=.example.test");
+    expect(callbackCookie).toContain("Max-Age=0");
   });
 });

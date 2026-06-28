@@ -1,6 +1,6 @@
 import type { AppBindings, AppStore } from "../../core/bindings";
 import { resolveAppConfig } from "../../core/config";
-import { hashString, readSessionCookie } from "../../shared/auth";
+import { hashString, readSessionCookies } from "../../shared/auth";
 import { CACHE_KEYS, CACHE_TTL_SECONDS, cachedJson } from "./cache-service";
 
 export function sessionExpiryIso(env?: Pick<AppBindings, "SESSION_TTL_HOURS">) {
@@ -22,16 +22,18 @@ export async function getUserFromApiKey(c: any, store: AppStore) {
 }
 
 export async function getUserFromSession(c: any, store: AppStore) {
-  const token = readSessionCookie(c);
-  if (!token) return null;
-  const session = await store.sessions.findById(token);
-  if (!session) return null;
-  if (new Date(session.expiresAt) <= new Date()) {
-    await store.sessions.delete(session.id);
-    return null;
+  const tokens = readSessionCookies(c);
+  for (const token of tokens) {
+    const session = await store.sessions.findById(token);
+    if (!session) continue;
+    if (new Date(session.expiresAt) <= new Date()) {
+      await store.sessions.delete(session.id);
+      continue;
+    }
+    const user = await store.users.findById(session.userId);
+    if (user?.status === "active") return user;
   }
-  const user = await store.users.findById(session.userId);
-  return user?.status === "active" ? user : null;
+  return null;
 }
 
 export async function resolveFeatureToggles(store: AppStore, env: AppBindings) {
