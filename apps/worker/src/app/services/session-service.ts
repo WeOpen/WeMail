@@ -10,7 +10,7 @@ export function sessionExpiryIso(env?: Pick<AppBindings, "SESSION_TTL_HOURS">) {
   return expires.toISOString();
 }
 
-export async function getUserFromApiKey(c: any, store: AppStore) {
+export async function getApiKeyAuth(c: any, store: AppStore) {
   const authHeader = c.req.header("authorization");
   const token = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : c.req.header("x-api-key");
   if (!token) return null;
@@ -18,10 +18,17 @@ export async function getUserFromApiKey(c: any, store: AppStore) {
   if (!key) return null;
   await store.apiKeys.touch(key.id);
   const user = await store.users.findById(key.userId);
-  return user?.status === "active" ? user : null;
+  return user?.status === "active" ? { key, user } : null;
 }
 
-export async function getUserFromSession(c: any, store: AppStore) {
+export function getRequestSessionMetadata(c: any) {
+  return {
+    userAgent: c.req?.header?.("user-agent") ?? null,
+    ipAddress: c.req?.header?.("cf-connecting-ip") ?? c.req?.header?.("x-forwarded-for") ?? null
+  };
+}
+
+export async function getSessionAuth(c: any, store: AppStore) {
   const tokens = readSessionCookies(c);
   for (const token of tokens) {
     const session = await store.sessions.findById(token);
@@ -31,7 +38,10 @@ export async function getUserFromSession(c: any, store: AppStore) {
       continue;
     }
     const user = await store.users.findById(session.userId);
-    if (user?.status === "active") return user;
+    if (user?.status !== "active") continue;
+    await store.sessions.touch(session.id, getRequestSessionMetadata(c));
+    const refreshedSession = await store.sessions.findById(session.id);
+    return { user, session: refreshedSession ?? session };
   }
   return null;
 }

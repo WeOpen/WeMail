@@ -1,6 +1,6 @@
 import type { FeatureToggles } from "@wemail/shared";
 
-import type { AppBindings, AppStore, OAuthPendingLoginRecord, OAuthProviderId } from "../../core/bindings";
+import type { AppBindings, AppStore, InviteRecord, OAuthPendingLoginRecord, OAuthProviderId } from "../../core/bindings";
 import { resolveAppConfig } from "../../core/config";
 import { hashPassword, readSessionCookies, setSessionCookie, verifyPassword } from "../../shared/auth";
 import { toSessionResponse } from "../routes/dto/auth-dto";
@@ -14,7 +14,7 @@ import {
   type OAuthFailureReason,
   type OAuthProfile
 } from "../services/oauth-provider-service";
-import { sessionExpiryIso } from "../services/session-service";
+import { getRequestSessionMetadata, sessionExpiryIso } from "../services/session-service";
 
 type AuthUseCaseContext = {
   store: AppStore;
@@ -78,8 +78,64 @@ async function initializeUserQuota(c: Pick<AuthUseCaseContext, "store" | "env">,
 }
 
 async function createSessionForUser(c: AuthUseCaseContext, userId: string, rawContext: any) {
-  const session = await c.store.sessions.create({ userId, expiresAt: sessionExpiryIso(c.env) });
+  const session = await c.store.sessions.create({
+    userId,
+    expiresAt: sessionExpiryIso(c.env),
+    ...getRequestSessionMetadata(rawContext)
+  });
   setSessionCookie(rawContext, session.id);
+}
+
+function getAuditSessionMetadata(rawContext: any) {
+  const metadata = getRequestSessionMetadata(rawContext);
+  return {
+    ipAddress: metadata.ipAddress ?? null,
+    userAgent: metadata.userAgent ?? null
+  };
+}
+
+async function recordLoginFailure(
+  c: AuthUseCaseContext,
+  input: { email: string; reason: string; userId?: string | null },
+  rawContext: any
+) {
+  await recordAudit(c.store, input.userId ? "user" : "auth", input.userId ?? input.email, "login-failed", {
+    email: input.email,
+    method: "password",
+    reason: input.reason,
+    ...getAuditSessionMetadata(rawContext)
+  });
+}
+
+async function recordOAuthLoginFailure(
+  c: AuthUseCaseContext,
+  provider: OAuthProviderId,
+  reason: string,
+  rawContext: any,
+  detail?: Record<string, unknown>
+) {
+  await recordAudit(c.store, "auth", provider, "oauth-login-failed", {
+    provider,
+    reason,
+    ...getAuditSessionMetadata(rawContext),
+    ...detail
+  });
+}
+
+function isInviteExpired(invite: Pick<InviteRecord, "expiresAt">) {
+  return Boolean(invite.expiresAt && new Date(invite.expiresAt) <= new Date());
+}
+
+function isInviteUsable(invite: InviteRecord | null) {
+  return Boolean(invite && !invite.redeemedAt && !invite.disabledAt && !isInviteExpired(invite));
+}
+
+function resolveUserRoleFromInvite(
+  c: AuthUseCaseContext,
+  input: { email: string; userCount: number; invite: InviteRecord | null }
+) {
+  if (input.userCount === 0 || resolveAppConfig(c.env).adminEmails.includes(input.email)) return "admin";
+  return input.invite?.targetRole ?? "member";
 }
 
 export async function registerUserWithInvite(
@@ -92,19 +148,15 @@ export async function registerUserWithInvite(
   const canBootstrapWithoutInvite = userCount === 0 && !payload.inviteCode;
   const invite = payload.inviteCode ? await c.store.invites.findByCode(payload.inviteCode) : null;
 
-  if (!canBootstrapWithoutInvite && (!invite || invite.redeemedAt || invite.disabledAt)) {
+  if (!canBootstrapWithoutInvite && !isInviteUsable(invite)) {
     return jsonError("Invite is invalid", 403);
   }
-
-  const shouldBeAdmin =
-    userCount === 0 ||
-    resolveAppConfig(c.env).adminEmails.includes(payload.email);
 
   const user = await c.store.users.create({
     email: payload.email,
     name: payload.name,
     passwordHash: await hashPassword(payload.password),
-    role: shouldBeAdmin ? "admin" : "member"
+    role: resolveUserRoleFromInvite(c, { email: payload.email, userCount, invite })
   });
 
   if (payload.inviteCode) await c.store.invites.redeem(payload.inviteCode, user.id);
@@ -121,13 +173,22 @@ export async function loginUser(
   rawContext: any
 ) {
   const user = await c.store.users.findByEmail(payload.email);
-  if (!user || !(await verifyPassword(payload.password, user.passwordHash))) {
+  const passwordValid = user ? await verifyPassword(payload.password, user.passwordHash) : false;
+  if (!user || !passwordValid) {
+    await recordLoginFailure(c, { email: payload.email, reason: "invalid_credentials", userId: user?.id ?? null }, rawContext);
     return jsonError("Invalid credentials", 401);
   }
-  if (user.status !== "active") return jsonError("User is disabled", 403);
+  if (user.status !== "active") {
+    await recordLoginFailure(c, { email: user.email, reason: "user_disabled", userId: user.id }, rawContext);
+    return jsonError("User is disabled", 403);
+  }
 
   await createSessionForUser(c, user.id, rawContext);
-  await recordAudit(c.store, "user", user.id, "login", {});
+  await recordAudit(c.store, "user", user.id, "login", {
+    email: user.email,
+    method: "password",
+    ...getAuditSessionMetadata(rawContext)
+  });
 
   return toSessionResponse(user, c.featureToggles);
 }
@@ -163,7 +224,14 @@ async function loginOAuthUser(
     providerLogin: profile.login
   });
   await createSessionForUser(c, user.id, c.rawContext);
-  await recordAudit(c.store, "user", user.id, action, { provider: profile.provider });
+  await recordAudit(c.store, "user", user.id, action, {
+    email: user.email,
+    method: "oauth",
+    provider: profile.provider,
+    providerEmail: profile.email,
+    providerLogin: profile.login,
+    ...getAuditSessionMetadata(c.rawContext)
+  });
   return toSessionResponse(user, c.featureToggles);
 }
 
@@ -186,7 +254,9 @@ export async function handleOAuthCallback(c: OAuthUseCaseContext, provider: OAut
   try {
     profile = await fetchOAuthProfile(provider, runtimeConfig, code);
   } catch (error) {
-    return c.redirect(buildOAuthErrorRedirect(provider, state.redirectTo, resolveOAuthFailureReason(error)));
+    const reason = resolveOAuthFailureReason(error);
+    await recordOAuthLoginFailure(c, provider, reason, c.rawContext);
+    return c.redirect(buildOAuthErrorRedirect(provider, state.redirectTo, reason));
   }
   const existingUser = await findOAuthUser(c, profile);
   if (existingUser) {
@@ -223,11 +293,20 @@ export async function finalizeOAuthLogin(
   provider: OAuthProviderId,
   payload: { ticket: string | null; inviteCode: string | null }
 ) {
-  if (!payload.ticket) return jsonError("OAuth ticket is required", 400);
-  if (!payload.inviteCode) return jsonError("Invite is invalid", 403);
+  if (!payload.ticket) {
+    await recordOAuthLoginFailure(c, provider, "missing_ticket", c.rawContext);
+    return jsonError("OAuth ticket is required", 400);
+  }
+  if (!payload.inviteCode) {
+    await recordOAuthLoginFailure(c, provider, "missing_invite", c.rawContext, { ticket: payload.ticket });
+    return jsonError("Invite is invalid", 403);
+  }
 
   const pending = await c.store.oauthPendingLogins.findById(payload.ticket);
-  if (!pending || pending.provider !== provider) return jsonError("OAuth ticket is invalid", 400);
+  if (!pending || pending.provider !== provider) {
+    await recordOAuthLoginFailure(c, provider, "invalid_ticket", c.rawContext, { ticket: payload.ticket });
+    return jsonError("OAuth ticket is invalid", 400);
+  }
 
   const profile = profileFromPending(pending);
   const existingUser = await findOAuthUser(c, profile);
@@ -238,17 +317,22 @@ export async function finalizeOAuthLogin(
   }
 
   const invite = await c.store.invites.findByCode(payload.inviteCode);
-  if (!invite || invite.redeemedAt || invite.disabledAt) return jsonError("Invite is invalid", 403);
+  if (!isInviteUsable(invite)) {
+    await recordOAuthLoginFailure(c, provider, "invalid_invite", c.rawContext, {
+      email: profile.email,
+      inviteCode: payload.inviteCode
+    });
+    return jsonError("Invite is invalid", 403);
+  }
   const consumed = await c.store.oauthPendingLogins.consume(payload.ticket);
   if (!consumed || consumed.provider !== provider) return jsonError("OAuth ticket is invalid", 400);
 
   const userCount = await c.store.users.count();
-  const shouldBeAdmin = userCount === 0 || resolveAppConfig(c.env).adminEmails.includes(profile.email);
   const user = await c.store.users.create({
     email: profile.email,
     name: profile.name,
     passwordHash: await hashPassword(crypto.randomUUID()),
-    role: shouldBeAdmin ? "admin" : "member"
+    role: resolveUserRoleFromInvite(c, { email: profile.email, userCount, invite })
   });
   await c.store.invites.redeem(payload.inviteCode, user.id);
   await initializeUserQuota(c, user.id);

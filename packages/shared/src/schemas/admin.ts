@@ -1,5 +1,5 @@
 import { requireBoolean, requireNumber, requireString, toRecordLike } from "../validators";
-import type { UserRole, UserStatus } from "../types";
+import type { InviteCreateInput, UserRole, UserStatus } from "../types";
 
 function resolveUserName(value: unknown, email: string) {
   if (typeof value === "string" && value.trim().length > 0) return value.trim();
@@ -80,4 +80,28 @@ export function parseUserStatusUpdatePayload(input: unknown) {
 export function parseUserPasswordResetPayload(input: unknown) {
   const payload = toRecordLike(input);
   return { password: requirePassword(payload.password) };
+}
+
+export function parseInviteCreatePayload(input: unknown): Required<InviteCreateInput> {
+  const payload = toRecordLike(input ?? {});
+  const count = typeof payload.count === "undefined" ? 1 : requireNumber(payload.count, "count");
+  const targetRole = requireUserRole(payload.targetRole ?? "member");
+  const expiresInDays =
+    typeof payload.expiresInDays === "undefined" || payload.expiresInDays === null
+      ? null
+      : requireNumber(payload.expiresInDays, "expiresInDays");
+
+  if (!Number.isInteger(count) || count < 1 || count > 50) {
+    throw new Error("count must be an integer between 1 and 50");
+  }
+
+  if (expiresInDays !== null && (!Number.isInteger(expiresInDays) || expiresInDays < 1 || expiresInDays > 365)) {
+    throw new Error("expiresInDays must be an integer between 1 and 365");
+  }
+
+  return {
+    count,
+    targetRole,
+    expiresInDays
+  };
 }

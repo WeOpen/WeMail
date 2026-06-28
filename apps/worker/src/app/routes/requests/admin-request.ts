@@ -1,4 +1,5 @@
 import {
+  parseInviteCreatePayload,
   parseQuotaPayload,
   parseUserCreatePayload,
   parseUserPasswordResetPayload,
@@ -75,4 +76,8 @@ export async function parseUserStatusUpdateRequest(request: Request) {
 
 export async function parseUserPasswordResetRequest(request: Request) {
   return parseUserPasswordResetPayload(await request.json());
+}
+
+export async function parseInviteCreateRequest(request: Request) {
+  return parseInviteCreatePayload(await request.json().catch(() => ({})));
 }

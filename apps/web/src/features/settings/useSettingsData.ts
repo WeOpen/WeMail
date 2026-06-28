@@ -1,6 +1,6 @@
 import { useCallback } from "react";
 
-import type { SessionSummary } from "@wemail/shared";
+import type { ApiKeyScope, SessionSummary } from "@wemail/shared";
 
 import { useAppStore } from "../../app/appStore";
 import type { WemailToastInput } from "../../shared/toast";
@@ -39,6 +39,10 @@ const runtimeSettingsOnlyQuery: SettingsDataQueryOptions = {
   includeApiKeys: false,
   includeDictionaries: false,
   includeRuntimeSettings: true,
+  includeSystemDiagnostics: true,
+  includeSystemMaturity: true,
+  includeSystemOperations: true,
+  includeSystemReliability: true,
   includeTelegram: false
 };
 
@@ -48,6 +52,10 @@ export function useSettingsData({ session, onToast }: UseSettingsDataOptions) {
   const telegramOverview = useAppStore((state) => state.telegramOverview);
   const telegramDeliveries = useAppStore((state) => state.telegramDeliveries);
   const runtimeSettings = useAppStore((state) => state.runtimeSettings);
+  const systemDiagnostics = useAppStore((state) => state.systemDiagnostics);
+  const systemMaturity = useAppStore((state) => state.systemMaturity);
+  const systemOperations = useAppStore((state) => state.systemOperations);
+  const systemReliability = useAppStore((state) => state.systemReliability);
   const dictionaries = useAppStore((state) => state.dictionaries);
   const dictionaryByGroup = useAppStore((state) => state.dictionaryByGroup);
   const setSettingsData = useAppStore((state) => state.setSettingsData);
@@ -57,15 +65,28 @@ export function useSettingsData({ session, onToast }: UseSettingsDataOptions) {
     if (!session) return;
     const data = await querySettingsData({
       ...options,
-      includeRuntimeSettings: options?.includeRuntimeSettings ?? session.user.role === "admin"
+      includeRuntimeSettings: options?.includeRuntimeSettings ?? session.user.role === "admin",
+      includeSystemDiagnostics: options?.includeSystemDiagnostics ?? session.user.role === "admin",
+      includeSystemMaturity: options?.includeSystemMaturity ?? session.user.role === "admin",
+      includeSystemOperations: options?.includeSystemOperations ?? session.user.role === "admin",
+      includeSystemReliability: options?.includeSystemReliability ?? session.user.role === "admin"
     });
-    setSettingsData(data.apiKeys, data.telegramOverview, data.telegramDeliveries, data.runtimeSettings);
+    setSettingsData(
+      data.apiKeys,
+      data.telegramOverview,
+      data.telegramDeliveries,
+      data.runtimeSettings,
+      data.systemDiagnostics,
+      data.systemMaturity,
+      data.systemOperations,
+      data.systemReliability
+    );
     if (data.dictionaries) setDictionaries(data.dictionaries);
   }, [session, setDictionaries, setSettingsData]);
 
   const createApiKey = useCallback(
-    async (label: string) => {
-      const payload = await createApiKeyAction(label);
+    async (label: string, scopes: ApiKeyScope[]) => {
+      const payload = await createApiKeyAction(label, scopes);
       onToast({ message: "API Key 已创建，请在页面中立即复制并保存。", tone: "success" });
       await refreshSettingsData(apiKeysOnlyQuery);
       return payload;
@@ -133,6 +154,10 @@ export function useSettingsData({ session, onToast }: UseSettingsDataOptions) {
     dictionaries,
     dictionaryByGroup,
     runtimeSettings,
+    systemDiagnostics,
+    systemMaturity,
+    systemOperations,
+    systemReliability,
     telegram,
     telegramOverview,
     telegramDeliveries,

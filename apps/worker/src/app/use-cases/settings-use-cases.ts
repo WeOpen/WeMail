@@ -1,4 +1,4 @@
-import type { FeatureToggles, MailDomainSettings, TelegramOverviewSummary } from "@wemail/shared";
+import type { ApiKeyScope, FeatureToggles, MailDomainSettings, TelegramOverviewSummary } from "@wemail/shared";
 
 import type { AppBindings, AppStore, TelegramSubscriptionRecord } from "../../core/bindings";
 import { resolveAppConfig } from "../../core/config";
@@ -160,7 +160,7 @@ export async function listApiKeys(context: SettingsUseCaseContext, userId: strin
 
 export async function createApiKeyUseCase(
   context: SettingsUseCaseContext,
-  payload: { userId: string; label: string }
+  payload: { userId: string; label: string; scopes: ApiKeyScope[] }
 ) {
   const secret = await createApiKeySecret();
   const prefix = secret.slice(0, 12);
@@ -168,16 +168,17 @@ export async function createApiKeyUseCase(
     userId: payload.userId,
     label: payload.label,
     prefix,
+    scopes: payload.scopes,
     keyHash: await hashString(secret)
   });
-  await recordAudit(context.store, "user", payload.userId, "api-key-create", { prefix });
+  await recordAudit(context.store, "user", payload.userId, "api-key-create", { prefix, scopes: payload.scopes });
   await sendTelegramNotification(context, {
     userId: payload.userId,
     eventId: "api_key.created",
-    text: `WeMail API key created\nLabel: ${payload.label}\nPrefix: ${prefix}`,
-    metadata: { apiKeyId: key.id, prefix }
+    text: `WeMail API key created\nLabel: ${payload.label}\nPrefix: ${prefix}\nScopes: ${payload.scopes.join(", ")}`,
+    metadata: { apiKeyId: key.id, prefix, scopes: payload.scopes }
   });
-  return { id: key.id, secret, prefix };
+  return { id: key.id, secret, prefix, scopes: payload.scopes };
 }
 
 export async function revokeApiKeyUseCase(

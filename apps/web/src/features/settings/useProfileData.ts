@@ -1,9 +1,15 @@
 import { useCallback, useEffect, useState } from "react";
 
-import type { SessionSummary, UserProfileSummary, UserProfileUpdateInput } from "@wemail/shared";
+import type { SessionSummary, UserProfileSummary, UserProfileUpdateInput, UserSessionSummary } from "@wemail/shared";
 
 import type { WemailToastInput } from "../../shared/toast";
-import { fetchUserProfile, updateUserProfile } from "./api";
+import {
+  fetchProfileSessions,
+  fetchUserProfile,
+  revokeOtherProfileSessions,
+  revokeProfileSession,
+  updateUserProfile
+} from "./api";
 
 type UseProfileDataOptions = {
   session: SessionSummary | null;
@@ -22,12 +28,15 @@ export function useProfileData({ session, onSessionUpdated, onToast }: UseProfil
   const [isLoadingProfile, setIsLoadingProfile] = useState(false);
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [isSavingPreferences, setIsSavingPreferences] = useState(false);
+  const [isRevokingSession, setIsRevokingSession] = useState(false);
+  const [profileSessions, setProfileSessions] = useState<UserSessionSummary[]>([]);
   const [profileError, setProfileError] = useState<string | null>(null);
   const [hasLoadedProfile, setHasLoadedProfile] = useState(false);
 
   useEffect(() => {
     if (session) return;
     setProfile(null);
+    setProfileSessions([]);
     setProfileError(null);
     setHasLoadedProfile(false);
   }, [session]);
@@ -35,6 +44,7 @@ export function useProfileData({ session, onSessionUpdated, onToast }: UseProfil
   const refreshProfileData = useCallback(async () => {
     if (!session) {
       setProfile(null);
+      setProfileSessions([]);
       setProfileError(null);
       setHasLoadedProfile(false);
       return;
@@ -43,11 +53,13 @@ export function useProfileData({ session, onSessionUpdated, onToast }: UseProfil
     setIsLoadingProfile(true);
     setProfileError(null);
     try {
-      const payload = await fetchUserProfile();
-      setProfile(payload.profile ?? null);
+      const [profilePayload, sessionsPayload] = await Promise.all([fetchUserProfile(), fetchProfileSessions()]);
+      setProfile(profilePayload.profile ?? null);
+      setProfileSessions(sessionsPayload.sessions ?? []);
     } catch (error) {
       const message = readErrorMessage(error);
       setProfile(null);
+      setProfileSessions([]);
       setProfileError(message);
       onToast({ message: `个人设置同步失败：${message}`, tone: "error" });
     } finally {
@@ -105,15 +117,52 @@ export function useProfileData({ session, onSessionUpdated, onToast }: UseProfil
     [commitProfileUpdate, onToast]
   );
 
+  const revokeSession = useCallback(
+    async (sessionId: string) => {
+      setIsRevokingSession(true);
+      try {
+        await revokeProfileSession(sessionId);
+        onToast({ message: "会话已撤销。", tone: "success" });
+        await refreshProfileData();
+      } catch (error) {
+        const message = readErrorMessage(error);
+        onToast({ message: `会话撤销失败：${message}`, tone: "error" });
+        throw error;
+      } finally {
+        setIsRevokingSession(false);
+      }
+    },
+    [onToast, refreshProfileData]
+  );
+
+  const revokeOtherSessions = useCallback(async () => {
+    setIsRevokingSession(true);
+    try {
+      await revokeOtherProfileSessions();
+      onToast({ message: "其他设备已退出。", tone: "success" });
+      await refreshProfileData();
+    } catch (error) {
+      const message = readErrorMessage(error);
+      onToast({ message: `退出其他设备失败：${message}`, tone: "error" });
+      throw error;
+    } finally {
+      setIsRevokingSession(false);
+    }
+  }, [onToast, refreshProfileData]);
+
   return {
     profile,
+    profileSessions,
     isLoadingProfile,
     isSavingProfile,
     isSavingPreferences,
+    isRevokingSession,
     profileError,
     hasLoadedProfile,
     refreshProfileData,
     saveProfile,
-    savePreferences
+    savePreferences,
+    revokeSession,
+    revokeOtherSessions
   };
 }

@@ -6,6 +6,7 @@ import { jsonError } from "../../app/services/audit-service";
 import { toInviteListItem } from "../../app/routes/dto/admin-dto";
 import {
   parseUserPasswordResetRequest,
+  parseInviteCreateRequest,
   parseQuotaUpdateRequest,
   parseSettingsListQuery,
   parseUserListQuery,
@@ -15,9 +16,11 @@ import {
 } from "../../app/routes/requests/admin-request";
 import {
   createAdminUserUseCase,
-  createInviteUseCase,
+  createInvitesUseCase,
   deleteUserUseCase,
+  getAdminCommercialSummary,
   disableInviteUseCase,
+  getAdminGovernanceSummary,
   getAdminUserSettingsSummary,
   getQuotaUseCase,
   listAdminInvites,
@@ -49,6 +52,10 @@ export function registerUsersRoutes(app: Hono<AppContext>) {
   app.get("/api/users", async (c) => c.json(await listAdminUsers(getAppServices(c), parseUserListQuery(c.req.url))));
 
   app.get("/api/users/summary", async (c) => c.json(await getAdminUserSettingsSummary(getAppServices(c))));
+
+  app.get("/api/users/governance", async (c) => c.json({ governance: await getAdminGovernanceSummary(getAppServices(c)) }));
+
+  app.get("/api/users/commercial", async (c) => c.json({ commercial: await getAdminCommercialSummary(getAppServices(c)) }));
 
   app.post("/api/users", async (c) => {
     const payload = await parseUserCreateRequest(c.req.raw);
@@ -112,8 +119,9 @@ export function registerUsersRoutes(app: Hono<AppContext>) {
 
   app.post("/api/users/invites", async (c) => {
     const user = requireUser(c)!;
-    const invite = await createInviteUseCase(getAppServices(c), user.id);
-    return c.json({ invite }, 201);
+    const payload = await parseInviteCreateRequest(c.req.raw);
+    const invites = await createInvitesUseCase(getAppServices(c), user.id, payload);
+    return c.json({ invite: invites[0] ? toInviteListItem(invites[0]) : null, invites: invites.map(toInviteListItem) }, 201);
   });
 
   app.delete("/api/users/invites/:id", async (c) => {

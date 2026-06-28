@@ -19,11 +19,13 @@ import {
   type LucideIcon
 } from "lucide-react";
 
+import type { NotificationRuleSummary, NotificationRuleTarget } from "@wemail/shared";
+
 import { SettingsSupportCard } from "./SettingsSupport";
 import { useAppStore } from "../../app/appStore";
 import { Button } from "../../shared/button";
 import { apiFetch } from "../../shared/api/client";
-import { CheckboxField, FormField, TextInput } from "../../shared/form";
+import { CheckboxField, FormField, SelectInput, TextInput } from "../../shared/form";
 import { OverlayDialog } from "../../shared/overlay";
 import { Pagination } from "../../shared/pagination";
 
@@ -70,6 +72,24 @@ const webhookEventGroups = [
 ] as const;
 
 const defaultWebhookEvents = webhookEventGroups[0].events.map((event) => event.value);
+const notificationRuleEventOptions = [
+  { label: "新邮件到达", value: "message.received" },
+  { label: "Webhook 提取结果", value: "message.extracted" },
+  { label: "Telegram 提取结果", value: "message.extraction.detected" },
+  { label: "邮件处理失败", value: "message.failed" },
+  { label: "Telegram 测试", value: "telegram.test" },
+  { label: "API 密钥创建", value: "api_key.created" },
+  { label: "API 密钥吊销", value: "api_key.revoked" },
+  { label: "配置变更", value: "settings.updated" }
+];
+const notificationTargetLabels: Record<NotificationRuleTarget, string> = {
+  webhook: "Webhook",
+  telegram: "Telegram",
+  slack: "Slack",
+  discord: "Discord",
+  feishu: "飞书",
+  wecom: "企业微信"
+};
 
 const sampleHeaders = [
   "Content-Type: application/json",
@@ -116,6 +136,18 @@ type WebhookDelivery = {
   createdAt: string;
 };
 
+type NotificationRuleDraft = {
+  enabled: boolean;
+  eventTypes: string[];
+  keyword: string;
+  mailboxIds: string;
+  name: string;
+  quietHoursEnd: string;
+  quietHoursStart: string;
+  target: NotificationRuleTarget;
+  targetId: string;
+};
+
 type EndpointDraft = {
   enabled: boolean;
   events: string[];
@@ -147,11 +179,27 @@ type WebhookDeliveryListPayload = {
   total?: number;
 };
 
+type NotificationRuleListPayload = {
+  rules?: NotificationRuleSummary[];
+};
+
 const emptyDraft: EndpointDraft = {
   enabled: true,
   events: defaultWebhookEvents,
   name: "",
   url: ""
+};
+
+const emptyNotificationRuleDraft: NotificationRuleDraft = {
+  enabled: true,
+  eventTypes: ["message.received"],
+  keyword: "",
+  mailboxIds: "",
+  name: "",
+  quietHoursEnd: "",
+  quietHoursStart: "",
+  target: "webhook",
+  targetId: ""
 };
 
 function readErrorMessage(error: unknown) {
@@ -234,6 +282,8 @@ export function WebhookPage() {
   const pushToast = useAppStore((state) => state.pushToast);
   const [endpoints, setEndpoints] = useState<WebhookEndpoint[]>([]);
   const [deliveries, setDeliveries] = useState<WebhookDelivery[]>([]);
+  const [notificationRules, setNotificationRules] = useState<NotificationRuleSummary[]>([]);
+  const [notificationRuleDraft, setNotificationRuleDraft] = useState<NotificationRuleDraft>(emptyNotificationRuleDraft);
   const [selectedEndpointId, setSelectedEndpointId] = useState<string | null>(null);
   const [endpointPage, setEndpointPage] = useState(1);
   const [endpointPageSize, setEndpointPageSize] = useState(WEBHOOK_ENDPOINT_PAGE_SIZE);
@@ -249,10 +299,12 @@ export function WebhookPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isDeliveryLoading, setIsDeliveryLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isRuleSaving, setIsRuleSaving] = useState(false);
   const [isSendingTest, setIsSendingTest] = useState(false);
   const [isEndpointActionBusy, setIsEndpointActionBusy] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [deliveryErrorMessage, setDeliveryErrorMessage] = useState<string | null>(null);
+  const [notificationRuleErrorMessage, setNotificationRuleErrorMessage] = useState<string | null>(null);
   const [copiedToken, setCopiedToken] = useState<string | null>(null);
 
   const loadEndpoints = useCallback((options?: { page?: number; pageSize?: number }) => {
@@ -321,8 +373,28 @@ export function WebhookPage() {
     };
   }, [deliveryPage, deliveryPageSize, deliveryStatus, selectedEndpointId]);
 
+  const loadNotificationRules = useCallback(() => {
+    let cancelled = false;
+    void apiFetch<NotificationRuleListPayload>("/api/notification/rules")
+      .then((payload) => {
+        if (cancelled) return;
+        setNotificationRules(payload.rules ?? []);
+        setNotificationRuleErrorMessage(null);
+      })
+      .catch((error) => {
+        if (!cancelled) {
+          setNotificationRules([]);
+          setNotificationRuleErrorMessage(readErrorMessage(error));
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   useEffect(() => loadEndpoints(), [loadEndpoints]);
   useEffect(() => loadDeliveries(), [loadDeliveries]);
+  useEffect(() => loadNotificationRules(), [loadNotificationRules]);
 
   const selectedEndpoint = useMemo(
     () => endpoints.find((endpoint) => endpoint.id === selectedEndpointId) ?? null,
@@ -334,12 +406,14 @@ export function WebhookPage() {
   const enabledEndpointCount = endpoints.filter((endpoint) => endpoint.enabled).length;
   const selectedEventCount = selectedEndpoint?.events.length ?? 0;
   const failedDeliveryCount = deliveries.filter((delivery) => !isSuccessfulDelivery(delivery)).length;
+  const enabledRuleCount = notificationRules.filter((rule) => rule.enabled).length;
   const visibleDeliveries = deliveries;
   const endpointTotalPages = Math.max(1, Math.ceil(endpointTotal / endpointPageSize));
   const currentEndpointPage = Math.min(endpointPage, endpointTotalPages);
   const deliveryTotalPages = Math.max(1, Math.ceil(deliveryTotal / deliveryPageSize));
   const currentDeliveryPage = Math.min(deliveryPage, deliveryTotalPages);
   const isCreateDraftValid = createDraft.name.trim().length > 0 && createDraft.url.trim().length > 0 && createDraft.events.length > 0;
+  const isNotificationRuleDraftValid = notificationRuleDraft.name.trim().length > 0 && notificationRuleDraft.eventTypes.length > 0;
   const isEditingEndpoint = Boolean(editingEndpointId);
   const overviewItems: Array<{
     detail: string;
@@ -375,6 +449,13 @@ export function WebhookPage() {
       label: "失败记录",
       tone: failedDeliveryCount > 0 ? "warning" : "success",
       value: `${failedDeliveryCount} 条`
+    },
+    {
+      detail: enabledRuleCount > 0 ? "规则会限制匹配事件" : "无规则时沿用端点订阅",
+      icon: ListChecks,
+      label: "通知规则",
+      tone: enabledRuleCount > 0 ? "success" : "info",
+      value: `${enabledRuleCount} 条`
     }
   ];
 
@@ -435,6 +516,59 @@ export function WebhookPage() {
       }
       return { ...current, events: Array.from(events) };
     });
+  }
+
+  function toggleNotificationRuleEvent(value: string, checked: boolean) {
+    setNotificationRuleDraft((current) => {
+      const eventTypes = new Set(current.eventTypes);
+      if (checked) {
+        eventTypes.add(value);
+      } else {
+        eventTypes.delete(value);
+      }
+      return { ...current, eventTypes: Array.from(eventTypes) };
+    });
+  }
+
+  async function saveNotificationRule() {
+    if (!isNotificationRuleDraftValid || isRuleSaving) return;
+    setIsRuleSaving(true);
+    setNotificationRuleErrorMessage(null);
+    try {
+      const payload = await apiFetch<{ rule: NotificationRuleSummary }>("/api/notification/rules", {
+        method: "POST",
+        body: JSON.stringify({
+          enabled: notificationRuleDraft.enabled,
+          eventTypes: notificationRuleDraft.eventTypes,
+          keyword: notificationRuleDraft.keyword.trim(),
+          mailboxIds: notificationRuleDraft.mailboxIds.split(",").map((value) => value.trim()).filter(Boolean),
+          name: notificationRuleDraft.name.trim(),
+          quietHoursEnd: notificationRuleDraft.quietHoursEnd,
+          quietHoursStart: notificationRuleDraft.quietHoursStart,
+          target: notificationRuleDraft.target,
+          targetId: notificationRuleDraft.targetId.trim() || null
+        })
+      });
+      setNotificationRules((current) => [payload.rule, ...current]);
+      setNotificationRuleDraft(emptyNotificationRuleDraft);
+      pushToast({ message: "通知规则已创建。", tone: "success" });
+    } catch (error) {
+      setNotificationRuleErrorMessage(readErrorMessage(error));
+    } finally {
+      setIsRuleSaving(false);
+    }
+  }
+
+  async function deleteNotificationRule(rule: NotificationRuleSummary) {
+    const confirmed = window.confirm(`删除通知规则“${rule.name}”？`);
+    if (!confirmed) return;
+    try {
+      await apiFetch<{ ok: boolean }>(`/api/notification/rules/${rule.id}`, { method: "DELETE" });
+      setNotificationRules((current) => current.filter((entry) => entry.id !== rule.id));
+      pushToast({ message: "通知规则已删除。", tone: "success" });
+    } catch (error) {
+      pushToast({ message: `通知规则删除失败：${readErrorMessage(error)}`, tone: "error" });
+    }
   }
 
   async function saveEndpoint() {
@@ -764,6 +898,150 @@ export function WebhookPage() {
                 </div>
               </article>
             ))}
+          </div>
+        </section>
+
+        <section className="panel workspace-card page-panel integration-surface-card webhook-rule-card">
+          <div className="webhook-section-header">
+            <div className="webhook-section-title">
+              <span className="webhook-section-icon" aria-hidden="true">
+                <ListChecks size={18} strokeWidth={1.8} />
+              </span>
+              <div className="integration-card-copy compact">
+                <p className="panel-kicker">规则引擎</p>
+                <h2>通知规则</h2>
+                <p className="section-copy">按目标、事件、邮箱、关键词和静默时间控制哪些通知会被投递。</p>
+              </div>
+            </div>
+            <Button
+              disabled={!isNotificationRuleDraftValid || isRuleSaving}
+              isLoading={isRuleSaving}
+              loadingLabel="保存中"
+              onClick={() => void saveNotificationRule()}
+              size="sm"
+              variant="primary"
+            >
+              保存规则
+            </Button>
+          </div>
+
+          {notificationRuleErrorMessage ? (
+            <p className="error-banner webhook-error-banner" role="alert">
+              {notificationRuleErrorMessage}
+            </p>
+          ) : null}
+
+          <div className="webhook-rule-form">
+            <FormField label="规则名称" required>
+              <TextInput
+                aria-label="通知规则名称"
+                onChange={(event) => setNotificationRuleDraft((current) => ({ ...current, name: event.target.value }))}
+                placeholder="例如：验证码只推送到值班群"
+                value={notificationRuleDraft.name}
+              />
+            </FormField>
+            <FormField label="目标">
+              <SelectInput
+                aria-label="通知规则目标"
+                onChange={(event) =>
+                  setNotificationRuleDraft((current) => ({ ...current, target: event.target.value as NotificationRuleTarget }))
+                }
+                value={notificationRuleDraft.target}
+              >
+                {(Object.keys(notificationTargetLabels) as NotificationRuleTarget[]).map((target) => (
+                  <option key={target} value={target}>
+                    {notificationTargetLabels[target]}
+                  </option>
+                ))}
+              </SelectInput>
+            </FormField>
+            <FormField label="目标 ID">
+              <TextInput
+                aria-label="通知规则目标 ID"
+                onChange={(event) => setNotificationRuleDraft((current) => ({ ...current, targetId: event.target.value }))}
+                placeholder={notificationRuleDraft.target === "webhook" ? "留空代表所有端点，或填 endpoint id" : "留空代表所有目标"}
+                value={notificationRuleDraft.targetId}
+              />
+            </FormField>
+            <FormField label="邮箱 ID">
+              <TextInput
+                aria-label="通知规则邮箱 ID"
+                onChange={(event) => setNotificationRuleDraft((current) => ({ ...current, mailboxIds: event.target.value }))}
+                placeholder="多个邮箱 ID 用逗号分隔，留空代表全部"
+                value={notificationRuleDraft.mailboxIds}
+              />
+            </FormField>
+            <FormField label="关键词">
+              <TextInput
+                aria-label="通知规则关键词"
+                onChange={(event) => setNotificationRuleDraft((current) => ({ ...current, keyword: event.target.value }))}
+                placeholder="匹配主题、发件人、提取值或 payload"
+                value={notificationRuleDraft.keyword}
+              />
+            </FormField>
+            <FormField label="静默时间">
+              <div className="webhook-rule-quiet-hours">
+                <TextInput
+                  aria-label="通知规则静默开始时间"
+                  onChange={(event) => setNotificationRuleDraft((current) => ({ ...current, quietHoursStart: event.target.value }))}
+                  type="time"
+                  value={notificationRuleDraft.quietHoursStart}
+                />
+                <TextInput
+                  aria-label="通知规则静默结束时间"
+                  onChange={(event) => setNotificationRuleDraft((current) => ({ ...current, quietHoursEnd: event.target.value }))}
+                  type="time"
+                  value={notificationRuleDraft.quietHoursEnd}
+                />
+              </div>
+            </FormField>
+          </div>
+
+          <div className="webhook-rule-event-list" aria-label="通知规则事件">
+            {notificationRuleEventOptions.map((event) => (
+              <CheckboxField
+                checked={notificationRuleDraft.eventTypes.includes(event.value)}
+                className="webhook-event-option"
+                description={<code>{event.value}</code>}
+                key={event.value}
+                label={event.label}
+                onChange={(changeEvent) => toggleNotificationRuleEvent(event.value, changeEvent.target.checked)}
+                variant="card"
+              />
+            ))}
+          </div>
+
+          <div className="webhook-rule-list" role="list">
+            {notificationRules.map((rule) => (
+              <article className="webhook-rule-row" key={rule.id} role="listitem">
+                <div>
+                  <strong>{rule.name}</strong>
+                  <small>
+                    {notificationTargetLabels[rule.target]} · {rule.eventTypes.join(", ")}
+                  </small>
+                  <span>
+                    {rule.mailboxIds.length > 0 ? `邮箱 ${rule.mailboxIds.length} 个` : "全部邮箱"}
+                    {rule.keyword ? ` · 关键词 ${rule.keyword}` : ""}
+                    {rule.quietHoursStart && rule.quietHoursEnd ? ` · 静默 ${rule.quietHoursStart}-${rule.quietHoursEnd}` : ""}
+                  </span>
+                </div>
+                <Button
+                  aria-label={`删除通知规则 ${rule.name}`}
+                  leadingIcon={<Trash2 size={14} strokeWidth={1.9} />}
+                  onClick={() => void deleteNotificationRule(rule)}
+                  size="xs"
+                  variant="secondary"
+                >
+                  删除
+                </Button>
+              </article>
+            ))}
+            {notificationRules.length === 0 ? (
+              <div className="integration-empty-state compact">
+                <strong>暂无通知规则</strong>
+                <p className="section-copy">未创建规则时，Webhook 和 Telegram 会继续按各自的订阅开关投递。</p>
+              </div>
+            ) : null}
           </div>
         </section>
 

@@ -14,6 +14,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Added a product maturity implementation plan and an admin-only system diagnostics panel for deployment readiness checks.
+- Added an admin-only product maturity overview that tracks all eight maturity directions across backend, UI, tests, and docs.
+- Added an admin operations center that aggregates recent diagnostics issues, Webhook failures, Telegram failures, outbound failures, cleanup backlog, and D1/R2 binding signals.
+- Added scoped API keys so newly created keys can be limited to mail read, mail send, mailbox management, integrations, settings read, or admin automation permissions.
+- Added profile session/device management with active session visibility, single-session revocation, and "退出其他设备".
+- Added invite expiry and target-role policies across admin invite creation, registration, OAuth onboarding, API docs, and maturity docs.
+- Added the admin governance overview with login history, recent audit events, rate-limit policy visibility, invite analytics, and batch invite creation.
+- Added advanced mail filtering by sender, subject, date range, attachment presence, and extraction type.
+- Added mail batch export/delete actions with audit records and attachment cleanup.
+- Added message detail retention countdowns, raw text view, attachment preview metadata, and extracted-link risk hints.
+- Added notification rules for Webhook and Telegram delivery with target, event, mailbox, keyword, quiet-hour filters, and extension targets for Slack, Discord, Feishu, and WeCom.
+- Added outbound maturity checks with quota, retry, Return-Path, sender identity, SPF/DKIM/DMARC checklist, and built-in compose templates.
+- Added a commercial model summary with free/pro/team tiers, default organization workspace, shared mailbox usage, team roles, quota usage, and organization audit evidence.
+- Added data reliability summaries with D1/R2 status, migration evidence, backup/restore runbook commands, cleanup run records, inbound idempotency, and duplicate notification suppression.
+
+### Security
+
+- Reject expired invite codes for password and OAuth registration flows and record session revocation audit events.
+
 ### Fixed
 
 - Fixed session recovery when browsers send both stale host-only and current domain-scoped login cookies.

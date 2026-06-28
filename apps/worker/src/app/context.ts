@@ -1,10 +1,12 @@
-import type { FeatureToggles } from "@wemail/shared";
+import type { ApiKeyScope, FeatureToggles } from "@wemail/shared";
 
 import type { AppBindings, AppStore } from "../core/bindings";
 
 export type AppVariables = {
   user: { id: string; email: string; role: "admin" | "member" } | null;
   authMode: "session" | "apiKey" | "anonymous";
+  sessionId: string | null;
+  apiKeyScopes: ApiKeyScope[];
   store: AppStore;
   featureToggles: FeatureToggles;
 };

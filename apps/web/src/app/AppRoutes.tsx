@@ -3,15 +3,24 @@ import { Navigate, Route, Routes } from "react-router-dom";
 
 import type {
   ApiKeySummary,
+  ApiKeyScope,
+  AdminGovernanceSummary,
+  CommercialModelSummary,
+  DataReliabilitySummary,
   FeatureToggles,
   MailDomainSummary,
   MailboxSummary,
+  MessageBatchAction,
+  MessageBatchActionResult,
   MessageListSummary,
   MessageSummary,
+  ProductMaturitySummary,
   QuotaSummary,
   RuntimeSettings,
   RuntimeSettingsUpdateInput,
   SessionSummary,
+  SystemDiagnosticsSummary,
+  SystemOperationsSummary,
   TelegramDeliverySummary,
   TelegramLinkCodeSummary,
   TelegramOverviewSummary,
@@ -19,11 +28,12 @@ import type {
   UserProfileSummary,
   UserProfileUpdateInput,
   UserRole,
+  UserSessionSummary,
   UserStatus,
   UserSummary
 } from "@wemail/shared";
 
-import type { AdminUserStats, AdminUsersQuery, InviteSummary } from "../features/admin/types";
+import type { AdminUserStats, AdminUsersQuery, InviteCreatePayload, InviteSummary } from "../features/admin/types";
 import type { TelegramBotMenuResult, TelegramWebhookConfigureResult } from "../features/settings/api";
 import type { SettingsDataQueryOptions } from "../features/settings/queries";
 import type {
@@ -114,15 +124,24 @@ type AppRoutesProps = {
     refreshOutbound: (query?: string | OutboundListQueryInput | null) => Promise<void>;
     loadOutboundDetail: (messageId: string) => Promise<OutboundHistoryDetail>;
     createMailbox: (payload: MailboxCreatePayload) => Promise<void>;
+    runMessageBatchAction: (payload: {
+      action: MessageBatchAction;
+      messageIds: string[];
+      refreshQuery?: MessageListQueryInput;
+    }) => Promise<MessageBatchActionResult>;
     sendMail: (event: FormEvent<HTMLFormElement>) => Promise<void>;
   };
   selectedMessage: MessageSummary | null;
   settings: {
     apiKeys: ApiKeySummary[];
     runtimeSettings: RuntimeSettings | null;
+    systemDiagnostics: SystemDiagnosticsSummary | null;
+    systemMaturity: ProductMaturitySummary | null;
+    systemOperations: SystemOperationsSummary | null;
+    systemReliability: DataReliabilitySummary | null;
     telegramOverview: TelegramOverviewSummary;
     telegramDeliveries: TelegramDeliverySummary[];
-    createApiKey: (label: string) => Promise<{ key: { secret: string; prefix: string } }>;
+    createApiKey: (label: string, scopes: ApiKeyScope[]) => Promise<{ key: { secret: string; prefix: string; scopes: ApiKeyScope[] } }>;
     revokeApiKey: (keyId: string) => Promise<void>;
     saveTelegram: (payload: { chatId: string; enabled: boolean }) => Promise<void>;
     createTelegramLinkCode: () => Promise<TelegramLinkCodeSummary>;
@@ -134,12 +153,16 @@ type AppRoutesProps = {
   };
   profile: {
     profile: UserProfileSummary | null;
+    profileSessions: UserSessionSummary[];
     hasLoadedProfile: boolean;
     isLoadingProfile: boolean;
     isSavingProfile: boolean;
     isSavingPreferences: boolean;
+    isRevokingSession: boolean;
     profileError: string | null;
     refreshProfileData: () => Promise<void>;
+    revokeOtherSessions: () => Promise<void>;
+    revokeSession: (sessionId: string) => Promise<void>;
     saveProfile: (payload: UserProfileUpdateInput) => Promise<void>;
     savePreferences: (payload: UserProfileUpdateInput) => Promise<void>;
   };
@@ -160,6 +183,8 @@ type AppRoutesProps = {
     adminMailboxesPage: number;
     adminMailboxesPageSize: number;
     adminMailboxesTotal: number;
+    adminGovernance: AdminGovernanceSummary | null;
+    adminCommercial: CommercialModelSummary | null;
     createUser: (payload: { email: string; name: string; password: string; role: UserRole }) => Promise<void>;
     changeUserRoles: (userIds: string[], role: UserRole) => Promise<void>;
     updateUser: (userId: string, payload: { name: string }) => Promise<void>;
@@ -170,7 +195,7 @@ type AppRoutesProps = {
     isLoadingUsers: boolean;
     usersError: string | null;
     suspendUsersOutbound: (userIds: string[]) => Promise<void>;
-    createInvite: () => Promise<void>;
+    createInvite: (payload: InviteCreatePayload) => Promise<void>;
     disableInvite: (inviteId: string) => Promise<void>;
     refreshAdminInvites: (query: { page: number; pageSize: number }) => Promise<void>;
     refreshAdminMailboxes: (query: { page: number; pageSize: number }) => Promise<void>;
@@ -285,6 +310,7 @@ export function AppRoutes({
       onSelectMessage={inbox.setSelectedMessageId}
       onRefreshMessages={inbox.refreshMessages}
       onRetrySelectedMessage={inbox.refreshSelectedMessage}
+      onRunMessageBatchAction={inbox.runMessageBatchAction}
       onSendMail={inbox.sendMail}
       requireCreatorNote={inbox.requireMailboxCreatorNote}
     />
@@ -359,6 +385,8 @@ export function AppRoutes({
         adminMailboxesPage={admin.adminMailboxesPage}
         adminMailboxesPageSize={admin.adminMailboxesPageSize}
         adminMailboxesTotal={admin.adminMailboxesTotal}
+        adminGovernance={admin.adminGovernance}
+        adminCommercial={admin.adminCommercial}
         adminQuota={admin.adminQuota}
         adminSettingsUsers={admin.adminSettingsUsers}
         adminUserStats={admin.adminUserStats}
@@ -436,6 +464,10 @@ export function AppRoutes({
       canManageDomains
       canManageRuntimeSettings={session.user.role === "admin"}
       runtimeSettings={settings.runtimeSettings}
+        systemDiagnostics={settings.systemDiagnostics}
+        systemMaturity={settings.systemMaturity}
+        systemOperations={settings.systemOperations}
+        systemReliability={settings.systemReliability}
       resolvedTheme={appearance.theme}
       themePreference={appearance.themePreference}
       onSelectThemePreference={appearance.setThemePreference}
@@ -447,8 +479,12 @@ export function AppRoutes({
     <SystemProfilePage
       isSavingPreferences={profile.isSavingPreferences}
       isSavingProfile={profile.isSavingProfile}
+      isRevokingSession={profile.isRevokingSession}
       profile={profile.profile}
+      sessions={profile.profileSessions}
       onLogoutCurrentDevice={onLogout}
+      onRevokeOtherSessions={profile.revokeOtherSessions}
+      onRevokeSession={profile.revokeSession}
       onSavePreferences={profile.savePreferences}
       onSaveProfile={profile.saveProfile}
     />

@@ -1,8 +1,15 @@
-import type { MessageFilter, MessageListResult, UserRole } from "@wemail/shared";
+import type {
+  ExtractionType,
+  MessageBatchAction,
+  MessageBatchActionResult,
+  MessageFilter,
+  MessageListResult,
+  UserRole
+} from "@wemail/shared";
 
 import type { AttachmentRecord, AppStore, PersistedMessageRecord } from "../../core/bindings";
 import { toMessageJson } from "../../shared/mail";
-import { jsonError } from "../services/audit-service";
+import { jsonError, recordAudit } from "../services/audit-service";
 import { getOwnedMailbox } from "../services/mailbox-access-service";
 
 type MessageUseCaseContext = {
@@ -88,6 +95,12 @@ export async function listMessagesUseCase(
     pageSize: number;
     search?: string;
     filter?: MessageFilter;
+    from?: string;
+    subject?: string;
+    startDate?: string;
+    endDate?: string;
+    hasAttachment?: boolean;
+    extractionType?: ExtractionType;
   }
 ): Promise<MessageListResult | Response> {
   const mailboxIds = await listOwnedMailboxIds(context, payload);
@@ -98,7 +111,13 @@ export async function listMessagesUseCase(
     page: payload.page,
     pageSize: payload.pageSize,
     filter: payload.filter ?? "all",
-    ...(payload.search ? { search: payload.search } : {})
+    ...(payload.search ? { search: payload.search } : {}),
+    ...(payload.from ? { from: payload.from } : {}),
+    ...(payload.subject ? { subject: payload.subject } : {}),
+    ...(payload.startDate ? { startDate: payload.startDate } : {}),
+    ...(payload.endDate ? { endDate: payload.endDate } : {}),
+    ...(typeof payload.hasAttachment === "boolean" ? { hasAttachment: payload.hasAttachment } : {}),
+    ...(payload.extractionType ? { extractionType: payload.extractionType } : {})
   });
   const messages = await Promise.all(result.messages.map((message) => buildMessageSummary(context, message)));
 
@@ -157,5 +176,57 @@ export async function getMessageAttachmentUseCase(
   return { message: owned.message, attachment } satisfies {
     message: PersistedMessageRecord;
     attachment: AttachmentRecord;
+  };
+}
+
+export async function runMessageBatchActionUseCase(
+  context: MessageUseCaseContext,
+  payload: {
+    userId: string;
+    userRole: UserRole;
+    action: MessageBatchAction;
+    messageIds: string[];
+  }
+): Promise<MessageBatchActionResult> {
+  const requestedIds = Array.from(new Set(payload.messageIds.map((messageId) => messageId.trim()).filter(Boolean)));
+  const visibleMessages = (
+    await Promise.all(
+      requestedIds.map((messageId) =>
+        getVisibleMessage(context, {
+          userId: payload.userId,
+          userRole: payload.userRole,
+          messageId
+        })
+      )
+    )
+  ).filter((entry): entry is NonNullable<Awaited<ReturnType<typeof getVisibleMessage>>> => Boolean(entry));
+  const visibleMessageIds = visibleMessages.map((entry) => entry.message.id);
+
+  if (payload.action === "export") {
+    const messages = await Promise.all(visibleMessages.map((entry) => buildMessageSummary(context, entry.message)));
+    await recordAudit(context.store, "user", payload.userId, "message-batch-export", {
+      requested: requestedIds.length,
+      exported: messages.length
+    });
+
+    return {
+      action: payload.action,
+      affected: messages.length,
+      requested: requestedIds.length,
+      messages
+    };
+  }
+
+  await context.store.attachments.deleteByMessageIds(visibleMessageIds);
+  await context.store.messages.deleteMany(visibleMessageIds);
+  await recordAudit(context.store, "user", payload.userId, "message-batch-delete", {
+    requested: requestedIds.length,
+    deleted: visibleMessageIds.length
+  });
+
+  return {
+    action: payload.action,
+    affected: visibleMessageIds.length,
+    requested: requestedIds.length
   };
 }

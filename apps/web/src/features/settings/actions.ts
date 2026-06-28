@@ -1,4 +1,4 @@
-import type { RuntimeSettingsUpdateInput } from "@wemail/shared";
+import type { ApiKeyScope, RuntimeSettingsUpdateInput } from "@wemail/shared";
 
 import {
   configureTelegramBotMenu,
@@ -11,8 +11,8 @@ import {
   updateRuntimeSettings
 } from "./api";
 
-export async function createApiKeyAction(label: string) {
-  return createApiKey(label);
+export async function createApiKeyAction(label: string, scopes: ApiKeyScope[]) {
+  return createApiKey(label, scopes);
 }
 
 export async function revokeApiKeyAction(keyId: string) {

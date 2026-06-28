@@ -5,7 +5,13 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ReactElement } from "react";
-import type { TelegramDeliverySummary, TelegramLinkCodeSummary, TelegramOverviewSummary } from "@wemail/shared";
+import {
+  DEFAULT_API_KEY_SCOPES,
+  type ApiKeyScope,
+  type TelegramDeliverySummary,
+  type TelegramLinkCodeSummary,
+  type TelegramOverviewSummary
+} from "@wemail/shared";
 
 import { ApiKeysPage } from "../../features/settings/ApiKeysPage";
 import { TelegramSettingsPage } from "../../features/settings/TelegramSettingsPage";
@@ -90,7 +96,7 @@ describe("settings pages", () => {
   it("opens api key creation in a dialog and reveals the generated key after submit", async () => {
     const user = userEvent.setup();
     const onCreateApiKey = vi.fn().mockResolvedValue({
-      key: { secret: "wk_live_secret_123456", prefix: "wk_live_abcd" }
+      key: { secret: "wk_live_secret_123456", prefix: "wk_live_abcd", scopes: [...DEFAULT_API_KEY_SCOPES] }
     });
 
     renderWithRouter(
@@ -100,6 +106,7 @@ describe("settings pages", () => {
             id: "key-1",
             label: "本地脚本",
             prefix: "wk_live_1234",
+            scopes: ["mail:read", "settings:read"],
             createdAt: "2026-04-08T00:00:00.000Z",
             lastUsedAt: null,
             revokedAt: null
@@ -133,13 +140,16 @@ describe("settings pages", () => {
     const createDialog = screen.getByRole("dialog", { name: /创建 API 密钥/i });
     expect(createDialog).toBeInTheDocument();
     expect(document.querySelector(".api-keys-create-panel")).toBeNull();
+    expect(within(createDialog).getByRole("group", { name: "API 密钥权限范围" })).toBeInTheDocument();
+    expect(within(createDialog).getByText("读取邮件", { selector: "strong" })).toBeInTheDocument();
 
     await user.type(within(createDialog).getByLabelText(/密钥名称/i), "个人 CLI");
     await user.click(within(createDialog).getByRole("button", { name: /确认创建/i }));
 
-    expect(onCreateApiKey).toHaveBeenCalledWith("个人 CLI");
+    expect(onCreateApiKey).toHaveBeenCalledWith("个人 CLI", [...DEFAULT_API_KEY_SCOPES]);
     expect(await screen.findByText(/只会显示一次/i)).toBeInTheDocument();
     expect(screen.getByText("wk_live_secret_123456", { selector: "code" })).toBeInTheDocument();
+    expect(screen.getByText(/权限：读取邮件、发送邮件/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /我已安全保存/i })).toBeInTheDocument();
   });
 
@@ -149,6 +159,7 @@ describe("settings pages", () => {
       id: `key-${index + 1}`,
       label: `脚本 ${index + 1}`,
       prefix: `wk_live_000${index + 1}`,
+      scopes: (index % 2 === 0 ? ["mail:read"] : ["mail:send"]) as ApiKeyScope[],
       createdAt: "2026-04-08T00:00:00.000Z",
       lastUsedAt: null,
       revokedAt: index === 4 ? "2026-05-08T00:00:00.000Z" : null
@@ -201,9 +212,78 @@ describe("settings pages", () => {
     renderWithRouter(<WebhookPage />);
 
     expect(screen.getByRole("heading", { name: /事件订阅/i })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /通知规则/i })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /Payload 示例/i })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /投递日志/i })).toBeInTheDocument();
     expect(screen.getByText("尚未创建端点", { selector: "strong" })).toBeInTheDocument();
+  });
+
+  it("creates notification rules from the webhook page", async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi.fn(async (url: string | URL | Request, init?: RequestInit) => {
+      const requestUrl = String(url);
+      if (requestUrl.includes("/api/webhook/endpoints?")) {
+        return new Response(JSON.stringify({ endpoints: [], page: 1, pageSize: 5, total: 0 }), {
+          status: 200,
+          headers: { "content-type": "application/json" }
+        });
+      }
+      if (requestUrl.includes("/api/webhook/deliveries")) {
+        return new Response(JSON.stringify({ deliveries: [], page: 1, pageSize: 5, total: 0 }), {
+          status: 200,
+          headers: { "content-type": "application/json" }
+        });
+      }
+      if (requestUrl.endsWith("/api/notification/rules") && init?.method === "POST") {
+        return new Response(
+          JSON.stringify({
+            rule: {
+              id: "rule-1",
+              name: "验证码通知",
+              enabled: true,
+              target: "webhook",
+              targetId: null,
+              eventTypes: ["message.received"],
+              mailboxIds: [],
+              keyword: "code",
+              quietHoursStart: "",
+              quietHoursEnd: "",
+              createdAt: "2026-06-14T01:05:00.000Z",
+              updatedAt: "2026-06-14T01:05:00.000Z"
+            }
+          }),
+          { status: 201, headers: { "content-type": "application/json" } }
+        );
+      }
+      if (requestUrl.endsWith("/api/notification/rules")) {
+        return new Response(JSON.stringify({ rules: [] }), {
+          status: 200,
+          headers: { "content-type": "application/json" }
+        });
+      }
+      return new Response(JSON.stringify({ error: `Unhandled ${requestUrl}` }), {
+        status: 500,
+        headers: { "content-type": "application/json" }
+      });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderWithRouter(<WebhookPage />);
+
+    await user.type(await screen.findByLabelText("通知规则名称"), "验证码通知");
+    await user.type(screen.getByLabelText("通知规则关键词"), "code");
+    await user.click(screen.getByRole("button", { name: /保存规则/i }));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringContaining("/api/notification/rules"),
+        expect.objectContaining({
+          method: "POST",
+          body: expect.stringContaining('"keyword":"code"')
+        })
+      );
+    });
+    expect(screen.getByText("验证码通知")).toBeInTheDocument();
   });
 
   it("sends webhook test events through the API and reports the result with toast", async () => {

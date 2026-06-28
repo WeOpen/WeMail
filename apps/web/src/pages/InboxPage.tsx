@@ -1,10 +1,25 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 
-import type { MailDomainSummary, MailboxSummary, MessageFilter, MessageListSummary, MessageSummary, UserRole } from "@wemail/shared";
+import type {
+  ExtractionType,
+  MailDomainSummary,
+  MailboxSummary,
+  MessageBatchAction,
+  MessageBatchActionResult,
+  MessageFilter,
+  MessageListSummary,
+  MessageSummary,
+  UserRole
+} from "@wemail/shared";
 
 import { InboxSummaryBar } from "../features/inbox/InboxSummaryBar";
 import { MessageDetailPanel } from "../features/inbox/MessageDetailPanel";
-import { MessageStreamPanel } from "../features/inbox/MessageStreamPanel";
+import {
+  MessageStreamPanel,
+  type MessageAdvancedFilters,
+  type MessageAttachmentFilter,
+  type MessageExtractionTypeFilter
+} from "../features/inbox/MessageStreamPanel";
 import { OutboundPanel } from "../features/inbox/OutboundPanel";
 import type { MailboxCreatePayload, MailboxListQueryInput, MailboxListResponse, MessageListQueryInput } from "../features/inbox/api";
 import type { OutboundHistoryItem } from "../features/inbox/types";
@@ -43,6 +58,11 @@ type InboxPageProps = {
   onSelectMessage: (messageId: string) => void;
   onRefreshMessages: (query?: MessageListQueryInput | string | null) => Promise<void>;
   onRetrySelectedMessage: (messageId?: string | null) => Promise<void>;
+  onRunMessageBatchAction: (payload: {
+    action: MessageBatchAction;
+    messageIds: string[];
+    refreshQuery?: MessageListQueryInput;
+  }) => Promise<MessageBatchActionResult>;
   onSendMail: (event: FormEvent<HTMLFormElement>) => Promise<void>;
 };
 
@@ -51,6 +71,14 @@ const messageSearchDebounceMs = 300;
 const defaultMessageRefreshIntervalMs = 30_000;
 const mailboxPageSize = 4;
 const mailboxPageSizeOptions = [4, 8, 12] as const;
+const defaultMessageAdvancedFilters: MessageAdvancedFilters = {
+  from: "",
+  subject: "",
+  startDate: "",
+  endDate: "",
+  hasAttachment: "all",
+  extractionType: "all"
+};
 
 function formatMailboxCreatedAt(value: string) {
   const date = new Date(value);
@@ -94,6 +122,7 @@ export function InboxPage({
   onSelectMessage,
   onRefreshMessages,
   onRetrySelectedMessage,
+  onRunMessageBatchAction,
   onSendMail
 }: InboxPageProps) {
   const [label, setLabel] = useState("");
@@ -112,7 +141,10 @@ export function InboxPage({
   const [messageFilter, setMessageFilter] = useState<MessageFilter>("all");
   const [messageSearchValue, setMessageSearchValue] = useState("");
   const [debouncedMessageSearchValue, setDebouncedMessageSearchValue] = useState("");
+  const [messageAdvancedFilters, setMessageAdvancedFilters] = useState<MessageAdvancedFilters>(defaultMessageAdvancedFilters);
   const [messagePage, setMessagePage] = useState(1);
+  const [selectedBatchMessageIds, setSelectedBatchMessageIds] = useState<string[]>([]);
+  const [isBatchActionRunning, setIsBatchActionRunning] = useState(false);
   const canViewMailboxCreator = currentUserRole === "admin";
   const mailboxSelectorColumnCount = canViewMailboxCreator ? 5 : 4;
 
@@ -124,15 +156,37 @@ export function InboxPage({
   const outboundMailboxId = selectedMailboxId ?? mailboxes[0]?.id ?? null;
   const messageQuery = useMemo<MessageListQueryInput>(() => {
     const search = debouncedMessageSearchValue.trim();
+    const from = messageAdvancedFilters.from.trim();
+    const subject = messageAdvancedFilters.subject.trim();
+    const startDate = messageAdvancedFilters.startDate
+      ? `${messageAdvancedFilters.startDate}T00:00:00.000Z`
+      : "";
+    const endDate = messageAdvancedFilters.endDate
+      ? `${messageAdvancedFilters.endDate}T23:59:59.999Z`
+      : "";
+    const hasAttachment =
+      messageAdvancedFilters.hasAttachment === "with"
+        ? true
+        : messageAdvancedFilters.hasAttachment === "without"
+          ? false
+          : undefined;
+    const extractionType =
+      messageAdvancedFilters.extractionType === "all" ? undefined : (messageAdvancedFilters.extractionType as ExtractionType);
 
     return {
       mailboxId: selectedMailboxId,
       page: messagePage,
       pageSize: messagePageSize,
       filter: messageFilter,
-      ...(search ? { search } : {})
+      ...(search ? { search } : {}),
+      ...(from ? { from } : {}),
+      ...(subject ? { subject } : {}),
+      ...(startDate ? { startDate } : {}),
+      ...(endDate ? { endDate } : {}),
+      ...(typeof hasAttachment === "boolean" ? { hasAttachment } : {}),
+      ...(extractionType ? { extractionType } : {})
     };
-  }, [debouncedMessageSearchValue, messageFilter, messagePage, selectedMailboxId]);
+  }, [debouncedMessageSearchValue, messageAdvancedFilters, messageFilter, messagePage, selectedMailboxId]);
   const mailboxSelectorQuery = useMemo<MailboxListQueryInput>(() => ({
     page: mailboxPage,
     pageSize: mailboxSelectorPageSize,
@@ -217,6 +271,11 @@ export function InboxPage({
     setMessagePage(1);
   }, [selectedMailboxId]);
 
+  useEffect(() => {
+    const visibleMessageIds = new Set(messages.map((message) => message.id));
+    setSelectedBatchMessageIds((selectedIds) => selectedIds.filter((messageId) => visibleMessageIds.has(messageId)));
+  }, [messages]);
+
   const handleCreateMailbox = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const nextLabel = label.trim();
@@ -260,6 +319,64 @@ export function InboxPage({
     setMessagePage(1);
   };
 
+  const handleAdvancedFilterChange = (field: keyof MessageAdvancedFilters, value: string) => {
+    setMessageAdvancedFilters((current) => ({
+      ...current,
+      [field]:
+        field === "hasAttachment"
+          ? (value as MessageAttachmentFilter)
+          : field === "extractionType"
+            ? (value as MessageExtractionTypeFilter)
+            : value
+    }));
+    setMessagePage(1);
+  };
+
+  const handleToggleMessageSelection = (messageId: string, selected: boolean) => {
+    setSelectedBatchMessageIds((current) => {
+      if (selected) return current.includes(messageId) ? current : [...current, messageId];
+      return current.filter((entry) => entry !== messageId);
+    });
+  };
+
+  const handleTogglePageSelection = (selected: boolean) => {
+    const currentPageIds = messages.map((message) => message.id);
+    setSelectedBatchMessageIds((current) => {
+      if (selected) return Array.from(new Set([...current, ...currentPageIds]));
+      return current.filter((messageId) => !currentPageIds.includes(messageId));
+    });
+  };
+
+  const downloadMessageExport = (result: MessageBatchActionResult) => {
+    const blob = new Blob([JSON.stringify(result.messages ?? [], null, 2)], {
+      type: "application/json;charset=utf-8"
+    });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `wemail-messages-${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.append(anchor);
+    anchor.click();
+    anchor.remove();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleRunMessageBatchAction = async (action: MessageBatchAction) => {
+    if (selectedBatchMessageIds.length === 0 || isBatchActionRunning) return;
+    setIsBatchActionRunning(true);
+    try {
+      const result = await onRunMessageBatchAction({
+        action,
+        messageIds: selectedBatchMessageIds,
+        refreshQuery: messageQuery
+      });
+      if (action === "export") downloadMessageExport(result);
+      setSelectedBatchMessageIds([]);
+    } finally {
+      setIsBatchActionRunning(false);
+    }
+  };
+
   const handleMailboxPageSizeChange = (pageSize: number) => {
     setMailboxSelectorPageSize(pageSize);
     setMailboxPage(1);
@@ -281,20 +398,27 @@ export function InboxPage({
         />
         <div className="workspace-grid inbox-grid">
           <MessageStreamPanel
+            advancedFilters={messageAdvancedFilters}
             filter={messageFilter}
             messages={messages}
             page={safeMessagePage}
             pageSize={messageListPageSize}
             resultCount={messageListTotal}
             selectedMessageId={activeMessageId}
+            selectedMessageIds={selectedBatchMessageIds}
             searchValue={messageSearchValue}
+            isBatchActionRunning={isBatchActionRunning}
             isLoading={isLoadingMessages}
             errorMessage={messageListError}
+            onAdvancedFilterChange={handleAdvancedFilterChange}
             onFilterChange={handleMessageFilterChange}
             onPageChange={setMessagePage}
+            onRunBatchAction={(action) => void handleRunMessageBatchAction(action)}
             onRefreshMessages={() => void onRefreshMessages(messageQuery)}
             onSearchChange={handleMessageSearchChange}
             onSelectMessage={onSelectMessage}
+            onToggleMessageSelection={handleToggleMessageSelection}
+            onTogglePageSelection={handleTogglePageSelection}
           />
           <MessageDetailPanel
             errorMessage={selectedMessageError}

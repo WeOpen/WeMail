@@ -1,9 +1,9 @@
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { MailDomainSummary, MessageFilter, MessageListSummary } from "@wemail/shared";
+import type { MailDomainSummary, MessageBatchAction, MessageFilter, MessageListSummary } from "@wemail/shared";
 
 import { useAppStore } from "../../app/appStore";
 import type { WemailToastInput } from "../../shared/toast";
-import { createMailboxAction, sendOutboundAction } from "./actions";
+import { batchMessagesAction, createMailboxAction, sendOutboundAction } from "./actions";
 import {
   fetchMailboxDomains,
   fetchMailboxPolicy,
@@ -59,7 +59,13 @@ function normalizeMessageQuery(
     page: query?.page ?? 1,
     pageSize: query?.pageSize ?? 10,
     filter: query?.filter ?? "all",
-    ...(query?.search ? { search: query.search } : {})
+    ...(query?.search ? { search: query.search } : {}),
+    ...(query?.from ? { from: query.from } : {}),
+    ...(query?.subject ? { subject: query.subject } : {}),
+    ...(query?.startDate ? { startDate: query.startDate } : {}),
+    ...(query?.endDate ? { endDate: query.endDate } : {}),
+    ...(typeof query?.hasAttachment === "boolean" ? { hasAttachment: query.hasAttachment } : {}),
+    ...(query?.extractionType ? { extractionType: query.extractionType } : {})
   };
 }
 
@@ -281,6 +287,27 @@ export function useInboxWorkspace({
     [mailboxes, onToast, outboundPageSize, refreshOutbound, selectedMailboxId]
   );
 
+  const runMessageBatchAction = useCallback(
+    async (payload: { action: MessageBatchAction; messageIds: string[]; refreshQuery?: MessageListQueryInput }) => {
+      const response = await batchMessagesAction({
+        action: payload.action,
+        messageIds: payload.messageIds
+      });
+      const { result } = response;
+
+      if (payload.action === "delete") {
+        await refreshMessages(payload.refreshQuery);
+        setSelectedMessageDetail(null);
+        onToast({ message: `已删除 ${result.affected} 封邮件。`, tone: "success" });
+      } else {
+        onToast({ message: `已导出 ${result.affected} 封邮件。`, tone: "success" });
+      }
+
+      return result;
+    },
+    [onToast, refreshMessages]
+  );
+
   return {
     mailboxes,
     selectedMailboxId,
@@ -315,6 +342,7 @@ export function useInboxWorkspace({
     loadOutboundDetail,
     refreshMailboxCreationOptions,
     createMailbox,
-    sendMail
+    sendMail,
+    runMessageBatchAction
   };
 }

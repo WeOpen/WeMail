@@ -2,13 +2,17 @@ import type {
   DictionaryCatalogGroup,
   DictionaryItemSummary,
   DictionaryItemUpdateInput,
+  ApiKeyScope,
+  ExtractionType,
   FeatureToggles,
   MailDomainSummary,
   MailboxStatus,
   MessageFilter,
   MessageListSummary,
+  NotificationRuleTarget,
   OutboundListStatus,
   OutboundListSummary,
+  UserRole,
   UserStatus
 } from "@wemail/shared";
 
@@ -126,6 +130,12 @@ export type MessageRecordListQuery = {
   pageSize: number;
   search?: string;
   filter?: MessageFilter;
+  from?: string;
+  subject?: string;
+  startDate?: string;
+  endDate?: string;
+  hasAttachment?: boolean;
+  extractionType?: ExtractionType;
 };
 
 export type MessageRecordListResult = {
@@ -167,6 +177,17 @@ export type OutboundMessageListResult = {
   total: number;
 };
 
+export type CleanupRunRecord = {
+  id: string;
+  status: "success" | "failed";
+  startedAt: string;
+  finishedAt: string;
+  deletedMessages: number;
+  deletedAttachments: number;
+  deletedAccounts: number;
+  errorText: string | null;
+};
+
 export type InviteListResult = {
   available: number;
   invites: InviteRecord[];
@@ -186,7 +207,10 @@ export type MailboxListResult = {
 export type SessionRecord = {
   id: string;
   userId: string;
+  userAgent: string | null;
+  ipAddress: string | null;
   expiresAt: string;
+  lastSeenAt: string;
   createdAt: string;
 };
 
@@ -241,6 +265,8 @@ export type InviteRecord = {
   redeemedByUserId: string | null;
   redeemedAt: string | null;
   disabledAt: string | null;
+  expiresAt: string | null;
+  targetRole: UserRole;
   createdAt: string;
 };
 
@@ -290,6 +316,7 @@ export type ApiKeyRecord = {
   userId: string;
   label: string;
   prefix: string;
+  scopes: ApiKeyScope[];
   keyHash: string;
   createdAt: string;
   lastUsedAt: string | null;
@@ -397,6 +424,22 @@ export type WebhookDeliveryListResult = {
   pageSize: number;
 };
 
+export type NotificationRuleRecord = {
+  id: string;
+  userId: string;
+  name: string;
+  enabled: boolean;
+  target: NotificationRuleTarget;
+  targetId: string | null;
+  eventTypesJson: string;
+  mailboxIdsJson: string;
+  keyword: string;
+  quietHoursStart: string;
+  quietHoursEnd: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type AnnouncementRecord = {
   id: string;
   title: string;
@@ -453,10 +496,13 @@ export interface AppStore {
     save: (record: Omit<UserPreferencesRecord, "updatedAt">) => Promise<UserPreferencesRecord>;
   };
   sessions: {
-    create: (input: { userId: string; expiresAt: string }) => Promise<SessionRecord>;
+    create: (input: { userId: string; expiresAt: string; userAgent?: string | null; ipAddress?: string | null }) => Promise<SessionRecord>;
     findById: (id: string) => Promise<SessionRecord | null>;
+    listByUser: (userId: string) => Promise<SessionRecord[]>;
+    touch: (id: string, input?: { userAgent?: string | null; ipAddress?: string | null }) => Promise<void>;
     delete: (id: string) => Promise<void>;
     deleteByUserId: (userId: string) => Promise<void>;
+    deleteByUserIdExcept: (userId: string, keepSessionId: string) => Promise<void>;
   };
   oauthStates: {
     create: (input: { provider: OAuthProviderId; redirectTo: string; expiresAt: string }) => Promise<OAuthStateRecord>;
@@ -487,7 +533,7 @@ export interface AppStore {
     deleteByUserId: (userId: string) => Promise<void>;
   };
   invites: {
-    create: (input: { code: string; createdByUserId: string | null }) => Promise<InviteRecord>;
+    create: (input: { code: string; createdByUserId: string | null; expiresAt?: string | null; targetRole?: UserRole }) => Promise<InviteRecord>;
     findByCode: (code: string) => Promise<InviteRecord | null>;
     findById: (id: string) => Promise<InviteRecord | null>;
     redeem: (code: string, userId: string) => Promise<InviteRecord>;
@@ -553,6 +599,7 @@ export interface AppStore {
       userId: string;
       label: string;
       prefix: string;
+      scopes: ApiKeyScope[];
       keyHash: string;
     }) => Promise<ApiKeyRecord>;
     listByUser: (userId: string) => Promise<ApiKeyRecord[]>;
@@ -598,6 +645,11 @@ export interface AppStore {
     record: (event: Omit<AuditEventRecord, "id" | "createdAt">) => Promise<void>;
     countByActorSince: (actorId: string, eventType: string, sinceIso: string) => Promise<number>;
     listByActorAndTypes: (actorId: string, eventTypes: string[], limit: number) => Promise<AuditEventRecord[]>;
+    listRecent: (options?: { eventTypes?: string[]; limit?: number }) => Promise<AuditEventRecord[]>;
+  };
+  cleanupRuns: {
+    record: (input: Omit<CleanupRunRecord, "id">) => Promise<CleanupRunRecord>;
+    listRecent: (limit: number) => Promise<CleanupRunRecord[]>;
   };
   accountSettings: {
     get: () => Promise<AccountSettingsRecord | null>;
@@ -620,6 +672,16 @@ export interface AppStore {
     listByUserPage: (userId: string, query: WebhookDeliveryListQuery) => Promise<WebhookDeliveryListResult>;
     findByUser: (id: string, userId: string) => Promise<WebhookDeliveryRecord | null>;
     record: (input: Omit<WebhookDeliveryRecord, "id" | "createdAt"> & { id?: string; createdAt?: string }) => Promise<WebhookDeliveryRecord>;
+  };
+  notificationRules: {
+    listByUser: (userId: string) => Promise<NotificationRuleRecord[]>;
+    create: (input: Omit<NotificationRuleRecord, "id" | "createdAt" | "updatedAt">) => Promise<NotificationRuleRecord>;
+    update: (
+      id: string,
+      userId: string,
+      input: Omit<NotificationRuleRecord, "id" | "userId" | "createdAt" | "updatedAt">
+    ) => Promise<NotificationRuleRecord | null>;
+    delete: (id: string, userId: string) => Promise<void>;
   };
   announcements: {
     list: () => Promise<AnnouncementRecord[]>;

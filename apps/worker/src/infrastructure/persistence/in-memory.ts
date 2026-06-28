@@ -1,7 +1,10 @@
 import {
+  API_KEY_SCOPE_DEFINITIONS,
   applyDictionaryItemUpdate,
   buildDictionaryCatalog,
+  DEFAULT_API_KEY_SCOPES,
   findDefaultDictionaryItem,
+  type ApiKeyScope,
   type DictionaryItemSummary,
   type MailDomainSummary,
   type MessageFilter,
@@ -17,12 +20,14 @@ import type {
   AppStore,
   AttachmentRecord,
   AuditEventRecord,
+  CleanupRunRecord,
   FeatureToggles,
   InviteRecord,
   MailSettingsRecord,
   MailboxDetailRecord,
   MailboxDetailListQuery,
   MailboxRecord,
+  NotificationRuleRecord,
   OAuthIdentityRecord,
   OAuthPendingLoginRecord,
   OAuthStateRecord,
@@ -84,6 +89,13 @@ function parseMessageExtraction(record: PersistedMessageRecord) {
   return JSON.parse(record.extractionJson) as { type?: string; value?: string; label?: string };
 }
 
+const apiKeyScopeIds = new Set<string>(API_KEY_SCOPE_DEFINITIONS.map((scope) => scope.id));
+
+function normalizeApiKeyScopes(scopes: unknown[] | undefined): ApiKeyScope[] {
+  const normalized = (scopes ?? []).filter((scope): scope is ApiKeyScope => typeof scope === "string" && apiKeyScopeIds.has(scope));
+  return normalized.length > 0 ? normalized : [...DEFAULT_API_KEY_SCOPES];
+}
+
 function matchesMessageFilter(record: PersistedMessageRecord, filter: MessageFilter = "all") {
   const extraction = parseMessageExtraction(record);
   if (filter === "code") return extraction.type === "auth_code";
@@ -119,6 +131,36 @@ function matchesMessageSearch(record: PersistedMessageRecord, searchValue?: stri
     .join(" ")
     .toLowerCase()
     .includes(normalizedSearch);
+}
+
+function matchesMessageAdvancedFilters(record: PersistedMessageRecord, query: {
+  from?: string;
+  subject?: string;
+  startDate?: string;
+  endDate?: string;
+  hasAttachment?: boolean;
+  extractionType?: string;
+}) {
+  const normalizedFrom = query.from?.trim().toLowerCase();
+  if (normalizedFrom && !record.fromAddress.toLowerCase().includes(normalizedFrom)) return false;
+
+  const normalizedSubject = query.subject?.trim().toLowerCase();
+  if (normalizedSubject && !record.subject.toLowerCase().includes(normalizedSubject)) return false;
+
+  if (query.startDate && record.receivedAt < query.startDate) return false;
+  if (query.endDate && record.receivedAt > query.endDate) return false;
+
+  if (typeof query.hasAttachment === "boolean") {
+    const hasAttachment = record.attachmentCount > 0;
+    if (hasAttachment !== query.hasAttachment) return false;
+  }
+
+  if (query.extractionType) {
+    const extraction = parseMessageExtraction(record);
+    if (extraction.type !== query.extractionType) return false;
+  }
+
+  return true;
 }
 
 function summarizeMessageRecords(records: PersistedMessageRecord[]): MessageListSummary {
@@ -177,10 +219,12 @@ export function createInMemoryStore(): AppStore {
   let mailDomains: MailDomainSummary[] | null = null;
   const dictionaryItems = new Map<string, DictionaryItemSummary>();
   const auditEvents: AuditEventRecord[] = [];
+  const cleanupRuns: CleanupRunRecord[] = [];
   let accountSettingsRecord: AccountSettingsRecord | null = null;
   let mailSettingsRecord: MailSettingsRecord | null = null;
   const webhookEndpoints = new Map<string, WebhookEndpointRecord>();
   const webhookDeliveries: WebhookDeliveryRecord[] = [];
+  const notificationRules = new Map<string, NotificationRuleRecord>();
   const announcements: AnnouncementRecord[] = [];
   const announcementReceipts: AnnouncementReceiptRecord[] = [];
 
@@ -327,11 +371,15 @@ export function createInMemoryStore(): AppStore {
     },
     sessions: {
       async create(input) {
+        const createdAt = nowIso();
         const record: SessionRecord = {
           id: `${crypto.randomUUID()}-${Math.random().toString(36).slice(2, 10)}`,
           userId: input.userId,
+          userAgent: input.userAgent ?? null,
+          ipAddress: input.ipAddress ?? null,
           expiresAt: input.expiresAt,
-          createdAt: nowIso()
+          lastSeenAt: createdAt,
+          createdAt
         };
         sessions.set(record.id, record);
         return clone(record);
@@ -339,12 +387,32 @@ export function createInMemoryStore(): AppStore {
       async findById(id) {
         return clone(sessions.get(id) ?? null);
       },
+      async listByUser(userId) {
+        return clone(
+          Array.from(sessions.values())
+            .filter((session) => session.userId === userId)
+            .sort((a, b) => b.lastSeenAt.localeCompare(a.lastSeenAt) || b.createdAt.localeCompare(a.createdAt))
+        );
+      },
+      async touch(id, input = {}) {
+        const record = sessions.get(id);
+        if (!record) return;
+        record.lastSeenAt = nowIso();
+        if (typeof input.userAgent !== "undefined" && input.userAgent !== null) record.userAgent = input.userAgent;
+        if (typeof input.ipAddress !== "undefined" && input.ipAddress !== null) record.ipAddress = input.ipAddress;
+        sessions.set(id, record);
+      },
       async delete(id) {
         sessions.delete(id);
       },
       async deleteByUserId(userId) {
         for (const [sessionId, session] of sessions) {
           if (session.userId === userId) sessions.delete(sessionId);
+        }
+      },
+      async deleteByUserIdExcept(userId, keepSessionId) {
+        for (const [sessionId, session] of sessions) {
+          if (session.userId === userId && sessionId !== keepSessionId) sessions.delete(sessionId);
         }
       }
     },
@@ -449,6 +517,8 @@ export function createInMemoryStore(): AppStore {
           redeemedByUserId: null,
           redeemedAt: null,
           disabledAt: null,
+          expiresAt: input.expiresAt ?? null,
+          targetRole: input.targetRole ?? "member",
           createdAt: nowIso()
         };
         invites.set(record.id, record);
@@ -474,8 +544,11 @@ export function createInMemoryStore(): AppStore {
       async listPage(options) {
         const sortedInvites = Array.from(invites.values()).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
         const startIndex = (options.page - 1) * options.pageSize;
+        const now = new Date();
         return clone({
-          available: sortedInvites.filter((invite) => !invite.redeemedAt && !invite.disabledAt).length,
+          available: sortedInvites.filter(
+            (invite) => !invite.redeemedAt && !invite.disabledAt && (!invite.expiresAt || new Date(invite.expiresAt) > now)
+          ).length,
           invites: sortedInvites.slice(startIndex, startIndex + options.pageSize),
           page: options.page,
           pageSize: options.pageSize,
@@ -658,6 +731,7 @@ export function createInMemoryStore(): AppStore {
           .filter((entry) => mailboxIds.has(entry.mailboxId) || (query.includeUnmatched && entry.mailboxId.startsWith("unmatched:")))
           .filter((entry) => matchesMessageFilter(entry, query.filter))
           .filter((entry) => matchesMessageSearch(entry, query.search))
+          .filter((entry) => matchesMessageAdvancedFilters(entry, query))
           .sort((a, b) => b.receivedAt.localeCompare(a.receivedAt));
         const page = getSafePage(query.page);
         const pageSize = getSafePageSize(query.pageSize);
@@ -745,6 +819,7 @@ export function createInMemoryStore(): AppStore {
           userId: input.userId,
           label: input.label,
           prefix: input.prefix,
+          scopes: normalizeApiKeyScopes(input.scopes),
           keyHash: input.keyHash,
           createdAt: nowIso(),
           lastUsedAt: null,
@@ -953,6 +1028,33 @@ export function createInMemoryStore(): AppStore {
             .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
             .slice(0, limit)
         );
+      },
+      async listRecent(options) {
+        const eventTypeSet = new Set(options?.eventTypes ?? []);
+        const limit = getSafePageSize(options?.limit ?? 30);
+        return clone(
+          auditEvents
+            .filter((entry) => eventTypeSet.size === 0 || eventTypeSet.has(entry.eventType))
+            .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+            .slice(0, limit)
+        );
+      }
+    },
+    cleanupRuns: {
+      async record(input) {
+        const record = {
+          id: crypto.randomUUID(),
+          ...input
+        };
+        cleanupRuns.push(record);
+        return clone(record);
+      },
+      async listRecent(limit) {
+        return clone(
+          cleanupRuns
+            .sort((a, b) => b.startedAt.localeCompare(a.startedAt))
+            .slice(0, getSafePageSize(limit))
+        );
       }
     },
     accountSettings: {
@@ -1081,6 +1183,40 @@ export function createInMemoryStore(): AppStore {
         };
         webhookDeliveries.push(record);
         return clone(record);
+      }
+    },
+    notificationRules: {
+      async listByUser(userId) {
+        return clone(
+          Array.from(notificationRules.values())
+            .filter((entry) => entry.userId === userId)
+            .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))
+        );
+      },
+      async create(input) {
+        const record: NotificationRuleRecord = {
+          id: crypto.randomUUID(),
+          createdAt: nowIso(),
+          updatedAt: nowIso(),
+          ...input
+        };
+        notificationRules.set(record.id, record);
+        return clone(record);
+      },
+      async update(id, userId, input) {
+        const existing = notificationRules.get(id);
+        if (!existing || existing.userId !== userId) return null;
+        const next: NotificationRuleRecord = {
+          ...existing,
+          ...input,
+          updatedAt: nowIso()
+        };
+        notificationRules.set(id, next);
+        return clone(next);
+      },
+      async delete(id, userId) {
+        const existing = notificationRules.get(id);
+        if (existing?.userId === userId) notificationRules.delete(id);
       }
     },
     announcements: {

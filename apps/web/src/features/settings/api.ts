@@ -1,17 +1,23 @@
 import type {
   ApiKeySummary,
+  ApiKeyScope,
+  DataReliabilitySummary,
   DictionaryCatalogGroup,
   MailSettings,
   MailSettingsUpdateInput,
   MailDomainSettings,
   MailDomainSummary,
+  ProductMaturitySummary,
   RuntimeSettings,
   RuntimeSettingsUpdateInput,
+  SystemDiagnosticsSummary,
+  SystemOperationsSummary,
   TelegramDeliverySummary,
   TelegramLinkCodeSummary,
   TelegramOverviewSummary,
   TelegramSubscriptionSummary,
   TelegramTestMessageResult,
+  UserSessionSummary,
   UserProfileSummary,
   UserProfileUpdateInput
 } from "@wemail/shared";
@@ -58,11 +64,11 @@ export function fetchDictionaries(options?: { groupKeys?: string[]; includeDisab
   });
 }
 
-export function createApiKey(label: string) {
+export function createApiKey(label: string, scopes: ApiKeyScope[]) {
   invalidateApiCache("/api/api-keys");
-  return apiFetch<{ key: { secret: string; prefix: string } }>("/api/api-keys", {
+  return apiFetch<{ key: { secret: string; prefix: string; scopes: ApiKeyScope[] } }>("/api/api-keys", {
     method: "POST",
-    body: JSON.stringify({ label })
+    body: JSON.stringify({ label, scopes })
   });
 }
 
@@ -142,6 +148,30 @@ export function fetchRuntimeSettings() {
   });
 }
 
+export function fetchSystemDiagnostics() {
+  return apiFetch<{ diagnostics: SystemDiagnosticsSummary }>("/api/system/diagnostics", {
+    cacheTtlMs: SETTINGS_CACHE_TTL_MS
+  });
+}
+
+export function fetchSystemMaturity() {
+  return apiFetch<{ maturity: ProductMaturitySummary }>("/api/system/maturity", {
+    cacheTtlMs: SETTINGS_CACHE_TTL_MS
+  });
+}
+
+export function fetchSystemOperations() {
+  return apiFetch<{ operations: SystemOperationsSummary }>("/api/system/operations", {
+    cacheTtlMs: SETTINGS_CACHE_TTL_MS
+  });
+}
+
+export function fetchSystemReliability() {
+  return apiFetch<{ reliability: DataReliabilitySummary }>("/api/system/reliability", {
+    cacheTtlMs: SETTINGS_CACHE_TTL_MS
+  });
+}
+
 export function updateRuntimeSettings(payload: RuntimeSettingsUpdateInput) {
   invalidateApiCache("/api/system/runtime-settings");
   return apiFetch<{ settings: RuntimeSettings }>("/api/system/runtime-settings", {
@@ -152,6 +182,18 @@ export function updateRuntimeSettings(payload: RuntimeSettingsUpdateInput) {
 
 export function fetchUserProfile() {
   return apiFetch<{ profile: UserProfileSummary }>("/api/profile");
+}
+
+export function fetchProfileSessions() {
+  return apiFetch<{ sessions: UserSessionSummary[] }>("/api/profile/sessions");
+}
+
+export function revokeProfileSession(sessionId: string) {
+  return apiFetch<{ ok: boolean }>(`/api/profile/sessions/${sessionId}`, { method: "DELETE" });
+}
+
+export function revokeOtherProfileSessions() {
+  return apiFetch<{ ok: boolean }>("/api/profile/sessions/others", { method: "DELETE" });
 }
 
 export function updateUserProfile(payload: UserProfileUpdateInput) {

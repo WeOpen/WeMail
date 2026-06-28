@@ -1,5 +1,6 @@
 export type UserRole = "admin" | "member";
 export type UserStatus = "active" | "disabled";
+export type OAuthProviderId = "github" | "linuxdo";
 
 export type ExtractionType =
   | "auth_code"
@@ -67,6 +68,85 @@ export type RuntimeSettingsUpdateInput = {
   ai?: Partial<RuntimeSettings["ai"]>;
 };
 
+export type SystemDiagnosticStatus = "ok" | "warning" | "error";
+
+export type SystemDiagnosticCheck = {
+  id: string;
+  label: string;
+  status: SystemDiagnosticStatus;
+  message: string;
+  action?: string;
+};
+
+export type SystemDiagnosticsSummary = {
+  appName: string;
+  environment: string;
+  generatedAt: string;
+  overallStatus: SystemDiagnosticStatus;
+  checks: SystemDiagnosticCheck[];
+};
+
+export type SystemOperationEventSource = "diagnostic" | "webhook" | "telegram" | "outbound" | "storage";
+
+export type SystemOperationEvent = {
+  id: string;
+  source: SystemOperationEventSource;
+  severity: Exclude<SystemDiagnosticStatus, "ok">;
+  label: string;
+  message: string;
+  occurredAt: string;
+  actionLabel?: string;
+  actionHref?: string;
+};
+
+export type SystemOperationSignal = {
+  label: string;
+  value: string;
+  status: SystemDiagnosticStatus;
+};
+
+export type SystemOperationsSummary = {
+  generatedAt: string;
+  overallStatus: SystemDiagnosticStatus;
+  signals: SystemOperationSignal[];
+  recentEvents: SystemOperationEvent[];
+};
+
+export type ProductMaturityAreaId =
+  | "observability"
+  | "security"
+  | "mail_workflow"
+  | "notifications"
+  | "outbound"
+  | "commercial"
+  | "documentation"
+  | "data_reliability";
+
+export type ProductMaturitySignal = {
+  label: string;
+  value: string;
+  status?: SystemDiagnosticStatus;
+};
+
+export type ProductMaturityArea = {
+  id: ProductMaturityAreaId;
+  title: string;
+  status: SystemDiagnosticStatus;
+  progress: number;
+  summary: string;
+  signals: ProductMaturitySignal[];
+  evidence: string[];
+  nextActions: string[];
+};
+
+export type ProductMaturitySummary = {
+  generatedAt: string;
+  overallStatus: SystemDiagnosticStatus;
+  completedAreas: number;
+  totalAreas: number;
+  areas: ProductMaturityArea[];
+};
+
 export type UserSummary = {
   id: string;
   email: string;
@@ -80,6 +160,16 @@ export type UserSummary = {
 export type SessionSummary = {
   user: UserSummary;
   featureToggles: FeatureToggles;
+};
+
+export type UserSessionSummary = {
+  id: string;
+  userAgent: string | null;
+  ipAddress: string | null;
+  createdAt: string;
+  lastSeenAt: string;
+  expiresAt?: string;
+  isCurrent: boolean;
 };
 
 export type UserProfileLocale = "zh-CN" | "en-US";
@@ -201,6 +291,7 @@ export type MessageSummary = {
   attachmentCount: number;
   attachments: MessageAttachmentSummary[];
   receivedAt: string;
+  expiresAt?: string;
 };
 
 export type MessageFilter = "all" | "code" | "link" | "attachment" | "unparsed";
@@ -211,6 +302,12 @@ export type MessageListQuery = {
   pageSize: number;
   search?: string;
   filter?: MessageFilter;
+  from?: string;
+  subject?: string;
+  startDate?: string;
+  endDate?: string;
+  hasAttachment?: boolean;
+  extractionType?: ExtractionType;
 };
 
 export type MessageListSummary = {
@@ -225,6 +322,15 @@ export type MessageListResult = {
   page: number;
   pageSize: number;
   summary: MessageListSummary;
+};
+
+export type MessageBatchAction = "delete" | "export";
+
+export type MessageBatchActionResult = {
+  action: MessageBatchAction;
+  affected: number;
+  requested: number;
+  messages?: MessageSummary[];
 };
 
 export type OutboundMessageSummary = {
@@ -273,10 +379,74 @@ export type OutboundListResult = {
   summary: OutboundListSummary;
 };
 
+export type OutboundSenderIdentitySummary = {
+  id: string;
+  label: string;
+  address: string;
+  domain: string | null;
+  isDefault: boolean;
+  status: SystemDiagnosticStatus;
+  message: string;
+};
+
+export type OutboundDnsCheckSummary = {
+  id: "spf" | "dkim" | "dmarc";
+  label: string;
+  domain: string;
+  recordType: "TXT" | "CNAME";
+  expectedValue: string;
+  status: SystemDiagnosticStatus;
+  message: string;
+};
+
+export type OutboundTemplateSummary = {
+  id: string;
+  name: string;
+  description: string;
+  subject: string;
+  bodyText: string;
+};
+
+export type OutboundMaturitySummary = {
+  generatedAt: string;
+  featureEnabled: boolean;
+  resendConfigured: boolean;
+  defaultIdentity: string;
+  quota: QuotaSummary;
+  retryPolicy: {
+    enabled: boolean;
+    attempts: string;
+    delay: string;
+    failureRetention: string;
+  };
+  failureStats: {
+    total: number;
+    sent: number;
+    failed: number;
+    recentFailureReason: string | null;
+  };
+  returnPath: {
+    status: SystemDiagnosticStatus;
+    message: string;
+  };
+  identities: OutboundSenderIdentitySummary[];
+  dnsChecks: OutboundDnsCheckSummary[];
+  templates: OutboundTemplateSummary[];
+};
+
+export type ApiKeyScope =
+  | "mail:read"
+  | "mail:send"
+  | "mailbox:manage"
+  | "webhook:manage"
+  | "settings:read"
+  | "admin:automation";
+
 export type ApiKeySummary = {
   id: string;
   label: string;
   prefix: string;
+  scopes: ApiKeyScope[];
   createdAt: string;
   lastUsedAt: string | null;
   revokedAt: string | null;
@@ -337,6 +507,35 @@ export type TelegramDeliverySummary = {
   createdAt: string;
 };
 
+export type NotificationRuleTarget = "webhook" | "telegram" | "slack" | "discord" | "feishu" | "wecom";
+
+export type NotificationRuleSummary = {
+  id: string;
+  name: string;
+  enabled: boolean;
+  target: NotificationRuleTarget;
+  targetId: string | null;
+  eventTypes: string[];
+  mailboxIds: string[];
+  keyword: string;
+  quietHoursStart: string;
+  quietHoursEnd: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type NotificationRuleInput = {
+  name: string;
+  enabled: boolean;
+  target: NotificationRuleTarget;
+  targetId?: string | null;
+  eventTypes: string[];
+  mailboxIds?: string[];
+  keyword?: string;
+  quietHoursStart?: string;
+  quietHoursEnd?: string;
+};
+
 export type MailSettingsSenderRules = {
   defaultIdentity: string;
   signature: string;
@@ -379,12 +578,163 @@ export type MailSettingsUpdateInput = {
   workspaceDefaults?: Partial<MailSettingsWorkspaceDefaults>;
 };
 
+export type InviteStatus = "ready" | "redeemed" | "disabled" | "expired";
+
 export type InviteSummary = {
   id: string;
   code: string;
   createdAt: string;
+  expiresAt: string | null;
+  targetRole: UserRole;
+  redeemedByUserId: string | null;
   redeemedAt: string | null;
   disabledAt: string | null;
+  status?: InviteStatus;
+};
+
+export type InviteCreateInput = {
+  count?: number;
+  targetRole?: UserRole;
+  expiresInDays?: number | null;
+};
+
+export type AdminLoginHistoryEvent = {
+  id: string;
+  userId: string | null;
+  userEmail: string;
+  method: "password" | "oauth";
+  provider: OAuthProviderId | null;
+  status: "success" | "failed";
+  reason: string | null;
+  ipAddress: string | null;
+  userAgent: string | null;
+  createdAt: string;
+};
+
+export type AdminAuditEventSummary = {
+  id: string;
+  actorId: string;
+  actorLabel: string;
+  eventType: string;
+  eventLabel: string;
+  detail: string;
+  createdAt: string;
+};
+
+export type AdminRateLimitPolicySummary = {
+  key: "register" | "login" | "mailbox_create" | "mail_send" | "api_key" | "api_daily" | "outbound_daily";
+  label: string;
+  scope: string;
+  policy: string;
+  currentUsage: string;
+  enforced: boolean;
+};
+
+export type AdminInviteGovernanceSummary = {
+  total: number;
+  available: number;
+  redeemed: number;
+  disabled: number;
+  expired: number;
+};
+
+export type AdminGovernanceSummary = {
+  generatedAt: string;
+  loginHistory: AdminLoginHistoryEvent[];
+  auditEvents: AdminAuditEventSummary[];
+  inviteStats: AdminInviteGovernanceSummary;
+  rateLimits: AdminRateLimitPolicySummary[];
+};
+
+export type PlanTierSummary = {
+  id: "free" | "pro" | "team";
+  name: string;
+  priceLabel: string;
+  mailboxLimit: number;
+  retentionDays: number;
+  apiDailyLimit: number;
+  outboundDailyLimit: number;
+  webhookLimit: number;
+  teamSeats: number;
+  features: string[];
+};
+
+export type TeamWorkspaceSummary = {
+  id: string;
+  name: string;
+  planId: PlanTierSummary["id"];
+  memberCount: number;
+  adminCount: number;
+  sharedMailboxCount: number;
+  auditEventCount: number;
+  usage: {
+    mailboxes: number;
+    messages: number;
+    outboundSentToday: number;
+    apiCallsToday: number;
+  };
+};
+
+export type CommercialModelSummary = {
+  generatedAt: string;
+  currentPlanId: PlanTierSummary["id"];
+  planTiers: PlanTierSummary[];
+  quotaUsage: {
+    users: number;
+    activeUsers: number;
+    mailboxes: number;
+    mailboxLimit: number;
+    messages: number;
+    outboundDailyLimit: number;
+    outboundSentToday: number;
+    apiDailyLimit: number;
+    apiCallsToday: number;
+    webhookEndpoints: number;
+  };
+  teamWorkspaces: TeamWorkspaceSummary[];
+  organizationAudit: AdminAuditEventSummary[];
+};
+
+export type CleanupRunSummary = {
+  id: string;
+  status: "success" | "failed";
+  startedAt: string;
+  finishedAt: string;
+  deletedMessages: number;
+  deletedAttachments: number;
+  deletedAccounts: number;
+  errorText: string | null;
+};
+
+export type DataReliabilitySummary = {
+  generatedAt: string;
+  status: SystemDiagnosticStatus;
+  storage: {
+    d1: SystemDiagnosticStatus;
+    r2: SystemDiagnosticStatus;
+    message: string;
+  };
+  migrations: Array<{
+    id: string;
+    title: string;
+    status: SystemDiagnosticStatus;
+    description: string;
+  }>;
+  cleanup: {
+    expiredMessages: number;
+    recentRuns: CleanupRunSummary[];
+  };
+  idempotency: {
+    enabled: boolean;
+    duplicateWindowMinutes: number;
+    duplicateNotificationPrevention: boolean;
+    message: string;
+  };
+  backupRunbook: Array<{
+    title: string;
+    command: string;
+    cadence: string;
+  }>;
 };
 
 export type QuotaSummary = {

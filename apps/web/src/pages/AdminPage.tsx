@@ -6,7 +6,7 @@ import { FeatureTogglesPanel } from "../features/admin/FeatureTogglesPanel";
 import { InvitePanel } from "../features/admin/InvitePanel";
 import { MailboxOversightPanel } from "../features/admin/MailboxOversightPanel";
 import { QuotaPanel } from "../features/admin/QuotaPanel";
-import type { InviteSummary } from "../features/admin/types";
+import type { InviteCreatePayload, InviteSummary } from "../features/admin/types";
 
 type AdminPageProps = {
   adminUsers: UserSummary[];
@@ -14,7 +14,7 @@ type AdminPageProps = {
   adminQuota: QuotaSummary | null;
   adminFeatures: FeatureToggles | null;
   adminMailboxes: MailboxSummary[];
-  onCreateInvite: () => Promise<void>;
+  onCreateInvite: (payload: InviteCreatePayload) => Promise<void>;
   onDisableInvite: (inviteId: string) => Promise<void>;
   onSelectQuotaUser: (userId: string) => Promise<void>;
   onSubmitQuota: (event: FormEvent<HTMLFormElement>, userId: string) => Promise<void>;

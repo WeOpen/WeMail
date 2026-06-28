@@ -11,6 +11,7 @@ import type { AppBindings, AppStore } from "../../core/bindings";
 import { resolveAppConfig } from "../../core/config";
 import { buildTelegramClient } from "../../shared/mail";
 import { recordAudit } from "./audit-service";
+import { shouldSendNotificationToTarget } from "./notification-rule-service";
 
 type TelegramContext = {
   store: AppStore;
@@ -282,6 +283,13 @@ export async function sendTelegramNotification(context: TelegramContext, payload
   const subscription = await context.store.telegram.findByUserId(payload.userId);
   if (!subscription) return { delivered: false, attemptedAt, reason: "subscription_missing" };
   if (!subscription.enabled) return { delivered: false, attemptedAt, reason: "subscription_paused" };
+  const shouldSend = await shouldSendNotificationToTarget(context.store, payload.userId, {
+    data: { ...(payload.metadata ?? {}), text: payload.text },
+    eventType: payload.eventId,
+    target: "telegram",
+    targetId: subscription.chatId
+  });
+  if (!shouldSend) return { delivered: false, attemptedAt, reason: "notification_rule_suppressed" };
 
   const client = buildTelegramClient(resolveAppConfig(context.env).integrations.telegramBotToken);
   if (!client) return { delivered: false, attemptedAt, reason: "bot_not_configured" };

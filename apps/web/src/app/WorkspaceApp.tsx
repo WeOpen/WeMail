@@ -3,7 +3,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type {
   SessionSummary,
   UserProfileSummary,
-  UserProfileUpdateInput
+  UserProfileUpdateInput,
+  UserSessionSummary
 } from "@wemail/shared";
 
 import { AppLayout } from "./AppLayout";
@@ -24,12 +25,16 @@ import type { WorkspaceTheme, WorkspaceThemePreference } from "./useWorkspaceThe
 
 type WorkspaceProfileState = {
   profile: UserProfileSummary | null;
+  profileSessions: UserSessionSummary[];
   hasLoadedProfile: boolean;
   isLoadingProfile: boolean;
   isSavingProfile: boolean;
   isSavingPreferences: boolean;
+  isRevokingSession: boolean;
   profileError: string | null;
   refreshProfileData: () => Promise<void>;
+  revokeOtherSessions: () => Promise<void>;
+  revokeSession: (sessionId: string) => Promise<void>;
   saveProfile: (payload: UserProfileUpdateInput) => Promise<void>;
   savePreferences: (payload: UserProfileUpdateInput) => Promise<void>;
 };
@@ -137,6 +142,9 @@ function getSettingsDataQuery(pathname: string, isAdmin: boolean): SettingsDataQ
       includeApiKeys: false,
       includeDictionaries: false,
       includeRuntimeSettings: true,
+      includeSystemDiagnostics: true,
+      includeSystemMaturity: true,
+      includeSystemOperations: true,
       includeTelegram: false
     };
   }

@@ -133,6 +133,106 @@ function mockMailShell(options?: { outboundDefaultFilter?: string; openLatestFai
 
     if (url.endsWith("/api/mail/messages?accountId=box-1")) return jsonResponse({ messages: [] });
     if (url.endsWith("/api/mail/messages?accountId=box-2")) return jsonResponse({ messages: [] });
+    if (url.endsWith("/api/mail/outbound/maturity")) {
+      return jsonResponse({
+        maturity: {
+          generatedAt: "2026-04-08T00:00:00.000Z",
+          featureEnabled: true,
+          resendConfigured: true,
+          defaultIdentity: "WeMail <no-reply@example.com>",
+          quota: {
+            userId: "member-1",
+            apiDailyLimit: 20000,
+            apiCallsToday: 3,
+            dailyLimit: 20,
+            sendsToday: 5,
+            disabled: false,
+            updatedAt: "2026-04-08T00:00:00.000Z"
+          },
+          retryPolicy: {
+            enabled: true,
+            attempts: "1 次",
+            delay: "即时",
+            failureRetention: "保留 30 天"
+          },
+          failureStats: {
+            total: 8,
+            sent: 7,
+            failed: 1,
+            recentFailureReason: "SMTP timeout"
+          },
+          returnPath: {
+            status: "ok",
+            message: "Return-Path 和退信处理由 Resend 管理，WeMail 会保留 provider 响应和失败原因。"
+          },
+          identities: [
+            {
+              id: "default",
+              label: "默认发信身份",
+              address: "no-reply@example.com",
+              domain: "example.com",
+              isDefault: true,
+              status: "warning",
+              message: "仍在使用示例域名，生产环境需要换成真实域名"
+            },
+            {
+              id: "box-1",
+              label: "Ops",
+              address: "ops@example.com",
+              domain: "example.com",
+              isDefault: false,
+              status: "ok",
+              message: "身份域名与系统邮箱域名一致"
+            }
+          ],
+          dnsChecks: [
+            {
+              id: "spf",
+              label: "SPF",
+              domain: "example.com",
+              recordType: "TXT",
+              expectedValue: "v=spf1 include:amazonses.com ~all",
+              status: "warning",
+              message: "已配置 Resend API Key，请以 Resend 域名验证页面的实际记录为准"
+            },
+            {
+              id: "dkim",
+              label: "DKIM",
+              domain: "example.com",
+              recordType: "CNAME",
+              expectedValue: "使用 Resend 为该域名生成的 DKIM CNAME 记录",
+              status: "warning",
+              message: "已配置 Resend API Key，请以 Resend 域名验证页面的实际记录为准"
+            },
+            {
+              id: "dmarc",
+              label: "DMARC",
+              domain: "_dmarc.example.com",
+              recordType: "TXT",
+              expectedValue: "v=DMARC1; p=none; rua=mailto:postmaster@example.com",
+              status: "warning",
+              message: "建议先使用 p=none 观察，再按投递稳定性逐步收紧策略"
+            }
+          ],
+          templates: [
+            {
+              id: "verification-forward",
+              name: "验证码转发",
+              description: "把识别到的验证码或登录链接转发给指定成员。",
+              subject: "验证码通知：{{code}}",
+              bodyText: "你好，\n\n收到新的验证码：{{code}}\n来源：{{source}}\n\n请在有效期内完成验证。"
+            },
+            {
+              id: "service-notice",
+              name: "服务通知",
+              description: "用于发送账号、服务或项目状态变更。",
+              subject: "服务通知：{{title}}",
+              bodyText: "你好，\n\n{{title}}\n\n{{summary}}\n\n如需更多信息，请回复这封邮件。"
+            }
+          ]
+        }
+      });
+    }
     const outboundDetailMatch = parsedUrl.pathname.match(/^\/api\/mail\/outbound\/([^/]+)$/);
     if (outboundDetailMatch) {
       const message = outboundMessagesById.get(decodeURIComponent(outboundDetailMatch[1]));
@@ -281,6 +381,10 @@ describe("outbound page integration", () => {
     expect(screen.getByText(/^发送总量$/i)).toBeInTheDocument();
     expect(screen.getByText(/^发送成功$/i)).toBeInTheDocument();
     expect(screen.getByText(/^发送失败$/i)).toBeInTheDocument();
+    expect(await within(screen.getByRole("region", { name: /^发信成熟度$/i })).findByText(/^身份、DNS 与模板$/i)).toBeInTheDocument();
+    expect(screen.getByText(/^今日额度$/i)).toBeInTheDocument();
+    expect(screen.getByText(/^DNS 检查$/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /验证码转发/i })).toBeInTheDocument();
     expect(screen.queryByText(/^异常记录$/i)).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: /切换发件身份.*Ops.*ops@example.com/i })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: /^全部$/i })).toHaveAttribute("aria-selected", "true");
@@ -295,6 +399,19 @@ describe("outbound page integration", () => {
     expect(screen.getByRole("button", { name: /^重发$/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /^复制 payload$/i })).toBeInTheDocument();
     expect(screen.queryByText(/发件箱入口已占位/i)).not.toBeInTheDocument();
+  });
+
+  it("opens the compose drawer from an outbound template", async () => {
+    const user = userEvent.setup();
+    window.history.pushState({}, "", "/mail/outbound");
+    render(<App />);
+
+    expect(await screen.findByRole("heading", { name: /^发件箱$/i })).toBeInTheDocument();
+    await user.click(await screen.findByRole("button", { name: /验证码转发/i }));
+
+    const dialog = await screen.findByRole("dialog", { name: /^新建发送$/i });
+    expect(within(dialog).getByDisplayValue("验证码通知：{{code}}")).toBeInTheDocument();
+    expect(within(dialog).getByDisplayValue(/收到新的验证码：\{\{code\}\}/i)).toBeInTheDocument();
   });
 
   it("switches the outbound mailbox identity and refreshes the send history", async () => {

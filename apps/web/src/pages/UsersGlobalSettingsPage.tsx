@@ -1,13 +1,15 @@
 import type { FormEvent } from "react";
 import { Mailbox, TicketCheck, UserCheck, Users, type LucideIcon } from "lucide-react";
 
-import type { FeatureToggles, MailboxSummary, QuotaSummary, UserSummary } from "@wemail/shared";
+import type { AdminGovernanceSummary, CommercialModelSummary, FeatureToggles, MailboxSummary, QuotaSummary, UserSummary } from "@wemail/shared";
 
+import { CommercialModelPanel } from "../features/admin/CommercialModelPanel";
 import { FeatureTogglesPanel } from "../features/admin/FeatureTogglesPanel";
+import { GovernancePanel } from "../features/admin/GovernancePanel";
 import { InvitePanel } from "../features/admin/InvitePanel";
 import { MailboxOversightPanel } from "../features/admin/MailboxOversightPanel";
 import { QuotaPanel } from "../features/admin/QuotaPanel";
-import type { AdminUserStats, InviteSummary } from "../features/admin/types";
+import type { AdminUserStats, InviteCreatePayload, InviteSummary } from "../features/admin/types";
 import { MetricCard } from "../shared/metric-card";
 import { Page, PageMain } from "../shared/page-layout";
 
@@ -27,7 +29,9 @@ type UsersGlobalSettingsPageProps = {
   adminMailboxesPage?: number;
   adminMailboxesPageSize?: number;
   adminMailboxesTotal?: number;
-  onCreateInvite: () => Promise<void>;
+  adminGovernance?: AdminGovernanceSummary | null;
+  adminCommercial?: CommercialModelSummary | null;
+  onCreateInvite: (payload: InviteCreatePayload) => Promise<void>;
   onDisableInvite: (inviteId: string) => Promise<void>;
   onInvitePageChange?: (page: number) => Promise<void>;
   onMailboxPageChange?: (page: number) => Promise<void>;
@@ -56,6 +60,8 @@ export function UsersGlobalSettingsPage({
   adminMailboxesPage,
   adminMailboxesPageSize,
   adminMailboxesTotal,
+  adminGovernance = null,
+  adminCommercial = null,
   onCreateInvite,
   onDisableInvite,
   onInvitePageChange,
@@ -112,6 +118,8 @@ export function UsersGlobalSettingsPage({
             onDisableInvite={onDisableInvite}
             onInvitePageChange={onInvitePageChange}
           />
+          <GovernancePanel governance={adminGovernance} />
+          <CommercialModelPanel commercial={adminCommercial} />
           <QuotaPanel
             adminUsers={settingsUsers}
             adminQuota={adminQuota}

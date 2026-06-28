@@ -1,15 +1,20 @@
-import type { MailboxSummary, UserRole, UserStatus, UserSummary } from "@wemail/shared";
+import type { InviteCreateInput, MailboxSummary, UserRole, UserStatus, UserSummary } from "@wemail/shared";
 
-export type InviteStatus = "ready" | "redeemed" | "disabled";
+export type InviteStatus = "ready" | "redeemed" | "disabled" | "expired";
 
 export type InviteSummary = {
   id: string;
   code: string;
   createdAt: string;
+  expiresAt: string | null;
+  targetRole: UserRole;
+  redeemedByUserId: string | null;
   redeemedAt: string | null;
   disabledAt: string | null;
   status?: InviteStatus;
 };
+
+export type InviteCreatePayload = Required<InviteCreateInput>;
 
 export type AdminUsersQuery = {
   page: number;

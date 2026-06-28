@@ -98,7 +98,7 @@ describe("worker settings integration", () => {
           cookie,
           "content-type": "application/json"
         },
-        body: JSON.stringify({ label: "CLI key" })
+        body: JSON.stringify({ label: "CLI key", scopes: ["mail:read", "settings:read"] })
       },
       env
     );
@@ -114,11 +114,12 @@ describe("worker settings integration", () => {
     );
 
     const listPayload = (await listResponse.json()) as {
-      keys: Array<{ id: string; label: string }>;
+      keys: Array<{ id: string; label: string; scopes: string[] }>;
     };
 
     expect(listPayload.keys).toHaveLength(1);
     expect(listPayload.keys[0].label).toBe("CLI key");
+    expect(listPayload.keys[0].scopes).toEqual(["mail:read", "settings:read"]);
 
     const revokeResponse = await app.request(
       `/api/api-keys/${listPayload.keys[0].id}`,
@@ -130,6 +131,39 @@ describe("worker settings integration", () => {
     );
 
     expect(revokeResponse.status).toBe(200);
+  });
+
+  it("rejects API key requests that are missing the required scope", async () => {
+    const { app, env, cookie } = await registerUserAndGetCookie({
+      email: "api-scope@example.com",
+      inviteCode: "INVITE-API-SCOPE"
+    });
+
+    const createResponse = await app.request(
+      "/api/api-keys",
+      {
+        method: "POST",
+        headers: {
+          cookie,
+          "content-type": "application/json"
+        },
+        body: JSON.stringify({ label: "Read-only mail key", scopes: ["mail:read"] })
+      },
+      env
+    );
+    const createPayload = (await createResponse.json()) as { key: { secret: string } };
+
+    const response = await app.request(
+      "/api/api-keys",
+      {
+        headers: { authorization: `Bearer ${createPayload.key.secret}` }
+      },
+      env
+    );
+    const payload = (await response.json()) as { error?: string };
+
+    expect(response.status).toBe(403);
+    expect(payload.error).toBe("API key missing required scope: settings:read");
   });
 
   it("enforces the per-user daily API call limit for API key requests", async () => {
@@ -159,7 +193,7 @@ describe("worker settings integration", () => {
           cookie,
           "content-type": "application/json"
         },
-        body: JSON.stringify({ label: "Limited key" })
+        body: JSON.stringify({ label: "Limited key", scopes: ["settings:read"] })
       },
       env
     );

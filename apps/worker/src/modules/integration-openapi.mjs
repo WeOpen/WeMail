@@ -4,6 +4,7 @@ export const tags = [
   { name: "Webhook", description: "事件端点和投递日志。" },
   { name: "Telegram", description: "Telegram 订阅。" },
   { name: "公告", description: "公告列表与发布。" },
+  { name: "个人资料", description: "个人资料、偏好和会话设备。" },
   { name: "系统设置", description: "健康检查和功能开关。" }
 ];
 
@@ -30,6 +31,15 @@ export const paths = {
       summary: "创建 API Key",
       operationId: "createApiKey",
       security: [{ cookieAuth: [] }],
+      requestBody: {
+        required: true,
+        content: {
+          "application/json": {
+            schema: { type: "object" },
+            example: { label: "个人 CLI", scopes: ["mail:read", "mail:send"] }
+          }
+        }
+      },
       responses: { 201: { description: "创建成功" }, 403: { $ref: "#/components/responses/Error" } }
     }
   },
@@ -173,6 +183,56 @@ export const paths = {
       responses: { 200: { description: "投递日志" } }
     }
   },
+  "/api/notification/rules": {
+    get: {
+      tags: ["Webhook"],
+      summary: "获取通知规则",
+      operationId: "listNotificationRules",
+      security: [{ cookieAuth: [] }, { bearerAuth: [] }],
+      responses: { 200: { description: "通知规则列表" } }
+    },
+    post: {
+      tags: ["Webhook"],
+      summary: "创建通知规则",
+      operationId: "createNotificationRule",
+      security: [{ cookieAuth: [] }, { bearerAuth: [] }],
+      requestBody: {
+        required: true,
+        content: {
+          "application/json": {
+            schema: { type: "object" },
+            example: {
+              name: "验证码通知",
+              target: "webhook",
+              eventTypes: ["message.received"],
+              keyword: "code",
+              quietHoursStart: "23:00",
+              quietHoursEnd: "08:00"
+            }
+          }
+        }
+      },
+      responses: { 201: { description: "创建成功" }, 400: { $ref: "#/components/responses/Error" } }
+    }
+  },
+  "/api/notification/rules/{id}": {
+    put: {
+      tags: ["Webhook"],
+      summary: "更新通知规则",
+      operationId: "updateNotificationRule",
+      security: [{ cookieAuth: [] }, { bearerAuth: [] }],
+      parameters: [{ $ref: "#/components/parameters/IdPath" }],
+      responses: { 200: { description: "更新成功" }, 404: { $ref: "#/components/responses/Error" } }
+    },
+    delete: {
+      tags: ["Webhook"],
+      summary: "删除通知规则",
+      operationId: "deleteNotificationRule",
+      security: [{ cookieAuth: [] }, { bearerAuth: [] }],
+      parameters: [{ $ref: "#/components/parameters/IdPath" }],
+      responses: { 200: { $ref: "#/components/responses/Ok" }, 404: { $ref: "#/components/responses/Error" } }
+    }
+  },
   "/api/announcements": {
     get: {
       tags: ["公告"],
@@ -237,12 +297,86 @@ export const paths = {
       responses: { 200: { description: "签收成功" }, 404: { $ref: "#/components/responses/Error" } }
     }
   },
+  "/api/profile/sessions": {
+    get: {
+      tags: ["个人资料"],
+      summary: "获取活跃会话设备",
+      operationId: "listProfileSessions",
+      security: [{ cookieAuth: [] }],
+      responses: {
+        200: { description: "当前用户活跃会话设备列表" },
+        401: { $ref: "#/components/responses/Error" }
+      }
+    }
+  },
+  "/api/profile/sessions/others": {
+    delete: {
+      tags: ["个人资料"],
+      summary: "退出其他设备",
+      operationId: "revokeOtherProfileSessions",
+      security: [{ cookieAuth: [] }],
+      responses: {
+        200: { $ref: "#/components/responses/Ok" },
+        401: { $ref: "#/components/responses/Error" }
+      }
+    }
+  },
+  "/api/profile/sessions/{id}": {
+    delete: {
+      tags: ["个人资料"],
+      summary: "撤销指定会话",
+      operationId: "revokeProfileSession",
+      security: [{ cookieAuth: [] }],
+      parameters: [{ $ref: "#/components/parameters/IdPath" }],
+      responses: {
+        200: { $ref: "#/components/responses/Ok" },
+        400: { $ref: "#/components/responses/Error" },
+        404: { $ref: "#/components/responses/Error" }
+      }
+    }
+  },
   "/api/system/health": {
     get: {
       tags: ["系统设置"],
       summary: "获取服务健康状态",
       operationId: "getSystemHealth",
       responses: { 200: { description: "健康状态" } }
+    }
+  },
+  "/api/system/diagnostics": {
+    get: {
+      tags: ["系统设置"],
+      summary: "获取系统诊断",
+      operationId: "getSystemDiagnostics",
+      security: [{ cookieAuth: [] }],
+      responses: { 200: { description: "系统诊断" }, 403: { $ref: "#/components/responses/Error" } }
+    }
+  },
+  "/api/system/maturity": {
+    get: {
+      tags: ["系统设置"],
+      summary: "获取产品成熟度总览",
+      operationId: "getProductMaturity",
+      security: [{ cookieAuth: [] }],
+      responses: { 200: { description: "产品成熟度总览" }, 403: { $ref: "#/components/responses/Error" } }
+    }
+  },
+  "/api/system/operations": {
+    get: {
+      tags: ["系统设置"],
+      summary: "获取运维中心概要",
+      operationId: "getSystemOperations",
+      security: [{ cookieAuth: [] }],
+      responses: { 200: { description: "最近失败和运维信号" }, 403: { $ref: "#/components/responses/Error" } }
+    }
+  },
+  "/api/system/reliability": {
+    get: {
+      tags: ["系统设置"],
+      summary: "获取数据可靠性概要",
+      operationId: "getSystemReliability",
+      security: [{ cookieAuth: [] }],
+      responses: { 200: { description: "D1/R2、migration、清理运行记录、幂等策略和备份恢复 runbook。" }, 403: { $ref: "#/components/responses/Error" } }
     }
   },
   "/api/system/features": {

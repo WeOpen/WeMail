@@ -1,9 +1,19 @@
-import type { UserRole, UserStatus } from "@wemail/shared";
+import type {
+  AdminAuditEventSummary,
+  CommercialModelSummary,
+  AdminGovernanceSummary,
+  AdminLoginHistoryEvent,
+  AdminRateLimitPolicySummary,
+  PlanTierSummary,
+  UserRole,
+  UserStatus
+} from "@wemail/shared";
 
-import type { AppBindings, AppStore, PageListOptions, UserListOptions, UserRecord } from "../../core/bindings";
+import type { AppBindings, AppStore, AuditEventRecord, InviteRecord, PageListOptions, UserListOptions, UserRecord } from "../../core/bindings";
 import { hashPassword } from "../../shared/auth";
 import { jsonError, recordAudit } from "../services/audit-service";
 import { getResolvedApiDailyLimit, getResolvedOutboundLimit } from "../services/config-service";
+import { getRuntimeSettings } from "../services/runtime-settings-service";
 
 type AdminUseCaseContext = {
   store: AppStore;
@@ -166,11 +176,36 @@ export async function listAdminMailboxes(context: AdminUseCaseContext, options: 
   return context.store.mailboxes.listPage(options);
 }
 
-export async function createInviteUseCase(context: AdminUseCaseContext, actorUserId: string) {
-  const code = `INVITE-${crypto.randomUUID().slice(0, 8).toUpperCase()}`;
-  const invite = await context.store.invites.create({ code, createdByUserId: actorUserId });
-  await recordAudit(context.store, "user", actorUserId, "invite-create", { code });
-  return invite;
+function createInviteCode() {
+  return `INVITE-${crypto.randomUUID().slice(0, 8).toUpperCase()}`;
+}
+
+export async function createInvitesUseCase(
+  context: AdminUseCaseContext,
+  actorUserId: string,
+  input: { count: number; expiresInDays: number | null; targetRole: UserRole }
+) {
+  const expiresAt = input.expiresInDays
+    ? new Date(Date.now() + input.expiresInDays * 24 * 60 * 60 * 1000).toISOString()
+    : null;
+  const invites: InviteRecord[] = [];
+  for (let index = 0; index < input.count; index += 1) {
+    invites.push(
+      await context.store.invites.create({
+        code: createInviteCode(),
+        createdByUserId: actorUserId,
+        expiresAt,
+        targetRole: input.targetRole
+      })
+    );
+  }
+  await recordAudit(context.store, "user", actorUserId, "invite-create", {
+    count: invites.length,
+    expiresAt,
+    targetRole: input.targetRole,
+    inviteIds: invites.map((invite) => invite.id)
+  });
+  return invites;
 }
 
 export async function disableInviteUseCase(
@@ -213,4 +248,328 @@ export async function updateQuotaUseCase(
   await context.store.quotas.save(existing);
   await recordAudit(context.store, "user", payload.actorUserId, "quota-update", { userId: existing.userId });
   return existing;
+}
+
+function parseAuditPayload(value: string) {
+  try {
+    return JSON.parse(value) as Record<string, unknown>;
+  } catch {
+    return {};
+  }
+}
+
+function isInviteExpired(invite: InviteRecord) {
+  return Boolean(invite.expiresAt && new Date(invite.expiresAt) <= new Date());
+}
+
+function formatAuditEventLabel(eventType: string) {
+  const labels: Record<string, string> = {
+    "api-key-create": "创建 API Key",
+    "api-key-revoke": "吊销 API Key",
+    "invite-create": "创建邀请码",
+    "invite-disable": "停用邀请码",
+    "login": "密码登录",
+    "login-failed": "密码登录失败",
+    "oauth_login": "OAuth 登录",
+    "oauth_register": "OAuth 注册",
+    "oauth-login-failed": "OAuth 登录失败",
+    "quota-update": "更新配额",
+    "session-revoke": "撤销会话",
+    "session-revoke-others": "退出其他设备",
+    "user-create": "创建用户",
+    "user-delete": "删除用户",
+    "user-password-reset": "重置密码",
+    "user-status-update": "更新用户状态",
+    "user-update": "更新用户资料"
+  };
+  return labels[eventType] ?? eventType;
+}
+
+function formatAuditEventDetail(event: AuditEventRecord, payload: Record<string, unknown>) {
+  if (event.eventType === "invite-create") return `数量 ${String(payload.count ?? 1)}，角色 ${String(payload.targetRole ?? "member")}`;
+  if (event.eventType === "login-failed" || event.eventType === "oauth-login-failed") return String(payload.reason ?? "unknown");
+  if (typeof payload.userId === "string") return `用户 ${payload.userId}`;
+  if (typeof payload.provider === "string") return `来源 ${payload.provider}`;
+  if (typeof payload.email === "string") return payload.email;
+  return "已记录";
+}
+
+function mapLoginHistoryEvent(event: AuditEventRecord, usersById: Map<string, UserRecord>): AdminLoginHistoryEvent {
+  const payload = parseAuditPayload(event.payloadJson);
+  const isOauth = event.eventType === "oauth_login" || event.eventType === "oauth_register" || event.eventType === "oauth-login-failed";
+  const status = event.eventType.endsWith("failed") ? "failed" : "success";
+  const user = usersById.get(event.actorId) ?? null;
+  const providerValue = typeof payload.provider === "string" && (payload.provider === "github" || payload.provider === "linuxdo") ? payload.provider : null;
+  return {
+    id: event.id,
+    userId: event.actorType === "user" ? event.actorId : null,
+    userEmail: user?.email ?? (typeof payload.email === "string" ? payload.email : event.actorId),
+    method: isOauth ? "oauth" : "password",
+    provider: providerValue,
+    status,
+    reason: typeof payload.reason === "string" ? payload.reason : null,
+    ipAddress: typeof payload.ipAddress === "string" ? payload.ipAddress : null,
+    userAgent: typeof payload.userAgent === "string" ? payload.userAgent : null,
+    createdAt: event.createdAt
+  };
+}
+
+function mapAuditEvent(event: AuditEventRecord, usersById: Map<string, UserRecord>): AdminAuditEventSummary {
+  const payload = parseAuditPayload(event.payloadJson);
+  const actor = usersById.get(event.actorId);
+  return {
+    id: event.id,
+    actorId: event.actorId,
+    actorLabel: actor ? `${actor.name} / ${actor.email}` : event.actorId,
+    eventType: event.eventType,
+    eventLabel: formatAuditEventLabel(event.eventType),
+    detail: formatAuditEventDetail(event, payload),
+    createdAt: event.createdAt
+  };
+}
+
+async function listAllUsers(context: AdminUseCaseContext) {
+  const summary = await context.store.users.summary();
+  return (
+    await context.store.users.list({
+      page: 1,
+      pageSize: Math.max(summary.total, 1)
+    })
+  ).users;
+}
+
+async function buildRateLimitPolicies(context: AdminUseCaseContext, users: UserRecord[]): Promise<AdminRateLimitPolicySummary[]> {
+  const [apiDailyLimit, outboundDailyLimit] = await Promise.all([
+    getResolvedApiDailyLimit(context.store, context.env),
+    getResolvedOutboundLimit(context.store, context.env)
+  ]);
+  const quotas = await Promise.all(users.map((user) => context.store.quotas.getByUserId(user.id, outboundDailyLimit, apiDailyLimit)));
+  const apiCallsToday = quotas.reduce((sum, quota) => sum + quota.apiCallsToday, 0);
+  const sendsToday = quotas.reduce((sum, quota) => sum + quota.sendsToday, 0);
+  const rateLimiterEnabled = Boolean(context.env.RATE_LIMITER);
+
+  return [
+    {
+      key: "register",
+      label: "注册",
+      scope: "IP + /api/auth/register",
+      policy: "Cloudflare Rate Limiter",
+      currentUsage: rateLimiterEnabled ? "平台限流器接管" : "未绑定 RATE_LIMITER",
+      enforced: rateLimiterEnabled
+    },
+    {
+      key: "login",
+      label: "登录",
+      scope: "IP + /api/auth/login",
+      policy: "Cloudflare Rate Limiter",
+      currentUsage: rateLimiterEnabled ? "平台限流器接管" : "未绑定 RATE_LIMITER",
+      enforced: rateLimiterEnabled
+    },
+    {
+      key: "mailbox_create",
+      label: "创建邮箱",
+      scope: "IP + /api/accounts",
+      policy: "Rate Limiter + 用户邮箱上限",
+      currentUsage: rateLimiterEnabled ? "请求限流已启用" : "仅用户上限生效",
+      enforced: rateLimiterEnabled
+    },
+    {
+      key: "mail_send",
+      label: "发信",
+      scope: "IP + /api/mail/send",
+      policy: "Rate Limiter + 用户发信配额",
+      currentUsage: `${sendsToday} / ${outboundDailyLimit * Math.max(users.length, 1)} 今日发送`,
+      enforced: rateLimiterEnabled
+    },
+    {
+      key: "api_key",
+      label: "API Key 创建",
+      scope: "IP + /api/api-keys",
+      policy: "Cloudflare Rate Limiter",
+      currentUsage: rateLimiterEnabled ? "请求限流已启用" : "未绑定 RATE_LIMITER",
+      enforced: rateLimiterEnabled
+    },
+    {
+      key: "api_daily",
+      label: "API 调用",
+      scope: "用户每日",
+      policy: `${apiDailyLimit} / 用户 / 天`,
+      currentUsage: `${apiCallsToday} / ${apiDailyLimit * Math.max(users.length, 1)} 今日调用`,
+      enforced: true
+    },
+    {
+      key: "outbound_daily",
+      label: "外发邮件",
+      scope: "用户每日",
+      policy: `${outboundDailyLimit} / 用户 / 天`,
+      currentUsage: `${sendsToday} / ${outboundDailyLimit * Math.max(users.length, 1)} 今日发送`,
+      enforced: true
+    }
+  ];
+}
+
+export async function getAdminGovernanceSummary(context: AdminUseCaseContext): Promise<AdminGovernanceSummary> {
+  const [users, invites, loginEvents, auditEvents] = await Promise.all([
+    listAllUsers(context),
+    context.store.invites.list(),
+    context.store.audit.listRecent({
+      eventTypes: ["login", "login-failed", "oauth_login", "oauth_register", "oauth-login-failed"],
+      limit: 12
+    }),
+    context.store.audit.listRecent({ limit: 12 })
+  ]);
+  const usersById = new Map(users.map((user) => [user.id, user]));
+  const inviteStats = invites.reduce(
+    (stats, invite) => {
+      if (invite.redeemedAt) stats.redeemed += 1;
+      else if (invite.disabledAt) stats.disabled += 1;
+      else if (isInviteExpired(invite)) stats.expired += 1;
+      else stats.available += 1;
+      stats.total += 1;
+      return stats;
+    },
+    { available: 0, disabled: 0, expired: 0, redeemed: 0, total: 0 }
+  );
+
+  return {
+    generatedAt: new Date().toISOString(),
+    loginHistory: loginEvents.map((event) => mapLoginHistoryEvent(event, usersById)),
+    auditEvents: auditEvents.map((event) => mapAuditEvent(event, usersById)),
+    inviteStats,
+    rateLimits: await buildRateLimitPolicies(context, users)
+  };
+}
+
+function buildPlanTiers(settings: Awaited<ReturnType<typeof getRuntimeSettings>>): PlanTierSummary[] {
+  return [
+    {
+      id: "free",
+      name: "免费版",
+      priceLabel: "¥0",
+      mailboxLimit: settings.mailbox.limit,
+      retentionDays: settings.message.retentionDays,
+      apiDailyLimit: settings.api.dailyLimit,
+      outboundDailyLimit: settings.outbound.dailyLimit,
+      webhookLimit: 1,
+      teamSeats: 1,
+      features: ["基础收件", "验证码识别", "个人 API Key"]
+    },
+    {
+      id: "pro",
+      name: "高级版",
+      priceLabel: "按月订阅",
+      mailboxLimit: settings.mailbox.limit * 4,
+      retentionDays: settings.message.retentionDays * 4,
+      apiDailyLimit: settings.api.dailyLimit * 5,
+      outboundDailyLimit: settings.outbound.dailyLimit * 5,
+      webhookLimit: 10,
+      teamSeats: 3,
+      features: ["更高配额", "Webhook 投递日志", "发信模板", "自助诊断"]
+    },
+    {
+      id: "team",
+      name: "团队版",
+      priceLabel: "联系销售",
+      mailboxLimit: settings.mailbox.limit * 20,
+      retentionDays: settings.message.retentionDays * 12,
+      apiDailyLimit: settings.api.dailyLimit * 20,
+      outboundDailyLimit: settings.outbound.dailyLimit * 20,
+      webhookLimit: 50,
+      teamSeats: 25,
+      features: ["团队空间", "共享邮箱", "成员角色", "组织审计", "高级可靠性 runbook"]
+    }
+  ];
+}
+
+function resolveCurrentPlanId(input: { users: UserRecord[]; mailboxCount: number; freeMailboxLimit: number }): PlanTierSummary["id"] {
+  if (input.users.length > 1) return "team";
+  if (input.mailboxCount > input.freeMailboxLimit) return "pro";
+  return "free";
+}
+
+async function countOutboundUsage(context: AdminUseCaseContext, mailboxIds: string[]) {
+  if (mailboxIds.length === 0) return { sentToday: 0, total: 0 };
+  const todayPrefix = new Date().toISOString().slice(0, 10);
+  const results = await Promise.all(
+    mailboxIds.map((mailboxId) =>
+      context.store.outboundMessages.listByMailbox({
+        mailboxId,
+        page: 1,
+        pageSize: 500
+      })
+    )
+  );
+  const messages = results.flatMap((result) => result.messages);
+  return {
+    sentToday: messages.filter((message) => message.status === "sent" && message.createdAt.startsWith(todayPrefix)).length,
+    total: messages.length
+  };
+}
+
+export async function getAdminCommercialSummary(context: AdminUseCaseContext): Promise<CommercialModelSummary> {
+  const [settings, users, mailboxes, auditEvents] = await Promise.all([
+    getRuntimeSettings(context.store, context.env),
+    listAllUsers(context),
+    context.store.mailboxes.listAll(),
+    context.store.audit.listRecent({ limit: 20 })
+  ]);
+  const mailboxIds = mailboxes.map((mailbox) => mailbox.id);
+  const [messageList, outboundUsage, webhookEndpointBatches] = await Promise.all([
+    context.store.messages.listForMailboxes({
+      mailboxIds,
+      page: 1,
+      pageSize: 1
+    }),
+    countOutboundUsage(context, mailboxIds),
+    Promise.all(users.map((user) => context.store.webhookEndpoints.listByUser(user.id)))
+  ]);
+  const quotas = await Promise.all(
+    users.map((user) => context.store.quotas.getByUserId(user.id, settings.outbound.dailyLimit, settings.api.dailyLimit))
+  );
+  const planTiers = buildPlanTiers(settings);
+  const currentPlanId = resolveCurrentPlanId({
+    users,
+    mailboxCount: mailboxes.length,
+    freeMailboxLimit: settings.mailbox.limit
+  });
+  const usersById = new Map(users.map((user) => [user.id, user]));
+  const apiCallsToday = quotas.reduce((sum, quota) => sum + quota.apiCallsToday, 0);
+  const quotaSendsToday = quotas.reduce((sum, quota) => sum + quota.sendsToday, 0);
+  const outboundSentToday = Math.max(quotaSendsToday, outboundUsage.sentToday);
+
+  return {
+    generatedAt: new Date().toISOString(),
+    currentPlanId,
+    planTiers,
+    quotaUsage: {
+      users: users.length,
+      activeUsers: users.filter((user) => user.status === "active").length,
+      mailboxes: mailboxes.length,
+      mailboxLimit: planTiers.find((tier) => tier.id === currentPlanId)?.mailboxLimit ?? settings.mailbox.limit,
+      messages: messageList.total,
+      outboundDailyLimit: quotas.reduce((sum, quota) => sum + quota.dailyLimit, 0),
+      outboundSentToday,
+      apiDailyLimit: quotas.reduce((sum, quota) => sum + quota.apiDailyLimit, 0),
+      apiCallsToday,
+      webhookEndpoints: webhookEndpointBatches.flat().length
+    },
+    teamWorkspaces: [
+      {
+        id: "default",
+        name: "WeMail 默认组织",
+        planId: currentPlanId,
+        memberCount: users.length,
+        adminCount: users.filter((user) => user.role === "admin").length,
+        sharedMailboxCount: mailboxes.length,
+        auditEventCount: auditEvents.length,
+        usage: {
+          mailboxes: mailboxes.length,
+          messages: messageList.total,
+          outboundSentToday,
+          apiCallsToday
+        }
+      }
+    ],
+    organizationAudit: auditEvents.map((event) => mapAuditEvent(event, usersById))
+  };
 }

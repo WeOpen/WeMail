@@ -1,6 +1,6 @@
 import { FormEvent, useCallback, useRef, useState } from "react";
 
-import type { FeatureToggles, SessionSummary, UserRole, UserStatus } from "@wemail/shared";
+import type { AdminGovernanceSummary, CommercialModelSummary, FeatureToggles, SessionSummary, UserRole, UserStatus } from "@wemail/shared";
 
 import { useAppStore } from "../../app/appStore";
 import type { WemailToastInput } from "../../shared/toast";
@@ -19,13 +19,15 @@ import {
 import {
   ADMIN_SETTINGS_PAGE_SIZE,
   queryAdminDashboard,
+  queryAdminCommercial,
+  queryAdminGovernance,
   queryAdminInvites,
   queryAdminMailboxes,
   queryAdminUserSettingsSummary,
   queryAdminUsers,
   queryQuota
 } from "./queries";
-import type { AdminSettingsListQuery, AdminUsersQuery } from "./types";
+import type { AdminSettingsListQuery, AdminUsersQuery, InviteCreatePayload } from "./types";
 
 const DEFAULT_ADMIN_USERS_QUERY: AdminUsersQuery = {
   page: 1,
@@ -72,6 +74,8 @@ export function useAdminData({ session, onToast }: UseAdminDataOptions) {
   const setAdminFeatures = useAppStore((state) => state.setAdminFeatures);
   const [isLoadingUsers, setIsLoadingUsers] = useState(false);
   const [usersError, setUsersError] = useState<string | null>(null);
+  const [adminGovernance, setAdminGovernance] = useState<AdminGovernanceSummary | null>(null);
+  const [adminCommercial, setAdminCommercial] = useState<CommercialModelSummary | null>(null);
   const lastUsersQuery = useRef<AdminUsersQuery>(DEFAULT_ADMIN_USERS_QUERY);
   const lastInvitesQuery = useRef<AdminSettingsListQuery>(DEFAULT_ADMIN_SETTINGS_QUERY);
   const lastMailboxesQuery = useRef<AdminSettingsListQuery>(DEFAULT_ADMIN_SETTINGS_QUERY);
@@ -101,12 +105,24 @@ export function useAdminData({ session, onToast }: UseAdminDataOptions) {
     try {
       const dashboard = await queryAdminDashboard();
       setAdminDashboard(dashboard);
+      setAdminGovernance(dashboard.governance);
+      setAdminCommercial(dashboard.commercial);
     } catch {
       setUsersError(USERS_LOAD_ERROR);
     } finally {
       setIsLoadingUsers(false);
     }
   }, [session, setAdminDashboard]);
+
+  const refreshAdminGovernance = useCallback(async () => {
+    if (session?.user.role !== "admin") return;
+    setAdminGovernance(await queryAdminGovernance());
+  }, [session]);
+
+  const refreshAdminCommercial = useCallback(async () => {
+    if (session?.user.role !== "admin") return;
+    setAdminCommercial(await queryAdminCommercial());
+  }, [session]);
 
   const refreshAdminSettingsSummary = useCallback(async () => {
     if (session?.user.role !== "admin") return;
@@ -131,64 +147,64 @@ export function useAdminData({ session, onToast }: UseAdminDataOptions) {
     [session, setAdminMailboxes]
   );
 
-  const createInvite = useCallback(async () => {
-    await createInviteAction();
+  const createInvite = useCallback(async (payload: InviteCreatePayload) => {
+    await createInviteAction(payload);
     onToast({ message: "邀请码已创建。", tone: "success" });
-    await refreshAdminInvites(DEFAULT_ADMIN_SETTINGS_QUERY);
-  }, [onToast, refreshAdminInvites]);
+    await Promise.all([refreshAdminInvites(DEFAULT_ADMIN_SETTINGS_QUERY), refreshAdminGovernance()]);
+  }, [onToast, refreshAdminGovernance, refreshAdminInvites]);
 
   const createUser = useCallback(
     async (payload: { email: string; name: string; password: string; role: UserRole }) => {
       await createAdminUserAction(payload);
       onToast({ message: "用户已创建。", tone: "success" });
-      await Promise.all([refreshAdminUsers(), refreshAdminSettingsSummary()]);
+      await Promise.all([refreshAdminUsers(), refreshAdminSettingsSummary(), refreshAdminCommercial()]);
     },
-    [onToast, refreshAdminSettingsSummary, refreshAdminUsers]
+    [onToast, refreshAdminCommercial, refreshAdminSettingsSummary, refreshAdminUsers]
   );
 
   const changeUserRoles = useCallback(
     async (userIds: string[], role: UserRole) => {
       await Promise.all(userIds.map((userId) => updateAdminUserRoleAction(userId, role)));
       onToast({ message: "用户角色已更新。", tone: "success" });
-      await refreshAdminUsers();
+      await Promise.all([refreshAdminUsers(), refreshAdminCommercial()]);
     },
-    [onToast, refreshAdminUsers]
+    [onToast, refreshAdminCommercial, refreshAdminUsers]
   );
 
   const updateUser = useCallback(
     async (userId: string, payload: { name: string }) => {
       await updateAdminUserAction(userId, payload);
       onToast({ message: "用户资料已更新。", tone: "success" });
-      await Promise.all([refreshAdminUsers(), refreshAdminSettingsSummary()]);
+      await Promise.all([refreshAdminUsers(), refreshAdminSettingsSummary(), refreshAdminCommercial()]);
     },
-    [onToast, refreshAdminSettingsSummary, refreshAdminUsers]
+    [onToast, refreshAdminCommercial, refreshAdminSettingsSummary, refreshAdminUsers]
   );
 
   const resetUserPassword = useCallback(
     async (userId: string, password: string) => {
       await resetAdminUserPasswordAction(userId, password);
       onToast({ message: "用户密码已重置。", tone: "success" });
-      await refreshAdminUsers();
+      await Promise.all([refreshAdminUsers(), refreshAdminGovernance()]);
     },
-    [onToast, refreshAdminUsers]
+    [onToast, refreshAdminGovernance, refreshAdminUsers]
   );
 
   const updateUserStatus = useCallback(
     async (userId: string, status: UserStatus) => {
       await updateAdminUserStatusAction(userId, status);
       onToast({ message: status === "disabled" ? "用户已停用。" : "用户已启用。", tone: "success" });
-      await Promise.all([refreshAdminUsers(), refreshAdminSettingsSummary()]);
+      await Promise.all([refreshAdminUsers(), refreshAdminSettingsSummary(), refreshAdminGovernance(), refreshAdminCommercial()]);
     },
-    [onToast, refreshAdminSettingsSummary, refreshAdminUsers]
+    [onToast, refreshAdminCommercial, refreshAdminGovernance, refreshAdminSettingsSummary, refreshAdminUsers]
   );
 
   const deleteUser = useCallback(
     async (userId: string) => {
       await deleteAdminUserAction(userId);
       onToast({ message: "用户已删除。", tone: "success" });
-      await Promise.all([refreshAdminUsers(), refreshAdminSettingsSummary()]);
+      await Promise.all([refreshAdminUsers(), refreshAdminSettingsSummary(), refreshAdminCommercial()]);
     },
-    [onToast, refreshAdminSettingsSummary, refreshAdminUsers]
+    [onToast, refreshAdminCommercial, refreshAdminSettingsSummary, refreshAdminUsers]
   );
 
   const suspendUsersOutbound = useCallback(
@@ -213,9 +229,9 @@ export function useAdminData({ session, onToast }: UseAdminDataOptions) {
     async (inviteId: string) => {
       await disableInviteAction(inviteId);
       onToast({ message: "邀请码已停用。", tone: "info" });
-      await refreshAdminInvites();
+      await Promise.all([refreshAdminInvites(), refreshAdminGovernance()]);
     },
-    [onToast, refreshAdminInvites]
+    [onToast, refreshAdminGovernance, refreshAdminInvites]
   );
 
   const selectQuotaUser = useCallback(async (userId: string) => {
@@ -264,6 +280,8 @@ export function useAdminData({ session, onToast }: UseAdminDataOptions) {
     adminMailboxesPage,
     adminMailboxesPageSize,
     adminMailboxesTotal,
+    adminGovernance,
+    adminCommercial,
     refreshAdminData,
     refreshAdminUsers,
     refreshAdminInvites,

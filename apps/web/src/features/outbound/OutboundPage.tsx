@@ -1,8 +1,33 @@
-import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Check, CheckCircle2, ChevronDown, ClipboardCopy, FileJson, Inbox, RefreshCw, Repeat2, SearchX, Send, XCircle, type LucideIcon } from "lucide-react";
+import {
+  AlertTriangle,
+  Check,
+  CheckCircle2,
+  ChevronDown,
+  ClipboardCopy,
+  FileJson,
+  FileText,
+  Gauge,
+  Inbox,
+  Network,
+  RefreshCw,
+  Repeat2,
+  SearchX,
+  Send,
+  ShieldCheck,
+  XCircle,
+  type LucideIcon
+} from "lucide-react";
 
-import type { MailboxSummary, MailSettingsWorkspaceDefaults, OutboundListStatus } from "@wemail/shared";
+import type {
+  MailboxSummary,
+  MailSettingsWorkspaceDefaults,
+  OutboundListStatus,
+  OutboundMaturitySummary,
+  OutboundTemplateSummary,
+  SystemDiagnosticStatus
+} from "@wemail/shared";
 
 import { Button } from "../../shared/button";
 import { EmptyState } from "../../shared/empty-state";
@@ -13,7 +38,7 @@ import { Page, PageBody, PageHeader, PageMain, PageSidebar, PageToolbar } from "
 import { Pagination } from "../../shared/pagination";
 import { Tabs, TabsList, TabsTrigger } from "../../shared/tabs";
 import type { OutboundHistoryDetail, OutboundHistoryItem, OutboundHistorySummary } from "../inbox/types";
-import type { OutboundListQueryInput } from "../inbox/api";
+import { fetchOutboundMaturity, type OutboundListQueryInput } from "../inbox/api";
 import { fetchMailSettings } from "../settings/api";
 import { OutboundComposeDrawer } from "./OutboundComposeDrawer";
 
@@ -128,6 +153,26 @@ function getFilterCount(records: OutboundRecord[], filter: OutboundFilter) {
   return records.filter((record) => matchFilter(record, filter)).length;
 }
 
+function getStatusLabel(status: SystemDiagnosticStatus) {
+  if (status === "ok") return "正常";
+  if (status === "error") return "需处理";
+  return "待核对";
+}
+
+function getOutboundMaturityStatus(summary: OutboundMaturitySummary): SystemDiagnosticStatus {
+  if (!summary.featureEnabled || !summary.resendConfigured) return "warning";
+  if (summary.identities.some((identity) => identity.status === "error")) return "error";
+  if (summary.dnsChecks.some((check) => check.status === "error")) return "error";
+  if (summary.identities.some((identity) => identity.status === "warning")) return "warning";
+  if (summary.dnsChecks.some((check) => check.status === "warning")) return "warning";
+  if (summary.failureStats.failed > 0) return "warning";
+  return "ok";
+}
+
+function getQuotaRemaining(summary: OutboundMaturitySummary) {
+  return Math.max(0, summary.quota.dailyLimit - summary.quota.sendsToday);
+}
+
 function getEmptyCopy(filter: OutboundFilter, hasSearch: boolean) {
   if (hasSearch) {
     return {
@@ -220,9 +265,30 @@ export function OutboundPage({
   const [isRawDetailOpen, setIsRawDetailOpen] = useState(false);
   const [isLoadingRawDetail, setIsLoadingRawDetail] = useState(false);
   const [workspaceDefaults, setWorkspaceDefaults] = useState<MailSettingsWorkspaceDefaults | null>(null);
+  const [outboundMaturity, setOutboundMaturity] = useState<OutboundMaturitySummary | null>(null);
+  const [outboundMaturityError, setOutboundMaturityError] = useState<string | null>(null);
+  const [isLoadingMaturity, setIsLoadingMaturity] = useState(false);
   const hasUserSelectedFilterRef = useRef(false);
   const activeMailboxId = activeMailbox?.id ?? null;
   const hasExplicitFilterParam = searchParams.has("view");
+
+  const loadOutboundMaturity = useCallback(async () => {
+    setIsLoadingMaturity(true);
+    setOutboundMaturityError(null);
+    try {
+      const { maturity } = await fetchOutboundMaturity();
+      setOutboundMaturity(maturity);
+    } catch (error) {
+      setOutboundMaturity(null);
+      setOutboundMaturityError(error instanceof Error ? error.message : "发信成熟度检查加载失败");
+    } finally {
+      setIsLoadingMaturity(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadOutboundMaturity();
+  }, [loadOutboundMaturity]);
 
   useEffect(() => {
     setFilter(getFilterFromSearchParams(searchParams));
@@ -305,6 +371,8 @@ export function OutboundPage({
   const activeMailboxName = activeMailbox?.label ?? "暂无可用发件身份";
   const activeMailboxAddress = activeMailbox?.address ?? "请先创建或启用一个邮箱账号";
   const hasMailboxOptions = mailboxes.length > 0;
+  const outboundMaturityStatus = outboundMaturity ? getOutboundMaturityStatus(outboundMaturity) : "warning";
+  const outboundQuotaRemaining = outboundMaturity ? getQuotaRemaining(outboundMaturity) : 0;
 
   function openBlankComposeDrawer() {
     setComposeDraft({});
@@ -320,9 +388,18 @@ export function OutboundPage({
     setIsComposeOpen(true);
   }
 
+  function openTemplateComposeDrawer(template: OutboundTemplateSummary) {
+    setComposeDraft({
+      subject: template.subject,
+      bodyText: template.bodyText
+    });
+    setIsComposeOpen(true);
+  }
+
   async function handleSendMail(event: FormEvent<HTMLFormElement>) {
     await onSendMail(event);
     setSearchValue("");
+    void loadOutboundMaturity();
   }
 
   async function handleRefreshOutbound() {
@@ -339,6 +416,7 @@ export function OutboundPage({
             }
           : null
       );
+      await loadOutboundMaturity();
     } finally {
       setIsRefreshing(false);
     }
@@ -433,6 +511,101 @@ export function OutboundPage({
               <StatCard detail="可直接补发" icon={XCircle} label="发送失败" tone="danger" value={failedCount} />
             </div>
           </div>
+
+          <section className="outbound-readiness-panel" aria-label="发信成熟度">
+            <div className="outbound-readiness-header">
+              <div>
+                <p className="panel-kicker">发信成熟度</p>
+                <h2>身份、DNS 与模板</h2>
+              </div>
+              <span className="outbound-readiness-status" data-status={outboundMaturityStatus}>
+                {isLoadingMaturity ? "检查中" : getStatusLabel(outboundMaturityStatus)}
+              </span>
+            </div>
+
+            {outboundMaturityError ? (
+              <p className="error-banner" role="alert">
+                {outboundMaturityError}
+              </p>
+            ) : outboundMaturity ? (
+              <>
+                <div className="outbound-readiness-grid">
+                  <div className="outbound-readiness-metric">
+                    <Gauge size={18} strokeWidth={1.9} aria-hidden="true" />
+                    <p>今日额度</p>
+                    <strong>
+                      {outboundQuotaRemaining}/{outboundMaturity.quota.dailyLimit}
+                    </strong>
+                    <span>{outboundMaturity.quota.disabled ? "已停用" : `已用 ${outboundMaturity.quota.sendsToday}`}</span>
+                  </div>
+                  <div className="outbound-readiness-metric">
+                    <Repeat2 size={18} strokeWidth={1.9} aria-hidden="true" />
+                    <p>失败重试</p>
+                    <strong>{outboundMaturity.retryPolicy.enabled ? outboundMaturity.retryPolicy.attempts : "未开启"}</strong>
+                    <span>{outboundMaturity.retryPolicy.failureRetention}</span>
+                  </div>
+                  <div className="outbound-readiness-metric">
+                    <ShieldCheck size={18} strokeWidth={1.9} aria-hidden="true" />
+                    <p>Return-Path</p>
+                    <strong>{getStatusLabel(outboundMaturity.returnPath.status)}</strong>
+                    <span>{outboundMaturity.returnPath.message}</span>
+                  </div>
+                </div>
+
+                <div className="outbound-readiness-columns">
+                  <section className="outbound-check-list" aria-label="发信身份检查">
+                    <div className="outbound-check-list-header">
+                      <Send size={16} strokeWidth={1.9} aria-hidden="true" />
+                      <strong>发信身份</strong>
+                    </div>
+                    {outboundMaturity.identities.slice(0, 3).map((identity) => (
+                      <div className="outbound-check-row" data-status={identity.status} key={identity.id}>
+                        <span>{identity.isDefault ? "默认" : identity.label}</span>
+                        <small>{identity.address}</small>
+                      </div>
+                    ))}
+                  </section>
+
+                  <section className="outbound-check-list" aria-label="DNS 配置检查">
+                    <div className="outbound-check-list-header">
+                      <Network size={16} strokeWidth={1.9} aria-hidden="true" />
+                      <strong>DNS 检查</strong>
+                    </div>
+                    {outboundMaturity.dnsChecks.map((check) => (
+                      <div className="outbound-check-row" data-status={check.status} key={check.id}>
+                        <span>{check.label}</span>
+                        <small>{check.recordType} · {check.domain}</small>
+                      </div>
+                    ))}
+                  </section>
+
+                  <section className="outbound-check-list outbound-template-list" aria-label="发信模板">
+                    <div className="outbound-check-list-header">
+                      <FileText size={16} strokeWidth={1.9} aria-hidden="true" />
+                      <strong>模板</strong>
+                    </div>
+                    {outboundMaturity.templates.map((template) => (
+                      <Button
+                        className="outbound-template-button"
+                        contentLayout="plain"
+                        key={template.id}
+                        onClick={() => openTemplateComposeDrawer(template)}
+                        variant="text"
+                      >
+                        <span>{template.name}</span>
+                        <small>{template.description}</small>
+                      </Button>
+                    ))}
+                  </section>
+                </div>
+              </>
+            ) : (
+              <div className="outbound-readiness-loading">
+                <AlertTriangle size={17} strokeWidth={1.9} aria-hidden="true" />
+                <span>{isLoadingMaturity ? "正在读取发信成熟度检查" : "暂无发信成熟度数据"}</span>
+              </div>
+            )}
+          </section>
 
           <PageToolbar>
             <FilterBar className="outbound-toolbar-row" columns={2}>

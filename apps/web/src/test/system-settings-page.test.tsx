@@ -2,8 +2,9 @@ import { readFileSync } from "node:fs";
 
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { ComponentProps } from "react";
+import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { RuntimeSettings } from "@wemail/shared";
+import type { DataReliabilitySummary, ProductMaturitySummary, RuntimeSettings, SystemDiagnosticsSummary, SystemOperationsSummary } from "@wemail/shared";
 
 import { SystemSettingsPage } from "../pages/SystemSettingsPage";
 
@@ -18,16 +19,153 @@ const runtimeSettings: RuntimeSettings = {
   lastUpdatedLabel: "2026-04-08T00:00:00.000Z"
 };
 
+const systemDiagnostics: SystemDiagnosticsSummary = {
+  appName: "WeMail",
+  environment: "production",
+  generatedAt: "2026-06-28T00:00:00.000Z",
+  overallStatus: "error",
+  checks: [
+    {
+      id: "cookie.secure",
+      label: "Cookie Secure",
+      status: "error",
+      message: "Cookie Secure 未开启",
+      action: "生产和预发布环境应设置 COOKIE_SECURE=true。"
+    },
+    {
+      id: "cors.origins",
+      label: "CORS 来源",
+      status: "error",
+      message: "CORS 来源未配置",
+      action: "配置 CORS_ALLOWED_ORIGINS 为前端站点域名。"
+    }
+  ]
+};
+
+const systemMaturity: ProductMaturitySummary = {
+  generatedAt: "2026-06-28T00:00:00.000Z",
+  overallStatus: "warning",
+  completedAreas: 1,
+  totalAreas: 8,
+  areas: [
+    {
+      id: "observability",
+      title: "可观测性和运维后台",
+      status: "warning",
+      progress: 64,
+      summary: "系统诊断已经覆盖部署配置。",
+      signals: [{ label: "诊断提醒", value: "2", status: "warning" }],
+      evidence: ["管理员系统诊断"],
+      nextActions: ["增加全局错误日志时间线"]
+    },
+    {
+      id: "security",
+      title: "用户安全与风控",
+      status: "warning",
+      progress: 55,
+      summary: "邀请码、会话、API Key 和配额已有基础能力。",
+      signals: [{ label: "API Key", value: "1 活跃 / 0 已吊销" }],
+      evidence: ["API Key 创建和吊销"],
+      nextActions: ["增加 API Key scope"]
+    }
+  ]
+};
+
+const systemOperations: SystemOperationsSummary = {
+  generatedAt: "2026-06-28T00:00:00.000Z",
+  overallStatus: "error",
+  signals: [
+    { label: "最近失败", value: "3", status: "error" },
+    { label: "Webhook 失败", value: "2", status: "error" },
+    { label: "D1/R2 绑定", value: "完整", status: "ok" }
+  ],
+  recentEvents: [
+    {
+      id: "webhook:delivery-1",
+      source: "webhook",
+      severity: "error",
+      label: "Webhook message.received",
+      message: "状态码 500",
+      occurredAt: "2026-06-28T08:30:00.000Z",
+      actionLabel: "查看并重试",
+      actionHref: "/webhook"
+    },
+    {
+      id: "telegram:audit-1",
+      source: "telegram",
+      severity: "error",
+      label: "Telegram 投递",
+      message: "chat not found",
+      occurredAt: "2026-06-28T08:20:00.000Z",
+      actionLabel: "查看 Telegram 设置",
+      actionHref: "/settings/telegram"
+    }
+  ]
+};
+
+const systemReliability: DataReliabilitySummary = {
+  generatedAt: "2026-06-28T00:00:00.000Z",
+  status: "warning",
+  storage: {
+    d1: "ok",
+    r2: "warning",
+    message: "D1 可用，R2 附件绑定未检测到"
+  },
+  migrations: [
+    {
+      id: "0017",
+      title: "清理任务运行记录",
+      status: "ok",
+      description: "记录定时清理任务成功/失败和删除数量。"
+    }
+  ],
+  cleanup: {
+    expiredMessages: 0,
+    recentRuns: [
+      {
+        id: "cleanup-1",
+        status: "success",
+        startedAt: "2026-06-28T08:00:00.000Z",
+        finishedAt: "2026-06-28T08:00:02.000Z",
+        deletedMessages: 2,
+        deletedAttachments: 1,
+        deletedAccounts: 0,
+        errorText: null
+      }
+    ]
+  },
+  idempotency: {
+    enabled: true,
+    duplicateWindowMinutes: 5,
+    duplicateNotificationPrevention: true,
+    message: "同一邮箱 5 分钟内的同发件人、主题、收件人和正文预览会复用已有记录，并抑制重复通知。"
+  },
+  backupRunbook: [
+    {
+      title: "导出 D1 备份",
+      command: "pnpm exec wrangler d1 export <database> --remote --output backup.sql",
+      cadence: "每日"
+    },
+    {
+      title: "恢复 D1 备份",
+      command: "pnpm exec wrangler d1 execute <database> --remote --file backup.sql",
+      cadence: "故障恢复时"
+    }
+  ]
+};
+
 function renderSystemSettingsPage(props: Partial<ComponentProps<typeof SystemSettingsPage>> = {}) {
   return render(
-    <SystemSettingsPage
-      runtimeSettings={null}
-      resolvedTheme="light"
-      themePreference="system"
-      onSaveRuntimeSettings={vi.fn()}
-      onSelectThemePreference={vi.fn()}
-      {...props}
-    />
+    <MemoryRouter>
+      <SystemSettingsPage
+        runtimeSettings={null}
+        resolvedTheme="light"
+        themePreference="system"
+        onSaveRuntimeSettings={vi.fn()}
+        onSelectThemePreference={vi.fn()}
+        {...props}
+      />
+    </MemoryRouter>
   );
 }
 
@@ -83,6 +221,47 @@ describe("SystemSettingsPage", () => {
     expect(screen.getByRole("button", { name: "深色模式" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "跟随系统" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "跟随系统" })).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("shows admin system diagnostics in the status rail", () => {
+    renderSystemSettingsPage({ canManageRuntimeSettings: true, runtimeSettings, systemDiagnostics });
+
+    expect(screen.getByRole("heading", { name: "系统诊断" })).toBeInTheDocument();
+    expect(screen.getByText("需要处理")).toBeInTheDocument();
+    expect(screen.getByText("Cookie Secure 未开启")).toBeInTheDocument();
+    expect(screen.getByText("CORS 来源未配置")).toBeInTheDocument();
+  });
+
+  it("shows the product maturity overview for administrators", () => {
+    renderSystemSettingsPage({ canManageRuntimeSettings: true, runtimeSettings, systemMaturity });
+
+    expect(screen.getByRole("heading", { name: "成熟度总览" })).toBeInTheDocument();
+    expect(screen.getByText("1 / 8")).toBeInTheDocument();
+    expect(screen.getByText("可观测性和运维后台")).toBeInTheDocument();
+    expect(screen.getByText("64% · 有提醒")).toBeInTheDocument();
+    expect(screen.getByText("用户安全与风控")).toBeInTheDocument();
+  });
+
+  it("shows recent operation failures for administrators", () => {
+    renderSystemSettingsPage({ canManageRuntimeSettings: true, runtimeSettings, systemOperations });
+
+    expect(screen.getByRole("heading", { name: "运维中心" })).toBeInTheDocument();
+    expect(screen.getByLabelText("运维信号")).toHaveTextContent("最近失败");
+    expect(screen.getByLabelText("运维信号")).toHaveTextContent("3");
+    expect(screen.getByLabelText("最近运维事件")).toHaveTextContent("Webhook message.received");
+    expect(screen.getByLabelText("最近运维事件")).toHaveTextContent("状态码 500");
+    expect(screen.getByRole("link", { name: "查看并重试" })).toHaveAttribute("href", "/webhook");
+  });
+
+  it("shows data reliability checks, cleanup runs, idempotency, and backup commands", () => {
+    renderSystemSettingsPage({ canManageRuntimeSettings: true, runtimeSettings, systemReliability });
+
+    expect(screen.getByRole("heading", { name: "可靠性后台" })).toBeInTheDocument();
+    expect(screen.getByLabelText("存储绑定")).toHaveTextContent("D1");
+    expect(screen.getByText("同一邮箱 5 分钟内的同发件人、主题、收件人和正文预览会复用已有记录，并抑制重复通知。")).toBeInTheDocument();
+    expect(screen.getByText("1 个迁移已纳入可靠性检查。")).toBeInTheDocument();
+    expect(screen.getByLabelText("最近清理任务")).toHaveTextContent("2 封邮件 / 1 个附件");
+    expect(screen.getByLabelText("备份恢复命令")).toHaveTextContent("wrangler d1 export");
   });
 
   it("centers theme option captions and avoids a divider line in the system preview", () => {

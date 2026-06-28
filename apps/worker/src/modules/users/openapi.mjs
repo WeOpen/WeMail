@@ -106,6 +106,15 @@ export const paths = {
       responses: { 200: { description: "用户" }, 400: { $ref: "#/components/responses/Error" }, 403: { $ref: "#/components/responses/Error" } }
     }
   },
+  "/api/users/commercial": {
+    get: {
+      tags: ["用户"],
+      summary: "获取商业与团队模型",
+      operationId: "getUsersCommercialModel",
+      security: [{ cookieAuth: [] }],
+      responses: { 200: { description: "套餐层级、默认组织空间、团队用量、共享邮箱和组织审计摘要。" }, 403: { $ref: "#/components/responses/Error" } }
+    }
+  },
   "/api/users/accounts": {
     get: {
       tags: ["用户"],
@@ -128,6 +137,21 @@ export const paths = {
       summary: "创建邀请码",
       operationId: "createUserInvite",
       security: [{ cookieAuth: [] }],
+      requestBody: {
+        required: false,
+        content: {
+          "application/json": {
+            schema: {
+              type: "object",
+              properties: {
+                expiresInDays: { type: ["integer", "null"], minimum: 1, maximum: 365 },
+                targetRole: { type: "string", enum: ["admin", "member"], default: "member" }
+              }
+            },
+            example: { expiresInDays: 30, targetRole: "member" }
+          }
+        }
+      },
       responses: { 201: { description: "创建成功" } }
     }
   },

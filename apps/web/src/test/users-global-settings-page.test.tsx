@@ -4,7 +4,7 @@ import { cleanup, fireEvent, render, screen, within } from "@testing-library/rea
 import type { ComponentProps, FormEvent } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import type { FeatureToggles, MailboxSummary, QuotaSummary, UserSummary } from "@wemail/shared";
+import type { AdminGovernanceSummary, CommercialModelSummary, FeatureToggles, MailboxSummary, QuotaSummary, UserSummary } from "@wemail/shared";
 
 import { UsersGlobalSettingsPage } from "../pages/UsersGlobalSettingsPage";
 import type { InviteSummary } from "../features/admin/types";
@@ -33,7 +33,16 @@ const adminUsers: UserSummary[] = [
 ];
 
 const adminInvites: InviteSummary[] = [
-  { id: "invite-1", code: "ALPHA-2026", createdAt: "2026-04-08T00:00:00.000Z", redeemedAt: null, disabledAt: null }
+  {
+    id: "invite-1",
+    code: "ALPHA-2026",
+    createdAt: "2026-04-08T00:00:00.000Z",
+    expiresAt: "2026-12-08T00:00:00.000Z",
+    targetRole: "member",
+    redeemedByUserId: null,
+    redeemedAt: null,
+    disabledAt: null
+  }
 ];
 
 const adminQuota: QuotaSummary = {
@@ -57,6 +66,155 @@ const adminMailboxes: MailboxSummary[] = [
   { id: "box-1", address: "ops@example.com", label: "Ops", createdAt: "2026-04-08T00:00:00.000Z" }
 ];
 
+const adminGovernance: AdminGovernanceSummary = {
+  generatedAt: "2026-06-28T00:00:00.000Z",
+  inviteStats: {
+    total: 6,
+    available: 3,
+    redeemed: 2,
+    disabled: 1,
+    expired: 0
+  },
+  loginHistory: [
+    {
+      id: "login-1",
+      userId: "admin-1",
+      userEmail: "admin@example.com",
+      method: "password",
+      provider: null,
+      status: "success",
+      reason: null,
+      ipAddress: "203.0.113.10",
+      userAgent: "Chrome",
+      createdAt: "2026-06-28T08:30:00.000Z"
+    },
+    {
+      id: "login-2",
+      userId: null,
+      userEmail: "member@example.com",
+      method: "oauth",
+      provider: "github",
+      status: "failed",
+      reason: "invalid_invite",
+      ipAddress: "198.51.100.12",
+      userAgent: "Firefox",
+      createdAt: "2026-06-28T08:20:00.000Z"
+    }
+  ],
+  auditEvents: [
+    {
+      id: "audit-1",
+      actorId: "admin-1",
+      actorLabel: "Admin User / admin@example.com",
+      eventType: "invite-create",
+      eventLabel: "创建邀请码",
+      detail: "数量 5，角色 member",
+      createdAt: "2026-06-28T08:10:00.000Z"
+    }
+  ],
+  rateLimits: [
+    {
+      key: "login",
+      label: "登录",
+      scope: "IP + /api/auth/login",
+      policy: "Cloudflare Rate Limiter",
+      currentUsage: "平台限流器接管",
+      enforced: true
+    },
+    {
+      key: "register",
+      label: "注册",
+      scope: "IP + /api/auth/register",
+      policy: "Cloudflare Rate Limiter",
+      currentUsage: "未绑定 RATE_LIMITER",
+      enforced: false
+    }
+  ]
+};
+
+const adminCommercial: CommercialModelSummary = {
+  generatedAt: "2026-06-28T00:00:00.000Z",
+  currentPlanId: "team",
+  planTiers: [
+    {
+      id: "free",
+      name: "免费版",
+      priceLabel: "¥0",
+      mailboxLimit: 5,
+      retentionDays: 7,
+      apiDailyLimit: 20000,
+      outboundDailyLimit: 20,
+      webhookLimit: 1,
+      teamSeats: 1,
+      features: ["基础收件"]
+    },
+    {
+      id: "pro",
+      name: "高级版",
+      priceLabel: "按月订阅",
+      mailboxLimit: 20,
+      retentionDays: 30,
+      apiDailyLimit: 100000,
+      outboundDailyLimit: 100,
+      webhookLimit: 10,
+      teamSeats: 3,
+      features: ["更高配额"]
+    },
+    {
+      id: "team",
+      name: "团队版",
+      priceLabel: "联系销售",
+      mailboxLimit: 100,
+      retentionDays: 90,
+      apiDailyLimit: 400000,
+      outboundDailyLimit: 400,
+      webhookLimit: 50,
+      teamSeats: 25,
+      features: ["团队空间"]
+    }
+  ],
+  quotaUsage: {
+    users: 2,
+    activeUsers: 2,
+    mailboxes: 8,
+    mailboxLimit: 100,
+    messages: 120,
+    outboundDailyLimit: 40,
+    outboundSentToday: 2,
+    apiDailyLimit: 40000,
+    apiCallsToday: 12,
+    webhookEndpoints: 3
+  },
+  teamWorkspaces: [
+    {
+      id: "default",
+      name: "WeMail 默认组织",
+      planId: "team",
+      memberCount: 2,
+      adminCount: 1,
+      sharedMailboxCount: 8,
+      auditEventCount: 12,
+      usage: {
+        mailboxes: 8,
+        messages: 120,
+        outboundSentToday: 2,
+        apiCallsToday: 12
+      }
+    }
+  ],
+  organizationAudit: [
+    {
+      id: "audit-commercial-1",
+      actorId: "admin-1",
+      actorLabel: "Admin User / admin@example.com",
+      eventType: "quota-update",
+      eventLabel: "更新配额",
+      detail: "用户 member-1",
+      createdAt: "2026-06-28T08:00:00.000Z"
+    }
+  ]
+};
+
 function createInvites(count: number): InviteSummary[] {
   return Array.from({ length: count }, (_, index) => {
     const inviteNumber = index + 1;
@@ -64,6 +222,9 @@ function createInvites(count: number): InviteSummary[] {
       id: `invite-${inviteNumber}`,
       code: `INVITE-${String(inviteNumber).padStart(3, "0")}`,
       createdAt: `2026-04-${String(inviteNumber).padStart(2, "0")}T00:00:00.000Z`,
+      expiresAt: null,
+      targetRole: "member",
+      redeemedByUserId: null,
       redeemedAt: null,
       disabledAt: null
     };
@@ -89,6 +250,8 @@ function createUsersGlobalSettingsProps(
 ): UsersGlobalSettingsPageRenderProps {
   return {
     adminFeatures,
+    adminCommercial,
+    adminGovernance,
     adminInvites,
     adminMailboxes,
     adminQuota,
@@ -119,6 +282,8 @@ describe("UsersGlobalSettingsPage", () => {
     renderUsersGlobalSettings();
 
     expect(screen.getByRole("heading", { name: "邀请与入场" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "登录、审计与限流" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "套餐、团队与配额" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "配额策略" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "能力开关" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "邮箱监管" })).toBeInTheDocument();
@@ -150,6 +315,37 @@ describe("UsersGlobalSettingsPage", () => {
     expect(within(quotaTarget).getByText("0 / 20")).toBeInTheDocument();
     expect(within(quotaTarget).getByText("12 / 20000")).toBeInTheDocument();
     expect(screen.getByRole("spinbutton", { name: "API 每日调用上限" })).toHaveValue(20000);
+  });
+
+  it("renders governance login history, audit events, rate limits, and invite analytics", () => {
+    renderUsersGlobalSettings();
+
+    const governancePanel = screen.getByRole("heading", { name: "登录、审计与限流" }).closest("section");
+    expect(governancePanel).not.toBeNull();
+
+    expect(within(governancePanel as HTMLElement).getByText("登录历史")).toBeInTheDocument();
+    expect(within(governancePanel as HTMLElement).getByText("风险审计")).toBeInTheDocument();
+    expect(within(governancePanel as HTMLElement).getAllByText("限流策略").length).toBeGreaterThan(0);
+    expect(within(governancePanel as HTMLElement).getByText("member@example.com")).toBeInTheDocument();
+    expect(governancePanel).toHaveTextContent("OAuth / github");
+    expect(within(governancePanel as HTMLElement).getByText("创建邀请码")).toBeInTheDocument();
+    expect(governancePanel).toHaveTextContent("数量 5，角色 member");
+    expect(within(governancePanel as HTMLElement).getByText("3")).toBeInTheDocument();
+    expect(governancePanel).toHaveTextContent("1 / 2");
+    expect(within(governancePanel as HTMLElement).getByText("待绑定")).toBeInTheDocument();
+  });
+
+  it("renders commercial plan tiers, team workspace, quota usage, and organization audit", () => {
+    renderUsersGlobalSettings();
+
+    const commercialPanel = screen.getByRole("region", { name: "商业与团队模型" });
+
+    expect(within(commercialPanel).getAllByText("团队版").length).toBeGreaterThan(0);
+    expect(within(commercialPanel).getByLabelText("组织级用量")).toHaveTextContent("8 / 100");
+    expect(within(commercialPanel).getByLabelText("组织级用量")).toHaveTextContent("12 / 40000");
+    expect(within(commercialPanel).getByLabelText("默认团队空间")).toHaveTextContent("WeMail 默认组织");
+    expect(within(commercialPanel).getByLabelText("默认团队空间")).toHaveTextContent("共享邮箱");
+    expect(within(commercialPanel).getByLabelText("组织级审计")).toHaveTextContent("更新配额");
   });
 
   it("sizes the feature status badge to cover its enabled summary", () => {
@@ -202,7 +398,11 @@ describe("UsersGlobalSettingsPage", () => {
     fireEvent.submit(screen.getByRole("form", { name: "保存用户配额" }));
     fireEvent.click(screen.getByRole("checkbox", { name: "AI 提取" }));
 
-    expect(onCreateInvite).toHaveBeenCalledTimes(1);
+    expect(onCreateInvite).toHaveBeenCalledWith({
+      count: 1,
+      targetRole: "member",
+      expiresInDays: 30
+    });
     expect(onDisableInvite).toHaveBeenCalledWith("invite-1");
     expect(onSelectQuotaUser).toHaveBeenCalledWith("member-1");
     expect(onSubmitQuota).toHaveBeenCalledWith(expect.anything(), "admin-1");
@@ -216,6 +416,8 @@ describe("UsersGlobalSettingsPage", () => {
     expect(disableInviteButton).toHaveClass("ui-button-size-sm");
     expect(inviteRow).not.toBeNull();
     expect(within(inviteRow as HTMLElement).getByText("可用")).toHaveClass("users-invite-status-badge");
+    expect(within(inviteRow as HTMLElement).getByText(/成员/)).toBeInTheDocument();
+    expect(within(inviteRow as HTMLElement).getByText(/有效期至 2026-12-08/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "保存配额" })).toHaveClass("ui-button-size-sm");
   });
 

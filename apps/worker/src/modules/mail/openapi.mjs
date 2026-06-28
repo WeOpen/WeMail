@@ -19,9 +19,51 @@ export const paths = {
           in: "query",
           required: false,
           schema: { type: "string", enum: ["all", "code", "link", "attachment", "unparsed"], default: "all" }
+        },
+        { name: "from", in: "query", required: false, schema: { type: "string" }, description: "按发件人模糊筛选。" },
+        { name: "subject", in: "query", required: false, schema: { type: "string" }, description: "按主题模糊筛选。" },
+        { name: "startDate", in: "query", required: false, schema: { type: "string", format: "date-time" }, description: "按接收时间下限筛选。" },
+        { name: "endDate", in: "query", required: false, schema: { type: "string", format: "date-time" }, description: "按接收时间上限筛选。" },
+        { name: "hasAttachment", in: "query", required: false, schema: { type: "boolean" }, description: "是否只显示有/无附件邮件。" },
+        {
+          name: "extractionType",
+          in: "query",
+          required: false,
+          schema: { type: "string", enum: ["auth_code", "auth_link", "service_link", "subscription_link", "other_link", "none"] },
+          description: "按识别结果类型筛选。"
         }
       ],
       responses: { 200: { description: "分页消息列表，包含 messages、total、page、pageSize 与 summary；message 可包含 toAddress。" }, 404: { $ref: "#/components/responses/Error" } }
+    }
+  },
+  "/api/mail/messages/batch": {
+    post: {
+      tags: ["邮件"],
+      summary: "批量处理消息",
+      description: "对当前用户可见消息执行删除或导出。删除会同步清理附件元数据；导出返回消息摘要列表。",
+      operationId: "batchMailMessages",
+      security: [{ cookieAuth: [] }, { bearerAuth: [] }],
+      requestBody: {
+        required: true,
+        content: {
+          "application/json": {
+            schema: {
+              type: "object",
+              required: ["action", "messageIds"],
+              properties: {
+                action: { type: "string", enum: ["delete", "export"] },
+                messageIds: { type: "array", items: { type: "string" }, minItems: 1, maxItems: 100 }
+              }
+            },
+            example: { action: "delete", messageIds: ["msg_123", "msg_456"] }
+          }
+        }
+      },
+      responses: {
+        200: { description: "批量动作结果，包含 action、requested、affected 和可选 messages。" },
+        400: { $ref: "#/components/responses/Error" },
+        401: { $ref: "#/components/responses/Error" }
+      }
     }
   },
   "/api/mail/messages/{id}": {
@@ -62,6 +104,20 @@ export const paths = {
         { name: "status", in: "query", required: false, schema: { type: "string", enum: ["all", "sent", "failed"], default: "all" } }
       ],
       responses: { 200: { description: "分页发件记录，包含 messages、total、page、pageSize 与 summary。" }, 404: { $ref: "#/components/responses/Error" } }
+    }
+  },
+  "/api/mail/outbound/maturity": {
+    get: {
+      tags: ["邮件"],
+      summary: "获取发信成熟度检查",
+      operationId: "getMailOutboundMaturity",
+      security: [{ cookieAuth: [] }, { bearerAuth: [] }],
+      responses: {
+        200: {
+          description: "当前用户发信额度、身份检查、DNS checklist、重试策略、Return-Path 说明和模板入口。"
+        },
+        401: { $ref: "#/components/responses/Error" }
+      }
     }
   },
   "/api/mail/outbound/{id}": {

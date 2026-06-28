@@ -3,6 +3,8 @@ import {
   parseMailSettingsRecord,
   parseMailSettingsUpdatePayload,
   toPersistableMailSettings,
+  type ExtractionType,
+  type MessageBatchAction,
   type MessageFilter,
   type OutboundListStatus,
   type QuotaSummary
@@ -18,16 +20,27 @@ import { parseOutboundSendRequest } from "../../app/routes/requests/outbound-req
 import {
   getMessageAttachmentUseCase,
   getMessageDetailUseCase,
-  listMessagesUseCase
+  listMessagesUseCase,
+  runMessageBatchActionUseCase
 } from "../../app/use-cases/message-use-cases";
 import {
+  getOutboundMaturityUseCase,
   getOutboundMessageDetail,
   listOutboundMessages,
   sendOutboundMessageUseCase
 } from "../../app/use-cases/outbound-use-cases";
 
 const messageFilters = new Set<MessageFilter>(["all", "code", "link", "attachment", "unparsed"]);
+const extractionTypes = new Set<ExtractionType>([
+  "auth_code",
+  "auth_link",
+  "service_link",
+  "subscription_link",
+  "other_link",
+  "none"
+]);
 const outboundStatuses = new Set<OutboundListStatus>(["all", "sent", "failed"]);
+const messageBatchActions = new Set<MessageBatchAction>(["delete", "export"]);
 
 type QueryRequestContext = {
   req: {
@@ -46,21 +59,61 @@ function parseMessageFilter(value: string | undefined): MessageFilter {
   return messageFilters.has(value as MessageFilter) ? (value as MessageFilter) : "all";
 }
 
+function parseExtractionType(value: string | undefined): ExtractionType | undefined {
+  if (!value) return undefined;
+  return extractionTypes.has(value as ExtractionType) ? (value as ExtractionType) : undefined;
+}
+
+function parseBooleanQuery(value: string | undefined) {
+  if (value === "true") return true;
+  if (value === "false") return false;
+  return undefined;
+}
+
 function parseMessageListQuery(c: QueryRequestContext) {
   const search = c.req.query("search")?.trim();
+  const from = c.req.query("from")?.trim();
+  const subject = c.req.query("subject")?.trim();
+  const startDate = c.req.query("startDate")?.trim();
+  const endDate = c.req.query("endDate")?.trim();
+  const hasAttachment = parseBooleanQuery(c.req.query("hasAttachment"));
+  const extractionType = parseExtractionType(c.req.query("extractionType"));
 
   return {
     mailboxId: c.req.query("accountId") ?? c.req.query("mailboxId") ?? null,
     page: parsePositiveInteger(c.req.query("page"), 1, 10_000),
     pageSize: parsePositiveInteger(c.req.query("pageSize"), 10, 100),
     filter: parseMessageFilter(c.req.query("filter")),
-    ...(search ? { search } : {})
+    ...(search ? { search } : {}),
+    ...(from ? { from } : {}),
+    ...(subject ? { subject } : {}),
+    ...(startDate ? { startDate } : {}),
+    ...(endDate ? { endDate } : {}),
+    ...(typeof hasAttachment === "boolean" ? { hasAttachment } : {}),
+    ...(extractionType ? { extractionType } : {})
   };
 }
 
 function parseOutboundStatus(value: string | undefined): OutboundListStatus {
   if (!value) return "all";
   return outboundStatuses.has(value as OutboundListStatus) ? (value as OutboundListStatus) : "all";
+}
+
+function parseMessageBatchPayload(payload: unknown) {
+  if (!payload || typeof payload !== "object") throw new Error("Invalid batch payload");
+  const rawPayload = payload as { action?: unknown; messageIds?: unknown };
+  if (typeof rawPayload.action !== "string" || !messageBatchActions.has(rawPayload.action as MessageBatchAction)) {
+    throw new Error("action must be delete or export");
+  }
+  if (!Array.isArray(rawPayload.messageIds)) throw new Error("messageIds must be an array");
+  const messageIds = rawPayload.messageIds.filter((messageId): messageId is string => typeof messageId === "string");
+  if (messageIds.length === 0) throw new Error("messageIds cannot be empty");
+  if (messageIds.length > 100) throw new Error("messageIds cannot exceed 100");
+
+  return {
+    action: rawPayload.action as MessageBatchAction,
+    messageIds
+  };
 }
 
 function parseOutboundListQuery(c: QueryRequestContext) {
@@ -107,6 +160,25 @@ export function registerMailRoutes(app: Hono<AppContext>) {
     if (result instanceof Response) return result;
 
     return c.json(toMessageListResponse(result));
+  });
+
+  app.post("/api/mail/messages/batch", async (c) => {
+    const user = requireUser(c);
+    if (!user) return jsonError("Authentication required", 401);
+    let payload: ReturnType<typeof parseMessageBatchPayload>;
+    try {
+      payload = parseMessageBatchPayload(await c.req.json());
+    } catch (error) {
+      return jsonError(error instanceof Error ? error.message : "Invalid batch payload", 400);
+    }
+
+    const result = await runMessageBatchActionUseCase(getAppServices(c), {
+      userId: user.id,
+      userRole: user.role,
+      ...payload
+    });
+
+    return c.json({ result });
   });
 
   app.get("/api/mail/messages/:id", async (c) => {
@@ -163,6 +235,15 @@ export function registerMailRoutes(app: Hono<AppContext>) {
     });
     if (result instanceof Response) return result;
     return c.json(toOutboundListResponse(result));
+  });
+
+  app.get("/api/mail/outbound/maturity", async (c) => {
+    const user = requireUser(c);
+    if (!user) return jsonError("Authentication required", 401);
+    const maturity = await getOutboundMaturityUseCase(getAppServices(c), {
+      userId: user.id
+    });
+    return c.json({ maturity });
   });
 
   app.get("/api/mail/outbound/:id", async (c) => {

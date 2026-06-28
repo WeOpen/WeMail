@@ -10,6 +10,7 @@
     "pages-deploy",
     "github-actions",
     "operations",
+    "product-maturity",
     "deployment"
   ]
 }
