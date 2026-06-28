@@ -201,7 +201,7 @@ curl -i "https://mail.example.com/api/auth/oauth/linuxdo/start?next=/dashboard"
 | 返回 `OAuth ticket is invalid` | 新用户 ticket 过期、已消费，或 finalize 的 provider 不一致 | 重新发起登录并在 15 分钟内提交邀请码 |
 | GitHub 回调后没有邀请码弹窗并提示邮箱不可用 | GitHub 账号没有可读取邮箱，或授权没有返回 `user:email` 邮箱列表 | 在 GitHub 验证邮箱，确认授权包含 `user:email`，或在 GitHub profile 公开一个邮箱后重新登录 |
 | LinuxDo 登录提示缺邮箱 | LinuxDo 用户资料没有返回 email | 检查应用 scope 是否包含 `email`，以及账号是否提供邮箱 |
-| 登录成功后刷新变成未登录 | Cookie 域名或路由模式不一致 | 优先使用前端同域 `/api` route，并确认 production `COOKIE_SECURE = "true"` |
+| 登录成功后刷新变成未登录 | Cookie 域名或路由模式不一致 | 优先使用前端同域 `/api` route；如果 API 使用同站独立子域名，则设置 `COOKIE_DOMAIN` 为共同父域，并确认 production `COOKIE_SECURE = "true"` |
 | 新用户没有弹邀请码就进入系统 | Provider 邮箱已匹配现有 WeMail 用户 | 这是预期行为；旧用户不需要重新兑换邀请码 |
 
 ## 9. 配置速查
@@ -214,6 +214,7 @@ curl -i "https://mail.example.com/api/auth/oauth/linuxdo/start?next=/dashboard"
 | LinuxDo | `LINUXDO_OAUTH_CLIENT_ID` | LinuxDo OAuth App 的 Client ID |
 | LinuxDo | `LINUXDO_OAUTH_CLIENT_SECRET` | LinuxDo OAuth App 的 Client Secret |
 | LinuxDo | `LINUXDO_OAUTH_CALLBACK_URL` | `https://<frontend-domain>/api/auth/oauth/linuxdo/callback` |
+| 通用 | `COOKIE_DOMAIN` | 独立 API 子域名模式下设为共同父域，例如 `.example.com` |
 
 相关文档：
 

@@ -83,6 +83,8 @@
 - `https://wemail-api.example.com` 这类同站 API 子域名。
 - 或者配置 Cloudflare route，让 `https://wemail.example.com/api/*` 指向 Worker。
 
+当 OAuth callback 地址使用前端域名、而 `VITE_API_BASE_URL` 使用同站 API 子域名时，Worker 还需要配置 `COOKIE_DOMAIN=.example.com`，否则 callback 写出的 host-only cookie 不会被 API 子域名请求带上。
+
 `CLOUDFLARE_API_TOKEN` 最小权限建议：
 
 - Account / Workers Scripts: Edit

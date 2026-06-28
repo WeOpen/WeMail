@@ -177,6 +177,14 @@ VITE_API_BASE_URL=https://wemail-api.example.com pnpm build
 CORS_ALLOWED_ORIGINS = "https://mail.example.com"
 ```
 
+如果 OAuth callback 使用前端域名，但前端构建后的 API 请求会访问独立 API 子域名，还要让 session cookie 覆盖共同父域：
+
+```toml
+COOKIE_DOMAIN = ".example.com"
+```
+
+例如前端是 `https://wemail.example.com`、API 是 `https://wemail-api.example.com` 时，`COOKIE_DOMAIN` 应设为 `.example.com`。不要把这个值设成 `workers.dev`，也不要带 `https://` 或路径。
+
 production 建议使用同站 API 自定义域，例如 `https://wemail-api.example.com`，而不是长期使用 `workers.dev`。这样 Pages 和 Worker 仍在同一个站点下，登录 session cookie 更稳定。
 
 如果你使用当前 GitHub Actions，需要把 `VITE_API_BASE_URL` 加到 build 环境中。详见 [Pages 前端部署](/docs/pages-deploy)。

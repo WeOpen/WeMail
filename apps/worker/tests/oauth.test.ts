@@ -259,4 +259,39 @@ describe("oauth authentication", () => {
     expect(callbackResponse.headers.get("set-cookie")).toContain("wemail_session=");
     expect(callbackLocation).toBe("/settings/profile");
   });
+
+  it("sets OAuth session cookies on the configured parent domain", async () => {
+    const store = createInMemoryStore();
+    const app = createApp({ store });
+    const invite = await store.invites.create({ code: "INVITE-LINUXDO-DOMAIN", createdByUserId: "system" });
+    const domainEnv = { ...env, COOKIE_DOMAIN: ".example.test" };
+
+    const registerResponse = await app.request(
+      "/api/auth/register",
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          email: "linuxdo@example.com",
+          name: "Existing User",
+          password: "password123",
+          inviteCode: invite.code
+        })
+      },
+      domainEnv
+    );
+    expect(registerResponse.headers.get("set-cookie")).toContain("Domain=.example.test");
+    mockLinuxDoFetch();
+
+    const startResponse = await app.request("/api/auth/oauth/linuxdo/start?next=/settings/profile", {}, domainEnv);
+    const state = readSearchParam(readLocation(startResponse), "state");
+    const callbackResponse = await app.request(
+      `/api/auth/oauth/linuxdo/callback?code=linuxdo-code&state=${state}`,
+      {},
+      domainEnv
+    );
+
+    expect(callbackResponse.status).toBe(302);
+    expect(callbackResponse.headers.get("set-cookie")).toContain("Domain=.example.test");
+  });
 });

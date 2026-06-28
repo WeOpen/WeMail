@@ -643,6 +643,7 @@ export type AppBindings = {
   ENVIRONMENT?: string;
   APP_NAME: string;
   COOKIE_NAME: string;
+  COOKIE_DOMAIN?: string;
   COOKIE_SECURE?: string;
   CORS_ALLOWED_ORIGINS?: string;
   DEFAULT_MAIL_DOMAIN?: string;

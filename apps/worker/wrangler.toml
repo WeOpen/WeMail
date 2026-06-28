@@ -60,13 +60,15 @@ bucket_name = "wemail-staging-attachments"
 [env.production]
 workers_dev = true
 routes = [
-  { pattern = "wemail.willxue.com/api/*", zone_name = "willxue.com" }
+  { pattern = "wemail.willxue.com/api/*", zone_name = "willxue.com" },
+  { pattern = "wemail-api.willxue.com/api/*", zone_name = "willxue.com" }
 ]
 
 [env.production.vars]
 ENVIRONMENT = "production"
 APP_NAME = "WeMail"
 COOKIE_NAME = "wemail_session"
+COOKIE_DOMAIN = ".willxue.com"
 COOKIE_SECURE = "true"
 CORS_ALLOWED_ORIGINS = "https://wemail.willxue.com"
 TELEGRAM_BOT_USERNAME = "WeMailProBot"

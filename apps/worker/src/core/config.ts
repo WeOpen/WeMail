@@ -8,6 +8,7 @@ export type AppConfig = {
   cookie: {
     name: string;
     secure: boolean;
+    domain?: string;
   };
   cors: {
     allowedOrigins: string[];
@@ -75,6 +76,13 @@ function parseList(value: string | undefined) {
   return value.split(",").map((entry) => entry.trim()).filter(Boolean);
 }
 
+function parseCookieDomain(value: string | undefined) {
+  const domain = value?.trim();
+  if (!domain) return undefined;
+  if (!/^\.?[a-z0-9-]+(\.[a-z0-9-]+)+$/i.test(domain)) return undefined;
+  return domain.toLowerCase();
+}
+
 function resolveOAuthProvider(clientId?: string, clientSecret?: string, callbackUrl?: string) {
   if (!clientId || !clientSecret || !callbackUrl) return undefined;
   return { clientId, clientSecret, callbackUrl };
@@ -100,7 +108,11 @@ export function resolveAppConfig(env: AppBindings): AppConfig {
 
       // COOKIE_SECURE stays configurable because local HTTP development needs
       // a non-secure cookie while staging/production should prefer Secure.
-      secure: parseBoolean(env.COOKIE_SECURE, false)
+      secure: parseBoolean(env.COOKIE_SECURE, false),
+
+      // COOKIE_DOMAIN is optional. Set it only when the frontend and API live
+      // on sibling subdomains and must share the same browser session cookie.
+      domain: parseCookieDomain(env.COOKIE_DOMAIN)
     },
 
     cors: {

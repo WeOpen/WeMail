@@ -14,12 +14,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.5] - 2026-06-28
+
 ### Fixed
 
 - Added a Cloudflare Worker route permission preflight and deployment docs for `Workers Routes: Edit` token failures.
 - Tightened Telegram settings page left-column card spacing so the support rail no longer stretches the main card stack.
 - Stabilized design system lazy-route assertions under slower CI test runs.
 - Fixed GitHub OAuth callbacks so missing private email data no longer fails silently and public profile emails can continue to the invite-code flow.
+- Fixed OAuth sessions for deployments that use a separate same-site API subdomain by sharing the session cookie across the configured parent domain.
 - Shortened long profile email displays with hover titles so LinuxDo relay addresses no longer overflow personal settings cards.
 - Replaced inline table loading and zero-data text with reusable loading and empty state cards across user, account, and mailbox selector tables.
 
@@ -242,7 +245,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Established the current tracked baseline from the existing monorepo package versions.
 
-[Unreleased]: https://github.com/WeOpen/WeMail/compare/v0.1.4...HEAD
+[Unreleased]: https://github.com/WeOpen/WeMail/compare/v0.1.5...HEAD
+[0.1.5]: https://github.com/WeOpen/WeMail/releases/tag/v0.1.5
 [0.1.4]: https://github.com/WeOpen/WeMail/releases/tag/v0.1.4
 [0.1.3]: https://github.com/WeOpen/WeMail/releases/tag/v0.1.3
 [0.1.2]: https://github.com/WeOpen/WeMail/releases/tag/v0.1.2

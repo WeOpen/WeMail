@@ -77,6 +77,7 @@ export function setSessionCookie(c: Context<any>, token: string) {
     httpOnly: true,
     sameSite: "Lax",
     secure,
+    domain: config.cookie.domain,
     path: "/",
     maxAge: config.session.ttlHours * 60 * 60
   });
@@ -84,7 +85,7 @@ export function setSessionCookie(c: Context<any>, token: string) {
 
 export function clearSessionCookie(c: Context<any>) {
   const config = resolveAppConfig(c.env);
-  deleteCookie(c, config.cookie.name, { path: "/" });
+  deleteCookie(c, config.cookie.name, { domain: config.cookie.domain, path: "/" });
 }
 
 export function readSessionCookie(c: Context<any>) {

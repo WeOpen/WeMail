@@ -13,6 +13,7 @@ describe("worker config", () => {
     const config = resolveAppConfig({
       ...workerTestEnv,
       ENVIRONMENT: "staging",
+      COOKIE_DOMAIN: ".Example.COM",
       COOKIE_SECURE: "true",
       SESSION_TTL_HOURS: "24",
       CORS_ALLOWED_ORIGINS: "https://mail.example.com, https://admin.example.com ",
@@ -22,6 +23,7 @@ describe("worker config", () => {
     expect(config.environment).toBe("staging");
     expect(config.appName).toBe("WeMail");
     expect(config.cookie.name).toBe("wemail_session");
+    expect(config.cookie.domain).toBe(".example.com");
     expect(config.cookie.secure).toBe(true);
     expect(config.cors.allowedOrigins).toEqual(["https://mail.example.com", "https://admin.example.com"]);
     expect(config.session.ttlHours).toBe(24);
@@ -45,6 +47,7 @@ describe("worker config", () => {
     const env: AppBindings = {
       ...workerTestEnv,
       ENVIRONMENT: undefined,
+      COOKIE_DOMAIN: "https://mail.example.com",
       COOKIE_SECURE: undefined,
       CORS_ALLOWED_ORIGINS: undefined,
       SESSION_TTL_HOURS: "invalid",
@@ -64,6 +67,7 @@ describe("worker config", () => {
     const config = resolveAppConfig(env);
 
     expect(config.environment).toBe("local");
+    expect(config.cookie.domain).toBeUndefined();
     expect(config.cookie.secure).toBe(false);
     expect(config.cors.allowedOrigins).toEqual([]);
     expect(config.session.ttlHours).toBe(72);
