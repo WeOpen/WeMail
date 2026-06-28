@@ -70,6 +70,7 @@ describe("system profile route integration", () => {
       }
 
       if (url.endsWith("/api/profile")) return jsonResponse(profilePayload());
+      if (url.endsWith("/api/profile/sessions")) return jsonResponse({ sessions: [] });
       if (url.endsWith("/api/accounts")) return jsonResponse({ mailboxes: [] });
       if (url.endsWith("/api/api-keys")) return jsonResponse({ keys: [] });
       if (url.endsWith("/api/telegram/subscription")) return jsonResponse({ subscription: null });
@@ -132,6 +133,8 @@ describe("system profile route integration", () => {
         return jsonResponse(profilePayload());
       }
 
+      if (url.endsWith("/api/profile/sessions")) return jsonResponse({ sessions: [] });
+
       if (url.endsWith("/api/accounts")) return jsonResponse({ mailboxes: [] });
       if (url.endsWith("/api/api-keys")) return jsonResponse({ keys: [] });
       if (url.endsWith("/api/telegram/subscription")) return jsonResponse({ subscription: null });
@@ -174,6 +177,7 @@ describe("system profile route integration", () => {
       }
 
       if (url.endsWith("/api/profile")) return jsonResponse(profilePayload({ landingPage: "/mail/list", density: "compact" }));
+      if (url.endsWith("/api/profile/sessions")) return jsonResponse({ sessions: [] });
       if (url.endsWith("/api/accounts")) return jsonResponse({ mailboxes: [] });
       if (url.endsWith("/api/api-keys")) return jsonResponse({ keys: [] });
       if (url.endsWith("/api/telegram/subscription")) return jsonResponse({ subscription: null });

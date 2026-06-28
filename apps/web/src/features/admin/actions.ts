@@ -12,6 +12,7 @@ import {
   updateAdminUserStatus,
   updateQuota
 } from "./api";
+import type { InviteCreatePayload } from "./types";
 
 export async function createAdminUserAction(payload: { email: string; name: string; password: string; role: UserRole }) {
   return createAdminUser(payload);
@@ -37,8 +38,8 @@ export async function deleteAdminUserAction(userId: string) {
   return deleteAdminUser(userId);
 }
 
-export async function createInviteAction() {
-  return createInvite();
+export async function createInviteAction(payload: InviteCreatePayload) {
+  return createInvite(payload);
 }
 
 export async function disableInviteAction(inviteId: string) {

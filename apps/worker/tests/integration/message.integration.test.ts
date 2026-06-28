@@ -187,6 +187,99 @@ describe("worker message integration", () => {
     expect(deliveries.every((delivery) => delivery.status === "success")).toBe(true);
   });
 
+  it("suppresses duplicate inbound storage and notifications within the idempotency window", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response("ok", { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+    const { env, store, mailbox, userId } = await registerMemberAndCreateMailbox();
+
+    await store.webhookEndpoints.create({
+      userId,
+      name: "Automation receiver",
+      url: "https://hooks.example.test/inbound",
+      eventsJson: JSON.stringify(["message.received"]),
+      enabled: true
+    });
+
+    const rawEmail = [
+      "From: Product Team <product@example.com>",
+      `To: ${mailbox.address}`,
+      "Subject: Product update",
+      "Content-Type: text/plain; charset=utf-8",
+      "",
+      "This is a duplicate-safe update."
+    ].join("\r\n");
+
+    await processInboundEmail(env, store, {
+      to: mailbox.address,
+      raw: new Response(rawEmail).body!
+    });
+    await processInboundEmail(env, store, {
+      to: mailbox.address,
+      raw: new Response(rawEmail).body!
+    });
+
+    expect(await store.messages.listByMailbox(mailbox.id)).toHaveLength(1);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(await store.webhookDeliveries.listByUser(userId)).toHaveLength(1);
+    expect(await store.audit.listByActorAndTypes(userId, ["message-duplicate-suppressed"], 5)).toHaveLength(1);
+  });
+
+  it("applies notification rules before webhook delivery", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response("ok", { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+    const { app, env, store, cookie, mailbox, userId } = await registerMemberAndCreateMailbox();
+
+    await store.webhookEndpoints.create({
+      userId,
+      name: "Automation receiver",
+      url: "https://hooks.example.test/inbound",
+      eventsJson: JSON.stringify(["message.received"]),
+      enabled: true
+    });
+
+    const ruleResponse = await app.request(
+      "/api/notification/rules",
+      {
+        method: "POST",
+        headers: { cookie, "content-type": "application/json" },
+        body: JSON.stringify({
+          name: "Security-only mail",
+          target: "webhook",
+          eventTypes: ["message.received"],
+          keyword: "security"
+        })
+      },
+      env
+    );
+    expect(ruleResponse.status).toBe(201);
+
+    await processInboundEmail(env, store, {
+      to: mailbox.address,
+      raw: new Response([
+        "From: Product <product@example.com>",
+        `To: ${mailbox.address}`,
+        "Subject: Product update",
+        "Content-Type: text/plain; charset=utf-8",
+        "",
+        "No matching keyword here."
+      ].join("\r\n")).body!
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+
+    await processInboundEmail(env, store, {
+      to: mailbox.address,
+      raw: new Response([
+        "From: Security <security@example.com>",
+        `To: ${mailbox.address}`,
+        "Subject: Security alert",
+        "Content-Type: text/plain; charset=utf-8",
+        "",
+        "security keyword matches"
+      ].join("\r\n")).body!
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
   it("keeps inbound mail for unknown recipient addresses visible to admins only", async () => {
     const { app, env, store, cookie: adminCookie } = await registerMemberAndCreateMailbox();
     const admin = await store.users.findByEmail("member@example.com");
@@ -434,6 +527,102 @@ describe("worker message integration", () => {
       extractionCount: 2,
       attachmentCount: 0
     });
+  });
+
+  it("filters messages with advanced fields and runs batch export/delete actions", async () => {
+    const { app, env, store, cookie, mailbox } = await registerMemberAndCreateMailbox();
+
+    const digestMessage = await store.messages.create({
+      mailboxId: mailbox.id,
+      fromAddress: "reports@example.com",
+      subject: "Weekly digest preview",
+      previewText: "Digest attached",
+      bodyText: "Digest attached",
+      extractionJson: JSON.stringify({ method: "none", type: "none", value: "", label: "None" }),
+      oversizeStatus: null,
+      attachmentCount: 1,
+      receivedAt: "2026-04-08T12:00:00.000Z",
+      expiresAt: new Date(Date.now() + 60_000).toISOString()
+    });
+    await store.attachments.createMany(digestMessage.id, [
+      {
+        id: "digest-attachment",
+        filename: "digest.pdf",
+        contentType: "application/pdf",
+        size: 2048,
+        key: "attachments/digest.pdf"
+      }
+    ]);
+    await store.messages.create({
+      mailboxId: mailbox.id,
+      fromAddress: "security@example.com",
+      subject: "Security code",
+      previewText: "Use 789012",
+      bodyText: "Use 789012",
+      extractionJson: JSON.stringify({ method: "regex", type: "auth_code", value: "789012", label: "Code" }),
+      oversizeStatus: null,
+      attachmentCount: 0,
+      receivedAt: "2026-04-09T12:00:00.000Z",
+      expiresAt: new Date(Date.now() + 60_000).toISOString()
+    });
+
+    const filteredResponse = await app.request(
+      `/api/mail/messages?accountId=${mailbox.id}&from=reports&subject=digest&startDate=2026-04-08T00:00:00.000Z&endDate=2026-04-08T23:59:59.999Z&hasAttachment=true&extractionType=none`,
+      { headers: { cookie } },
+      env
+    );
+    expect(filteredResponse.status).toBe(200);
+    const filteredPayload = (await filteredResponse.json()) as {
+      messages: Array<{ id: string; subject: string; attachmentCount: number }>;
+    };
+    expect(filteredPayload.messages).toEqual([
+      expect.objectContaining({
+        id: digestMessage.id,
+        subject: "Weekly digest preview",
+        attachmentCount: 1
+      })
+    ]);
+
+    const exportResponse = await app.request(
+      "/api/mail/messages/batch",
+      {
+        method: "POST",
+        headers: { cookie, "content-type": "application/json" },
+        body: JSON.stringify({ action: "export", messageIds: [digestMessage.id] })
+      },
+      env
+    );
+    expect(exportResponse.status).toBe(200);
+    const exportPayload = (await exportResponse.json()) as {
+      result: { action: string; affected: number; requested: number; messages: Array<{ id: string }> };
+    };
+    expect(exportPayload.result).toMatchObject({
+      action: "export",
+      affected: 1,
+      requested: 1
+    });
+    expect(exportPayload.result.messages[0].id).toBe(digestMessage.id);
+
+    const deleteResponse = await app.request(
+      "/api/mail/messages/batch",
+      {
+        method: "POST",
+        headers: { cookie, "content-type": "application/json" },
+        body: JSON.stringify({ action: "delete", messageIds: [digestMessage.id] })
+      },
+      env
+    );
+    expect(deleteResponse.status).toBe(200);
+    const deletePayload = (await deleteResponse.json()) as {
+      result: { action: string; affected: number; requested: number };
+    };
+    expect(deletePayload.result).toEqual({
+      action: "delete",
+      affected: 1,
+      requested: 1
+    });
+    expect(await store.messages.findById(digestMessage.id)).toBeNull();
+    expect(await store.attachments.listByMessage(digestMessage.id)).toEqual([]);
   });
 
   it("returns attachment metadata when object storage is not configured", async () => {

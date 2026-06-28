@@ -1,4 +1,5 @@
 import type { AppStore, WebhookDeliveryRecord, WebhookEndpointRecord } from "../../core/bindings";
+import { shouldSendNotificationToTarget } from "./notification-rule-service";
 
 export const webhookEventIds = [
   "message.received",
@@ -216,7 +217,23 @@ export async function sendWebhookEventToEndpoint(
 
 export async function sendWebhookEventToUser(store: AppStore, userId: string, eventType: string, data: Record<string, unknown>) {
   const endpoints = await store.webhookEndpoints.listByUser(userId);
-  const subscribedEndpoints = endpoints.filter((endpoint) => endpoint.enabled && readEndpointEvents(endpoint).includes(eventType));
+  const subscribedEndpoints = (
+    await Promise.all(
+      endpoints
+        .filter((endpoint) => endpoint.enabled && readEndpointEvents(endpoint).includes(eventType))
+        .map(async (endpoint) => ({
+          endpoint,
+          shouldSend: await shouldSendNotificationToTarget(store, userId, {
+            data,
+            eventType,
+            target: "webhook",
+            targetId: endpoint.id
+          })
+        }))
+    )
+  )
+    .filter((entry) => entry.shouldSend)
+    .map((entry) => entry.endpoint);
 
   return Promise.all(subscribedEndpoints.map((endpoint) => sendWebhookEventToEndpoint(store, endpoint, eventType, data)));
 }

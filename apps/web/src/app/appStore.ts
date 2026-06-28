@@ -2,13 +2,17 @@ import { create } from "zustand";
 
 import type {
   ApiKeySummary,
+  DataReliabilitySummary,
   DictionaryCatalogGroup,
   FeatureToggles,
   MailboxSummary,
   MessageSummary,
+  ProductMaturitySummary,
   QuotaSummary,
   RuntimeSettings,
   SessionSummary,
+  SystemDiagnosticsSummary,
+  SystemOperationsSummary,
   TelegramDeliverySummary,
   TelegramOverviewSummary,
   TelegramSubscriptionSummary,
@@ -44,6 +48,10 @@ type SessionScopedState = {
   telegramOverview: TelegramOverviewSummary;
   telegramDeliveries: TelegramDeliverySummary[];
   runtimeSettings: RuntimeSettings | null;
+  systemDiagnostics: SystemDiagnosticsSummary | null;
+  systemMaturity: ProductMaturitySummary | null;
+  systemOperations: SystemOperationsSummary | null;
+  systemReliability: DataReliabilitySummary | null;
   adminUsers: UserSummary[];
   adminUsersTotal: number;
   adminSettingsUsers: UserSummary[];
@@ -113,7 +121,11 @@ type AppActions = {
     apiKeys?: ApiKeySummary[],
     telegramOverview?: TelegramOverviewSummary,
     telegramDeliveries?: TelegramDeliverySummary[],
-    runtimeSettings?: RuntimeSettings | null
+    runtimeSettings?: RuntimeSettings | null,
+    systemDiagnostics?: SystemDiagnosticsSummary | null,
+    systemMaturity?: ProductMaturitySummary | null,
+    systemOperations?: SystemOperationsSummary | null,
+    systemReliability?: DataReliabilitySummary | null
   ) => void;
   setAdminDashboard: (dashboard: AdminDashboardState) => void;
   setAdminUsers: (users: UserSummary[], total: number) => void;
@@ -171,6 +183,10 @@ function createSessionScopedState(): SessionScopedState {
     telegramOverview: emptyTelegramOverview,
     telegramDeliveries: [],
     runtimeSettings: null,
+    systemDiagnostics: null,
+    systemMaturity: null,
+    systemOperations: null,
+    systemReliability: null,
     adminUsers: [],
     adminUsersTotal: 0,
     adminSettingsUsers: [],
@@ -240,7 +256,7 @@ export const useAppStore = create<AppStore>()((set) => ({
     }),
   setSelectedMessageId: (selectedMessageId) => set({ selectedMessageId }),
   setOutboundHistory: (outboundHistory) => set({ outboundHistory }),
-  setSettingsData: (apiKeys, telegramOverview, telegramDeliveries, runtimeSettings) =>
+  setSettingsData: (apiKeys, telegramOverview, telegramDeliveries, runtimeSettings, systemDiagnostics, systemMaturity, systemOperations, systemReliability) =>
     set((state) => {
       const nextTelegramOverview = telegramOverview ?? state.telegramOverview ?? emptyTelegramOverview;
       return {
@@ -250,7 +266,11 @@ export const useAppStore = create<AppStore>()((set) => ({
           : null,
         telegramOverview: nextTelegramOverview,
         telegramDeliveries: telegramDeliveries ?? state.telegramDeliveries,
-        runtimeSettings: typeof runtimeSettings === "undefined" ? state.runtimeSettings : runtimeSettings
+        runtimeSettings: typeof runtimeSettings === "undefined" ? state.runtimeSettings : runtimeSettings,
+        systemDiagnostics: typeof systemDiagnostics === "undefined" ? state.systemDiagnostics : systemDiagnostics,
+        systemMaturity: typeof systemMaturity === "undefined" ? state.systemMaturity : systemMaturity,
+        systemOperations: typeof systemOperations === "undefined" ? state.systemOperations : systemOperations,
+        systemReliability: typeof systemReliability === "undefined" ? state.systemReliability : systemReliability
       };
     }),
   setAdminDashboard: (dashboard) =>

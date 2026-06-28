@@ -58,6 +58,8 @@ function mockMemberSessionFetch(input: RequestInfo | URL) {
     });
   }
 
+  if (url.endsWith("/api/profile/sessions")) return jsonResponse({ sessions: [] });
+
   if (url.endsWith("/api/accounts")) return jsonResponse({ mailboxes: [] });
   if (url.endsWith("/api/mail/settings")) return jsonResponse({ settings: null });
   if (url.endsWith("/api/dictionaries")) return jsonResponse({ dictionaries: [] });
@@ -263,6 +265,8 @@ describe("App", () => {
             }
           });
         }
+
+        if (url.endsWith("/api/profile/sessions")) return jsonResponse({ sessions: [] });
 
         if (url.endsWith("/api/dashboard")) {
           return jsonResponse({

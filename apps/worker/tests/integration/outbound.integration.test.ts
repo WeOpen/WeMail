@@ -351,6 +351,75 @@ describe("worker outbound integration", () => {
     expect(JSON.parse(detailPayload.message.responsePayloadJson ?? "{}")).toEqual({ error: "smtp timeout" });
   });
 
+  it("returns outbound maturity checks for quota, identities, DNS records, retries, and templates", async () => {
+    const { app, env, cookie } = await registerUserAndGetCookie({
+      email: "sender-maturity@example.com",
+      inviteCode: "INVITE-OUTBOUND-MATURITY"
+    });
+    const productionEnv = {
+      ...env,
+      DEFAULT_MAIL_DOMAIN: "wemail.test",
+      RESEND_API_KEY: "test-token"
+    };
+
+    const mailboxResponse = await app.request(
+      "/api/accounts",
+      {
+        method: "POST",
+        headers: {
+          cookie,
+          "content-type": "application/json"
+        },
+        body: JSON.stringify({ label: "Sender" })
+      },
+      productionEnv
+    );
+    expect(mailboxResponse.status).toBe(201);
+
+    const response = await app.request(
+      "/api/mail/outbound/maturity",
+      {
+        headers: { cookie }
+      },
+      productionEnv
+    );
+    const payload = (await response.json()) as {
+      maturity: {
+        resendConfigured: boolean;
+        quota: { dailyLimit: number; sendsToday: number };
+        retryPolicy: { attempts: string; failureRetention: string };
+        identities: Array<{ label: string; domain: string | null; status: string }>;
+        dnsChecks: Array<{ id: string; domain: string; expectedValue: string }>;
+        templates: Array<{ id: string; subject: string; bodyText: string }>;
+        returnPath: { status: string; message: string };
+      };
+    };
+
+    expect(response.status).toBe(200);
+    expect(payload.maturity.resendConfigured).toBe(true);
+    expect(payload.maturity.quota).toMatchObject({ dailyLimit: 20, sendsToday: 0 });
+    expect(payload.maturity.identities).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ label: "默认发信身份", domain: "wemail.test", status: "ok" }),
+        expect.objectContaining({ label: "Sender", domain: "wemail.test", status: "ok" })
+      ])
+    );
+    expect(payload.maturity.dnsChecks).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: "spf", domain: "wemail.test" }),
+        expect.objectContaining({ id: "dkim", domain: "wemail.test" }),
+        expect.objectContaining({ id: "dmarc", domain: "_dmarc.wemail.test" })
+      ])
+    );
+    expect(payload.maturity.templates).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: "verification-forward", subject: "验证码通知：{{code}}" })
+      ])
+    );
+    expect(payload.maturity.retryPolicy.failureRetention).toBe(defaultMailSettings.senderRules.failureRetention);
+    expect(payload.maturity.returnPath).toMatchObject({ status: "ok" });
+  });
+
   it("rejects invalid outbound recipient addresses before calling the provider", async () => {
     const { app, env, cookie } = await registerUserAndGetCookie({
       email: "sender@example.com",

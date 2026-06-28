@@ -261,14 +261,33 @@ export const apiInterfaceGroups: ApiInterfaceGroup[] = [
         "method": "GET",
         "path": "/api/mail/messages",
         "title": "邮件列表",
-        "description": "查询收件箱消息列表。",
+        "description": "查询收件箱消息列表，支持发件人、主题、日期、附件和提取类型筛选。",
         "access": "登录用户",
         "example": {
           "queryParameters": {
             "accountId": "mailbox_123",
             "page": "1",
             "pageSize": "20",
-            "unread": "false"
+            "from": "security@example.com",
+            "subject": "login",
+            "hasAttachment": "false",
+            "extractionType": "auth_code"
+          }
+        }
+      },
+      {
+        "method": "POST",
+        "path": "/api/mail/messages/batch",
+        "title": "批量处理邮件",
+        "description": "对当前用户可见邮件执行删除或导出动作。",
+        "access": "登录用户",
+        "example": {
+          "requestBody": {
+            "action": "delete",
+            "messageIds": [
+              "msg_123",
+              "msg_456"
+            ]
           }
         }
       },
@@ -299,6 +318,13 @@ export const apiInterfaceGroups: ApiInterfaceGroup[] = [
             "status": "sent"
           }
         }
+      },
+      {
+        "method": "GET",
+        "path": "/api/mail/outbound/maturity",
+        "title": "发信成熟度",
+        "description": "读取当前用户的发信额度、身份检查、DNS checklist、重试策略、Return-Path 说明和模板入口。",
+        "access": "登录用户"
       },
       {
         "method": "GET",
@@ -373,6 +399,20 @@ export const apiInterfaceGroups: ApiInterfaceGroup[] = [
         "path": "/api/users/summary",
         "title": "用户设置摘要",
         "description": "读取配额设置页所需汇总。",
+        "access": "管理员"
+      },
+      {
+        "method": "GET",
+        "path": "/api/users/governance",
+        "title": "治理概览",
+        "description": "读取登录历史、近期审计、限流策略和邀请码使用统计。",
+        "access": "管理员"
+      },
+      {
+        "method": "GET",
+        "path": "/api/users/commercial",
+        "title": "商业与团队模型",
+        "description": "读取套餐层级、默认组织空间、团队用量、共享邮箱和组织审计摘要。",
         "access": "管理员"
       },
       {
@@ -451,13 +491,12 @@ export const apiInterfaceGroups: ApiInterfaceGroup[] = [
         "method": "POST",
         "path": "/api/users/invites",
         "title": "创建邀请码",
-        "description": "生成新的注册邀请码。",
+        "description": "生成带目标角色和有效期的新注册邀请码。",
         "access": "管理员",
         "example": {
           "requestBody": {
-            "count": 3,
-            "expiresInDays": 7,
-            "role": "member"
+            "expiresInDays": 30,
+            "targetRole": "member"
           }
         }
       },
@@ -521,11 +560,15 @@ export const apiInterfaceGroups: ApiInterfaceGroup[] = [
         "method": "POST",
         "path": "/api/api-keys",
         "title": "创建密钥",
-        "description": "创建并一次性返回完整密钥。",
+        "description": "创建并一次性返回完整密钥，可限制密钥权限范围。",
         "access": "登录用户",
         "example": {
           "requestBody": {
-            "label": "个人 CLI"
+            "label": "个人 CLI",
+            "scopes": [
+              "mail:read",
+              "mail:send"
+            ]
           }
         }
       },
@@ -641,6 +684,55 @@ export const apiInterfaceGroups: ApiInterfaceGroup[] = [
         "example": {
           "requestBody": null
         }
+      },
+      {
+        "method": "GET",
+        "path": "/api/notification/rules",
+        "title": "通知规则列表",
+        "description": "读取当前用户的 Webhook/Telegram/外部目标通知规则。",
+        "access": "登录用户"
+      },
+      {
+        "method": "POST",
+        "path": "/api/notification/rules",
+        "title": "创建通知规则",
+        "description": "按目标、事件、邮箱、关键词和静默时间创建通知规则。",
+        "access": "登录用户",
+        "example": {
+          "requestBody": {
+            "name": "验证码通知",
+            "target": "webhook",
+            "eventTypes": [
+              "message.received"
+            ],
+            "keyword": "code"
+          }
+        }
+      },
+      {
+        "method": "PUT",
+        "path": "/api/notification/rules/:id",
+        "title": "更新通知规则",
+        "description": "替换指定通知规则的匹配条件。",
+        "access": "登录用户",
+        "example": {
+          "requestBody": {
+            "name": "验证码通知",
+            "target": "telegram",
+            "eventTypes": [
+              "message.extraction.detected"
+            ],
+            "quietHoursStart": "23:00",
+            "quietHoursEnd": "08:00"
+          }
+        }
+      },
+      {
+        "method": "DELETE",
+        "path": "/api/notification/rules/:id",
+        "title": "删除通知规则",
+        "description": "删除指定通知规则。",
+        "access": "登录用户"
       }
     ]
   },
@@ -772,6 +864,34 @@ export const apiInterfaceGroups: ApiInterfaceGroup[] = [
       },
       {
         "method": "GET",
+        "path": "/api/system/diagnostics",
+        "title": "系统诊断",
+        "description": "读取部署就绪和集成配置诊断。",
+        "access": "管理员"
+      },
+      {
+        "method": "GET",
+        "path": "/api/system/maturity",
+        "title": "产品成熟度",
+        "description": "读取 8 个成熟产品方向的进度、证据和下一步动作。",
+        "access": "管理员"
+      },
+      {
+        "method": "GET",
+        "path": "/api/system/operations",
+        "title": "运维中心",
+        "description": "读取最近失败、诊断问题、投递异常和存储绑定信号。",
+        "access": "管理员"
+      },
+      {
+        "method": "GET",
+        "path": "/api/system/reliability",
+        "title": "数据可靠性",
+        "description": "读取 D1/R2、migration、清理运行记录、幂等策略和备份恢复 runbook。",
+        "access": "管理员"
+      },
+      {
+        "method": "GET",
         "path": "/api/system/features",
         "title": "功能开关",
         "description": "读取平台功能开关。",
@@ -893,6 +1013,27 @@ export const apiInterfaceGroups: ApiInterfaceGroup[] = [
             "timezone": "Asia/Shanghai"
           }
         }
+      },
+      {
+        "method": "GET",
+        "path": "/api/profile/sessions",
+        "title": "会话设备",
+        "description": "读取当前账号活跃会话、设备、IP、最近活跃和到期时间。",
+        "access": "登录用户"
+      },
+      {
+        "method": "DELETE",
+        "path": "/api/profile/sessions/:sessionId",
+        "title": "撤销会话",
+        "description": "撤销当前账号的非当前设备会话。",
+        "access": "登录用户"
+      },
+      {
+        "method": "DELETE",
+        "path": "/api/profile/sessions/others",
+        "title": "退出其他设备",
+        "description": "保留当前会话并撤销同账号其他活跃会话。",
+        "access": "登录用户"
       }
     ]
   },

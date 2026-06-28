@@ -20,10 +20,11 @@ export function registerApiKeysRoutes(app: Hono<AppContext>) {
     const user = requireUser(c);
     if (!user) return jsonError("Authentication required", 401);
     if (!requireSessionAuth(c)) return jsonError("API keys must be created from a session-authenticated request", 403);
-    const { label } = await parseApiKeyCreateRequest(c.req.raw);
+    const { label, scopes } = await parseApiKeyCreateRequest(c.req.raw);
     const key = await createApiKeyUseCase(getAppServices(c), {
       userId: user.id,
-      label: String(label ?? "Default key")
+      label: String(label ?? "Default key"),
+      scopes
     });
     return c.json({ key }, 201);
   });

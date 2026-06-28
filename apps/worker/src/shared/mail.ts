@@ -224,6 +224,7 @@ export function toMessageJson(message: PersistedMessageRecord, attachments: Atta
     oversizeStatus: message.oversizeStatus,
     attachmentCount: message.attachmentCount,
     attachments,
-    receivedAt: message.receivedAt
+    receivedAt: message.receivedAt,
+    expiresAt: message.expiresAt
   };
 }

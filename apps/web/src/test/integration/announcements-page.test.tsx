@@ -605,6 +605,7 @@ describe("announcements integration", () => {
           }
         });
       }
+      if (url.endsWith("/api/profile/sessions")) return jsonResponse({ sessions: [] });
       if (url.match(/\/api\/announcements\/([^/]+)\/receipt$/) && method === "POST") {
         const announcementId = url.match(/\/api\/announcements\/([^/]+)\/receipt$/)?.[1];
         const announcement = appAnnouncements.find((item) => item.id === announcementId);

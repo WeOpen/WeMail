@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import type { AdminGovernanceSummary, ProductMaturitySummary, SystemDiagnosticsSummary, SystemOperationsSummary } from "@wemail/shared";
 
-import { createApp } from "../src/app/create-app";
+import { createApp, runCleanup } from "../src/app/create-app";
 import { createInMemoryStore } from "../src/infrastructure/persistence/in-memory";
 
 const env = {
@@ -154,6 +155,589 @@ describe("worker app", () => {
       email: "first-admin@example.com",
       role: "admin"
     });
+  });
+
+  it("returns governance login history, audit events, rate limits, and batch invite analytics", async () => {
+    const store = createInMemoryStore();
+    const app = createApp({ store });
+    const cookie = await registerSessionUser({ app, store, email: "admin@example.com" });
+
+    const failedLoginResponse = await app.request(
+      "/api/auth/login",
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "cf-connecting-ip": "203.0.113.44",
+          "user-agent": "Governance Test Browser"
+        },
+        body: JSON.stringify({
+          email: "admin@example.com",
+          password: "wrong-password"
+        })
+      },
+      env
+    );
+
+    expect(failedLoginResponse.status).toBe(401);
+
+    const inviteResponse = await app.request(
+      "/api/users/invites",
+      {
+        method: "POST",
+        headers: {
+          cookie,
+          "content-type": "application/json"
+        },
+        body: JSON.stringify({
+          count: 3,
+          expiresInDays: 7,
+          targetRole: "member"
+        })
+      },
+      env
+    );
+    const invitePayload = (await inviteResponse.json()) as { invites: Array<{ code: string; targetRole: string }> };
+
+    expect(inviteResponse.status).toBe(201);
+    expect(invitePayload.invites).toHaveLength(3);
+    expect(invitePayload.invites[0]).toMatchObject({ targetRole: "member" });
+
+    const governanceResponse = await app.request(
+      "/api/users/governance",
+      {
+        headers: { cookie }
+      },
+      {
+        ...env,
+        RATE_LIMITER: { limit: async () => ({ success: true }) }
+      }
+    );
+    const governancePayload = (await governanceResponse.json()) as { governance: AdminGovernanceSummary };
+
+    expect(governanceResponse.status).toBe(200);
+    expect(governancePayload.governance.inviteStats.available).toBeGreaterThanOrEqual(3);
+    expect(governancePayload.governance.loginHistory).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          userEmail: "admin@example.com",
+          status: "failed",
+          reason: "invalid_credentials",
+          ipAddress: "203.0.113.44"
+        })
+      ])
+    );
+    expect(governancePayload.governance.auditEvents).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          eventType: "invite-create",
+          detail: "数量 3，角色 member"
+        })
+      ])
+    );
+    expect(governancePayload.governance.rateLimits).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          key: "login",
+          enforced: true
+        }),
+        expect.objectContaining({
+          key: "api_daily",
+          enforced: true
+        })
+      ])
+    );
+  });
+
+  it("returns commercial model and data reliability summaries for administrators", async () => {
+    const store = createInMemoryStore();
+    const app = createApp({ store });
+    const cookie = await registerSessionUser({ app, store, email: "admin@example.com" });
+    const admin = await store.users.findByEmail("admin@example.com");
+    if (!admin) throw new Error("admin not found");
+
+    const member = await store.users.create({
+      email: "member@example.com",
+      name: "Member",
+      passwordHash: "hash",
+      role: "member"
+    });
+    await store.quotas.save({
+      userId: member.id,
+      apiDailyLimit: 20000,
+      apiCallsToday: 7,
+      dailyLimit: 20,
+      sendsToday: 2,
+      disabled: false,
+      updatedAt: new Date().toISOString()
+    });
+    const mailbox = await store.mailboxes.create({
+      userId: member.id,
+      label: "Shared mailbox",
+      address: "shared@example.com"
+    });
+    await store.messages.create({
+      mailboxId: mailbox.id,
+      toAddress: mailbox.address,
+      fromAddress: "sender@example.com",
+      subject: "Expired",
+      previewText: "Expired message",
+      bodyText: "Expired message",
+      extractionJson: JSON.stringify({ method: "none", type: "none", value: "", label: "No extraction" }),
+      oversizeStatus: null,
+      attachmentCount: 0,
+      receivedAt: "2026-01-01T00:00:00.000Z",
+      expiresAt: "2026-01-02T00:00:00.000Z"
+    });
+    await store.audit.record({
+      actorType: "user",
+      actorId: admin.id,
+      eventType: "quota-update",
+      payloadJson: JSON.stringify({ userId: member.id })
+    });
+    await runCleanup(store, env);
+
+    const commercialResponse = await app.request("/api/users/commercial", { headers: { cookie } }, env);
+    const commercialPayload = (await commercialResponse.json()) as {
+      commercial: {
+        currentPlanId: string;
+        planTiers: Array<{ id: string; name: string }>;
+        quotaUsage: { users: number; mailboxes: number; apiCallsToday: number };
+        teamWorkspaces: Array<{ name: string; memberCount: number; sharedMailboxCount: number }>;
+        organizationAudit: Array<{ eventType: string }>;
+      };
+    };
+
+    expect(commercialResponse.status).toBe(200);
+    expect(commercialPayload.commercial.currentPlanId).toBe("team");
+    expect(commercialPayload.commercial.planTiers.map((tier) => tier.id)).toEqual(["free", "pro", "team"]);
+    expect(commercialPayload.commercial.quotaUsage).toMatchObject({
+      users: 2,
+      mailboxes: 1,
+      apiCallsToday: 7
+    });
+    expect(commercialPayload.commercial.teamWorkspaces[0]).toMatchObject({
+      name: "WeMail 默认组织",
+      memberCount: 2,
+      sharedMailboxCount: 1
+    });
+    expect(commercialPayload.commercial.organizationAudit).toEqual(
+      expect.arrayContaining([expect.objectContaining({ eventType: "quota-update" })])
+    );
+
+    const reliabilityResponse = await app.request("/api/system/reliability", { headers: { cookie } }, env);
+    const reliabilityPayload = (await reliabilityResponse.json()) as {
+      reliability: {
+        cleanup: { recentRuns: Array<{ status: string; deletedMessages: number }> };
+        migrations: Array<{ id: string }>;
+        idempotency: { enabled: boolean; duplicateNotificationPrevention: boolean };
+        backupRunbook: Array<{ command: string }>;
+      };
+    };
+
+    expect(reliabilityResponse.status).toBe(200);
+    expect(reliabilityPayload.reliability.cleanup.recentRuns[0]).toMatchObject({
+      status: "success",
+      deletedMessages: 1
+    });
+    expect(reliabilityPayload.reliability.migrations).toEqual(
+      expect.arrayContaining([expect.objectContaining({ id: "0017" })])
+    );
+    expect(reliabilityPayload.reliability.idempotency).toMatchObject({
+      enabled: true,
+      duplicateNotificationPrevention: true
+    });
+    expect(reliabilityPayload.reliability.backupRunbook[0].command).toContain("wrangler d1 export");
+  });
+
+  it("lists active profile sessions and revokes other devices", async () => {
+    const store = createInMemoryStore();
+    const app = createApp({ store });
+
+    const registerResponse = await app.request(
+      "/api/auth/register",
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/126 Safari/537.36",
+          "cf-connecting-ip": "203.0.113.10"
+        },
+        body: JSON.stringify({
+          email: "session-owner@example.com",
+          name: "Session Owner",
+          password: "password123"
+        })
+      },
+      env
+    );
+    const firstCookie = registerResponse.headers.get("set-cookie") ?? "";
+
+    const loginResponse = await app.request(
+      "/api/auth/login",
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/126 Safari/537.36",
+          "cf-connecting-ip": "198.51.100.12"
+        },
+        body: JSON.stringify({
+          email: "session-owner@example.com",
+          password: "password123"
+        })
+      },
+      env
+    );
+    const currentCookie = loginResponse.headers.get("set-cookie") ?? "";
+
+    const listResponse = await app.request(
+      "/api/profile/sessions",
+      {
+        headers: { cookie: currentCookie }
+      },
+      env
+    );
+    const listPayload = (await listResponse.json()) as {
+      sessions: Array<{ id: string; ipAddress: string | null; isCurrent: boolean; userAgent: string | null }>;
+    };
+
+    expect(listResponse.status).toBe(200);
+    expect(listPayload.sessions).toHaveLength(2);
+    expect(listPayload.sessions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ ipAddress: "198.51.100.12", isCurrent: true }),
+        expect.objectContaining({ ipAddress: "203.0.113.10", isCurrent: false })
+      ])
+    );
+    expect(listPayload.sessions[0].userAgent).toContain("Chrome");
+
+    const otherSessionId = listPayload.sessions.find((session) => !session.isCurrent)!.id;
+    const revokeResponse = await app.request(
+      `/api/profile/sessions/${otherSessionId}`,
+      {
+        method: "DELETE",
+        headers: { cookie: currentCookie }
+      },
+      env
+    );
+
+    expect(revokeResponse.status).toBe(200);
+    expect(await store.sessions.findById(otherSessionId)).toBeNull();
+
+    const thirdLoginResponse = await app.request(
+      "/api/auth/login",
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          email: "session-owner@example.com",
+          password: "password123"
+        })
+      },
+      env
+    );
+
+    expect(thirdLoginResponse.headers.get("set-cookie")).toContain("wemail_session=");
+
+    const revokeOthersResponse = await app.request(
+      "/api/profile/sessions/others",
+      {
+        method: "DELETE",
+        headers: { cookie: currentCookie }
+      },
+      env
+    );
+    const finalSessionsResponse = await app.request(
+      "/api/profile/sessions",
+      {
+        headers: { cookie: currentCookie }
+      },
+      env
+    );
+    const finalPayload = (await finalSessionsResponse.json()) as { sessions: Array<{ isCurrent: boolean }> };
+
+    expect(firstCookie).toContain("wemail_session=");
+    expect(revokeOthersResponse.status).toBe(200);
+    expect(finalPayload.sessions).toEqual([expect.objectContaining({ isCurrent: true })]);
+  });
+
+  it("rejects expired invites during registration", async () => {
+    const store = createInMemoryStore();
+    const app = createApp({ store });
+    await store.invites.create({
+      code: "INVITE-EXPIRED",
+      createdByUserId: "system",
+      expiresAt: new Date(Date.now() - 60_000).toISOString(),
+      targetRole: "member"
+    });
+
+    const response = await app.request(
+      "/api/auth/register",
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          email: "expired@example.com",
+          name: "Expired Invite",
+          password: "password123",
+          inviteCode: "INVITE-EXPIRED"
+        })
+      },
+      env
+    );
+
+    expect(response.status).toBe(403);
+  });
+
+  it("applies target roles from invites for new users", async () => {
+    const store = createInMemoryStore();
+    const app = createApp({ store });
+
+    await app.request(
+      "/api/auth/register",
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          email: "bootstrap-admin@example.com",
+          name: "Bootstrap Admin",
+          password: "password123"
+        })
+      },
+      env
+    );
+    const invite = await store.invites.create({
+      code: "INVITE-ADMIN-ROLE",
+      createdByUserId: "system",
+      expiresAt: new Date(Date.now() + 86_400_000).toISOString(),
+      targetRole: "admin"
+    });
+
+    const response = await app.request(
+      "/api/auth/register",
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          email: "invited-admin@example.com",
+          name: "Invited Admin",
+          password: "password123",
+          inviteCode: invite.code
+        })
+      },
+      env
+    );
+    const payload = (await response.json()) as { user: { role: string } };
+
+    expect(response.status).toBe(201);
+    expect(payload.user.role).toBe("admin");
+  });
+
+  it("returns system diagnostics for admin sessions", async () => {
+    const store = createInMemoryStore();
+    const app = createApp({ store });
+    const adminCookie = await registerSessionUser({ app, store, email: "admin@example.com" });
+
+    const response = await app.request(
+      "/api/system/diagnostics",
+      {
+        headers: { cookie: adminCookie }
+      },
+      {
+        ...env,
+        ENVIRONMENT: "production",
+        COOKIE_SECURE: "false",
+        CORS_ALLOWED_ORIGINS: "",
+        TELEGRAM_BOT_TOKEN: "test-token",
+        ENABLE_TELEGRAM: "true",
+        ENABLE_OUTBOUND: "true"
+      }
+    );
+    const payload = (await response.json()) as { diagnostics: SystemDiagnosticsSummary };
+
+    expect(response.status).toBe(200);
+    expect(payload.diagnostics).toMatchObject({
+      environment: "production",
+      overallStatus: "error"
+    });
+    expect(payload.diagnostics.checks).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: "cookie.secure", status: "error" }),
+        expect.objectContaining({ id: "cors.origins", status: "error" }),
+        expect.objectContaining({ id: "telegram.webhook_secret", status: "error" }),
+        expect.objectContaining({ id: "outbound.resend", status: "warning" })
+      ])
+    );
+  });
+
+  it("rejects system diagnostics for member sessions", async () => {
+    const store = createInMemoryStore();
+    const app = createApp({ store });
+    await registerSessionUser({ app, store, email: "admin@example.com" });
+    const memberCookie = await registerSessionUser({ app, store, email: "member@example.com" });
+
+    const response = await app.request(
+      "/api/system/diagnostics",
+      {
+        headers: { cookie: memberCookie }
+      },
+      env
+    );
+    const payload = (await response.json()) as { error?: string };
+
+    expect(response.status).toBe(403);
+    expect(payload.error).toMatch(/admin session/i);
+  });
+
+  it("returns product maturity coverage for admin sessions", async () => {
+    const store = createInMemoryStore();
+    const app = createApp({ store });
+    const adminCookie = await registerSessionUser({ app, store, email: "admin@example.com" });
+
+    const response = await app.request(
+      "/api/system/maturity",
+      {
+        headers: { cookie: adminCookie }
+      },
+      env
+    );
+    const payload = (await response.json()) as { maturity: ProductMaturitySummary };
+
+    expect(response.status).toBe(200);
+    expect(payload.maturity).toMatchObject({
+      totalAreas: 8
+    });
+    expect(payload.maturity.areas.map((area) => area.id)).toEqual([
+      "observability",
+      "security",
+      "mail_workflow",
+      "notifications",
+      "outbound",
+      "commercial",
+      "documentation",
+      "data_reliability"
+    ]);
+    expect(payload.maturity.areas.find((area) => area.id === "security")?.signals).toEqual(
+      expect.arrayContaining([expect.objectContaining({ label: "可用邀请码" })])
+    );
+  });
+
+  it("rejects product maturity coverage for member sessions", async () => {
+    const store = createInMemoryStore();
+    const app = createApp({ store });
+    await registerSessionUser({ app, store, email: "admin@example.com" });
+    const memberCookie = await registerSessionUser({ app, store, email: "member@example.com" });
+
+    const response = await app.request(
+      "/api/system/maturity",
+      {
+        headers: { cookie: memberCookie }
+      },
+      env
+    );
+    const payload = (await response.json()) as { error?: string };
+
+    expect(response.status).toBe(403);
+    expect(payload.error).toMatch(/admin session/i);
+  });
+
+  it("returns operations failures for admin sessions", async () => {
+    const store = createInMemoryStore();
+    const app = createApp({ store });
+    const adminCookie = await registerSessionUser({ app, store, email: "admin@example.com" });
+    const admin = await store.users.findByEmail("admin@example.com");
+    if (!admin) throw new Error("admin missing");
+    const endpoint = await store.webhookEndpoints.create({
+      userId: admin.id,
+      name: "Ops hook",
+      url: "https://hooks.example.test/wemail",
+      eventsJson: JSON.stringify(["message.received"]),
+      enabled: true
+    });
+    await store.webhookDeliveries.record({
+      endpointId: endpoint.id,
+      eventType: "message.received",
+      status: "failed",
+      statusCode: 500,
+      durationMs: 120,
+      errorText: "target failed",
+      payloadJson: JSON.stringify({ event: "message.received" }),
+      responseText: "boom"
+    });
+    const mailbox = await store.mailboxes.create({
+      userId: admin.id,
+      address: "ops@example.com",
+      label: "Ops"
+    });
+    await store.outboundMessages.create({
+      mailboxId: mailbox.id,
+      fromAddress: "ops@example.com",
+      toAddress: "user@example.com",
+      subject: "Ops alert",
+      bodyText: "hello",
+      status: "failed",
+      errorText: "resend quota exceeded",
+      providerMessageId: null,
+      requestPayloadJson: "{}",
+      responsePayloadJson: null
+    });
+    await store.audit.record({
+      actorType: "user",
+      actorId: admin.id,
+      eventType: "telegram-delivery",
+      payloadJson: JSON.stringify({
+        eventId: "telegram.test",
+        label: "测试通知",
+        delivered: false,
+        reason: "telegram_api_failed"
+      })
+    });
+
+    const response = await app.request(
+      "/api/system/operations",
+      {
+        headers: { cookie: adminCookie }
+      },
+      env
+    );
+    const payload = (await response.json()) as { operations: SystemOperationsSummary };
+
+    expect(response.status).toBe(200);
+    expect(payload.operations.overallStatus).toBe("error");
+    expect(payload.operations.signals).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ label: "Webhook 失败", value: "1", status: "error" }),
+        expect.objectContaining({ label: "Telegram 失败", value: "1", status: "error" }),
+        expect.objectContaining({ label: "发信失败", value: "1", status: "error" })
+      ])
+    );
+    expect(payload.operations.recentEvents).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ source: "webhook", message: "target failed" }),
+        expect.objectContaining({ source: "telegram", message: "telegram_api_failed" }),
+        expect.objectContaining({ source: "outbound", message: "resend quota exceeded" })
+      ])
+    );
+  });
+
+  it("rejects operations failures for member sessions", async () => {
+    const store = createInMemoryStore();
+    const app = createApp({ store });
+    await registerSessionUser({ app, store, email: "admin@example.com" });
+    const memberCookie = await registerSessionUser({ app, store, email: "member-ops@example.com" });
+
+    const response = await app.request(
+      "/api/system/operations",
+      {
+        headers: { cookie: memberCookie }
+      },
+      env
+    );
+    const payload = (await response.json()) as { error?: string };
+
+    expect(response.status).toBe(403);
+    expect(payload.error).toMatch(/admin session/i);
   });
 
   it("paginates webhook endpoints for the current session user", async () => {
@@ -417,6 +1001,7 @@ describe("worker app", () => {
       userId: adminUser.id,
       label: "Dashboard key",
       prefix: "wm_dash",
+      scopes: ["mail:read", "settings:read"],
       keyHash: "hash-dashboard"
     });
     await store.apiKeys.revoke(key.id, adminUser.id);
@@ -424,6 +1009,7 @@ describe("worker app", () => {
       userId: adminUser.id,
       label: "Active dashboard key",
       prefix: "wm_live",
+      scopes: ["mail:read", "mail:send"],
       keyHash: "hash-dashboard-live"
     });
     await store.webhookEndpoints.create({

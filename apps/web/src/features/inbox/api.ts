@@ -2,9 +2,12 @@ import type {
   AccountPolicy,
   MailDomainSettings,
   MailboxSummary,
+  MessageBatchAction,
+  MessageBatchActionResult,
   MessageListQuery,
   MessageListResult,
   MessageSummary,
+  OutboundMaturitySummary,
   OutboundListQuery,
   OutboundListResult
 } from "@wemail/shared";
@@ -92,12 +95,30 @@ export function fetchMessages(query?: MessageListQueryInput | string | null) {
   params.set("pageSize", String(normalizedQuery.pageSize ?? 10));
   params.set("filter", normalizedQuery.filter ?? "all");
   if (search) params.set("search", search);
+  if (normalizedQuery.from?.trim()) params.set("from", normalizedQuery.from.trim());
+  if (normalizedQuery.subject?.trim()) params.set("subject", normalizedQuery.subject.trim());
+  if (normalizedQuery.startDate?.trim()) params.set("startDate", normalizedQuery.startDate.trim());
+  if (normalizedQuery.endDate?.trim()) params.set("endDate", normalizedQuery.endDate.trim());
+  if (typeof normalizedQuery.hasAttachment === "boolean") params.set("hasAttachment", String(normalizedQuery.hasAttachment));
+  if (normalizedQuery.extractionType) params.set("extractionType", normalizedQuery.extractionType);
 
   return apiFetch<MessageListResponse>(`/api/mail/messages?${params.toString()}`);
 }
 
 export function fetchMessageDetail(messageId: string) {
   return apiFetch<{ message: MessageSummary }>(`/api/mail/messages/${encodeURIComponent(messageId)}`);
+}
+
+export type MessageBatchPayload = {
+  action: MessageBatchAction;
+  messageIds: string[];
+};
+
+export function batchMessages(payload: MessageBatchPayload) {
+  return apiFetch<{ result: MessageBatchActionResult }>("/api/mail/messages/batch", {
+    method: "POST",
+    body: JSON.stringify(payload)
+  });
 }
 
 export type OutboundListQueryInput = Partial<Omit<OutboundListQuery, "mailboxId">> & {
@@ -120,6 +141,10 @@ export function fetchOutboundHistory(query: string | OutboundListQueryInput) {
 
 export function fetchOutboundDetail(messageId: string) {
   return apiFetch<{ message: OutboundHistoryDetail }>(`/api/mail/outbound/${encodeURIComponent(messageId)}`);
+}
+
+export function fetchOutboundMaturity() {
+  return apiFetch<{ maturity: OutboundMaturitySummary }>("/api/mail/outbound/maturity");
 }
 
 export function sendOutboundMessage(payload: {

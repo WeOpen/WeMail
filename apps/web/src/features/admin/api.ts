@@ -1,4 +1,4 @@
-import type { FeatureToggles, QuotaSummary, UserRole, UserStatus, UserSummary } from "@wemail/shared";
+import type { AdminGovernanceSummary, CommercialModelSummary, FeatureToggles, QuotaSummary, UserRole, UserStatus, UserSummary } from "@wemail/shared";
 
 import { apiFetch } from "../../shared/api/client";
 import type {
@@ -7,7 +7,8 @@ import type {
   AdminSettingsListQuery,
   AdminUserSettingsSummaryPayload,
   AdminUsersPayload,
-  AdminUsersQuery
+  AdminUsersQuery,
+  InviteCreatePayload
 } from "./types";
 
 function buildAdminUsersPath(query?: AdminUsersQuery) {
@@ -39,6 +40,14 @@ export function fetchAdminUsers(query?: AdminUsersQuery) {
 
 export function fetchAdminUserSummary() {
   return apiFetch<AdminUserSettingsSummaryPayload>("/api/users/summary");
+}
+
+export function fetchAdminGovernance() {
+  return apiFetch<{ governance: AdminGovernanceSummary }>("/api/users/governance");
+}
+
+export function fetchAdminCommercial() {
+  return apiFetch<{ commercial: CommercialModelSummary }>("/api/users/commercial");
 }
 
 export function createAdminUser(payload: { email: string; name: string; password: string; role: UserRole }) {
@@ -96,8 +105,11 @@ export function fetchAdminQuota(userId: string) {
   return apiFetch<{ quota: QuotaSummary }>(`/api/users/${userId}/quota`);
 }
 
-export function createInvite() {
-  return apiFetch("/api/users/invites", { method: "POST" });
+export function createInvite(payload: InviteCreatePayload) {
+  return apiFetch("/api/users/invites", {
+    method: "POST",
+    body: JSON.stringify(payload)
+  });
 }
 
 export function disableInvite(inviteId: string) {

@@ -8,6 +8,7 @@ import { registerAuthRoutes } from "./auth/routes";
 import { registerDashboardRoutes } from "./dashboard/routes";
 import { registerDictionariesRoutes } from "./dictionaries/routes";
 import { registerMailRoutes } from "./mail/routes";
+import { registerNotificationRuleRoutes } from "./notification-rules/routes";
 import { registerProfileRoutes } from "./profile/routes";
 import { registerSystemRoutes } from "./system/routes";
 import { registerTelegramRoutes } from "./telegram/routes";
@@ -24,6 +25,7 @@ export function registerMenuModules(app: Hono<AppContext>) {
   registerMailRoutes(app);
   registerUsersRoutes(app);
   registerApiKeysRoutes(app);
+  registerNotificationRuleRoutes(app);
   registerWebhookRoutes(app);
   registerTelegramRoutes(app);
   registerAnnouncementsRoutes(app);

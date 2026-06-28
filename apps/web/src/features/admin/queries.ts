@@ -1,7 +1,9 @@
-import type { FeatureToggles, MailboxSummary, QuotaSummary, UserSummary } from "@wemail/shared";
+import type { AdminGovernanceSummary, CommercialModelSummary, FeatureToggles, MailboxSummary, QuotaSummary, UserSummary } from "@wemail/shared";
 
 import {
+  fetchAdminCommercial,
   fetchAdminFeatures,
+  fetchAdminGovernance,
   fetchAdminInvites,
   fetchAdminMailboxes,
   fetchAdminQuota,
@@ -29,12 +31,14 @@ export async function queryAdminUsers(query: AdminUsersQuery) {
 }
 
 export async function queryAdminDashboard(query?: AdminUsersQuery) {
-  const [usersPayload, summaryPayload, invitesPayload, featuresPayload, mailboxesPayload] = await Promise.all([
+  const [usersPayload, summaryPayload, invitesPayload, featuresPayload, mailboxesPayload, governancePayload, commercialPayload] = await Promise.all([
     fetchAdminUsers(query),
     fetchAdminUserSummary(),
     fetchAdminInvites(DEFAULT_ADMIN_SETTINGS_QUERY),
     fetchAdminFeatures(),
-    fetchAdminMailboxes(DEFAULT_ADMIN_SETTINGS_QUERY)
+    fetchAdminMailboxes(DEFAULT_ADMIN_SETTINGS_QUERY),
+    fetchAdminGovernance(),
+    fetchAdminCommercial()
   ]);
 
   const settingsUsers = summaryPayload.quotaUsers ?? usersPayload.users;
@@ -65,8 +69,20 @@ export async function queryAdminDashboard(query?: AdminUsersQuery) {
     mailboxesPage: mailboxesPayload.page ?? DEFAULT_ADMIN_SETTINGS_QUERY.page,
     mailboxesPageSize: mailboxesPayload.pageSize ?? DEFAULT_ADMIN_SETTINGS_QUERY.pageSize,
     mailboxesTotal: mailboxesPayload.total ?? mailboxes.length,
-    quota: (quotaPayload?.quota ?? null) as QuotaSummary | null
+    quota: (quotaPayload?.quota ?? null) as QuotaSummary | null,
+    governance: (governancePayload.governance ?? null) as AdminGovernanceSummary | null,
+    commercial: (commercialPayload.commercial ?? null) as CommercialModelSummary | null
   };
+}
+
+export async function queryAdminGovernance() {
+  const payload = await fetchAdminGovernance();
+  return (payload.governance ?? null) as AdminGovernanceSummary | null;
+}
+
+export async function queryAdminCommercial() {
+  const payload = await fetchAdminCommercial();
+  return (payload.commercial ?? null) as CommercialModelSummary | null;
 }
 
 export async function queryAdminUserSettingsSummary() {

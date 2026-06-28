@@ -5,13 +5,20 @@ import {
   LayoutDashboard,
   LogOut,
   Mail,
+  MonitorSmartphone,
   Save,
   ShieldCheck,
   SlidersHorizontal,
+  Trash2,
   UserRound
 } from "lucide-react";
 
-import { userProfileOptions, type UserProfileSummary, type UserProfileUpdateInput } from "@wemail/shared";
+import {
+  userProfileOptions,
+  type UserProfileSummary,
+  type UserProfileUpdateInput,
+  type UserSessionSummary
+} from "@wemail/shared";
 
 import { Avatar } from "../shared/avatar";
 import { Badge } from "../shared/badge";
@@ -24,9 +31,13 @@ type SystemProfilePageProps = {
   profile: UserProfileSummary;
   isSavingPreferences: boolean;
   isSavingProfile: boolean;
+  isRevokingSession?: boolean;
   onLogoutCurrentDevice: () => void;
+  onRevokeOtherSessions?: () => Promise<void>;
+  onRevokeSession?: (sessionId: string) => Promise<void>;
   onSavePreferences: (payload: UserProfileUpdateInput) => Promise<void>;
   onSaveProfile: (payload: UserProfileUpdateInput) => Promise<void>;
+  sessions?: UserSessionSummary[];
 };
 
 function formatRole(role: UserProfileSummary["user"]["role"]) {
@@ -56,6 +67,16 @@ function formatDate(iso: string, preferences: UserProfileSummary["preferences"])
   return `${year}-${month}-${day}`;
 }
 
+function formatDateTime(iso: string, preferences: UserProfileSummary["preferences"]) {
+  const date = formatDate(iso, preferences);
+  const time = new Intl.DateTimeFormat(preferences.locale, {
+    timeZone: preferences.timezone,
+    hour: "2-digit",
+    minute: "2-digit"
+  }).format(new Date(iso));
+  return `${date} ${time}`;
+}
+
 function resolveDisplayName(profile: UserProfileSummary) {
   return profile.user.name.trim() || profile.user.email.split("@")[0] || profile.user.email;
 }
@@ -80,13 +101,39 @@ function formatDensity(density: UserProfileSummary["preferences"]["density"]) {
   return density === "compact" ? "紧凑" : "舒展";
 }
 
+function formatSessionDevice(session: UserSessionSummary) {
+  const userAgent = session.userAgent ?? "";
+  if (!userAgent) return "未知设备";
+  const browser = userAgent.includes("Firefox")
+    ? "Firefox"
+    : userAgent.includes("Edg/")
+      ? "Edge"
+      : userAgent.includes("Chrome")
+        ? "Chrome"
+        : userAgent.includes("Safari")
+          ? "Safari"
+          : "浏览器";
+  const platform = userAgent.includes("iPhone") || userAgent.includes("Android")
+    ? "移动设备"
+    : userAgent.includes("Mac")
+      ? "macOS"
+      : userAgent.includes("Windows")
+        ? "Windows"
+        : "设备";
+  return `${browser} · ${platform}`;
+}
+
 export function SystemProfilePage({
   profile,
   isSavingPreferences,
   isSavingProfile,
+  isRevokingSession = false,
   onLogoutCurrentDevice,
+  onRevokeOtherSessions,
+  onRevokeSession,
   onSavePreferences,
-  onSaveProfile
+  onSaveProfile,
+  sessions = []
 }: SystemProfilePageProps) {
   const [displayName, setDisplayName] = useState(resolveDisplayName(profile));
   const [bio, setBio] = useState(profile.preferences.bio);
@@ -99,6 +146,7 @@ export function SystemProfilePage({
   const [preferencesSubmitError, setPreferencesSubmitError] = useState<string | null>(null);
   const roleLabel = formatRole(profile.user.role);
   const displayEmail = formatDisplayEmail(profile.user.email);
+  const hasOtherSessions = sessions.some((session) => !session.isCurrent);
   const hasProfileChanges = displayName !== resolveDisplayName(profile) || bio !== profile.preferences.bio;
   const hasPreferenceChanges =
     locale !== profile.preferences.locale ||
@@ -392,12 +440,44 @@ export function SystemProfilePage({
             </div>
 
             <div className="profile-security-list">
-              <div className="profile-security-row">
-                <strong>当前会话</strong>
-                <span className="profile-email-text" title={profile.user.email}>
-                  {displayEmail}
-                </span>
-                <small>当前设备已通过会话认证</small>
+              <div className="profile-session-list" role="list">
+                {sessions.map((session) => (
+                  <div className="profile-session-row" key={session.id} role="listitem">
+                    <div className="profile-session-icon">
+                      <MonitorSmartphone size={16} strokeWidth={1.8} />
+                    </div>
+                    <div className="profile-session-copy">
+                      <strong>
+                        {formatSessionDevice(session)}
+                        {session.isCurrent ? <Badge variant="success">当前</Badge> : null}
+                      </strong>
+                      <span>最近活跃 {formatDateTime(session.lastSeenAt, profile.preferences)}</span>
+                      <small>
+                        {session.ipAddress ?? "未知 IP"} · 到期{" "}
+                        {session.expiresAt ? formatDateTime(session.expiresAt, profile.preferences) : "未知"}
+                      </small>
+                    </div>
+                    <Button
+                      aria-label={session.isCurrent ? "当前会话请使用退出当前设备" : `撤销会话 ${formatSessionDevice(session)}`}
+                      disabled={session.isCurrent || isRevokingSession || !onRevokeSession}
+                      leadingIcon={<Trash2 size={15} strokeWidth={1.8} />}
+                      onClick={() => void onRevokeSession?.(session.id)}
+                      size="xs"
+                      variant="secondary"
+                    >
+                      撤销
+                    </Button>
+                  </div>
+                ))}
+                {sessions.length === 0 ? (
+                  <div className="profile-security-row">
+                    <strong>当前会话</strong>
+                    <span className="profile-email-text" title={profile.user.email}>
+                      {displayEmail}
+                    </span>
+                    <small>当前设备已通过会话认证</small>
+                  </div>
+                ) : null}
               </div>
               <div className="profile-security-row">
                 <strong>账号状态</strong>
@@ -412,6 +492,15 @@ export function SystemProfilePage({
                 variant="secondary"
               >
                 退出当前设备
+              </Button>
+              <Button
+                disabled={!hasOtherSessions || isRevokingSession || !onRevokeOtherSessions}
+                isLoading={isRevokingSession}
+                loadingLabel="退出中"
+                onClick={() => void onRevokeOtherSessions?.()}
+                variant="secondary"
+              >
+                退出其他设备
               </Button>
             </div>
           </section>

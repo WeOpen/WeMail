@@ -260,4 +260,53 @@ describe("SystemProfilePage", () => {
 
     expect(onLogoutCurrentDevice).toHaveBeenCalledTimes(1);
   });
+
+  it("renders active sessions and wires revoke actions", () => {
+    const onRevokeSession = vi.fn().mockResolvedValue(undefined);
+    const onRevokeOtherSessions = vi.fn().mockResolvedValue(undefined);
+
+    render(
+      <SystemProfilePage
+        isSavingPreferences={false}
+        isSavingProfile={false}
+        profile={profile}
+        sessions={[
+          {
+            id: "session-current",
+            userAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/126 Safari/537.36",
+            ipAddress: "203.0.113.10",
+            createdAt: "2026-04-09T00:00:00.000Z",
+            lastSeenAt: "2026-04-09T02:30:00.000Z",
+            expiresAt: "2026-04-12T00:00:00.000Z",
+            isCurrent: true
+          },
+          {
+            id: "session-other",
+            userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/126 Safari/537.36",
+            ipAddress: "198.51.100.12",
+            createdAt: "2026-04-08T00:00:00.000Z",
+            lastSeenAt: "2026-04-08T08:10:00.000Z",
+            expiresAt: "2026-04-11T00:00:00.000Z",
+            isCurrent: false
+          }
+        ]}
+        onLogoutCurrentDevice={vi.fn()}
+        onRevokeOtherSessions={onRevokeOtherSessions}
+        onRevokeSession={onRevokeSession}
+        onSavePreferences={vi.fn()}
+        onSaveProfile={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText("Chrome · macOS")).toBeInTheDocument();
+    expect(screen.getByText("Chrome · Windows")).toBeInTheDocument();
+    expect(screen.getByText("当前")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "撤销会话 Chrome · Windows" }));
+    fireEvent.click(screen.getByRole("button", { name: "退出其他设备" }));
+
+    expect(screen.getByRole("button", { name: "当前会话请使用退出当前设备" })).toBeDisabled();
+    expect(onRevokeSession).toHaveBeenCalledWith("session-other");
+    expect(onRevokeOtherSessions).toHaveBeenCalledTimes(1);
+  });
 });

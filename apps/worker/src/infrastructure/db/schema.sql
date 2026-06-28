@@ -12,7 +12,10 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE TABLE IF NOT EXISTS auth_sessions (
   id TEXT PRIMARY KEY,
   user_id TEXT NOT NULL,
+  user_agent TEXT,
+  ip_address TEXT,
   expires_at TEXT NOT NULL,
+  last_seen_at TEXT NOT NULL,
   created_at TEXT NOT NULL
 );
 
@@ -69,6 +72,8 @@ CREATE TABLE IF NOT EXISTS user_invites (
   redeemed_by_user_id TEXT,
   redeemed_at TEXT,
   disabled_at TEXT,
+  expires_at TEXT,
+  target_role TEXT NOT NULL DEFAULT 'member',
   created_at TEXT NOT NULL
 );
 
@@ -187,6 +192,7 @@ CREATE TABLE IF NOT EXISTS api_keys (
   user_id TEXT NOT NULL,
   label TEXT NOT NULL,
   prefix TEXT NOT NULL,
+  scopes_json TEXT NOT NULL DEFAULT '["mail:read","mail:send","mailbox:manage","webhook:manage","settings:read"]',
   key_hash TEXT NOT NULL,
   created_at TEXT NOT NULL,
   last_used_at TEXT,
@@ -238,6 +244,23 @@ CREATE TABLE IF NOT EXISTS webhook_deliveries (
   created_at TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS notification_rules (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  name TEXT NOT NULL,
+  enabled INTEGER NOT NULL,
+  target TEXT NOT NULL,
+  target_id TEXT,
+  event_types_json TEXT NOT NULL,
+  mailbox_ids_json TEXT NOT NULL,
+  keyword TEXT NOT NULL,
+  quiet_hours_start TEXT NOT NULL,
+  quiet_hours_end TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_notification_rules_user ON notification_rules(user_id);
+
 CREATE TABLE IF NOT EXISTS announcements (
   id TEXT PRIMARY KEY,
   title TEXT NOT NULL,
@@ -279,3 +302,16 @@ CREATE TABLE IF NOT EXISTS system_audit_events (
   payload_json TEXT NOT NULL,
   created_at TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS system_cleanup_runs (
+  id TEXT PRIMARY KEY,
+  status TEXT NOT NULL,
+  started_at TEXT NOT NULL,
+  finished_at TEXT NOT NULL,
+  deleted_messages INTEGER NOT NULL DEFAULT 0,
+  deleted_attachments INTEGER NOT NULL DEFAULT 0,
+  deleted_accounts INTEGER NOT NULL DEFAULT 0,
+  error_text TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_system_cleanup_runs_started_at
+  ON system_cleanup_runs(started_at DESC);

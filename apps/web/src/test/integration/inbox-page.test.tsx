@@ -196,6 +196,29 @@ function matchesMessageSearch(message: MessageSummary, searchValue: string) {
     .includes(normalizedSearch);
 }
 
+function matchesMessageAdvancedFilters(message: MessageSummary, requestUrl: URL) {
+  const from = requestUrl.searchParams.get("from")?.trim().toLowerCase() ?? "";
+  if (from && !message.fromAddress.toLowerCase().includes(from)) return false;
+
+  const subject = requestUrl.searchParams.get("subject")?.trim().toLowerCase() ?? "";
+  if (subject && !message.subject.toLowerCase().includes(subject)) return false;
+
+  const startDate = requestUrl.searchParams.get("startDate");
+  if (startDate && message.receivedAt < startDate) return false;
+
+  const endDate = requestUrl.searchParams.get("endDate");
+  if (endDate && message.receivedAt > endDate) return false;
+
+  const hasAttachment = requestUrl.searchParams.get("hasAttachment");
+  if (hasAttachment === "true" && message.attachmentCount === 0) return false;
+  if (hasAttachment === "false" && message.attachmentCount > 0) return false;
+
+  const extractionType = requestUrl.searchParams.get("extractionType");
+  if (extractionType && message.extraction.type !== extractionType) return false;
+
+  return true;
+}
+
 function createMockMailboxListResponse(input: string) {
   const requestUrl = new URL(input, "http://localhost");
   const search = requestUrl.searchParams.get("search")?.trim().toLowerCase() ?? "";
@@ -228,7 +251,12 @@ function createMockMessageListResponse(input: string): MessageListResult {
   const safePageSize = Number.isFinite(pageSize) && pageSize > 0 ? Math.trunc(pageSize) : 10;
   const filteredMessages = mockInboxMessages.filter((message) => {
     const matchesMailbox = !accountId || message.mailboxId === accountId;
-    return matchesMailbox && matchesMessageFilter(message, filter) && matchesMessageSearch(message, search);
+    return (
+      matchesMailbox &&
+      matchesMessageFilter(message, filter) &&
+      matchesMessageSearch(message, search) &&
+      matchesMessageAdvancedFilters(message, requestUrl)
+    );
   });
   const startIndex = (safePage - 1) * safePageSize;
 
@@ -276,6 +304,15 @@ function getMailMessageRequestParams() {
     .map((url) => url.searchParams);
 }
 
+function getMessageBatchRequestBodies() {
+  return vi.mocked(globalThis.fetch).mock.calls
+    .filter(([input]) => new URL(getFetchRequestUrl(input), "http://localhost").pathname === "/api/mail/messages/batch")
+    .map(([, init]) => JSON.parse(String((init as RequestInit | undefined)?.body ?? "{}")) as {
+      action?: string;
+      messageIds?: string[];
+    });
+}
+
 function formatLocalDateMinute(value: string) {
   const date = new Date(value);
   const pad = (part: number) => String(part).padStart(2, "0");
@@ -289,7 +326,7 @@ describe("mail list integration", () => {
     mockSessionRole = "member";
     window.localStorage.clear();
     window.history.pushState({}, "", "/mail/list");
-    vi.spyOn(globalThis, "fetch").mockImplementation((input) => {
+    vi.spyOn(globalThis, "fetch").mockImplementation((input, init) => {
       const url = getFetchRequestUrl(input);
       const requestUrl = new URL(url, "http://localhost");
 
@@ -340,6 +377,22 @@ describe("mail list integration", () => {
               hardDeleteRequiresRecentLogin: true
             },
             lastUpdatedLabel: "2026-04-08 00:00"
+          }
+        });
+      }
+
+      if (requestUrl.pathname === "/api/mail/messages/batch") {
+        const payload = JSON.parse(String((init as RequestInit | undefined)?.body ?? "{}")) as {
+          action?: "delete" | "export";
+          messageIds?: string[];
+        };
+        const messages = mockInboxMessages.filter((message) => payload.messageIds?.includes(message.id));
+        return jsonResponse({
+          result: {
+            action: payload.action ?? "export",
+            affected: messages.length,
+            requested: payload.messageIds?.length ?? 0,
+            ...(payload.action === "export" ? { messages } : {})
           }
         });
       }
@@ -980,6 +1033,50 @@ describe("mail list integration", () => {
     expect(searchRequests).toEqual(["contoso"]);
   });
 
+  it("sends advanced message filters to the backend", async () => {
+    const user = userEvent.setup();
+
+    render(<App />);
+
+    await screen.findByRole("button", { name: /^复制验证码$/i });
+
+    await user.type(screen.getByLabelText("按发件人筛选"), "auth@contoso.io");
+    await user.type(screen.getByLabelText("按主题筛选"), "login");
+    await user.type(screen.getByLabelText("按开始日期筛选"), "2026-04-08");
+
+    await waitFor(() => {
+      expect(
+        getMailMessageRequestParams().some(
+          (params) =>
+            params.get("from") === "auth@contoso.io" &&
+            params.get("subject") === "login" &&
+            params.get("startDate") === "2026-04-08T00:00:00.000Z"
+        )
+      ).toBe(true);
+    });
+  });
+
+  it("runs batch delete for selected messages", async () => {
+    const user = userEvent.setup();
+
+    render(<App />);
+
+    await screen.findByRole("button", { name: /^复制验证码$/i });
+    await user.click(screen.getByLabelText(/选择邮件 Verify your email/i));
+    await user.click(screen.getByRole("button", { name: /^删除$/i }));
+
+    await waitFor(() => {
+      expect(getMessageBatchRequestBodies()).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            action: "delete",
+            messageIds: ["msg-1"]
+          })
+        ])
+      );
+    });
+  });
+
   it("polls the current message query while the inbox page is mounted", async () => {
     const onRefreshMessages = vi.fn().mockResolvedValue(undefined);
 
@@ -1009,6 +1106,7 @@ describe("mail list integration", () => {
         onQueryMailboxes={vi.fn().mockResolvedValue({ mailboxes: [], total: 0, page: 1, pageSize: 4 })}
         onRefreshMessages={onRefreshMessages}
         onRetrySelectedMessage={vi.fn()}
+        onRunMessageBatchAction={vi.fn().mockResolvedValue({ action: "export", affected: 0, requested: 0, messages: [] })}
         onSelectMailbox={vi.fn()}
         onSelectMessage={vi.fn()}
         onSendMail={vi.fn()}
@@ -1052,6 +1150,7 @@ describe("mail list integration", () => {
         onQueryMailboxes={vi.fn().mockResolvedValue({ mailboxes: [], total: 0, page: 1, pageSize: 4 })}
         onRefreshMessages={vi.fn()}
         onRetrySelectedMessage={vi.fn()}
+        onRunMessageBatchAction={vi.fn().mockResolvedValue({ action: "export", affected: 0, requested: 0, messages: [] })}
         onSelectMailbox={vi.fn()}
         onSelectMessage={vi.fn()}
         onSendMail={vi.fn()}
@@ -1107,6 +1206,7 @@ describe("mail list integration", () => {
           onQueryMailboxes={vi.fn().mockResolvedValue({ mailboxes: [], total: 0, page: 1, pageSize: 4 })}
           onRefreshMessages={handleRefreshMessages}
           onRetrySelectedMessage={vi.fn()}
+          onRunMessageBatchAction={vi.fn().mockResolvedValue({ action: "export", affected: 0, requested: 0, messages: [] })}
           onSelectMailbox={vi.fn()}
           onSelectMessage={vi.fn()}
           onSendMail={vi.fn()}

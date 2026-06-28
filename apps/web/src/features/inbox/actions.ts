@@ -1,5 +1,5 @@
-import { createMailbox as createMailboxRequest, sendOutboundMessage } from "./api";
-import type { MailboxCreatePayload } from "./api";
+import { batchMessages, createMailbox as createMailboxRequest, sendOutboundMessage } from "./api";
+import type { MailboxCreatePayload, MessageBatchPayload } from "./api";
 
 export async function createMailboxAction(payload: MailboxCreatePayload) {
   return createMailboxRequest(payload);
@@ -12,4 +12,8 @@ export async function sendOutboundAction(payload: {
   bodyText: FormDataEntryValue | null;
 }) {
   return sendOutboundMessage(payload);
+}
+
+export async function batchMessagesAction(payload: MessageBatchPayload) {
+  return batchMessages(payload);
 }

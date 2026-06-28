@@ -1,12 +1,13 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
+import type { ApiKeyScope } from "@wemail/shared";
 
 import { registerMenuModules } from "../modules/register-modules";
 import { resolveAppConfig } from "../core/config";
 import type { AppContext } from "./context";
 import { jsonError } from "./services/audit-service";
 import { consumeApiCallQuota } from "./services/quota-service";
-import { getUserFromApiKey, getUserFromSession, resolveFeatureToggles } from "./services/session-service";
+import { getApiKeyAuth, getSessionAuth, resolveFeatureToggles } from "./services/session-service";
 import { resolveStore } from "./services/store-service";
 import { processInboundEmail, runCleanup } from "./runtime";
 
@@ -17,6 +18,22 @@ function resolveCorsOrigin(env: AppContext["Bindings"], origin?: string) {
   }
   const { allowedOrigins } = resolveAppConfig(env).cors;
   return allowedOrigins.includes(origin) ? origin : undefined;
+}
+
+function resolveApiKeyScopeRequirement(method: string, path: string): ApiKeyScope | null {
+  if (path === "/api/system/health" || path.startsWith("/api/auth/")) return null;
+  if (path === "/api/mail/settings") return "settings:read";
+  if (path === "/api/mail/send" || path.startsWith("/api/mail/outbound")) return "mail:send";
+  if (path.startsWith("/api/mail")) return "mail:read";
+  if (path.startsWith("/api/accounts")) return method === "GET" ? "mail:read" : "mailbox:manage";
+  if (path.startsWith("/api/webhook") || path.startsWith("/api/telegram") || path.startsWith("/api/notification")) return "webhook:manage";
+  if (path.startsWith("/api/api-keys") || path.startsWith("/api/dictionaries") || path === "/api/system/domains") {
+    return "settings:read";
+  }
+  if (path.startsWith("/api/users") || path.startsWith("/api/system/") || path.startsWith("/api/announcements")) {
+    return "admin:automation";
+  }
+  return null;
 }
 
 export function createApp(options?: { store?: AppContext["Variables"]["store"] }) {
@@ -32,16 +49,24 @@ export function createApp(options?: { store?: AppContext["Variables"]["store"] }
   app.use("*", async (c, next) => {
     const store = await resolveStore(c.env, options?.store);
     const featureToggles = await resolveFeatureToggles(store, c.env);
-    const sessionUser = await getUserFromSession(c, store);
-    const apiKeyUser = sessionUser ? null : await getUserFromApiKey(c, store);
+    const sessionAuth = await getSessionAuth(c, store);
+    const sessionUser = sessionAuth?.user ?? null;
+    const apiKeyAuth = sessionUser ? null : await getApiKeyAuth(c, store);
 
     c.set("store", store);
     c.set("featureToggles", featureToggles);
-    c.set("user", sessionUser ?? apiKeyUser);
-    c.set("authMode", sessionUser ? "session" : apiKeyUser ? "apiKey" : "anonymous");
+    c.set("user", sessionUser ?? apiKeyAuth?.user ?? null);
+    c.set("authMode", sessionUser ? "session" : apiKeyAuth ? "apiKey" : "anonymous");
+    c.set("sessionId", sessionAuth?.session.id ?? null);
+    c.set("apiKeyScopes", apiKeyAuth?.key.scopes ?? []);
 
-    if (apiKeyUser) {
-      const quota = await consumeApiCallQuota(store, c.env, apiKeyUser.id);
+    if (apiKeyAuth) {
+      const requiredScope = resolveApiKeyScopeRequirement(c.req.method, c.req.path);
+      if (requiredScope && !apiKeyAuth.key.scopes.includes(requiredScope)) {
+        return jsonError(`API key missing required scope: ${requiredScope}`, 403);
+      }
+
+      const quota = await consumeApiCallQuota(store, c.env, apiKeyAuth.user.id);
       if (quota instanceof Response) return quota;
     }
 

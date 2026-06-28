@@ -14,7 +14,12 @@ import {
   type LucideIcon
 } from "lucide-react";
 
-import type { ApiKeySummary } from "@wemail/shared";
+import {
+  API_KEY_SCOPE_DEFINITIONS,
+  DEFAULT_API_KEY_SCOPES,
+  type ApiKeyScope,
+  type ApiKeySummary
+} from "@wemail/shared";
 import { Button } from "../../shared/button";
 import { FormField, TextInput } from "../../shared/form";
 import { MetricCard } from "../../shared/metric-card";
@@ -25,23 +30,29 @@ type CreateApiKeyResult = {
   key: {
     secret: string;
     prefix: string;
+    scopes: ApiKeyScope[];
   };
 };
 
 type ApiKeysPageProps = {
   apiKeys: ApiKeySummary[];
-  onCreateApiKey: (label: string) => Promise<CreateApiKeyResult>;
+  onCreateApiKey: (label: string, scopes: ApiKeyScope[]) => Promise<CreateApiKeyResult>;
   onRevokeApiKey: (keyId: string) => Promise<void>;
 };
 
 type RevealState = {
   label: string;
   prefix: string;
+  scopes: ApiKeyScope[];
   secret: string;
 };
 
 const API_KEYS_PAGE_SIZE = 5;
 const API_KEYS_PAGE_SIZE_OPTIONS = [5, 10, 20] as const;
+const defaultCreateScopes = [...DEFAULT_API_KEY_SCOPES] as ApiKeyScope[];
+const scopeLabelById = new Map<ApiKeyScope, string>(
+  API_KEY_SCOPE_DEFINITIONS.map((scope) => [scope.id as ApiKeyScope, scope.label])
+);
 
 function formatDate(value: string | null) {
   if (!value) return "尚未使用";
@@ -66,6 +77,10 @@ function getStatusTone(key: ApiKeySummary) {
   return "active";
 }
 
+function formatScopeLabel(scope: ApiKeyScope) {
+  return scopeLabelById.get(scope) ?? scope;
+}
+
 async function copyText(text: string) {
   if (typeof navigator === "undefined" || !navigator.clipboard) return;
   await navigator.clipboard.writeText(text);
@@ -74,6 +89,7 @@ async function copyText(text: string) {
 export function ApiKeysPage({ apiKeys, onCreateApiKey, onRevokeApiKey }: ApiKeysPageProps) {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [label, setLabel] = useState("");
+  const [selectedScopes, setSelectedScopes] = useState<ApiKeyScope[]>(defaultCreateScopes);
   const [isCreating, setIsCreating] = useState(false);
   const [pendingRevokeId, setPendingRevokeId] = useState<string | null>(null);
   const [copiedToken, setCopiedToken] = useState<string | null>(null);
@@ -101,13 +117,15 @@ export function ApiKeysPage({ apiKeys, onCreateApiKey, onRevokeApiKey }: ApiKeys
     if (!nextLabel) return;
     setIsCreating(true);
     try {
-      const payload = await onCreateApiKey(nextLabel);
+      const payload = await onCreateApiKey(nextLabel, selectedScopes);
       setRevealState({
         label: nextLabel,
         prefix: payload.key.prefix,
+        scopes: payload.key.scopes,
         secret: payload.key.secret
       });
       setLabel("");
+      setSelectedScopes(defaultCreateScopes);
       setIsCreateOpen(false);
     } finally {
       setIsCreating(false);
@@ -117,6 +135,15 @@ export function ApiKeysPage({ apiKeys, onCreateApiKey, onRevokeApiKey }: ApiKeys
   const handleCloseCreateDialog = () => {
     setIsCreateOpen(false);
     setLabel("");
+    setSelectedScopes(defaultCreateScopes);
+  };
+
+  const handleToggleScope = (scope: ApiKeyScope) => {
+    setSelectedScopes((currentScopes) =>
+      currentScopes.includes(scope)
+        ? currentScopes.filter((currentScope) => currentScope !== scope)
+        : [...currentScopes, scope]
+    );
   };
 
   const handlePageSizeChange = (nextPageSize: number) => {
@@ -235,6 +262,7 @@ export function ApiKeysPage({ apiKeys, onCreateApiKey, onRevokeApiKey }: ApiKeys
                 <strong>{revealState.label}</strong>
                 <code>{revealState.secret}</code>
                 <small>前缀：{revealState.prefix}</small>
+                <small>权限：{revealState.scopes.map(formatScopeLabel).join("、")}</small>
               </div>
               <div className="integration-inline-actions">
                 <Button
@@ -262,6 +290,11 @@ export function ApiKeysPage({ apiKeys, onCreateApiKey, onRevokeApiKey }: ApiKeys
                     <div>
                       <strong>{key.label}</strong>
                       <code>{key.prefix}</code>
+                      <div className="api-keys-scope-list" aria-label={`${key.label} 权限范围`}>
+                        {key.scopes.map((scope) => (
+                          <span key={scope}>{formatScopeLabel(scope)}</span>
+                        ))}
+                      </div>
                     </div>
                   </div>
                   <dl className="api-keys-record-meta">
@@ -398,12 +431,27 @@ export function ApiKeysPage({ apiKeys, onCreateApiKey, onRevokeApiKey }: ApiKeys
               value={label}
             />
           </FormField>
+          <div className="api-keys-scope-picker" role="group" aria-label="API 密钥权限范围">
+            {API_KEY_SCOPE_DEFINITIONS.map((scope) => (
+              <label className="api-keys-scope-option" key={scope.id}>
+                <input
+                  checked={selectedScopes.includes(scope.id)}
+                  onChange={() => handleToggleScope(scope.id)}
+                  type="checkbox"
+                />
+                <span>
+                  <strong>{scope.label}</strong>
+                  <small>{scope.description}</small>
+                </span>
+              </label>
+            ))}
+          </div>
           <div className="workspace-dialog-actions integration-inline-actions">
             <Button onClick={handleCloseCreateDialog} variant="secondary">
               取消
             </Button>
             <Button
-              disabled={isCreating || label.trim().length === 0}
+              disabled={isCreating || label.trim().length === 0 || selectedScopes.length === 0}
               isLoading={isCreating}
               loadingLabel="创建中"
               onClick={() => void handleCreate()}

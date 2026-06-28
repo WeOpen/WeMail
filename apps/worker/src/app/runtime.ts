@@ -1,6 +1,6 @@
 import { parseAccountPolicyRecord } from "@wemail/shared";
 
-import type { AppBindings, AppStore, MailboxRecord } from "../core/bindings";
+import type { AppBindings, AppStore, MailboxRecord, PersistedMessageRecord } from "../core/bindings";
 import { buildExtraction, createPreview, maybeRunAiFallback, parseRawEmail } from "../shared/mail";
 import { recordAudit } from "./services/audit-service";
 import { defaultFeatureToggles } from "./services/config-service";
@@ -11,6 +11,8 @@ import { sendWebhookEventToUser } from "./services/webhook-service";
 function normalizeRecipientAddress(address: string) {
   return address.trim().toLowerCase();
 }
+
+const INBOUND_DUPLICATE_WINDOW_MS = 5 * 60 * 1000;
 
 function buildUnmatchedMailboxId(address: string) {
   return `unmatched:${normalizeRecipientAddress(address)}`;
@@ -43,6 +45,54 @@ function collectAcceptedAttachments(
   return { acceptedAttachments, oversizeStatus };
 }
 
+function isRecentDuplicateMessage(
+  message: PersistedMessageRecord,
+  input: {
+    toAddress: string;
+    fromAddress: string;
+    subject: string;
+    previewText: string;
+    bodyText: string;
+  }
+) {
+  const receivedAt = new Date(message.receivedAt).getTime();
+  if (!Number.isFinite(receivedAt) || Date.now() - receivedAt > INBOUND_DUPLICATE_WINDOW_MS) return false;
+
+  return (
+    normalizeRecipientAddress(message.toAddress ?? "") === normalizeRecipientAddress(input.toAddress) &&
+    message.fromAddress.toLowerCase() === input.fromAddress.toLowerCase() &&
+    message.subject === input.subject &&
+    message.previewText === input.previewText &&
+    message.bodyText === input.bodyText
+  );
+}
+
+async function findRecentDuplicateMessage(
+  store: AppStore,
+  input: {
+    mailboxId: string;
+    toAddress: string;
+    parsed: {
+      fromAddress: string;
+      subject: string;
+      text: string;
+    };
+  }
+) {
+  const previewText = createPreview(input.parsed.text);
+  const bodyText = input.parsed.text.slice(0, 10_000);
+  const messages = await store.messages.listByMailbox(input.mailboxId);
+  return messages.find((message) =>
+    isRecentDuplicateMessage(message, {
+      toAddress: input.toAddress,
+      fromAddress: input.parsed.fromAddress,
+      subject: input.parsed.subject,
+      previewText,
+      bodyText
+    })
+  );
+}
+
 async function saveInboundMessage(
   store: AppStore,
   env: AppBindings,
@@ -58,6 +108,9 @@ async function saveInboundMessage(
     extraction: ReturnType<typeof buildExtraction>;
   }
 ) {
+  const duplicate = await findRecentDuplicateMessage(store, input);
+  if (duplicate) return { message: duplicate, oversizeStatus: duplicate.oversizeStatus, duplicateSuppressed: true };
+
   const settings = await getRuntimeSettings(store, env);
   const { acceptedAttachments, oversizeStatus } = collectAcceptedAttachments(settings, input.parsed.attachments);
   const expiresAt = new Date(Date.now() + settings.message.retentionDays * 24 * 60 * 60 * 1000).toISOString();
@@ -93,7 +146,7 @@ async function saveInboundMessage(
     }
   }
 
-  return { message, oversizeStatus };
+  return { message, oversizeStatus, duplicateSuppressed: false };
 }
 
 async function processInboundForMailbox(
@@ -124,12 +177,20 @@ async function processInboundForMailbox(
     }
   }
 
-  const { message, oversizeStatus } = await saveInboundMessage(store, env, {
+  const { message, oversizeStatus, duplicateSuppressed } = await saveInboundMessage(store, env, {
     mailboxId: mailbox.id,
     toAddress,
     parsed,
     extraction
   });
+
+  if (duplicateSuppressed) {
+    await recordAudit(store, "user", mailbox.userId, "message-duplicate-suppressed", {
+      mailboxId: mailbox.id,
+      messageId: message.id
+    });
+    return message;
+  }
 
   await sendTelegramNotification(
     { store, env, featureToggles },
@@ -197,52 +258,75 @@ export async function processInboundEmail(
 }
 
 export async function runCleanup(store: AppStore, env: AppBindings) {
-  const expired = await store.messages.listExpired(new Date().toISOString());
-  const expiredIds = expired.map((entry) => entry.id);
-  const attachments = await store.attachments.listByMessageIds(expiredIds);
-  const accountPolicy = parseAccountPolicyRecord(await store.accountSettings.get());
-  let deletedAccounts = 0;
+  const startedAt = new Date().toISOString();
 
-  if (env.ATTACHMENTS) {
-    for (const attachment of attachments) {
-      await env.ATTACHMENTS.delete(attachment.key);
-    }
-  }
+  try {
+    const expired = await store.messages.listExpired(new Date().toISOString());
+    const expiredIds = expired.map((entry) => entry.id);
+    const attachments = await store.attachments.listByMessageIds(expiredIds);
+    const accountPolicy = parseAccountPolicyRecord(await store.accountSettings.get());
+    let deletedAccounts = 0;
 
-  await store.attachments.deleteByMessageIds(expiredIds);
-  await store.messages.deleteMany(expiredIds);
-
-  if (accountPolicy.lifecycle.allowHardDelete) {
-    const cutoff = new Date(
-      Date.now() - accountPolicy.lifecycle.softDeleteRetentionDays * 24 * 60 * 60 * 1000
-    ).toISOString();
-    const expiredAccountIds: string[] = [];
-    const pageSize = 500;
-    let page = 1;
-    let total = 0;
-
-    do {
-      const result = await store.mailboxes.listAllWithDetails({
-        page,
-        pageSize,
-        status: "soft_deleted"
-      });
-      total = result.total;
-
-      for (const account of result.accounts) {
-        if (account.deletedAt && account.deletedAt <= cutoff) {
-          expiredAccountIds.push(account.id);
-        }
+    if (env.ATTACHMENTS) {
+      for (const attachment of attachments) {
+        await env.ATTACHMENTS.delete(attachment.key);
       }
-
-      page += 1;
-    } while ((page - 1) * pageSize < total);
-
-    for (const accountId of expiredAccountIds) {
-      await store.mailboxes.delete(accountId);
     }
-    deletedAccounts = expiredAccountIds.length;
-  }
 
-  return { deletedMessages: expiredIds.length, deletedAttachments: attachments.length, deletedAccounts };
+    await store.attachments.deleteByMessageIds(expiredIds);
+    await store.messages.deleteMany(expiredIds);
+
+    if (accountPolicy.lifecycle.allowHardDelete) {
+      const cutoff = new Date(
+        Date.now() - accountPolicy.lifecycle.softDeleteRetentionDays * 24 * 60 * 60 * 1000
+      ).toISOString();
+      const expiredAccountIds: string[] = [];
+      const pageSize = 500;
+      let page = 1;
+      let total = 0;
+
+      do {
+        const result = await store.mailboxes.listAllWithDetails({
+          page,
+          pageSize,
+          status: "soft_deleted"
+        });
+        total = result.total;
+
+        for (const account of result.accounts) {
+          if (account.deletedAt && account.deletedAt <= cutoff) {
+            expiredAccountIds.push(account.id);
+          }
+        }
+
+        page += 1;
+      } while ((page - 1) * pageSize < total);
+
+      for (const accountId of expiredAccountIds) {
+        await store.mailboxes.delete(accountId);
+      }
+      deletedAccounts = expiredAccountIds.length;
+    }
+
+    const result = { deletedMessages: expiredIds.length, deletedAttachments: attachments.length, deletedAccounts };
+    await store.cleanupRuns.record({
+      status: "success",
+      startedAt,
+      finishedAt: new Date().toISOString(),
+      ...result,
+      errorText: null
+    });
+    return result;
+  } catch (error) {
+    await store.cleanupRuns.record({
+      status: "failed",
+      startedAt,
+      finishedAt: new Date().toISOString(),
+      deletedMessages: 0,
+      deletedAttachments: 0,
+      deletedAccounts: 0,
+      errorText: error instanceof Error ? error.message : "Cleanup failed"
+    });
+    throw error;
+  }
 }
