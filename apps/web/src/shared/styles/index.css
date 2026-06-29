@@ -3200,6 +3200,17 @@ button:disabled {
   min-width: 0;
 }
 
+.message-date-filter-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  align-items: end;
+}
+
+.message-date-filter-field {
+  min-width: 0;
+}
+
 .message-filter-tabs {
   justify-content: center;
   min-width: 0;

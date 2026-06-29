@@ -626,6 +626,12 @@ describe("mail list integration", () => {
     expect(within(filterTabs).getByRole("tab", { name: /^附件$/i })).toBeInTheDocument();
     expect(within(filterTabs).getByRole("tab", { name: /^未提取$/i })).toBeInTheDocument();
     expect(filterTabs.querySelectorAll(".message-filter-tab-icon")).toHaveLength(5);
+    expect(screen.queryByLabelText("按发件人筛选")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("按主题筛选")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("按附件筛选")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("按提取类型筛选")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("按开始日期筛选")).toBeInTheDocument();
+    expect(screen.getByLabelText("按结束日期筛选")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /全部邮箱/i })).toBeInTheDocument();
     expect(await screen.findByRole("button", { name: /^复制验证码$/i })).toBeInTheDocument();
     expect(screen.getAllByText("482913").length).toBeGreaterThan(0);
@@ -1033,24 +1039,22 @@ describe("mail list integration", () => {
     expect(searchRequests).toEqual(["contoso"]);
   });
 
-  it("sends advanced message filters to the backend", async () => {
+  it("sends date range filters to the backend", async () => {
     const user = userEvent.setup();
 
     render(<App />);
 
     await screen.findByRole("button", { name: /^复制验证码$/i });
 
-    await user.type(screen.getByLabelText("按发件人筛选"), "auth@contoso.io");
-    await user.type(screen.getByLabelText("按主题筛选"), "login");
     await user.type(screen.getByLabelText("按开始日期筛选"), "2026-04-08");
+    await user.type(screen.getByLabelText("按结束日期筛选"), "2026-04-09");
 
     await waitFor(() => {
       expect(
         getMailMessageRequestParams().some(
           (params) =>
-            params.get("from") === "auth@contoso.io" &&
-            params.get("subject") === "login" &&
-            params.get("startDate") === "2026-04-08T00:00:00.000Z"
+            params.get("startDate") === "2026-04-08T00:00:00.000Z" &&
+            params.get("endDate") === "2026-04-09T23:59:59.999Z"
         )
       ).toBe(true);
     });

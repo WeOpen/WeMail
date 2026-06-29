@@ -14,6 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.6] - 2026-06-29
+
 ### Added
 
 - Added a product maturity implementation plan and an admin-only system diagnostics panel for deployment readiness checks.
@@ -30,6 +32,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added outbound maturity checks with quota, retry, Return-Path, sender identity, SPF/DKIM/DMARC checklist, and built-in compose templates.
 - Added a commercial model summary with free/pro/team tiers, default organization workspace, shared mailbox usage, team roles, quota usage, and organization audit evidence.
 - Added data reliability summaries with D1/R2 status, migration evidence, backup/restore runbook commands, cleanup run records, inbound idempotency, and duplicate notification suppression.
+
+### Changed
+
+- Simplified the mail list filter controls so sender, subject, attachment, and extraction filters stay covered by search and quick tabs while date range filters sit directly below search.
 
 ### Security
 
@@ -270,7 +276,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Established the current tracked baseline from the existing monorepo package versions.
 
-[Unreleased]: https://github.com/WeOpen/WeMail/compare/v0.1.5...HEAD
+[Unreleased]: https://github.com/WeOpen/WeMail/compare/v0.1.6...HEAD
+[0.1.6]: https://github.com/WeOpen/WeMail/releases/tag/v0.1.6
 [0.1.5]: https://github.com/WeOpen/WeMail/releases/tag/v0.1.5
 [0.1.4]: https://github.com/WeOpen/WeMail/releases/tag/v0.1.4
 [0.1.3]: https://github.com/WeOpen/WeMail/releases/tag/v0.1.3

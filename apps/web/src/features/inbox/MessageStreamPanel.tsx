@@ -5,7 +5,7 @@ import type { ExtractionType, MessageBatchAction, MessageFilter, MessageSummary 
 import { Button } from "../../shared/button";
 import { EmptyState } from "../../shared/empty-state/EmptyStatePrimitives";
 import { FilterBar } from "../../shared/filter-bar";
-import { Checkbox, FormField, SearchInput, SelectInput, TextInput } from "../../shared/form";
+import { Checkbox, FormField, SearchInput, TextInput } from "../../shared/form";
 import { Pagination } from "../../shared/pagination";
 import { Tabs, TabsList, TabsTrigger } from "../../shared/tabs";
 import { toMessageListItemViewModel } from "./view-models";
@@ -111,7 +111,7 @@ export function MessageStreamPanel({
         </Button>
       </div>
 
-      <FilterBar className="message-toolbar" columns={2}>
+      <FilterBar className="message-toolbar">
         <FormField className="message-search-field" label={<span className="sr-only">消息搜索</span>}>
           <SearchInput
             aria-label="消息搜索"
@@ -120,6 +120,24 @@ export function MessageStreamPanel({
             value={searchValue}
           />
         </FormField>
+        <div className="message-date-filter-row">
+          <FormField className="message-date-filter-field" label="开始日期">
+            <TextInput
+              aria-label="按开始日期筛选"
+              onChange={(event) => onAdvancedFilterChange("startDate", event.target.value)}
+              type="date"
+              value={advancedFilters.startDate}
+            />
+          </FormField>
+          <FormField className="message-date-filter-field" label="结束日期">
+            <TextInput
+              aria-label="按结束日期筛选"
+              onChange={(event) => onAdvancedFilterChange("endDate", event.target.value)}
+              type="date"
+              value={advancedFilters.endDate}
+            />
+          </FormField>
+        </div>
         <Tabs
           className="message-filter-tabs"
           onValueChange={(value) => onFilterChange(value as MessageFilter)}
@@ -139,67 +157,6 @@ export function MessageStreamPanel({
             })}
           </TabsList>
         </Tabs>
-      </FilterBar>
-
-      <FilterBar className="message-advanced-toolbar" columns={3}>
-        <FormField label="发件人">
-          <TextInput
-            aria-label="按发件人筛选"
-            onChange={(event) => onAdvancedFilterChange("from", event.target.value)}
-            placeholder="sender@example.com"
-            value={advancedFilters.from}
-          />
-        </FormField>
-        <FormField label="主题">
-          <TextInput
-            aria-label="按主题筛选"
-            onChange={(event) => onAdvancedFilterChange("subject", event.target.value)}
-            placeholder="主题关键词"
-            value={advancedFilters.subject}
-          />
-        </FormField>
-        <FormField label="附件">
-          <SelectInput
-            aria-label="按附件筛选"
-            onChange={(event) => onAdvancedFilterChange("hasAttachment", event.target.value)}
-            value={advancedFilters.hasAttachment}
-          >
-            <option value="all">全部</option>
-            <option value="with">有附件</option>
-            <option value="without">无附件</option>
-          </SelectInput>
-        </FormField>
-        <FormField label="开始日期">
-          <TextInput
-            aria-label="按开始日期筛选"
-            onChange={(event) => onAdvancedFilterChange("startDate", event.target.value)}
-            type="date"
-            value={advancedFilters.startDate}
-          />
-        </FormField>
-        <FormField label="结束日期">
-          <TextInput
-            aria-label="按结束日期筛选"
-            onChange={(event) => onAdvancedFilterChange("endDate", event.target.value)}
-            type="date"
-            value={advancedFilters.endDate}
-          />
-        </FormField>
-        <FormField label="提取类型">
-          <SelectInput
-            aria-label="按提取类型筛选"
-            onChange={(event) => onAdvancedFilterChange("extractionType", event.target.value)}
-            value={advancedFilters.extractionType}
-          >
-            <option value="all">全部</option>
-            <option value="auth_code">验证码</option>
-            <option value="auth_link">登录链接</option>
-            <option value="service_link">服务链接</option>
-            <option value="subscription_link">订阅链接</option>
-            <option value="other_link">其他链接</option>
-            <option value="none">未提取</option>
-          </SelectInput>
-        </FormField>
       </FilterBar>
 
       {errorMessage ? (
