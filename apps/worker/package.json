@@ -11,6 +11,6 @@
   "dependencies": {
     "@wemail/shared": "workspace:*",
     "hono": "^4.12.27",
-    "postal-mime": "^2.6.4"
+    "postal-mime": "^2.7.5"
   }
 }
