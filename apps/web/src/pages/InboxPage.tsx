@@ -390,7 +390,12 @@ export function InboxPage({
           extractionCount={messageListSummary.extractionCount}
           mailboxCount={mailboxes.length}
           messageCount={messageListSummary.messageCount}
+          messageEndDate={messageAdvancedFilters.endDate}
+          messageSearchValue={messageSearchValue}
+          messageStartDate={messageAdvancedFilters.startDate}
           onClearMailboxSelection={handleClearMailboxSelection}
+          onMessageDateFilterChange={handleAdvancedFilterChange}
+          onMessageSearchChange={handleMessageSearchChange}
           onOpenMailboxComposer={onOpenMailboxComposer}
           onOpenMailboxSelector={() => setMailboxSelectorOpen(true)}
           onOpenOutboundDrawer={() => setOutboundDrawerOpen(true)}
@@ -398,7 +403,6 @@ export function InboxPage({
         />
         <div className="workspace-grid inbox-grid">
           <MessageStreamPanel
-            advancedFilters={messageAdvancedFilters}
             filter={messageFilter}
             messages={messages}
             page={safeMessagePage}
@@ -406,16 +410,13 @@ export function InboxPage({
             resultCount={messageListTotal}
             selectedMessageId={activeMessageId}
             selectedMessageIds={selectedBatchMessageIds}
-            searchValue={messageSearchValue}
             isBatchActionRunning={isBatchActionRunning}
             isLoading={isLoadingMessages}
             errorMessage={messageListError}
-            onAdvancedFilterChange={handleAdvancedFilterChange}
             onFilterChange={handleMessageFilterChange}
             onPageChange={setMessagePage}
             onRunBatchAction={(action) => void handleRunMessageBatchAction(action)}
             onRefreshMessages={() => void onRefreshMessages(messageQuery)}
-            onSearchChange={handleMessageSearchChange}
             onSelectMessage={onSelectMessage}
             onToggleMessageSelection={handleToggleMessageSelection}
             onTogglePageSelection={handleTogglePageSelection}

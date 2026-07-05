@@ -5,7 +5,7 @@ import type { ExtractionType, MessageBatchAction, MessageFilter, MessageSummary 
 import { Button } from "../../shared/button";
 import { EmptyState } from "../../shared/empty-state/EmptyStatePrimitives";
 import { FilterBar } from "../../shared/filter-bar";
-import { Checkbox, DateInput, FormField, SearchInput } from "../../shared/form";
+import { Checkbox } from "../../shared/form";
 import { Pagination } from "../../shared/pagination";
 import { Tabs, TabsList, TabsTrigger } from "../../shared/tabs";
 import { toMessageListItemViewModel } from "./view-models";
@@ -23,7 +23,6 @@ export type MessageAdvancedFilters = {
 };
 
 type MessageStreamPanelProps = {
-  advancedFilters: MessageAdvancedFilters;
   filter: MessageFilter;
   errorMessage?: string | null;
   isBatchActionRunning?: boolean;
@@ -31,11 +30,9 @@ type MessageStreamPanelProps = {
   messages: MessageSummary[];
   selectedMessageId: string | null;
   selectedMessageIds: string[];
-  searchValue: string;
   page: number;
   pageSize: number;
   resultCount: number;
-  onAdvancedFilterChange: (field: keyof MessageAdvancedFilters, value: string) => void;
   onFilterChange: (filter: MessageFilter) => void;
   onPageChange: (page: number) => void;
   onRunBatchAction: (action: MessageBatchAction) => void;
@@ -43,7 +40,6 @@ type MessageStreamPanelProps = {
   onToggleMessageSelection: (messageId: string, selected: boolean) => void;
   onTogglePageSelection: (selected: boolean) => void;
   onRefreshMessages: () => void;
-  onSearchChange: (value: string) => void;
 };
 
 const filterLabels: Record<MessageFilter, string> = {
@@ -69,7 +65,6 @@ const extractionIcons = {
 } satisfies Record<string, LucideIcon>;
 
 export function MessageStreamPanel({
-  advancedFilters,
   filter,
   errorMessage = null,
   isBatchActionRunning = false,
@@ -77,19 +72,16 @@ export function MessageStreamPanel({
   messages,
   selectedMessageId,
   selectedMessageIds,
-  searchValue,
   page,
   pageSize,
   resultCount,
-  onAdvancedFilterChange,
   onFilterChange,
   onPageChange,
   onRunBatchAction,
   onSelectMessage,
   onToggleMessageSelection,
   onTogglePageSelection,
-  onRefreshMessages,
-  onSearchChange
+  onRefreshMessages
 }: MessageStreamPanelProps) {
   const selectedMessageIdSet = new Set(selectedMessageIds);
   const isCurrentPageSelected = messages.length > 0 && messages.every((message) => selectedMessageIdSet.has(message.id));
@@ -112,32 +104,6 @@ export function MessageStreamPanel({
       </div>
 
       <FilterBar className="message-toolbar">
-        <FormField className="message-search-field" label={<span className="sr-only">消息搜索</span>}>
-          <SearchInput
-            aria-label="消息搜索"
-            onChange={(event) => onSearchChange(event.target.value)}
-            placeholder="搜索发件人 / 主题 / 内容 / 提取值"
-            value={searchValue}
-          />
-        </FormField>
-        <div className="message-date-filter-row">
-          <FormField className="message-date-filter-field" label="开始日期">
-            <DateInput
-              aria-label="按开始日期筛选"
-              calendarLabel="打开开始日期选择器"
-              onValueChange={(value) => onAdvancedFilterChange("startDate", value)}
-              value={advancedFilters.startDate}
-            />
-          </FormField>
-          <FormField className="message-date-filter-field" label="结束日期">
-            <DateInput
-              aria-label="按结束日期筛选"
-              calendarLabel="打开结束日期选择器"
-              onValueChange={(value) => onAdvancedFilterChange("endDate", value)}
-              value={advancedFilters.endDate}
-            />
-          </FormField>
-        </div>
         <Tabs
           className="message-filter-tabs"
           onValueChange={(value) => onFilterChange(value as MessageFilter)}

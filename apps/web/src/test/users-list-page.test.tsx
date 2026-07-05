@@ -38,6 +38,8 @@ const adminQuota: QuotaSummary = {
   updatedAt: "2026-04-10T00:00:00.000Z"
 };
 
+const longRelayEmail = "5dcn5bfvq26x9a3mceg7t3mbhy00swdpn3hxaxj213f4h110bk@privaterelay.linux.do";
+
 function createPagedUsers(): UserSummary[] {
   return [
     ...adminUsers,
@@ -175,7 +177,7 @@ describe("UsersListPage", () => {
     });
 
     const loadingState = screen.getByRole("status", { name: "正在加载用户列表" });
-    expect(loadingState).toHaveClass("ui-table-state-card");
+    expect(loadingState).toHaveClass("ui-table-state-card", "ui-table-state-card-plain");
     expect(loadingState).toHaveTextContent("正在加载用户列表");
     expect(screen.queryByText("暂无符合条件的用户。")).not.toBeInTheDocument();
 
@@ -217,6 +219,28 @@ describe("UsersListPage", () => {
 
     expect(screen.getByText("admin@example.com")).toBeInTheDocument();
     expect(screen.queryByText("member@example.com")).not.toBeInTheDocument();
+  });
+
+  it("shortens long user emails in the table while keeping the full value as a title", () => {
+    renderUsersList({
+      adminUsers: [
+        {
+          id: "relay-user",
+          email: longRelayEmail,
+          name: "Relay User",
+          role: "member",
+          status: "active",
+          createdAt: "2026-04-10T00:00:00.000Z",
+          updatedAt: "2026-04-12T00:00:00.000Z"
+        }
+      ]
+    });
+
+    const emailText = screen.getByText("5dcn5bfv...4h110bk@privaterelay.linux.do");
+
+    expect(screen.queryByText(longRelayEmail)).not.toBeInTheDocument();
+    expect(emailText).toHaveClass("truncated-email");
+    expect(emailText).toHaveAttribute("title", longRelayEmail);
   });
 
   it("paginates the filtered users list and resets to the first page when filters change", async () => {

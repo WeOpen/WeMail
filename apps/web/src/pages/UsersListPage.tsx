@@ -5,6 +5,7 @@ import type { QuotaSummary, UserRole, UserStatus, UserSummary } from "@wemail/sh
 
 import { Button } from "../shared/button";
 import { Badge } from "../shared/badge";
+import { formatDisplayEmail } from "../shared/display";
 import { FilterBar } from "../shared/filter-bar";
 import { CheckboxField, FormField, SearchInput, SelectInput, TextInput } from "../shared/form";
 import { OverlayDialog, OverlayDrawer } from "../shared/overlay";
@@ -63,7 +64,7 @@ function formatRole(role: UserSummary["role"]) {
 }
 
 function buildDisplayName(user: UserSummary) {
-  return user.name || user.email.split("@")[0] || user.email;
+  return user.name || formatDisplayEmail(user.email);
 }
 
 function resolveStatus(user: UserSummary): UserStatus {
@@ -582,7 +583,7 @@ export function UsersListPage({
                   {isLoadingUsers ? (
                     <TableRow>
                       <TableCell className="ui-table-state-cell" colSpan={7}>
-                        <TableStateCard state="loading" title="正在加载用户列表" />
+                        <TableStateCard className="ui-table-state-card-plain" state="loading" title="正在加载用户列表" />
                       </TableCell>
                     </TableRow>
                   ) : visibleUsers.length === 0 ? (
@@ -595,6 +596,7 @@ export function UsersListPage({
                     visibleUsers.map((user) => {
                       const isSelected = selectedUserIds.includes(user.id);
                       const status = resolveStatus(user);
+                      const displayEmail = formatDisplayEmail(user.email);
 
                       return (
                         <TableRow isSelected={isSelected} key={user.id}>
@@ -610,7 +612,11 @@ export function UsersListPage({
                           <TableCell>
                             <strong>{buildDisplayName(user)}</strong>
                           </TableCell>
-                          <TableCell>{user.email}</TableCell>
+                          <TableCell>
+                            <span className="truncated-email" title={user.email}>
+                              {displayEmail}
+                            </span>
+                          </TableCell>
                           <TableCell>{formatRole(user.role)}</TableCell>
                           <TableCell>{user.createdAt.slice(0, 10)}</TableCell>
                           <TableCell>
@@ -697,7 +703,7 @@ export function UsersListPage({
           ariaLabel="修改用户"
           closeLabel="关闭修改用户"
           closeOnBackdrop
-          description={selectedUser.email}
+          description={formatDisplayEmail(selectedUser.email)}
           eyebrow="用户列表"
           onClose={() => {
             setEditUserError(null);
@@ -766,7 +772,7 @@ export function UsersListPage({
         <OverlayDialog
           closeLabel="关闭重置密码"
           closeOnBackdrop
-          description={passwordResetUser.email}
+          description={formatDisplayEmail(passwordResetUser.email)}
           eyebrow="账号安全"
           onClose={() => {
             setPasswordResetUser(null);
@@ -794,7 +800,7 @@ export function UsersListPage({
         <OverlayDialog
           closeLabel={`关闭${statusConfirmAction}确认`}
           closeOnBackdrop
-          description={statusConfirmUser.email}
+          description={formatDisplayEmail(statusConfirmUser.email)}
           eyebrow={statusConfirmNextStatus === "disabled" ? "保护操作" : "用户状态"}
           onClose={closeStatusConfirm}
           title={`${statusConfirmAction}用户`}
@@ -830,7 +836,7 @@ export function UsersListPage({
         <OverlayDialog
           closeLabel="关闭删除确认"
           closeOnBackdrop
-          description={deleteUser.email}
+          description={formatDisplayEmail(deleteUser.email)}
           eyebrow="危险操作"
           onClose={closeDeleteConfirm}
           title="删除用户"

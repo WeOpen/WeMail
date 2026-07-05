@@ -14,8 +14,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-07-05
+
+### Changed
+
+- Moved inbox message search and date filters into the mail-center command card so the list panel focuses on quick tabs and message selection.
+- Added a lighter plain table loading state for account and user lists to keep empty/loading presentation visually consistent.
+
 ### Fixed
 
+- Shortened long user email addresses through the middle across user lists, profile settings, quota governance, invite redemption fallbacks, login history, and audit text while preserving the full address in hover titles.
 - Use numeric Cloudflare Rate Limiting namespace IDs in Worker deploy config so Wrangler production validation accepts the `RATE_LIMITER` binding.
 
 ## [0.2.0] - 2026-07-05

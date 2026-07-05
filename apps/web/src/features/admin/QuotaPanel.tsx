@@ -4,6 +4,7 @@ import { Save } from "lucide-react";
 import type { QuotaSummary, UserSummary } from "@wemail/shared";
 import { Badge } from "../../shared/badge";
 import { Button } from "../../shared/button";
+import { formatDisplayEmail } from "../../shared/display";
 import { CheckboxField, FormField, TextInput } from "../../shared/form";
 import { Pagination } from "../../shared/pagination";
 import { Tag } from "../../shared/tag";
@@ -26,7 +27,7 @@ function getRoleLabel(user: UserSummary) {
 }
 
 function getUserDisplayName(user: UserSummary) {
-  return user.name || user.email;
+  return user.name || formatDisplayEmail(user.email);
 }
 
 function getStatusLabel(user: UserSummary) {
@@ -86,26 +87,30 @@ export function QuotaPanel({
       <div className="users-quota-layout">
         <section aria-label="配额用户" className="users-quota-users-column">
           <div className="stack-list workspace-stack-list workspace-stack-compact users-quota-user-list">
-            {visibleUsers.map((user) => (
-              <Button
-                aria-label={`选择配额用户 ${getUserDisplayName(user)} ${user.email} ${getRoleLabel(user)}`}
-                className="stack-item selectable admin-stack-item users-settings-row users-quota-user-row"
-                contentLayout="plain"
-                isActive={adminQuota?.userId === user.id}
-                key={user.id}
-                onClick={() => void onSelectQuotaUser(user.id)}
-                variant="text"
-              >
-                <div className="users-settings-row-main">
-                  <strong>{getUserDisplayName(user)}</strong>
-                  <span>{user.email}</span>
-                </div>
-                <div className="users-settings-row-actions">
-                  <Tag variant={user.role === "admin" ? "brand" : "neutral"}>{getRoleLabel(user)}</Tag>
-                  <Badge variant={getStatusVariant(user)}>{getStatusLabel(user)}</Badge>
-                </div>
-              </Button>
-            ))}
+            {visibleUsers.map((user) => {
+              const displayEmail = formatDisplayEmail(user.email);
+
+              return (
+                <Button
+                  aria-label={`选择配额用户 ${user.name || user.email} ${user.email} ${getRoleLabel(user)}`}
+                  className="stack-item selectable admin-stack-item users-settings-row users-quota-user-row"
+                  contentLayout="plain"
+                  isActive={adminQuota?.userId === user.id}
+                  key={user.id}
+                  onClick={() => void onSelectQuotaUser(user.id)}
+                  variant="text"
+                >
+                  <div className="users-settings-row-main">
+                    <strong title={user.name ? undefined : user.email}>{getUserDisplayName(user)}</strong>
+                    <span className="truncated-email" title={user.email}>{displayEmail}</span>
+                  </div>
+                  <div className="users-settings-row-actions">
+                    <Tag variant={user.role === "admin" ? "brand" : "neutral"}>{getRoleLabel(user)}</Tag>
+                    <Badge variant={getStatusVariant(user)}>{getStatusLabel(user)}</Badge>
+                  </div>
+                </Button>
+              );
+            })}
             {total === 0 ? <p className="empty-state">当前还没有可配置配额的用户。</p> : null}
           </div>
           {total > pageSize ? (
@@ -128,7 +133,13 @@ export function QuotaPanel({
                 <div className="users-quota-current-copy">
                   <span>当前配额目标</span>
                   <strong>{selectedQuotaUser ? getUserDisplayName(selectedQuotaUser) : adminQuota.userId}</strong>
-                  {selectedQuotaUser ? <small>{selectedQuotaUser.email}</small> : <small>用户 ID：{adminQuota.userId}</small>}
+                  {selectedQuotaUser ? (
+                    <small className="truncated-email" title={selectedQuotaUser.email}>
+                      {formatDisplayEmail(selectedQuotaUser.email)}
+                    </small>
+                  ) : (
+                    <small>用户 ID：{adminQuota.userId}</small>
+                  )}
                 </div>
                 <div className="users-quota-meter">
                   <span>外发</span>

@@ -45,6 +45,7 @@ import type {
 } from "../features/inbox/api";
 import type { OutboundHistoryDetail, OutboundHistoryItem, OutboundHistorySummary } from "../features/inbox/types";
 import { Button } from "../shared/button";
+import { formatDisplayEmail } from "../shared/display";
 import { Skeleton } from "../shared/skeleton";
 import type { WorkspaceTheme, WorkspaceThemePreference } from "./useWorkspaceTheme";
 
@@ -519,7 +520,9 @@ export function AppRoutes({
             </div>
           </>
         ) : (
-          <p className="section-copy">当前会话：{session.user.email}</p>
+          <p className="section-copy" title={session.user.email}>
+            当前会话：{formatDisplayEmail(session.user.email)}
+          </p>
         )}
       </section>
     </main>

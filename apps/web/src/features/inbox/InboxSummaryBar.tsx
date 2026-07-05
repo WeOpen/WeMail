@@ -2,6 +2,7 @@ import type { MailboxSummary } from "@wemail/shared";
 import { ChevronDown, Inbox, Plus, Send, X } from "lucide-react";
 
 import { Button } from "../../shared/button";
+import { DateInput, FormField, SearchInput } from "../../shared/form";
 
 type InboxSummaryBarProps = {
   selectedMailbox: MailboxSummary | null;
@@ -9,8 +10,13 @@ type InboxSummaryBarProps = {
   extractionCount: number;
   messageCount: number;
   attachmentCount: number;
+  messageSearchValue: string;
+  messageStartDate: string;
+  messageEndDate: string;
   onOpenMailboxComposer: () => void;
   onClearMailboxSelection: () => void;
+  onMessageDateFilterChange: (field: "startDate" | "endDate", value: string) => void;
+  onMessageSearchChange: (value: string) => void;
   onOpenMailboxSelector: () => void;
   onOpenOutboundDrawer: () => void;
 };
@@ -21,8 +27,13 @@ export function InboxSummaryBar({
   extractionCount,
   messageCount,
   attachmentCount,
+  messageSearchValue,
+  messageStartDate,
+  messageEndDate,
   onOpenMailboxComposer,
   onClearMailboxSelection,
+  onMessageDateFilterChange,
+  onMessageSearchChange,
   onOpenMailboxSelector,
   onOpenOutboundDrawer
 }: InboxSummaryBarProps) {
@@ -101,6 +112,33 @@ export function InboxSummaryBar({
         <Button leadingIcon={<Send size={16} strokeWidth={1.9} aria-hidden="true" />} onClick={onOpenOutboundDrawer} variant="primary">
           发送测试邮件
         </Button>
+      </div>
+
+      <div className="inbox-message-filters" aria-label="邮件列表筛选">
+        <FormField className="inbox-message-search-field" label={<span className="sr-only">消息搜索</span>}>
+          <SearchInput
+            aria-label="消息搜索"
+            onChange={(event) => onMessageSearchChange(event.target.value)}
+            placeholder="搜索发件人 / 主题 / 内容 / 提取值"
+            value={messageSearchValue}
+          />
+        </FormField>
+        <FormField className="inbox-message-date-field" label="开始日期">
+          <DateInput
+            aria-label="按开始日期筛选"
+            calendarLabel="打开开始日期选择器"
+            onValueChange={(value) => onMessageDateFilterChange("startDate", value)}
+            value={messageStartDate}
+          />
+        </FormField>
+        <FormField className="inbox-message-date-field" label="结束日期">
+          <DateInput
+            aria-label="按结束日期筛选"
+            calendarLabel="打开结束日期选择器"
+            onValueChange={(value) => onMessageDateFilterChange("endDate", value)}
+            value={messageEndDate}
+          />
+        </FormField>
       </div>
     </section>
   );

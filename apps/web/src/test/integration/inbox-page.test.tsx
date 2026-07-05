@@ -615,8 +615,13 @@ describe("mail list integration", () => {
 
     expect(await screen.findByRole("region", { name: /^邮件列表工作台$/i })).toHaveClass("inbox-command-card");
     expect(screen.queryByText(/^邮件处理中心$/i)).not.toBeInTheDocument();
-    expect(screen.getByRole("region", { name: /^邮件列表工作台$/i })).toHaveClass("inbox-command-card");
-    expect(screen.getByLabelText("消息搜索")).toHaveAttribute("placeholder", "搜索发件人 / 主题 / 内容 / 提取值");
+    const commandCard = screen.getByRole("region", { name: /^邮件列表工作台$/i });
+    const messagePanel = screen.getByRole("region", { name: /^消息筛选与列表$/i });
+    expect(commandCard).toHaveClass("inbox-command-card");
+    expect(within(commandCard).getByLabelText("邮件列表筛选")).toHaveClass("inbox-message-filters");
+    expect(within(commandCard).getByLabelText("消息搜索")).toHaveAttribute("placeholder", "搜索发件人 / 主题 / 内容 / 提取值");
+    expect(within(messagePanel).queryByLabelText("消息搜索")).not.toBeInTheDocument();
+    expect(within(messagePanel).queryByLabelText("按开始日期筛选")).not.toBeInTheDocument();
     const filterTabs = screen.getByRole("tablist", { name: /^消息快速筛选$/i });
     expect(filterTabs).toHaveClass("message-filter-tabs-list");
     expect(within(filterTabs).getByRole("tab", { name: /^全部$/i })).toHaveAttribute("aria-selected", "true");

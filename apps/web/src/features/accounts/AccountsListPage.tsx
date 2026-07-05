@@ -535,7 +535,7 @@ export function AccountsListPage({
                 {isLoading ? (
                   <TableRow>
                     <TableCell className="ui-table-state-cell" colSpan={visibleColumnCount}>
-                      <TableStateCard state="loading" title="正在加载账号列表" />
+                      <TableStateCard className="ui-table-state-card-plain" state="loading" title="正在加载账号列表" />
                     </TableCell>
                   </TableRow>
                 ) : accounts.length === 0 ? (

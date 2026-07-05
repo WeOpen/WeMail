@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 
@@ -11,6 +13,8 @@ import {
   TableRow,
   TableStateCard
 } from "../shared/table";
+
+const sharedStyles = readFileSync("src/shared/styles/index.css", "utf8");
 
 describe("shared table primitives", () => {
   afterEach(() => {
@@ -114,5 +118,12 @@ describe("shared table primitives", () => {
       "ui-table-state-card",
       "ui-empty-state"
     );
+  });
+
+  it("supports plain loading copy without the card background", () => {
+    expect(sharedStyles).toMatch(/\.ui-table-state-card-plain\s*\{[^}]*border:\s*0;/);
+    expect(sharedStyles).toMatch(/\.ui-table-state-card-plain\s*\{[^}]*background:\s*transparent;/);
+    expect(sharedStyles).toMatch(/\.ui-table-state-card-plain\s*\{[^}]*box-shadow:\s*none;/);
+    expect(sharedStyles).toMatch(/\.ui-table-state-card-plain \.ui-spinner-indicator\s*\{[^}]*display:\s*none;/);
   });
 });

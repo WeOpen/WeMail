@@ -23,6 +23,7 @@ import {
 import { Avatar } from "../shared/avatar";
 import { Badge } from "../shared/badge";
 import { Button } from "../shared/button";
+import { formatDisplayEmail } from "../shared/display";
 import { FormField, RadioGroupField, SelectInput, TextInput, TextareaInput } from "../shared/form";
 import { KVList } from "../shared/kv-list";
 import { Page } from "../shared/page-layout";
@@ -78,13 +79,7 @@ function formatDateTime(iso: string, preferences: UserProfileSummary["preference
 }
 
 function resolveDisplayName(profile: UserProfileSummary) {
-  return profile.user.name.trim() || profile.user.email.split("@")[0] || profile.user.email;
-}
-
-function formatDisplayEmail(email: string) {
-  const [localPart, domainPart] = email.split("@");
-  if (!localPart || !domainPart || localPart.length <= 18) return email;
-  return `${localPart.slice(0, 8)}...${localPart.slice(-6)}@${domainPart}`;
+  return profile.user.name.trim() || formatDisplayEmail(profile.user.email);
 }
 
 function formatLocale(locale: UserProfileSummary["preferences"]["locale"]) {

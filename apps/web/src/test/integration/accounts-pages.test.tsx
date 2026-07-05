@@ -194,7 +194,7 @@ describe("accounts pages", () => {
     const { rerender } = renderAccountsList({ accounts: [], isLoading: true, total: 0 });
 
     const loadingState = screen.getByRole("status", { name: "正在加载账号列表" });
-    expect(loadingState).toHaveClass("ui-table-state-card");
+    expect(loadingState).toHaveClass("ui-table-state-card", "ui-table-state-card-plain");
     expect(loadingState).toHaveTextContent("正在加载账号列表");
     expect(screen.queryByText("暂无账号数据")).not.toBeInTheDocument();
 

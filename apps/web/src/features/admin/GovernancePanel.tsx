@@ -3,6 +3,7 @@ import { Activity, Gauge, KeyRound, ShieldCheck } from "lucide-react";
 import type { AdminGovernanceSummary, AdminLoginHistoryEvent } from "@wemail/shared";
 
 import { Badge } from "../../shared/badge";
+import { formatDisplayEmail, formatDisplayEmailsInText } from "../../shared/display";
 
 type GovernancePanelProps = {
   governance: AdminGovernanceSummary | null;
@@ -74,17 +75,21 @@ export function GovernancePanel({ governance }: GovernancePanelProps) {
               <h3>登录历史</h3>
               <div className="users-governance-list" role="list">
                 {governance.loginHistory.length > 0 ? (
-                  governance.loginHistory.slice(0, 5).map((event) => (
-                    <div className="users-governance-row" data-state={event.status} key={event.id} role="listitem">
-                      <div>
-                        <strong>{event.userEmail}</strong>
-                        <span>
-                          {formatLoginMethod(event)} · {event.ipAddress ?? "未知 IP"} · {formatDateTime(event.createdAt)}
-                        </span>
+                  governance.loginHistory.slice(0, 5).map((event) => {
+                    const displayEmail = formatDisplayEmail(event.userEmail);
+
+                    return (
+                      <div className="users-governance-row" data-state={event.status} key={event.id} role="listitem">
+                        <div>
+                          <strong className="truncated-email" title={event.userEmail}>{displayEmail}</strong>
+                          <span>
+                            {formatLoginMethod(event)} · {event.ipAddress ?? "未知 IP"} · {formatDateTime(event.createdAt)}
+                          </span>
+                        </div>
+                        <Badge variant={event.status === "success" ? "success" : "danger"}>{formatLoginStatus(event)}</Badge>
                       </div>
-                      <Badge variant={event.status === "success" ? "success" : "danger"}>{formatLoginStatus(event)}</Badge>
-                    </div>
-                  ))
+                    );
+                  })
                 ) : (
                   <p className="empty-state">暂无登录历史。</p>
                 )}
@@ -99,8 +104,8 @@ export function GovernancePanel({ governance }: GovernancePanelProps) {
                     <div className="users-governance-row" key={event.id} role="listitem">
                       <div>
                         <strong>{event.eventLabel}</strong>
-                        <span>
-                          {event.actorLabel} · {event.detail}
+                        <span title={`${event.actorLabel} · ${event.detail}`}>
+                          {formatDisplayEmailsInText(event.actorLabel)} · {formatDisplayEmailsInText(event.detail)}
                         </span>
                       </div>
                       <time dateTime={event.createdAt}>{formatDateTime(event.createdAt)}</time>

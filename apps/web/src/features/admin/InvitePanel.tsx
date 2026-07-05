@@ -5,6 +5,7 @@ import type { UserSummary } from "@wemail/shared";
 
 import { Button } from "../../shared/button";
 import { Badge } from "../../shared/badge";
+import { formatDisplayEmail } from "../../shared/display";
 import { FormField, SelectInput } from "../../shared/form";
 import { OverlayDialog } from "../../shared/overlay";
 import { Pagination } from "../../shared/pagination";
@@ -51,7 +52,7 @@ function formatInviteExpiry(invite: InviteSummary) {
 }
 
 function formatUserDisplayName(user: UserSummary) {
-  return user.name.trim() || user.email;
+  return user.name.trim() || formatDisplayEmail(user.email);
 }
 
 function resolveRedeemedByLabel(invite: InviteSummary, users: UserSummary[]) {

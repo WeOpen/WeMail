@@ -16,6 +16,7 @@ function getRuleBody(selector: string, source = styles) {
 describe("inbox list styles", () => {
   it("keeps the message list column compact with centered filter tabs", () => {
     const inboxGridRule = getRuleBody(".inbox-grid");
+    const inboxMessageFiltersRule = getRuleBody(".inbox-message-filters");
     const messageItemRule = getRuleBody(".message-item.ui-button");
     const messageExtractionChipRule = getRuleBody(".message-extraction-chip");
     const messageCodeChipRule = getRuleBody(".message-extraction-chip.code");
@@ -29,6 +30,8 @@ describe("inbox list styles", () => {
     const messageFilterTabsRule = getRuleBody(".message-filter-tabs");
     const messageFilterTabsListRule = getRuleBody(".message-filter-tabs .message-filter-tabs-list.ui-tabs-list[data-variant=\"segmented\"]");
     const messageFilterTabRule = getRuleBody(".message-filter-tabs .message-filter-tab.ui-tabs-trigger[data-variant=\"segmented\"]");
+    const messageBatchSelectRule = getRuleBody(".message-batch-select-all");
+    const messageBatchSelectTextRule = getRuleBody(".message-batch-select-all > span:not(.sr-only)");
     const messageIconRule = getRuleBody(".message-item-attachment-chip svg,\n.message-extraction-chip-icon,\n.message-filter-tab-icon");
     const mailboxSelectShellRule = getRuleBody(".mailbox-select-trigger-shell");
     const mailboxSelectClearRule = getRuleBody(".mailbox-select-clear.ui-button");
@@ -46,9 +49,14 @@ describe("inbox list styles", () => {
 
     expect(inboxGridRule).toContain("minmax(360px, 0.72fr)");
     expect(inboxGridRule).toContain("minmax(320px, 0.76fr)");
+    expect(inboxMessageFiltersRule).toContain("grid-column: 1 / -1");
+    expect(inboxMessageFiltersRule).toContain("grid-template-columns: minmax(320px, 1fr) minmax(190px, 0.32fr) minmax(190px, 0.32fr)");
     expect(messageFilterTabsRule).toContain("justify-content: center");
     expect(messageFilterTabsListRule).toContain("margin-inline: auto");
     expect(messageFilterTabRule).toContain("gap: 6px");
+    expect(messageBatchSelectRule).toContain("justify-self: start");
+    expect(messageBatchSelectRule).toContain("text-align: left");
+    expect(messageBatchSelectTextRule).toContain("text-align: left");
     expect(messageItemRule).toContain("overflow: visible");
     expect(announcementsItemOpenRule).toContain("overflow: visible");
     expect(announcementsItemOpenRule).toContain("border-radius: 16px");

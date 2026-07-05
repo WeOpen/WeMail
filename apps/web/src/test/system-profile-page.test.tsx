@@ -112,7 +112,7 @@ describe("SystemProfilePage", () => {
       />
     );
 
-    const shortenedEmail = "5dcn5bfv...h110bk@privaterelay.linux.do";
+    const shortenedEmail = "5dcn5bfv...4h110bk@privaterelay.linux.do";
 
     expect(screen.getByLabelText("邮箱")).toHaveValue(shortenedEmail);
     expect(screen.getAllByText(shortenedEmail)).toHaveLength(2);
