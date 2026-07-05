@@ -59,7 +59,8 @@ bucket_name = "wemail-staging-attachments"
 
 [[env.staging.ratelimits]]
 name = "RATE_LIMITER"
-namespace_id = "wemail-staging-rate-limit"
+# Cloudflare Rate Limiting namespace IDs are account-unique integer strings.
+namespace_id = "1001"
 simple = { limit = 60, period = 60 }
 
 [env.production]
@@ -95,5 +96,6 @@ bucket_name = "wemail-production-attachments"
 
 [[env.production.ratelimits]]
 name = "RATE_LIMITER"
-namespace_id = "wemail-production-rate-limit"
+# Cloudflare Rate Limiting namespace IDs are account-unique integer strings.
+namespace_id = "1002"
 simple = { limit = 60, period = 60 }

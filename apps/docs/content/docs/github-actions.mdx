@@ -53,6 +53,8 @@ production
 
 `GITHUB_TOKEN` 是 GitHub Actions 内建 token，不需要手动配置。
 
+`RATE_LIMITER` 的 Rate Limiting `namespace_id` 已写在 `apps/worker/wrangler.toml`，要求是 Cloudflare 账号内唯一的整数形式字符串。它不是 GitHub secret，也不是需要单独创建的 Cloudflare 资源；只有当你的账号中已有 Worker 使用相同数字时，才需要换成其他整数。
+
 ## 3. 配置 Environment variables
 
 当前 Cloudflare workflow 会在构建 Pages 前校验并注入：

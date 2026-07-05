@@ -81,6 +81,8 @@ preview_id = "replace-with-production-kv-preview-id"
 
 如果你完全手动部署，也可以只在本地临时替换，部署完成后不要提交真实 ID。
 
+`wrangler.toml` 里的 `RATE_LIMITER` 使用 Cloudflare Workers Rate Limiting binding。它的 `namespace_id` 必须是账号内唯一的整数形式字符串，例如 staging 使用 `1001`、production 使用 `1002`；它不是需要创建或保密的 Cloudflare 资源 ID。只有当同一个 Cloudflare 账号里其他 Worker 已经使用了相同数字时，才需要换成别的整数。
+
 ## 3. 设置邮件域名
 
 邮件域名现在由后台系统设置保存到 D1。Worker 首次启动时如果 D1 里还没有域名，会使用内置兜底值 `example.com`，方便本地开发先跑起来。

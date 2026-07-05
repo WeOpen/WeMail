@@ -72,6 +72,8 @@
 | `CLOUDFLARE_KV_PREVIEW_NAMESPACE_ID` | 必需 | 当前环境的 KV preview namespace ID，用于部署时注入 Worker 绑定 |
 | `GITHUB_TOKEN` | 内建 | 同步 GitHub Deployments 状态 |
 
+`RATE_LIMITER` 的 Cloudflare Workers Rate Limiting `namespace_id` 写在 `apps/worker/wrangler.toml`，必须是账号内唯一的整数形式字符串。它不是 secret，也不需要在 GitHub Environment 里配置；如果同一 Cloudflare 账号中已有 Worker 使用了相同数字，再改成其他整数即可。
+
 还需要在同一个 GitHub Environment 里配置 variable：
 
 | Variable | 是否必需 | 用途 |

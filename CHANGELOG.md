@@ -14,6 +14,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Use numeric Cloudflare Rate Limiting namespace IDs in Worker deploy config so Wrangler production validation accepts the `RATE_LIMITER` binding.
+
 ## [0.2.0] - 2026-07-05
 
 ### Changed
