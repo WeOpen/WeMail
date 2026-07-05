@@ -7,6 +7,8 @@ import { toApiKeySummary } from "../../app/routes/dto/settings-dto";
 import { parseApiKeyCreateRequest } from "../../app/routes/requests/settings-request";
 import { createApiKeyUseCase, listApiKeys, revokeApiKeyUseCase } from "../../app/use-cases/settings-use-cases";
 
+const ADMIN_AUTOMATION_SCOPE = "admin:automation";
+
 export function registerApiKeysRoutes(app: Hono<AppContext>) {
   app.get("/api/api-keys", async (c) => {
     const user = requireUser(c);
@@ -21,6 +23,9 @@ export function registerApiKeysRoutes(app: Hono<AppContext>) {
     if (!user) return jsonError("Authentication required", 401);
     if (!requireSessionAuth(c)) return jsonError("API keys must be created from a session-authenticated request", 403);
     const { label, scopes } = await parseApiKeyCreateRequest(c.req.raw);
+    if (user.role !== "admin" && scopes.includes(ADMIN_AUTOMATION_SCOPE)) {
+      return jsonError("Admin automation scope requires admin role", 403);
+    }
     const key = await createApiKeyUseCase(getAppServices(c), {
       userId: user.id,
       label: String(label ?? "Default key"),

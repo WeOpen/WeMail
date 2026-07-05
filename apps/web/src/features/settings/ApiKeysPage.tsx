@@ -18,7 +18,8 @@ import {
   API_KEY_SCOPE_DEFINITIONS,
   DEFAULT_API_KEY_SCOPES,
   type ApiKeyScope,
-  type ApiKeySummary
+  type ApiKeySummary,
+  type UserRole
 } from "@wemail/shared";
 import { Button } from "../../shared/button";
 import { Checkbox, FormField, TextInput } from "../../shared/form";
@@ -37,6 +38,7 @@ type CreateApiKeyResult = {
 
 type ApiKeysPageProps = {
   apiKeys: ApiKeySummary[];
+  currentUserRole?: UserRole;
   onCreateApiKey: (label: string, scopes: ApiKeyScope[]) => Promise<CreateApiKeyResult>;
   onRevokeApiKey: (keyId: string) => Promise<void>;
 };
@@ -59,6 +61,7 @@ type ApiKeysCodeBlockProps = {
 const API_KEYS_PAGE_SIZE = 5;
 const API_KEYS_PAGE_SIZE_OPTIONS = [5, 10, 20] as const;
 const defaultCreateScopes = [...DEFAULT_API_KEY_SCOPES] as ApiKeyScope[];
+const ADMIN_AUTOMATION_SCOPE: ApiKeyScope = "admin:automation";
 const scopeLabelById = new Map<ApiKeyScope, string>(
   API_KEY_SCOPE_DEFINITIONS.map((scope) => [scope.id as ApiKeyScope, scope.label])
 );
@@ -118,7 +121,7 @@ function ApiKeysCodeBlock({ copied, copyLabel, label, onCopy, value }: ApiKeysCo
   );
 }
 
-export function ApiKeysPage({ apiKeys, onCreateApiKey, onRevokeApiKey }: ApiKeysPageProps) {
+export function ApiKeysPage({ apiKeys, currentUserRole = "member", onCreateApiKey, onRevokeApiKey }: ApiKeysPageProps) {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isExampleOpen, setIsExampleOpen] = useState(false);
   const [label, setLabel] = useState("");
@@ -207,6 +210,9 @@ export function ApiKeysPage({ apiKeys, onCreateApiKey, onRevokeApiKey }: ApiKeys
   const paginatedApiKeys = apiKeys.slice(
     (currentSafePage - 1) * pageSize,
     currentSafePage * pageSize
+  );
+  const createScopeDefinitions = API_KEY_SCOPE_DEFINITIONS.filter(
+    (scope) => currentUserRole === "admin" || scope.id !== ADMIN_AUTOMATION_SCOPE
   );
   const statCards: Array<{
     detail: string;
@@ -446,7 +452,7 @@ export function ApiKeysPage({ apiKeys, onCreateApiKey, onRevokeApiKey }: ApiKeys
             />
           </FormField>
           <div className="api-keys-scope-picker" role="group" aria-label="API 密钥权限范围">
-            {API_KEY_SCOPE_DEFINITIONS.map((scope) => (
+            {createScopeDefinitions.map((scope) => (
               <Checkbox
                 checked={selectedScopes.includes(scope.id)}
                 className="api-keys-scope-option"

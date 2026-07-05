@@ -321,7 +321,12 @@ export function AppRoutes({
   );
 
   const apiKeysPage = (
-    <ApiKeysPage apiKeys={settings.apiKeys} onCreateApiKey={settings.createApiKey} onRevokeApiKey={settings.revokeApiKey} />
+    <ApiKeysPage
+      apiKeys={settings.apiKeys}
+      currentUserRole={session.user.role}
+      onCreateApiKey={settings.createApiKey}
+      onRevokeApiKey={settings.revokeApiKey}
+    />
   );
   const apiInterfacesPage = <ApiInterfacesPage />;
 

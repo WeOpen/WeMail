@@ -177,6 +177,7 @@ describe("settings pages", () => {
     expect(document.querySelector(".api-keys-create-panel")).toBeNull();
     expect(within(createDialog).getByRole("group", { name: "API 密钥权限范围" })).toBeInTheDocument();
     expect(within(createDialog).getByText("读取邮件", { selector: "strong" })).toBeInTheDocument();
+    expect(within(createDialog).queryByText("管理员自动化", { selector: "strong" })).not.toBeInTheDocument();
 
     await user.type(within(createDialog).getByLabelText(/密钥名称/i), "个人 CLI");
     await user.click(within(createDialog).getByRole("button", { name: /确认创建/i }));

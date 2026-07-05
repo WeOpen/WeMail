@@ -133,6 +133,51 @@ describe("worker settings integration", () => {
     expect(revokeResponse.status).toBe(200);
   });
 
+  it("rejects admin automation API key scope for non-admin users", async () => {
+    const { app, env, store } = await registerUserAndGetCookie({
+      email: "admin@example.com",
+      inviteCode: "INVITE-API-AUTOMATION-ADMIN"
+    });
+    await store.invites.create({
+      code: "INVITE-API-AUTOMATION-MEMBER",
+      createdByUserId: "system"
+    });
+
+    const memberRegisterResponse = await app.request(
+      "/api/auth/register",
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          email: "api-automation-member@example.com",
+          name: "API Automation Member",
+          password: "password123",
+          inviteCode: "INVITE-API-AUTOMATION-MEMBER"
+        })
+      },
+      env
+    );
+    const memberCookie = memberRegisterResponse.headers.get("set-cookie") ?? "";
+
+    const createResponse = await app.request(
+      "/api/api-keys",
+      {
+        method: "POST",
+        headers: {
+          cookie: memberCookie,
+          "content-type": "application/json"
+        },
+        body: JSON.stringify({ label: "Member automation key", scopes: ["mail:read", "admin:automation"] })
+      },
+      env
+    );
+    const payload = (await createResponse.json()) as { error?: string };
+
+    expect(memberRegisterResponse.status).toBe(201);
+    expect(createResponse.status).toBe(403);
+    expect(payload.error).toBe("Admin automation scope requires admin role");
+  });
+
   it("rejects API key requests that are missing the required scope", async () => {
     const { app, env, cookie } = await registerUserAndGetCookie({
       email: "api-scope@example.com",

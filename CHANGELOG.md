@@ -14,6 +14,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.3] - 2026-07-05
+
+### Fixed
+
+- Hid the admin automation API key scope from non-admin API key creation and rejected non-admin requests that submit it directly.
+
 ## [0.2.2] - 2026-07-05
 
 ### Added
