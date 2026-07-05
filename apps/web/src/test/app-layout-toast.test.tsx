@@ -8,6 +8,7 @@ import type { SessionSummary } from "@wemail/shared";
 
 import { AppLayout } from "../app/AppLayout";
 import type { WorkspaceShellState } from "../app/workspaceShell";
+import type { AnnouncementItem } from "../features/announcements/api";
 
 const sharedStyles = readFileSync("src/shared/styles/index.css", "utf8");
 
@@ -72,6 +73,24 @@ const adminShell: WorkspaceShellState = {
   ]
 };
 
+const recentAnnouncements: AnnouncementItem[] = [
+  {
+    id: "ann-1",
+    audience: "all",
+    author: "Admin",
+    pinned: false,
+    priority: "normal",
+    publishedAt: "2026-04-08T00:00:00.000Z",
+    receiptStatus: "未签收",
+    status: "published",
+    summary: "公告摘要",
+    tags: [],
+    title: "测试公告",
+    type: "product",
+    updatedAt: "2026-04-08T00:00:00.000Z"
+  }
+];
+
 describe("AppLayout notice removal", () => {
   afterEach(() => {
     cleanup();
@@ -128,6 +147,32 @@ describe("AppLayout notice removal", () => {
     fireEvent.click(within(userMenu).getByRole("menuitem", { name: "退出登录" }));
 
     expect(handleLogout).toHaveBeenCalledTimes(1);
+  });
+
+  it("left-aligns recent announcement items in the user menu", () => {
+    render(
+      <MemoryRouter>
+        <AppLayout
+          announcementCount={1}
+          announcements={recentAnnouncements}
+          session={session}
+          onLogout={vi.fn()}
+          onToggleTheme={vi.fn()}
+          shell={shell}
+          theme="light"
+        >
+          <div>dashboard body</div>
+        </AppLayout>
+      </MemoryRouter>
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "用户菜单，1 条公告" }));
+
+    const announcementItem = screen.getByRole("menuitem", { name: "查看公告 测试公告" });
+    expect(announcementItem).toHaveClass("workspace-user-announcement-item");
+    expect(sharedStyles).toMatch(/\.workspace-user-announcement-item\s*\{[^}]*justify-items:\s*start;/);
+    expect(sharedStyles).toMatch(/\.workspace-user-announcement-item\s*\{[^}]*justify-content:\s*stretch;/);
+    expect(sharedStyles).toMatch(/\.workspace-user-announcement-item strong,\s*\.workspace-user-announcement-item span\s*\{[^}]*justify-self:\s*start;/);
   });
 
   it("renders a mobile dock with workspace icons and a separate settings icon bar", () => {

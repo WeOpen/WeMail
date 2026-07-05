@@ -296,6 +296,8 @@ function toInviteRecord(row: any) {
     disabledAt: row.disabled_at,
     expiresAt: row.expires_at ?? null,
     targetRole: parseUserRole(row.target_role),
+    maxRedemptions: Number(row.max_redemptions ?? 1),
+    redemptionCount: Number(row.redemption_count ?? (row.redeemed_at ? 1 : 0)),
     createdAt: row.created_at
   };
 }
@@ -668,11 +670,12 @@ export function createD1Store(db: D1Database): AppStore {
         const id = crypto.randomUUID();
         const createdAt = nowIso();
         const targetRole = input.targetRole ?? "member";
+        const maxRedemptions = input.maxRedemptions ?? 1;
         await db
           .prepare(
-            "INSERT INTO user_invites (id, code, created_by_user_id, redeemed_by_user_id, redeemed_at, disabled_at, expires_at, target_role, created_at) VALUES (?, ?, ?, NULL, NULL, NULL, ?, ?, ?)"
+            "INSERT INTO user_invites (id, code, created_by_user_id, redeemed_by_user_id, redeemed_at, disabled_at, expires_at, target_role, max_redemptions, redemption_count, created_at) VALUES (?, ?, ?, NULL, NULL, NULL, ?, ?, ?, 0, ?)"
           )
-          .bind(id, input.code, input.createdByUserId, input.expiresAt ?? null, targetRole, createdAt)
+          .bind(id, input.code, input.createdByUserId, input.expiresAt ?? null, targetRole, maxRedemptions, createdAt)
           .run();
         return {
           id,
@@ -683,6 +686,8 @@ export function createD1Store(db: D1Database): AppStore {
           disabledAt: null,
           expiresAt: input.expiresAt ?? null,
           targetRole,
+          maxRedemptions,
+          redemptionCount: 0,
           createdAt
         };
       },
@@ -697,7 +702,9 @@ export function createD1Store(db: D1Database): AppStore {
       async redeem(code, userId) {
         const redeemedAt = nowIso();
         await db
-          .prepare("UPDATE user_invites SET redeemed_by_user_id = ?, redeemed_at = ? WHERE code = ?")
+          .prepare(
+            "UPDATE user_invites SET redeemed_by_user_id = ?, redeemed_at = ?, redemption_count = redemption_count + 1 WHERE code = ? AND redemption_count < max_redemptions"
+          )
           .bind(userId, redeemedAt, code)
           .run();
         return (await this.findByCode(code))!;
@@ -710,7 +717,7 @@ export function createD1Store(db: D1Database): AppStore {
         const totalRow = await db.prepare("SELECT count(*) AS count FROM user_invites").first<{ count: number }>();
         const availableRow = await db
           .prepare(
-            "SELECT count(*) AS count FROM user_invites WHERE redeemed_at IS NULL AND disabled_at IS NULL AND (expires_at IS NULL OR expires_at > ?)"
+            "SELECT count(*) AS count FROM user_invites WHERE redemption_count < max_redemptions AND disabled_at IS NULL AND (expires_at IS NULL OR expires_at > ?)"
           )
           .bind(nowIso())
           .first<{ count: number }>();

@@ -183,7 +183,7 @@ function createInviteCode() {
 export async function createInvitesUseCase(
   context: AdminUseCaseContext,
   actorUserId: string,
-  input: { count: number; expiresInDays: number | null; targetRole: UserRole }
+  input: { count: number; expiresInDays: number | null; targetRole: UserRole; maxRedemptions: number }
 ) {
   const expiresAt = input.expiresInDays
     ? new Date(Date.now() + input.expiresInDays * 24 * 60 * 60 * 1000).toISOString()
@@ -195,7 +195,8 @@ export async function createInvitesUseCase(
         code: createInviteCode(),
         createdByUserId: actorUserId,
         expiresAt,
-        targetRole: input.targetRole
+        targetRole: input.targetRole,
+        maxRedemptions: input.maxRedemptions
       })
     );
   }
@@ -203,6 +204,7 @@ export async function createInvitesUseCase(
     count: invites.length,
     expiresAt,
     targetRole: input.targetRole,
+    maxRedemptions: input.maxRedemptions,
     inviteIds: invites.map((invite) => invite.id)
   });
   return invites;
@@ -214,7 +216,7 @@ export async function disableInviteUseCase(
 ) {
   const invite = await context.store.invites.findById(payload.inviteId);
   if (!invite) return jsonError("Invite not found", 404);
-  if (invite.redeemedAt) return jsonError("Invite already redeemed", 409);
+  if (isInviteFullyRedeemed(invite)) return jsonError("Invite already redeemed", 409);
   if (invite.disabledAt) return jsonError("Invite already disabled", 409);
 
   await context.store.invites.disable(payload.inviteId);
@@ -260,6 +262,10 @@ function parseAuditPayload(value: string) {
 
 function isInviteExpired(invite: InviteRecord) {
   return Boolean(invite.expiresAt && new Date(invite.expiresAt) <= new Date());
+}
+
+function isInviteFullyRedeemed(invite: InviteRecord) {
+  return invite.redemptionCount >= invite.maxRedemptions;
 }
 
 function formatAuditEventLabel(eventType: string) {
@@ -431,9 +437,9 @@ export async function getAdminGovernanceSummary(context: AdminUseCaseContext): P
   const usersById = new Map(users.map((user) => [user.id, user]));
   const inviteStats = invites.reduce(
     (stats, invite) => {
-      if (invite.redeemedAt) stats.redeemed += 1;
-      else if (invite.disabledAt) stats.disabled += 1;
+      if (invite.disabledAt) stats.disabled += 1;
       else if (isInviteExpired(invite)) stats.expired += 1;
+      else if (isInviteFullyRedeemed(invite)) stats.redeemed += 1;
       else stats.available += 1;
       stats.total += 1;
       return stats;

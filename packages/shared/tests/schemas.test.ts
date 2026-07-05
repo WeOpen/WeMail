@@ -6,6 +6,7 @@ import {
   parseLoginPayload,
   parseMailSettingsUpdatePayload,
   parseMailboxCreatePayload,
+  parseInviteCreatePayload,
   parseOutboundPayload,
   parseQuotaPayload,
   parseRegisterPayload,
@@ -126,6 +127,29 @@ describe("shared schemas", () => {
       apiDailyLimit: 5000,
       dailyLimit: 5,
       disabled: true
+    });
+  });
+
+  it("parses invite creation payload with reusable redemption limit", () => {
+    expect(
+      parseInviteCreatePayload({
+        count: 5,
+        targetRole: "member",
+        expiresInDays: 30,
+        maxRedemptions: 3
+      })
+    ).toEqual({
+      count: 5,
+      targetRole: "member",
+      expiresInDays: 30,
+      maxRedemptions: 3
+    });
+
+    expect(parseInviteCreatePayload({})).toMatchObject({
+      count: 1,
+      targetRole: "member",
+      expiresInDays: null,
+      maxRedemptions: 1
     });
   });
 

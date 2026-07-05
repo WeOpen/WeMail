@@ -435,6 +435,81 @@ describe("worker admin integration", () => {
     expect(payload.invites[0].code).toContain("INVITE-");
   });
 
+  it("allows each invite code to be redeemed up to its configured usage count", async () => {
+    const { app, env, cookie } = await registerUserAndGetCookie({
+      email: "admin@example.com",
+      inviteCode: "INVITE-ADMIN-REUSABLE"
+    });
+
+    const createResponse = await app.request(
+      "/api/users/invites",
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          cookie
+        },
+        body: JSON.stringify({ count: 2, maxRedemptions: 3, targetRole: "member", expiresInDays: 30 })
+      },
+      env
+    );
+    const createPayload = (await createResponse.json()) as {
+      invites: Array<{ code: string; maxRedemptions: number; redemptionCount: number; status: string }>;
+    };
+    const inviteCode = createPayload.invites[0].code;
+
+    expect(createResponse.status).toBe(201);
+    expect(createPayload.invites).toHaveLength(2);
+    expect(createPayload.invites[0]).toMatchObject({
+      maxRedemptions: 3,
+      redemptionCount: 0,
+      status: "ready"
+    });
+
+    async function registerWithReusableInvite(index: number) {
+      return app.request(
+        "/api/auth/register",
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            email: `reusable-${index}@example.com`,
+            name: `Reusable ${index}`,
+            password: "password123",
+            inviteCode
+          })
+        },
+        env
+      );
+    }
+
+    expect((await registerWithReusableInvite(1)).status).toBe(201);
+    expect((await registerWithReusableInvite(2)).status).toBe(201);
+
+    const partialListResponse = await app.request("/api/users/invites", { headers: { cookie } }, env);
+    const partialListPayload = (await partialListResponse.json()) as {
+      invites: Array<{ code: string; maxRedemptions: number; redemptionCount: number; status: string }>;
+    };
+    expect(partialListPayload.invites.find((invite) => invite.code === inviteCode)).toMatchObject({
+      maxRedemptions: 3,
+      redemptionCount: 2,
+      status: "ready"
+    });
+
+    expect((await registerWithReusableInvite(3)).status).toBe(201);
+    expect((await registerWithReusableInvite(4)).status).toBe(403);
+
+    const finalListResponse = await app.request("/api/users/invites", { headers: { cookie } }, env);
+    const finalListPayload = (await finalListResponse.json()) as {
+      invites: Array<{ code: string; maxRedemptions: number; redemptionCount: number; status: string }>;
+    };
+    expect(finalListPayload.invites.find((invite) => invite.code === inviteCode)).toMatchObject({
+      maxRedemptions: 3,
+      redemptionCount: 3,
+      status: "redeemed"
+    });
+  });
+
   it("allows admins to manage mailbox domain suffixes", async () => {
     const { app, env, cookie, store } = await registerUserAndGetCookie({
       email: "admin@example.com",

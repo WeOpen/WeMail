@@ -586,6 +586,8 @@ export type InviteSummary = {
   createdAt: string;
   expiresAt: string | null;
   targetRole: UserRole;
+  maxRedemptions: number;
+  redemptionCount: number;
   redeemedByUserId: string | null;
   redeemedByUserName?: string | null;
   redeemedAt: string | null;
@@ -597,6 +599,7 @@ export type InviteCreateInput = {
   count?: number;
   targetRole?: UserRole;
   expiresInDays?: number | null;
+  maxRedemptions?: number;
 };
 
 export type AdminLoginHistoryEvent = {

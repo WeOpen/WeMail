@@ -35,6 +35,8 @@ const adminInvites: InviteSummary[] = [
     createdAt: "2026-04-08T00:00:00.000Z",
     expiresAt: "2026-12-08T00:00:00.000Z",
     targetRole: "member",
+    maxRedemptions: 1,
+    redemptionCount: 0,
     redeemedByUserId: null,
     redeemedAt: null,
     disabledAt: null
@@ -228,6 +230,8 @@ function createInvites(count: number): InviteSummary[] {
       createdAt: `2026-04-${String(inviteNumber).padStart(2, "0")}T00:00:00.000Z`,
       expiresAt: null,
       targetRole: "member",
+      maxRedemptions: 1,
+      redemptionCount: 0,
       redeemedByUserId: null,
       redeemedAt: null,
       disabledAt: null
@@ -381,6 +385,9 @@ describe("UsersGlobalSettingsPage", () => {
     expect(within(createInviteDialog).getByRole("combobox", { name: "邀请码目标角色" })).toBeInTheDocument();
     expect(within(createInviteDialog).getByRole("combobox", { name: "邀请码有效期" })).toBeInTheDocument();
     expect(within(createInviteDialog).getByRole("combobox", { name: "邀请码创建数量" })).toBeInTheDocument();
+    const maxRedemptionsInput = within(createInviteDialog).getByRole("spinbutton", { name: "邀请码可用次数" });
+    expect(maxRedemptionsInput).toHaveValue(1);
+    fireEvent.change(maxRedemptionsInput, { target: { value: "3" } });
     fireEvent.click(within(createInviteDialog).getByRole("button", { name: "创建邀请码" }));
     await waitFor(() => {
       expect(screen.queryByRole("dialog", { name: "创建邀请码" })).not.toBeInTheDocument();
@@ -392,7 +399,8 @@ describe("UsersGlobalSettingsPage", () => {
     expect(onCreateInvite).toHaveBeenCalledWith({
       count: 1,
       targetRole: "member",
-      expiresInDays: 30
+      expiresInDays: 30,
+      maxRedemptions: 3
     });
     expect(onDisableInvite).toHaveBeenCalledWith("invite-1");
     expect(onSelectQuotaUser).toHaveBeenCalledWith("member-1");
@@ -440,6 +448,7 @@ describe("UsersGlobalSettingsPage", () => {
           id: "invite-redeemed",
           code: "INVITE-REDEEMED",
           redeemedByUserId: "member-1",
+          redemptionCount: 1,
           redeemedAt: "2026-06-08T08:00:00.000Z"
         }
       ]

@@ -527,6 +527,8 @@ export function createInMemoryStore(): AppStore {
           disabledAt: null,
           expiresAt: input.expiresAt ?? null,
           targetRole: input.targetRole ?? "member",
+          maxRedemptions: input.maxRedemptions ?? 1,
+          redemptionCount: 0,
           createdAt: nowIso()
         };
         invites.set(record.id, record);
@@ -543,8 +545,10 @@ export function createInMemoryStore(): AppStore {
       async redeem(code, userId) {
         const invite = Array.from(invites.values()).find((entry) => entry.code === code);
         if (!invite) throw new Error("Invite not found");
+        if (invite.redemptionCount >= invite.maxRedemptions) throw new Error("Invite already redeemed");
         invite.redeemedByUserId = userId;
         invite.redeemedAt = nowIso();
+        invite.redemptionCount += 1;
         invites.set(invite.id, invite);
         return clone(withInviteDisplayUser(invite));
       },
@@ -557,7 +561,10 @@ export function createInMemoryStore(): AppStore {
         const now = new Date();
         return clone({
           available: sortedInvites.filter(
-            (invite) => !invite.redeemedAt && !invite.disabledAt && (!invite.expiresAt || new Date(invite.expiresAt) > now)
+            (invite) =>
+              invite.redemptionCount < invite.maxRedemptions &&
+              !invite.disabledAt &&
+              (!invite.expiresAt || new Date(invite.expiresAt) > now)
           ).length,
           invites: sortedInvites.slice(startIndex, startIndex + options.pageSize).map(withInviteDisplayUser),
           page: options.page,

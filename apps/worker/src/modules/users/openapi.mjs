@@ -144,11 +144,13 @@ export const paths = {
             schema: {
               type: "object",
               properties: {
+                count: { type: "integer", minimum: 1, maximum: 50, default: 1 },
                 expiresInDays: { type: ["integer", "null"], minimum: 1, maximum: 365 },
+                maxRedemptions: { type: "integer", minimum: 1, maximum: 100, default: 1 },
                 targetRole: { type: "string", enum: ["admin", "member"], default: "member" }
               }
             },
-            example: { expiresInDays: 30, targetRole: "member" }
+            example: { count: 5, expiresInDays: 30, maxRedemptions: 3, targetRole: "member" }
           }
         }
       },

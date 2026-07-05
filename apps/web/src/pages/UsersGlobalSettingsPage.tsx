@@ -38,7 +38,9 @@ type UsersGlobalSettingsPageProps = {
 };
 
 function isInviteAvailable(invite: InviteSummary) {
-  return invite.status === "ready" || (!invite.status && !invite.redeemedAt && !invite.disabledAt);
+  const redemptionCount = invite.redemptionCount ?? (invite.redeemedAt ? 1 : 0);
+  const maxRedemptions = invite.maxRedemptions ?? 1;
+  return invite.status === "ready" || (!invite.status && redemptionCount < maxRedemptions && !invite.disabledAt);
 }
 
 export function UsersGlobalSettingsPage({

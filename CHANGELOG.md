@@ -14,6 +14,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.2] - 2026-07-05
+
+### Added
+
+- Added per-invite redemption limits so admins can create invite codes that are usable more than once, with usage counts shown in the invite list.
+
+### Fixed
+
+- Kept recent announcement items left-aligned inside the user menu so long announcement text truncates consistently.
+
 ## [0.2.1] - 2026-07-05
 
 ### Changed

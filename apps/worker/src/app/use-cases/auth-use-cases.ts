@@ -127,7 +127,7 @@ function isInviteExpired(invite: Pick<InviteRecord, "expiresAt">) {
 }
 
 function isInviteUsable(invite: InviteRecord | null) {
-  return Boolean(invite && !invite.redeemedAt && !invite.disabledAt && !isInviteExpired(invite));
+  return Boolean(invite && invite.redemptionCount < invite.maxRedemptions && !invite.disabledAt && !isInviteExpired(invite));
 }
 
 function resolveUserRoleFromInvite(

@@ -8,6 +8,8 @@ export type InviteSummary = {
   createdAt: string;
   expiresAt: string | null;
   targetRole: UserRole;
+  maxRedemptions: number;
+  redemptionCount: number;
   redeemedByUserId: string | null;
   redeemedByUserName?: string | null;
   redeemedAt: string | null;

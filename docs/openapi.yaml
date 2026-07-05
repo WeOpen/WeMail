@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "WeMail 菜单化后端 API",
-    "version": "0.2.1",
+    "version": "0.2.2",
     "description": "WeMail 后端 API 已按管理后台左侧菜单分组。旧 /auth、/admin、/api/mailboxes、/api/messages、/api/outbound、/api/keys、/api/telegram 路径不再保留。"
   },
   "servers": [
@@ -2423,6 +2423,12 @@
               "schema": {
                 "type": "object",
                 "properties": {
+                  "count": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 50,
+                    "default": 1
+                  },
                   "expiresInDays": {
                     "type": [
                       "integer",
@@ -2430,6 +2436,12 @@
                     ],
                     "minimum": 1,
                     "maximum": 365
+                  },
+                  "maxRedemptions": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 100,
+                    "default": 1
                   },
                   "targetRole": {
                     "type": "string",
@@ -2442,7 +2454,9 @@
                 }
               },
               "example": {
+                "count": 5,
                 "expiresInDays": 30,
+                "maxRedemptions": 3,
                 "targetRole": "member"
               }
             }

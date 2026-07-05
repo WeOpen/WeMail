@@ -268,6 +268,8 @@ export type InviteRecord = {
   disabledAt: string | null;
   expiresAt: string | null;
   targetRole: UserRole;
+  maxRedemptions: number;
+  redemptionCount: number;
   createdAt: string;
 };
 
@@ -534,7 +536,13 @@ export interface AppStore {
     deleteByUserId: (userId: string) => Promise<void>;
   };
   invites: {
-    create: (input: { code: string; createdByUserId: string | null; expiresAt?: string | null; targetRole?: UserRole }) => Promise<InviteRecord>;
+    create: (input: {
+      code: string;
+      createdByUserId: string | null;
+      expiresAt?: string | null;
+      targetRole?: UserRole;
+      maxRedemptions?: number;
+    }) => Promise<InviteRecord>;
     findByCode: (code: string) => Promise<InviteRecord | null>;
     findById: (id: string) => Promise<InviteRecord | null>;
     redeem: (code: string, userId: string) => Promise<InviteRecord>;

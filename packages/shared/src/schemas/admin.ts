@@ -85,6 +85,8 @@ export function parseUserPasswordResetPayload(input: unknown) {
 export function parseInviteCreatePayload(input: unknown): Required<InviteCreateInput> {
   const payload = toRecordLike(input ?? {});
   const count = typeof payload.count === "undefined" ? 1 : requireNumber(payload.count, "count");
+  const maxRedemptions =
+    typeof payload.maxRedemptions === "undefined" ? 1 : requireNumber(payload.maxRedemptions, "maxRedemptions");
   const targetRole = requireUserRole(payload.targetRole ?? "member");
   const expiresInDays =
     typeof payload.expiresInDays === "undefined" || payload.expiresInDays === null
@@ -95,6 +97,10 @@ export function parseInviteCreatePayload(input: unknown): Required<InviteCreateI
     throw new Error("count must be an integer between 1 and 50");
   }
 
+  if (!Number.isInteger(maxRedemptions) || maxRedemptions < 1 || maxRedemptions > 100) {
+    throw new Error("maxRedemptions must be an integer between 1 and 100");
+  }
+
   if (expiresInDays !== null && (!Number.isInteger(expiresInDays) || expiresInDays < 1 || expiresInDays > 365)) {
     throw new Error("expiresInDays must be an integer between 1 and 365");
   }
@@ -102,6 +108,7 @@ export function parseInviteCreatePayload(input: unknown): Required<InviteCreateI
   return {
     count,
     targetRole,
-    expiresInDays
+    expiresInDays,
+    maxRedemptions
   };
 }

@@ -6,7 +6,7 @@ import type { UserSummary } from "@wemail/shared";
 import { Button } from "../../shared/button";
 import { Badge } from "../../shared/badge";
 import { formatDisplayEmail } from "../../shared/display";
-import { FormField, SelectInput } from "../../shared/form";
+import { FormField, SelectInput, TextInput } from "../../shared/form";
 import { OverlayDialog } from "../../shared/overlay";
 import { Pagination } from "../../shared/pagination";
 import { formatInviteStatus } from "./formatters";
@@ -28,11 +28,19 @@ type InvitePanelProps = {
 const INVITE_PAGE_SIZE = 5;
 const INVITE_PAGE_SIZE_OPTIONS = [5, 10, 20] as const;
 
+function getInviteMaxRedemptions(invite: InviteSummary) {
+  return invite.maxRedemptions ?? 1;
+}
+
+function getInviteRedemptionCount(invite: InviteSummary) {
+  return invite.redemptionCount ?? (invite.redeemedAt ? 1 : 0);
+}
+
 function getInviteStatus(invite: InviteSummary): InviteStatus {
   if (invite.status) return invite.status;
-  if (invite.redeemedAt) return "redeemed";
   if (invite.disabledAt) return "disabled";
   if (invite.expiresAt && new Date(invite.expiresAt) <= new Date()) return "expired";
+  if (getInviteRedemptionCount(invite) >= getInviteMaxRedemptions(invite)) return "redeemed";
   return "ready";
 }
 
@@ -80,6 +88,7 @@ export function InvitePanel({
   const [targetRole, setTargetRole] = useState<InviteCreatePayload["targetRole"]>("member");
   const [expiresInDays, setExpiresInDays] = useState("30");
   const [count, setCount] = useState("1");
+  const [maxRedemptions, setMaxRedemptions] = useState("1");
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const isRemotePaged = Boolean(onInvitePageChange);
   const pageSize = invitesPageSize ?? localPageSize;
@@ -117,7 +126,8 @@ export function InvitePanel({
     await onCreateInvite({
       count: Number(count),
       targetRole,
-      expiresInDays: expiresInDays === "never" ? null : Number(expiresInDays)
+      expiresInDays: expiresInDays === "never" ? null : Number(expiresInDays),
+      maxRedemptions: Number(maxRedemptions)
     });
     setIsCreateDialogOpen(false);
   }
@@ -155,7 +165,8 @@ export function InvitePanel({
               <div className="users-settings-row-main">
                 <strong>{invite.code}</strong>
                 <span>
-                  创建于 {invite.createdAt.slice(0, 10)} · {getRoleLabel(invite.targetRole)} · {formatInviteExpiry(invite)}
+                  创建于 {invite.createdAt.slice(0, 10)} · {getRoleLabel(invite.targetRole)} · 已用 {getInviteRedemptionCount(invite)}
+                  /{getInviteMaxRedemptions(invite)} 次 · {formatInviteExpiry(invite)}
                 </span>
                 {redeemedByLabel ? <span>兑换用户 {redeemedByLabel}</span> : null}
               </div>
@@ -236,6 +247,18 @@ export function InvitePanel({
                 <option value="10">10 个</option>
                 <option value="20">20 个</option>
               </SelectInput>
+            </FormField>
+            <FormField label="可用次数">
+              <TextInput
+                aria-label="邀请码可用次数"
+                onChange={(event) => setMaxRedemptions(event.currentTarget.value)}
+                inputMode="numeric"
+                max={100}
+                min={1}
+                step={1}
+                type="number"
+                value={maxRedemptions}
+              />
             </FormField>
             <div className="workspace-dialog-actions">
               <Button onClick={() => setIsCreateDialogOpen(false)} variant="secondary">

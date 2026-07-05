@@ -2096,6 +2096,9 @@ button:disabled {
 .workspace-user-announcement-item {
   display: grid;
   gap: 3px;
+  align-content: start;
+  justify-content: stretch;
+  justify-items: start;
   width: 100%;
   padding: 9px 10px;
   border-radius: 14px;
@@ -2121,6 +2124,7 @@ button:disabled {
 
 .workspace-user-announcement-item strong,
 .workspace-user-announcement-item span {
+  justify-self: start;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
