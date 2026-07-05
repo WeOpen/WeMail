@@ -8,6 +8,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   Checkbox,
   CheckboxField,
+  DateInput,
   FormField,
   MultiSelect,
   Radio,
@@ -148,6 +149,120 @@ describe("shared form primitives", () => {
     fireEvent.click(compact);
 
     expect(compact).toBeChecked();
+  });
+
+  it("renders DateInput with a themed calendar panel while preserving text entry", async () => {
+    const user = userEvent.setup();
+
+    function Host() {
+      const [value, setValue] = useState("");
+
+      return (
+        <DateInput
+          aria-label="开始日期"
+          calendarLabel="打开开始日期选择器"
+          onValueChange={setValue}
+          value={value}
+        />
+      );
+    }
+
+    render(<Host />);
+
+    const input = screen.getByLabelText("开始日期");
+    expect(input).toHaveAttribute("type", "text");
+
+    await user.type(input, "2026-07-01");
+
+    expect(input).toHaveValue("2026-07-01");
+
+    const dialog = screen.getByRole("dialog", { name: "开始日期日历" });
+    expect(dialog).toHaveClass("ui-date-picker-panel");
+
+    await user.click(within(dialog).getByRole("button", { name: /选择 2026年7月2日/ }));
+
+    expect(input).toHaveValue("2026-07-02");
+    expect(screen.queryByRole("dialog", { name: "开始日期日历" })).not.toBeInTheDocument();
+  });
+
+  it("lets DateInput choose year and month from the heading", async () => {
+    const user = userEvent.setup();
+
+    function Host() {
+      const [value, setValue] = useState("2026-07-01");
+
+      return <DateInput aria-label="开始日期" onValueChange={setValue} value={value} />;
+    }
+
+    render(<Host />);
+
+    const input = screen.getAllByLabelText("开始日期").at(-1);
+    expect(input).toBeDefined();
+
+    await user.click(input!);
+    let dialog = screen.getByRole("dialog", { name: "开始日期日历" });
+
+    await user.click(within(dialog).getByRole("button", { name: "切换到月份选择" }));
+    await user.click(within(dialog).getByRole("button", { name: "切换到年份选择" }));
+    await user.click(within(dialog).getByRole("button", { name: "2027" }));
+    await user.click(within(dialog).getByRole("button", { name: "8月" }));
+    dialog = screen.getByRole("dialog", { name: "开始日期日历" });
+    await user.click(within(dialog).getByRole("button", { name: /选择 2027年8月2日/ }));
+
+    expect(input).toHaveValue("2027-08-02");
+    expect(screen.queryByRole("dialog", { name: "开始日期日历" })).not.toBeInTheDocument();
+  });
+
+  it("renders DateInput with inline time selection when showTime is enabled", async () => {
+    const user = userEvent.setup();
+    const handleValueChange = vi.fn();
+
+    function Host() {
+      const [value, setValue] = useState("2026-07-01T09:30");
+
+      return (
+        <DateInput
+          aria-label="起始时间"
+          onValueChange={(nextValue) => {
+            handleValueChange(nextValue);
+            setValue(nextValue);
+          }}
+          showTime
+          value={value}
+        />
+      );
+    }
+
+    render(<Host />);
+
+    const input = screen.getByLabelText("起始时间");
+    expect(input).toHaveAttribute("type", "text");
+    expect(input).toHaveValue("2026-07-01 09:30");
+
+    await user.click(input);
+    const dialog = screen.getByRole("dialog", { name: "起始时间日历" });
+    const hourWheel = within(dialog).getByRole("listbox", { name: "小时" });
+    const minuteWheel = within(dialog).getByRole("listbox", { name: "分钟" });
+
+    expect(dialog).toHaveAttribute("data-mode", "datetime");
+    expect(within(hourWheel).getByRole("option", { name: "09小时" })).toHaveAttribute("aria-selected", "true");
+    expect(within(minuteWheel).getByRole("option", { name: "30分钟" })).toHaveAttribute("aria-selected", "true");
+
+    await user.click(within(dialog).getByRole("button", { name: /选择 2026年7月2日/ }));
+
+    expect(input).toHaveValue("2026-07-02 09:30");
+    expect(handleValueChange).toHaveBeenLastCalledWith("2026-07-02T09:30");
+    expect(dialog).toBeInTheDocument();
+
+    await user.click(within(hourWheel).getByRole("option", { name: "10小时" }));
+
+    expect(input).toHaveValue("2026-07-02 10:30");
+    expect(handleValueChange).toHaveBeenLastCalledWith("2026-07-02T10:30");
+    expect(within(hourWheel).getByRole("option", { name: "10小时" })).toHaveAttribute("aria-selected", "true");
+
+    await user.click(within(dialog).getByRole("button", { name: "完成" }));
+
+    expect(screen.queryByRole("dialog", { name: "起始时间日历" })).not.toBeInTheDocument();
   });
 
   it("renders SearchInput with clear affordance in controlled mode", async () => {

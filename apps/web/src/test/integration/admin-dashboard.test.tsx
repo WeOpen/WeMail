@@ -95,11 +95,10 @@ describe("admin dashboard integration", () => {
       expect(sidebar).toBeInTheDocument();
       expect(within(sidebar).getByRole("link", { name: /^用户(?:\s|$)/i })).toBeInTheDocument();
       expect(await screen.findByRole("navigation", { name: /用户 二级菜单/i })).toBeInTheDocument();
-      expect(await screen.findByRole("heading", { name: /邀请与入场/i })).toBeInTheDocument();
-      expect(screen.getByRole("heading", { name: /能力开关/i })).toBeInTheDocument();
-      expect(screen.getByRole("heading", { name: /配额策略/i })).toBeInTheDocument();
-      expect(screen.getByRole("heading", { name: /邮箱监管/i })).toBeInTheDocument();
-      expect(await screen.findByText(/ops@example.com/i)).toBeInTheDocument();
+      expect(await screen.findByRole("region", { name: /邀请流程/i })).toBeInTheDocument();
+      expect(screen.queryByRole("heading", { name: /能力开关/i })).not.toBeInTheDocument();
+      expect(screen.getByRole("region", { name: /配额限制/i })).toBeInTheDocument();
+      expect(screen.queryByRole("heading", { name: /邮箱监管/i })).not.toBeInTheDocument();
 
       fireEvent.click(await screen.findByRole("button", { name: /member@example.com.*成员/i }));
       expect(await screen.findByDisplayValue("20")).toBeInTheDocument();

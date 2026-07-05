@@ -209,7 +209,7 @@ export const apiInterfaceGroups = [
         method: "GET",
         path: "/api/users",
         title: "用户列表",
-        description: "分页查询后台用户。",
+        description: "按创建时间倒序分页查询后台用户。",
         access: "管理员",
         example: { queryParameters: { page: "1", pageSize: "20", role: "member", search: "will" } }
       },

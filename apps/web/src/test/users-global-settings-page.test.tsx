@@ -1,15 +1,11 @@
-import { readFileSync } from "node:fs";
-
-import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import type { ComponentProps, FormEvent } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import type { AdminGovernanceSummary, CommercialModelSummary, FeatureToggles, MailboxSummary, QuotaSummary, UserSummary } from "@wemail/shared";
+import type { AdminGovernanceSummary, CommercialModelSummary, MailboxSummary, QuotaSummary, UserSummary } from "@wemail/shared";
 
 import { UsersGlobalSettingsPage } from "../pages/UsersGlobalSettingsPage";
 import type { InviteSummary } from "../features/admin/types";
-
-const sharedStyles = readFileSync("src/shared/styles/index.css", "utf8");
 
 const adminUsers: UserSummary[] = [
   {
@@ -55,16 +51,24 @@ const adminQuota: QuotaSummary = {
   updatedAt: "2026-04-08T00:00:00.000Z"
 };
 
-const adminFeatures: FeatureToggles = {
-  aiEnabled: true,
-  telegramEnabled: true,
-  outboundEnabled: true,
-  mailboxCreationEnabled: true
-};
-
 const adminMailboxes: MailboxSummary[] = [
   { id: "box-1", address: "ops@example.com", label: "Ops", createdAt: "2026-04-08T00:00:00.000Z" }
 ];
+
+function createQuotaUsers(count: number): UserSummary[] {
+  return Array.from({ length: count }, (_, index) => {
+    const userNumber = index + 1;
+    return {
+      id: userNumber === 1 ? "admin-1" : `member-${userNumber}`,
+      email: userNumber === 1 ? "admin@example.com" : `member-${userNumber}@example.com`,
+      name: userNumber === 1 ? "Admin User" : `Member ${userNumber}`,
+      role: userNumber === 1 ? "admin" : "member",
+      status: "active",
+      createdAt: "2026-04-08T00:00:00.000Z",
+      updatedAt: "2026-04-08T00:00:00.000Z"
+    };
+  });
+}
 
 const adminGovernance: AdminGovernanceSummary = {
   generatedAt: "2026-06-28T00:00:00.000Z",
@@ -209,7 +213,7 @@ const adminCommercial: CommercialModelSummary = {
       actorLabel: "Admin User / admin@example.com",
       eventType: "quota-update",
       eventLabel: "更新配额",
-      detail: "用户 member-1",
+      detail: "用户 Member User",
       createdAt: "2026-06-28T08:00:00.000Z"
     }
   ]
@@ -231,25 +235,12 @@ function createInvites(count: number): InviteSummary[] {
   });
 }
 
-function createMailboxes(count: number): MailboxSummary[] {
-  return Array.from({ length: count }, (_, index) => {
-    const mailboxNumber = index + 1;
-    return {
-      id: `box-${mailboxNumber}`,
-      address: `box${mailboxNumber}@example.com`,
-      label: `Mailbox ${mailboxNumber}`,
-      createdAt: `2026-05-${String(mailboxNumber).padStart(2, "0")}T00:00:00.000Z`
-    };
-  });
-}
-
 type UsersGlobalSettingsPageRenderProps = ComponentProps<typeof UsersGlobalSettingsPage>;
 
 function createUsersGlobalSettingsProps(
   overrides: Partial<UsersGlobalSettingsPageRenderProps> = {}
 ): UsersGlobalSettingsPageRenderProps {
   return {
-    adminFeatures,
     adminCommercial,
     adminGovernance,
     adminInvites,
@@ -260,7 +251,6 @@ function createUsersGlobalSettingsProps(
     onDisableInvite: vi.fn(),
     onSelectQuotaUser: vi.fn(),
     onSubmitQuota: vi.fn(async (event) => event.preventDefault()),
-    onToggleFeatures: vi.fn(),
     ...overrides
   };
 }
@@ -281,12 +271,22 @@ describe("UsersGlobalSettingsPage", () => {
   it("renders the global control sections for users settings", () => {
     renderUsersGlobalSettings();
 
-    expect(screen.getByRole("heading", { name: "邀请与入场" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "登录、审计与限流" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "套餐、团队与配额" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "配额策略" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "能力开关" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "邮箱监管" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "邀请流程" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "安全治理" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "商业与团队模型" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "配额限制" })).toBeInTheDocument();
+    const mainColumn = document.querySelector(".users-global-main-column");
+    const sectionLabels = Array.from(mainColumn?.children ?? [], (child) => child.getAttribute("aria-label"));
+    expect(sectionLabels.indexOf("配额限制")).toBeLessThan(sectionLabels.indexOf("安全治理"));
+    expect(screen.queryByRole("heading", { name: "邀请与入场" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "登录、审计与限流" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "套餐、团队与配额" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "配额策略" })).not.toBeInTheDocument();
+    expect(screen.queryByText("创建、停用并查看邀请码状态，无需离开当前控制台。")).not.toBeInTheDocument();
+    expect(screen.queryByText("集中查看登录历史、风险操作、邀请码兑换和关键流量策略。")).not.toBeInTheDocument();
+    expect(screen.queryByText("选择成员后，可调整每日外发额度，并暂停异常用户的外发能力。")).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "能力开关" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "邮箱监管" })).not.toBeInTheDocument();
   });
 
   it("starts directly with settings metrics without rendering the intro header", () => {
@@ -308,7 +308,15 @@ describe("UsersGlobalSettingsPage", () => {
     expect(within(overview).getByText("邮箱总数")).toBeInTheDocument();
     expect(within(overview).getAllByText("2")).toHaveLength(2);
     expect(within(overview).getAllByText("1")).toHaveLength(2);
-    const quotaTarget = screen.getByRole("region", { name: "当前配额目标" });
+    const quotaPanel = screen.getByRole("region", { name: "配额限制" });
+    const quotaUsers = within(quotaPanel).getByRole("region", { name: "配额用户" });
+    const quotaTargetColumn = quotaPanel.querySelector(".users-quota-target-column");
+    const quotaTarget = within(quotaPanel).getByRole("region", { name: "当前配额目标" });
+
+    expect(quotaPanel.querySelector(".users-quota-layout")).not.toBeNull();
+    expect(quotaUsers.querySelector(".users-quota-user-list")).not.toBeNull();
+    expect(quotaTargetColumn).not.toBeNull();
+    expect(within(quotaTargetColumn as HTMLElement).getByRole("form", { name: "保存用户配额" })).toBeInTheDocument();
     expect(within(quotaTarget).getByText("当前配额目标")).toBeInTheDocument();
     expect(within(quotaTarget).getByText("Admin User")).toBeInTheDocument();
     expect(within(quotaTarget).getByText("admin@example.com")).toBeInTheDocument();
@@ -320,7 +328,7 @@ describe("UsersGlobalSettingsPage", () => {
   it("renders governance login history, audit events, rate limits, and invite analytics", () => {
     renderUsersGlobalSettings();
 
-    const governancePanel = screen.getByRole("heading", { name: "登录、审计与限流" }).closest("section");
+    const governancePanel = screen.getByRole("region", { name: "安全治理" });
     expect(governancePanel).not.toBeNull();
 
     expect(within(governancePanel as HTMLElement).getByText("登录历史")).toBeInTheDocument();
@@ -335,68 +343,51 @@ describe("UsersGlobalSettingsPage", () => {
     expect(within(governancePanel as HTMLElement).getByText("待绑定")).toBeInTheDocument();
   });
 
-  it("renders commercial plan tiers, team workspace, quota usage, and organization audit", () => {
+  it("renders commercial plan tiers and quota usage without team workspace or organization audit cards", () => {
     renderUsersGlobalSettings();
 
     const commercialPanel = screen.getByRole("region", { name: "商业与团队模型" });
+    const planGrid = within(commercialPanel).getByLabelText("套餐层级");
 
-    expect(within(commercialPanel).getAllByText("团队版").length).toBeGreaterThan(0);
+    expect(within(planGrid).getByText("免费版").closest(".users-commercial-plan")).toHaveAttribute("data-plan", "free");
+    expect(within(planGrid).getByText("高级版").closest(".users-commercial-plan")).toHaveAttribute("data-plan", "pro");
+    expect(within(planGrid).getByText("团队版").closest(".users-commercial-plan")).toHaveAttribute("data-plan", "team");
     expect(within(commercialPanel).getByLabelText("组织级用量")).toHaveTextContent("8 / 100");
     expect(within(commercialPanel).getByLabelText("组织级用量")).toHaveTextContent("12 / 40000");
-    expect(within(commercialPanel).getByLabelText("默认团队空间")).toHaveTextContent("WeMail 默认组织");
-    expect(within(commercialPanel).getByLabelText("默认团队空间")).toHaveTextContent("共享邮箱");
-    expect(within(commercialPanel).getByLabelText("组织级审计")).toHaveTextContent("更新配额");
+    expect(within(commercialPanel).queryByLabelText("默认团队空间")).not.toBeInTheDocument();
+    expect(within(commercialPanel).queryByLabelText("组织级审计")).not.toBeInTheDocument();
   });
 
-  it("sizes the feature status badge to cover its enabled summary", () => {
-    renderUsersGlobalSettings();
-
-    expect(screen.getByText("4 / 4 启用")).toHaveClass("users-feature-status-badge");
-    expect(sharedStyles).toMatch(/\.users-feature-status-badge\s*\{[^}]*padding:\s*10px 18px;/);
-  });
-
-  it("stacks mailbox name, address, and creation time in each mailbox row", () => {
-    renderUsersGlobalSettings();
-
-    const mailboxPanel = screen.getByRole("heading", { name: "邮箱监管" }).closest("section");
-    expect(mailboxPanel).not.toBeNull();
-
-    const mailboxList = mailboxPanel!.querySelector(".users-settings-list");
-    expect(mailboxList).not.toBeNull();
-
-    const mailboxRow = within(mailboxList as HTMLElement).getByText("Ops").closest(".users-mailbox-row");
-    expect(mailboxRow).not.toBeNull();
-    expect(sharedStyles).toMatch(/\.users-mailbox-row\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\);/);
-
-    const mailboxDetails = mailboxRow!.querySelector(".users-mailbox-row-details");
-    expect(mailboxDetails).not.toBeNull();
-    expect(
-      Array.from(
-        mailboxRow!.querySelectorAll(".users-mailbox-row-name, .users-mailbox-row-address, .users-mailbox-row-created")
-      ).map((element) => element.textContent)
-    ).toEqual(["Ops", "ops@example.com", "创建于 2026-04-08"]);
-  });
-
-  it("keeps the invite, quota, and feature controls wired to callbacks", () => {
+  it("keeps the invite and quota controls wired to callbacks", async () => {
     const onCreateInvite = vi.fn();
     const onDisableInvite = vi.fn();
     const onSelectQuotaUser = vi.fn();
     const onSubmitQuota = vi.fn(async (event: FormEvent<HTMLFormElement>) => event.preventDefault());
-    const onToggleFeatures = vi.fn();
 
     renderUsersGlobalSettings({
       onCreateInvite,
       onDisableInvite,
       onSelectQuotaUser,
-      onSubmitQuota,
-      onToggleFeatures
+      onSubmitQuota
     });
 
-    fireEvent.click(screen.getByRole("button", { name: "创建邀请码" }));
+    const invitePanel = screen.getByRole("region", { name: "邀请流程" });
+    const createInviteButton = within(invitePanel).getByRole("button", { name: "创建邀请码" });
+    expect(createInviteButton).toHaveClass("ui-button-size-md");
+    expect(createInviteButton.querySelector("svg")).not.toBeNull();
+
+    fireEvent.click(createInviteButton);
+    const createInviteDialog = await screen.findByRole("dialog", { name: "创建邀请码" });
+    expect(within(createInviteDialog).getByRole("combobox", { name: "邀请码目标角色" })).toBeInTheDocument();
+    expect(within(createInviteDialog).getByRole("combobox", { name: "邀请码有效期" })).toBeInTheDocument();
+    expect(within(createInviteDialog).getByRole("combobox", { name: "邀请码创建数量" })).toBeInTheDocument();
+    fireEvent.click(within(createInviteDialog).getByRole("button", { name: "创建邀请码" }));
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog", { name: "创建邀请码" })).not.toBeInTheDocument();
+    });
     fireEvent.click(screen.getByRole("button", { name: "停用邀请码 ALPHA-2026" }));
     fireEvent.click(screen.getByRole("button", { name: /Member User.*member@example.com/ }));
     fireEvent.submit(screen.getByRole("form", { name: "保存用户配额" }));
-    fireEvent.click(screen.getByRole("checkbox", { name: "AI 提取" }));
 
     expect(onCreateInvite).toHaveBeenCalledWith({
       count: 1,
@@ -406,11 +397,6 @@ describe("UsersGlobalSettingsPage", () => {
     expect(onDisableInvite).toHaveBeenCalledWith("invite-1");
     expect(onSelectQuotaUser).toHaveBeenCalledWith("member-1");
     expect(onSubmitQuota).toHaveBeenCalledWith(expect.anything(), "admin-1");
-    expect(onToggleFeatures).toHaveBeenCalledWith({
-      ...adminFeatures,
-      aiEnabled: false
-    });
-    expect(screen.getByRole("button", { name: "创建邀请码" })).toHaveClass("ui-button-size-sm");
     const disableInviteButton = screen.getByRole("button", { name: "停用邀请码 ALPHA-2026" });
     const inviteRow = disableInviteButton.closest(".users-settings-row");
     expect(disableInviteButton).toHaveClass("ui-button-size-sm");
@@ -418,39 +404,76 @@ describe("UsersGlobalSettingsPage", () => {
     expect(within(inviteRow as HTMLElement).getByText("可用")).toHaveClass("users-invite-status-badge");
     expect(within(inviteRow as HTMLElement).getByText(/成员/)).toBeInTheDocument();
     expect(within(inviteRow as HTMLElement).getByText(/有效期至 2026-12-08/)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "保存配额" })).toHaveClass("ui-button-size-sm");
+    const saveQuotaButton = screen.getByRole("button", { name: "保存配额" });
+    expect(saveQuotaButton).toHaveClass("ui-button-size-sm");
+    expect(saveQuotaButton.querySelector("svg")).not.toBeNull();
   });
 
-  it("paginates invites and mailboxes with five rows per page", () => {
+  it("paginates quota users through the backend callback", () => {
+    const onQuotaUsersPageChange = vi.fn();
+
     renderUsersGlobalSettings({
-      adminInvites: createInvites(7),
-      adminMailboxes: createMailboxes(6)
+      adminSettingsUsers: createQuotaUsers(5),
+      adminSettingsUsersPage: 1,
+      adminSettingsUsersPageSize: 5,
+      adminSettingsUsersTotal: 7,
+      onQuotaUsersPageChange
     });
 
-    const invitePanel = screen.getByRole("heading", { name: "邀请与入场" }).closest("section");
-    const mailboxPanel = screen.getByRole("heading", { name: "邮箱监管" }).closest("section");
+    const quotaPanel = screen.getByRole("region", { name: "配额限制" });
+    const quotaUsers = within(quotaPanel).getByRole("region", { name: "配额用户" });
+    const quotaPagination = within(quotaUsers).getByRole("navigation", { name: "配额用户分页" });
+
+    expect(within(quotaUsers).getByText("Member 5")).toBeInTheDocument();
+    expect(within(quotaUsers).queryByText("Member 6")).not.toBeInTheDocument();
+    expect(quotaPagination).toHaveClass("users-quota-pagination");
+    fireEvent.click(within(quotaPagination).getByRole("button", { name: "下一页" }));
+
+    expect(onQuotaUsersPageChange).toHaveBeenCalledWith(2);
+  });
+
+  it("shows the redeemed invite user name instead of the user id", () => {
+    renderUsersGlobalSettings({
+      adminInvites: [
+        {
+          ...adminInvites[0],
+          id: "invite-redeemed",
+          code: "INVITE-REDEEMED",
+          redeemedByUserId: "member-1",
+          redeemedAt: "2026-06-08T08:00:00.000Z"
+        }
+      ]
+    });
+
+    const invitePanel = screen.getByRole("region", { name: "邀请流程" });
+
+    expect(within(invitePanel).getByText("兑换用户 Member User")).toBeInTheDocument();
+    expect(within(invitePanel).queryByText(/member-1/)).not.toBeInTheDocument();
+  });
+
+  it("paginates invites with five rows per page", () => {
+    renderUsersGlobalSettings({
+      adminInvites: createInvites(7)
+    });
+
+    const invitePanel = screen.getByRole("region", { name: "邀请流程" });
 
     expect(invitePanel).not.toBeNull();
-    expect(mailboxPanel).not.toBeNull();
 
-    const inviteList = invitePanel!.querySelector(".users-settings-list");
-    const mailboxList = mailboxPanel!.querySelector(".users-settings-list");
+    const inviteList = invitePanel.querySelector(".users-settings-list");
+    const invitePagination = within(invitePanel).getByRole("navigation", { name: "邀请码分页" });
 
     expect(inviteList).not.toBeNull();
-    expect(mailboxList).not.toBeNull();
+    expect(invitePagination).toHaveClass("users-list-pagination");
+    expect(invitePagination).toHaveClass("ui-pagination-with-meta");
+    expect(within(invitePagination).getByText("共 7 条")).toBeInTheDocument();
+    expect(within(invitePagination).getByRole("combobox", { name: "每页条数" })).toBeInTheDocument();
 
     expect(within(inviteList as HTMLElement).getByText("INVITE-001")).toBeInTheDocument();
     expect(within(inviteList as HTMLElement).getByText("INVITE-005")).toBeInTheDocument();
     expect(within(inviteList as HTMLElement).queryByText("INVITE-006")).not.toBeInTheDocument();
-    fireEvent.click(within(invitePanel!).getByRole("button", { name: "下一页" }));
+    fireEvent.click(within(invitePanel).getByRole("button", { name: "下一页" }));
     expect(within(inviteList as HTMLElement).queryByText("INVITE-001")).not.toBeInTheDocument();
     expect(within(inviteList as HTMLElement).getByText("INVITE-006")).toBeInTheDocument();
-
-    expect(within(mailboxList as HTMLElement).getByText("Mailbox 1")).toBeInTheDocument();
-    expect(within(mailboxList as HTMLElement).getByText("Mailbox 5")).toBeInTheDocument();
-    expect(within(mailboxList as HTMLElement).queryByText("Mailbox 6")).not.toBeInTheDocument();
-    fireEvent.click(within(mailboxPanel!).getByRole("button", { name: "下一页" }));
-    expect(within(mailboxList as HTMLElement).queryByText("Mailbox 1")).not.toBeInTheDocument();
-    expect(within(mailboxList as HTMLElement).getByText("Mailbox 6")).toBeInTheDocument();
   });
 });

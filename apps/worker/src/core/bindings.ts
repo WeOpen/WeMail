@@ -263,6 +263,7 @@ export type InviteRecord = {
   code: string;
   createdByUserId: string | null;
   redeemedByUserId: string | null;
+  redeemedByUserName?: string | null;
   redeemedAt: string | null;
   disabledAt: string | null;
   expiresAt: string | null;

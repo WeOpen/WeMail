@@ -952,15 +952,14 @@ describe("App", () => {
 
       render(<App />);
 
-      expect(await screen.findByRole("heading", { name: /邀请与入场/i })).toBeInTheDocument();
-      expect(screen.getByRole("heading", { name: /邮箱监管/i })).toBeInTheDocument();
+      expect(await screen.findByRole("region", { name: /邀请流程/i })).toBeInTheDocument();
+      expect(screen.queryByRole("heading", { name: /邮箱监管/i })).not.toBeInTheDocument();
       expect(screen.queryByLabelText(/工作台快速搜索/i)).not.toBeInTheDocument();
       expect(screen.getByLabelText(/WeMail logo/i)).toBeInTheDocument();
       expect(screen.getByRole("button", { name: /切换到浅色主题|切换到深色主题/i })).toHaveClass("ui-button", "ui-button-icon");
       expect(screen.getByRole("button", { name: /用户菜单/i })).toHaveClass("ui-button", "ui-button-secondary");
       fireEvent.click(screen.getByRole("button", { name: /用户菜单/i }));
       expect(screen.getByRole("menuitem", { name: /退出登录/i })).toBeInTheDocument();
-      expect(await screen.findByText(/ops@example.com/i)).toBeInTheDocument();
     },
     10000
   );
@@ -1027,7 +1026,7 @@ describe("App", () => {
       });
 
       render(<App />);
-      expect(await screen.findByRole("heading", { name: /邀请与入场/i })).toBeInTheDocument();
+      expect(await screen.findByRole("region", { name: /邀请流程/i })).toBeInTheDocument();
 
       await waitFor(() => {
         expect(calls.get("http://127.0.0.1:8787/api/auth/session") ?? 0).toBe(1);

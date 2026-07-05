@@ -4,9 +4,17 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import type { ComponentProps } from "react";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { DataReliabilitySummary, ProductMaturitySummary, RuntimeSettings, SystemDiagnosticsSummary, SystemOperationsSummary } from "@wemail/shared";
+import type {
+  DataReliabilitySummary,
+  FeatureToggles,
+  ProductMaturitySummary,
+  RuntimeSettings,
+  SystemDiagnosticsSummary,
+  SystemOperationsSummary
+} from "@wemail/shared";
 
 import { SystemSettingsPage } from "../pages/SystemSettingsPage";
+import { SystemOperationsPage } from "../pages/SystemOperationsPage";
 
 const sharedStyles = readFileSync("src/shared/styles/index.css", "utf8");
 const runtimeSettings: RuntimeSettings = {
@@ -17,6 +25,13 @@ const runtimeSettings: RuntimeSettings = {
   message: { retentionDays: 7 },
   outbound: { dailyLimit: 20 },
   lastUpdatedLabel: "2026-04-08T00:00:00.000Z"
+};
+
+const adminFeatures: FeatureToggles = {
+  aiEnabled: true,
+  telegramEnabled: true,
+  outboundEnabled: true,
+  mailboxCreationEnabled: true
 };
 
 const systemDiagnostics: SystemDiagnosticsSummary = {
@@ -169,6 +184,14 @@ function renderSystemSettingsPage(props: Partial<ComponentProps<typeof SystemSet
   );
 }
 
+function renderSystemOperationsPage(props: Partial<ComponentProps<typeof SystemOperationsPage>> = {}) {
+  return render(
+    <MemoryRouter>
+      <SystemOperationsPage {...props} />
+    </MemoryRouter>
+  );
+}
+
 describe("SystemSettingsPage", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
@@ -183,9 +206,16 @@ describe("SystemSettingsPage", () => {
 
     expect(screen.getByLabelText("系统设置概览")).toHaveClass("system-settings-overview-panel");
     expect(screen.getByLabelText("系统设置主设置")).toHaveClass("system-settings-main-column");
-    expect(screen.getByLabelText("系统设置状态侧栏")).toHaveClass("system-settings-side-rail");
+    expect(screen.queryByLabelText("系统设置状态侧栏")).not.toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "系统控制台" })).toBeInTheDocument();
     expect(screen.getByText("主题模式")).toBeInTheDocument();
+    expect(screen.queryByText("当前外观")).not.toBeInTheDocument();
+    expect(screen.queryByText("域名权限")).not.toBeInTheDocument();
+    expect(sharedStyles).toMatch(/\.system-settings-content-grid\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\);/);
+    expect(screen.queryByRole("heading", { name: "运维中心" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "系统诊断" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "可靠性后台" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "成熟度总览" })).not.toBeInTheDocument();
     expect(screen.queryByText("选择你想要的界面明暗")).not.toBeInTheDocument();
     expect(screen.queryByText(/像 Apple 偏好设置/)).not.toBeInTheDocument();
     expect(screen.queryByText(/入口已预留/)).not.toBeInTheDocument();
@@ -224,7 +254,7 @@ describe("SystemSettingsPage", () => {
   });
 
   it("shows admin system diagnostics in the status rail", () => {
-    renderSystemSettingsPage({ canManageRuntimeSettings: true, runtimeSettings, systemDiagnostics });
+    renderSystemOperationsPage({ systemDiagnostics });
 
     expect(screen.getByRole("heading", { name: "系统诊断" })).toBeInTheDocument();
     expect(screen.getByText("需要处理")).toBeInTheDocument();
@@ -233,7 +263,7 @@ describe("SystemSettingsPage", () => {
   });
 
   it("shows the product maturity overview for administrators", () => {
-    renderSystemSettingsPage({ canManageRuntimeSettings: true, runtimeSettings, systemMaturity });
+    renderSystemOperationsPage({ systemMaturity });
 
     expect(screen.getByRole("heading", { name: "成熟度总览" })).toBeInTheDocument();
     expect(screen.getByText("1 / 8")).toBeInTheDocument();
@@ -243,9 +273,9 @@ describe("SystemSettingsPage", () => {
   });
 
   it("shows recent operation failures for administrators", () => {
-    renderSystemSettingsPage({ canManageRuntimeSettings: true, runtimeSettings, systemOperations });
+    renderSystemOperationsPage({ systemOperations });
 
-    expect(screen.getByRole("heading", { name: "运维中心" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "错误中心" })).toBeInTheDocument();
     expect(screen.getByLabelText("运维信号")).toHaveTextContent("最近失败");
     expect(screen.getByLabelText("运维信号")).toHaveTextContent("3");
     expect(screen.getByLabelText("最近运维事件")).toHaveTextContent("Webhook message.received");
@@ -254,7 +284,7 @@ describe("SystemSettingsPage", () => {
   });
 
   it("shows data reliability checks, cleanup runs, idempotency, and backup commands", () => {
-    renderSystemSettingsPage({ canManageRuntimeSettings: true, runtimeSettings, systemReliability });
+    renderSystemOperationsPage({ systemReliability });
 
     expect(screen.getByRole("heading", { name: "可靠性后台" })).toBeInTheDocument();
     expect(screen.getByLabelText("存储绑定")).toHaveTextContent("D1");
@@ -264,10 +294,13 @@ describe("SystemSettingsPage", () => {
     expect(screen.getByLabelText("备份恢复命令")).toHaveTextContent("wrangler d1 export");
   });
 
-  it("centers theme option captions and avoids a divider line in the system preview", () => {
-    expect(sharedStyles).toMatch(/\.appearance-option-copy\s*\{[^}]*text-align:\s*center;/);
-    expect(sharedStyles).toMatch(/\.appearance-option-copy\s*\{[^}]*justify-items:\s*center;/);
-    expect(sharedStyles).toMatch(/\.appearance-option-title\s*\{[^}]*justify-content:\s*center;/);
+  it("uses horizontal theme option cards and avoids a divider line in the system preview", () => {
+    expect(sharedStyles).toMatch(/\.appearance-option-card\s*\{[^}]*grid-template-columns:\s*minmax\(118px,\s*0\.42fr\)\s*minmax\(0,\s*1fr\);/);
+    expect(sharedStyles).toMatch(/\.appearance-option-preview\s*\{[^}]*grid-template-columns:\s*minmax\(30px,\s*0\.34fr\)\s*minmax\(0,\s*1fr\);/);
+    expect(sharedStyles).toMatch(/\.appearance-option-preview-topbar\s*\{[^}]*grid-column:\s*1\s*\/\s*-1;/);
+    expect(sharedStyles).toMatch(/\.appearance-option-copy\s*\{[^}]*text-align:\s*left;/);
+    expect(sharedStyles).toMatch(/\.appearance-option-copy\s*\{[^}]*justify-items:\s*start;/);
+    expect(sharedStyles).toMatch(/\.appearance-option-title\s*\{[^}]*justify-content:\s*flex-start;/);
     expect(sharedStyles).toMatch(/\.appearance-option-preview\.system\s*\{[^}]*linear-gradient\(180deg,/);
     expect(sharedStyles).toMatch(
       /\.appearance-option-preview\.system \.appearance-option-preview-sidebar\s*\{[^}]*background:\s*transparent;/
@@ -283,6 +316,28 @@ describe("SystemSettingsPage", () => {
     expect(sharedStyles).toMatch(/\.system-runtime-save-button\.ui-button-primary\s*\{[^}]*color:\s*#fff;/);
     expect(screen.getByLabelText("邮箱每日邮件发送上限")).toBeInTheDocument();
     expect(screen.getByLabelText("每日 API 调用上限")).toBeInTheDocument();
+  });
+
+  it("shows runtime feature toggles in system settings for administrators", () => {
+    const onToggleFeatures = vi.fn();
+
+    renderSystemSettingsPage({
+      adminFeatures,
+      canManageRuntimeSettings: true,
+      onToggleFeatures,
+      runtimeSettings
+    });
+
+    expect(screen.getByRole("heading", { name: "能力开关" })).toBeInTheDocument();
+    expect(screen.getByText("4 / 4 启用")).toHaveClass("users-feature-status-badge");
+    expect(sharedStyles).toMatch(/\.users-feature-status-badge\s*\{[^}]*padding:\s*10px 18px;/);
+
+    fireEvent.click(screen.getByRole("checkbox", { name: "AI 提取" }));
+
+    expect(onToggleFeatures).toHaveBeenCalledWith({
+      ...adminFeatures,
+      aiEnabled: false
+    });
   });
 
   it("lets session users save mailbox domain suffixes without a separate add button", async () => {

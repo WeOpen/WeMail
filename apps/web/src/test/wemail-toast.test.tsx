@@ -57,4 +57,15 @@ describe("WemailToastViewport", () => {
     vi.advanceTimersByTime(260);
     expect(dismissToast).toHaveBeenCalledWith(toast.id);
   });
+
+  it("uses the long-message layout for verbose errors", () => {
+    const toast = createToast({
+      message: `测试事件投递失败：HTTP 405: ${"Example Domain ".repeat(12)}`,
+      tone: "error"
+    });
+
+    render(<WemailToastViewport onDismissToast={vi.fn()} toasts={[toast]} />);
+
+    expect(screen.getByRole("alert")).toHaveClass("is-long");
+  });
 });

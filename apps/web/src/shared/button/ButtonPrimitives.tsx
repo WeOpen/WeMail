@@ -14,6 +14,7 @@ type ButtonSharedProps = {
   children?: ReactNode;
   className?: string;
   contentLayout?: "label" | "plain";
+  "data-state"?: string;
   fullWidth?: boolean;
   iconOnly?: boolean;
   isActive?: boolean;
@@ -134,6 +135,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
     children,
     className,
     contentLayout,
+    "data-state": dataState,
     disabled,
     fullWidth,
     iconOnly,
@@ -157,7 +159,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
       {...props}
       aria-busy={isLoading ? true : props["aria-busy"]}
       className={getButtonClassName({ className, fullWidth, iconOnly, isActive, isDisabled: isUnavailable, isLoading, size, variant })}
-      data-state={isLoading ? "loading" : isActive ? "active" : undefined}
+      data-state={isLoading ? "loading" : isActive ? "active" : dataState}
       disabled={isUnavailable}
       ref={ref}
       type={type}
@@ -177,6 +179,7 @@ export const ButtonLink = forwardRef<HTMLAnchorElement, ButtonLinkProps>(functio
     children,
     className,
     contentLayout,
+    "data-state": dataState,
     fullWidth,
     iconOnly,
     isActive,
@@ -201,7 +204,7 @@ export const ButtonLink = forwardRef<HTMLAnchorElement, ButtonLinkProps>(functio
       aria-busy={isLoading ? true : props["aria-busy"]}
       aria-disabled={isUnavailable ? true : props["aria-disabled"]}
       className={getButtonClassName({ className, fullWidth, iconOnly, isActive, isDisabled: isUnavailable, isLoading, size, variant })}
-      data-state={isLoading ? "loading" : isActive ? "active" : undefined}
+      data-state={isLoading ? "loading" : isActive ? "active" : dataState}
       onClick={isUnavailable ? handleDisabledLinkClick : onClick}
       ref={ref}
       tabIndex={isUnavailable ? -1 : props.tabIndex}
@@ -218,6 +221,7 @@ export const ButtonAnchor = forwardRef<HTMLAnchorElement, ButtonAnchorProps>(fun
     children,
     className,
     contentLayout,
+    "data-state": dataState,
     fullWidth,
     iconOnly,
     isActive,
@@ -241,7 +245,7 @@ export const ButtonAnchor = forwardRef<HTMLAnchorElement, ButtonAnchorProps>(fun
       aria-busy={isLoading ? true : props["aria-busy"]}
       aria-disabled={isUnavailable ? true : props["aria-disabled"]}
       className={getButtonClassName({ className, fullWidth, iconOnly, isActive, isDisabled: isUnavailable, isLoading, size, variant })}
-      data-state={isLoading ? "loading" : isActive ? "active" : undefined}
+      data-state={isLoading ? "loading" : isActive ? "active" : dataState}
       onClick={isUnavailable ? handleDisabledLinkClick : onClick}
       ref={ref}
       tabIndex={isUnavailable ? -1 : props.tabIndex}

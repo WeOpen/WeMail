@@ -217,14 +217,17 @@ export function AuthForms({ authError, onRegister, onLogin, mode, oauthNext = "/
                     type={isLoginPasswordVisible ? "text" : "password"}
                     value={loginPassword}
                   />
-                  <button
+                  <Button
                     aria-label={isLoginPasswordVisible ? "隐藏密码" : "显示密码"}
                     className="auth-input-toggle form-control-toggle"
+                    contentLayout="plain"
+                    iconOnly
                     onClick={() => setIsLoginPasswordVisible((current) => !current)}
                     type="button"
+                    variant="text"
                   >
                     {isLoginPasswordVisible ? <EyeOff aria-hidden="true" /> : <Eye aria-hidden="true" />}
-                  </button>
+                  </Button>
                 </div>
                 {renderFieldValidation("loginPassword", "login-password")}
               </div>
@@ -332,14 +335,17 @@ export function AuthForms({ authError, onRegister, onLogin, mode, oauthNext = "/
                     type={isRegisterPasswordVisible ? "text" : "password"}
                     value={registerPassword}
                   />
-                  <button
+                  <Button
                     aria-label={isRegisterPasswordVisible ? "隐藏密码" : "显示密码"}
                     className="auth-input-toggle form-control-toggle"
+                    contentLayout="plain"
+                    iconOnly
                     onClick={() => setIsRegisterPasswordVisible((current) => !current)}
                     type="button"
+                    variant="text"
                   >
                     {isRegisterPasswordVisible ? <EyeOff aria-hidden="true" /> : <Eye aria-hidden="true" />}
-                  </button>
+                  </Button>
                 </div>
                 {renderFieldValidation("registerPassword", "register-password")}
               </div>

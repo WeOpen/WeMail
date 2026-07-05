@@ -203,6 +203,26 @@ describe("worker app", () => {
     expect(invitePayload.invites).toHaveLength(3);
     expect(invitePayload.invites[0]).toMatchObject({ targetRole: "member" });
 
+    const createUserResponse = await app.request(
+      "/api/users",
+      {
+        method: "POST",
+        headers: {
+          cookie,
+          "content-type": "application/json"
+        },
+        body: JSON.stringify({
+          email: "governance-member@example.com",
+          name: "Governance Member",
+          password: "password123",
+          role: "member"
+        })
+      },
+      env
+    );
+
+    expect(createUserResponse.status).toBe(201);
+
     const governanceResponse = await app.request(
       "/api/users/governance",
       {
@@ -232,8 +252,15 @@ describe("worker app", () => {
         expect.objectContaining({
           eventType: "invite-create",
           detail: "数量 3，角色 member"
+        }),
+        expect.objectContaining({
+          eventType: "user-create",
+          detail: "用户 Governance Member"
         })
       ])
+    );
+    expect(governancePayload.governance.auditEvents.map((event) => event.detail)).not.toEqual(
+      expect.arrayContaining([expect.stringMatching(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i)])
     );
     expect(governancePayload.governance.rateLimits).toEqual(
       expect.arrayContaining([

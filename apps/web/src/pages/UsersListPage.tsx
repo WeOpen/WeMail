@@ -742,14 +742,15 @@ export function UsersListPage({
             <strong>配额与能力</strong>
             {adminQuota ? (
               <form className="users-flat-form" onSubmit={(event) => void onSubmitQuota(event, adminQuota.userId)}>
-                <label>
-                  <span>每日发送上限</span>
-                  <input defaultValue={adminQuota.dailyLimit} name="dailyLimit" type="number" />
-                </label>
-                <label className="checkbox-row">
-                  <input defaultChecked={adminQuota.disabled} name="disabled" type="checkbox" />
-                  暂停该用户的外发能力
-                </label>
+                <FormField label="每日发送上限">
+                  <TextInput defaultValue={adminQuota.dailyLimit} inputMode="numeric" min={0} name="dailyLimit" type="number" />
+                </FormField>
+                <CheckboxField
+                  className="checkbox-row"
+                  defaultChecked={adminQuota.disabled}
+                  label="暂停该用户的外发能力"
+                  name="disabled"
+                />
                 <Button type="submit" variant="primary">
                   保存配额设置
                 </Button>

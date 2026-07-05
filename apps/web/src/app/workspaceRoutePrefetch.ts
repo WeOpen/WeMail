@@ -22,6 +22,7 @@ const workspaceRoutePrefetchers: Record<string, [string, () => Promise<unknown>]
   "/announcements": ["announcements", () => import("../pages/AnnouncementsPage")],
   "/system": ["system-settings", () => import("../pages/SystemSettingsPage")],
   "/system/settings": ["system-settings", () => import("../pages/SystemSettingsPage")],
+  "/system/operations": ["system-operations", () => import("../pages/SystemOperationsPage")],
   "/system/profile": ["system-profile", () => import("../pages/SystemProfilePage")],
   "/system/about": ["system-about", () => import("../pages/AboutPage")]
 };

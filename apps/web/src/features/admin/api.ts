@@ -38,8 +38,8 @@ export function fetchAdminUsers(query?: AdminUsersQuery) {
   return apiFetch<AdminUsersPayload>(buildAdminUsersPath(query));
 }
 
-export function fetchAdminUserSummary() {
-  return apiFetch<AdminUserSettingsSummaryPayload>("/api/users/summary");
+export function fetchAdminUserSummary(query: AdminSettingsListQuery) {
+  return apiFetch<AdminUserSettingsSummaryPayload>(buildAdminSettingsListPath("/api/users/summary", query));
 }
 
 export function fetchAdminGovernance() {

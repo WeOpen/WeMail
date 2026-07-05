@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   BellRing,
-  CheckCircle2,
   Clock3,
   MailCheck,
   PanelTopOpen,
@@ -9,7 +8,6 @@ import {
   Route,
   Save,
   SendHorizontal,
-  ShieldAlert,
   SlidersHorizontal,
   type LucideIcon
 } from "lucide-react";
@@ -54,10 +52,6 @@ const emptyTelegramOverview: TelegramOverviewSummary = {
 
 function hasStateChanges<T>(draft: T, saved: T) {
   return JSON.stringify(draft) !== JSON.stringify(saved);
-}
-
-function formatSwitchState(value: boolean) {
-  return value ? "开启" : "关闭";
 }
 
 function formatConfiguredValue(value: string, fallback: string) {
@@ -187,7 +181,6 @@ export function MailSettingsPage({ canManageMailSettings = false }: MailSettings
   }, [routingSaved.telegramEnabled, routingSaved.webhookEnabled]);
 
   const senderIdentityLabel = formatConfiguredValue(senderSaved.defaultIdentity, "未设置发件身份");
-  const fallbackOwnerLabel = formatConfiguredValue(routingSaved.fallbackOwner, "未设置");
   const lastUpdatedDisplay = formatLastUpdatedLabel(lastUpdatedLabel);
   const enabledWebhookEndpoints = useMemo(() => getEnabledWebhookEndpoints(webhookEndpoints), [webhookEndpoints]);
   const telegramTarget = useMemo(() => getTelegramTarget(telegramOverview), [telegramOverview]);
@@ -295,8 +288,7 @@ export function MailSettingsPage({ canManageMailSettings = false }: MailSettings
           <div className="mail-settings-hero-layout">
             <div className="integration-card-copy mail-settings-hero-copy">
               <p className="panel-kicker">邮件中心</p>
-              <h1>邮件设置</h1>
-              <p className="section-copy">把发件身份、异常流转和工作台默认行为放在同一个策略面板里，便于值班与回归时快速确认。</p>
+              <h1 className="sr-only">邮件设置</h1>
             </div>
             <div className="mail-settings-hero-status" aria-label="邮件策略状态">
               <span className="mail-settings-status-dot" data-state={pendingChangeCount > 0 ? "pending" : "synced"} />
@@ -480,7 +472,7 @@ export function MailSettingsPage({ canManageMailSettings = false }: MailSettings
             </div>
           </div>
 
-          <div className="integration-inline-actions">
+          <div className="integration-inline-actions mail-settings-actions">
             <Button
               disabled={!canManageMailSettings || !hasSenderChanges || isLoadingSettings}
               isLoading={isSavingSender}
@@ -652,7 +644,7 @@ export function MailSettingsPage({ canManageMailSettings = false }: MailSettings
             </div>
           </div>
 
-          <div className="integration-inline-actions">
+          <div className="integration-inline-actions mail-settings-actions">
             <Button
               disabled={!canManageMailSettings || !hasRoutingChanges || isLoadingSettings}
               isLoading={isSavingRouting}
@@ -765,7 +757,7 @@ export function MailSettingsPage({ canManageMailSettings = false }: MailSettings
             </div>
           </div>
 
-          <div className="integration-inline-actions">
+          <div className="integration-inline-actions mail-settings-actions">
             <Button
               disabled={!canManageMailSettings || !hasWorkspaceChanges || isLoadingSettings}
               isLoading={isSavingWorkspace}
@@ -780,71 +772,6 @@ export function MailSettingsPage({ canManageMailSettings = false }: MailSettings
           </div>
         </section>
       </div>
-
-      <aside aria-label="当前策略摘要" className="integration-secondary-column">
-        <section className="panel workspace-card page-panel integration-side-card mail-settings-summary-card">
-          <div className="mail-settings-summary-head">
-            <span className="mail-settings-section-icon" aria-hidden="true">
-              <ShieldAlert size={19} strokeWidth={1.8} />
-            </span>
-            <div>
-              <p className="panel-kicker">策略摘要</p>
-              <h2>当前策略摘要</h2>
-            </div>
-          </div>
-          <div className="mail-settings-sync-banner" data-state={pendingChangeCount > 0 ? "pending" : "synced"}>
-            {pendingChangeCount > 0 ? <Clock3 size={17} strokeWidth={1.8} /> : <CheckCircle2 size={17} strokeWidth={1.8} />}
-            <span>{pendingChangeCount > 0 ? `${pendingChangeCount} 组设置待保存` : "当前策略已同步"}</span>
-          </div>
-          <dl className="mail-settings-summary-list">
-            <div className="mail-settings-summary-row">
-              <dt>默认发件身份</dt>
-              <dd>{senderIdentityLabel}</dd>
-            </div>
-            <div className="mail-settings-summary-row">
-              <dt>失败告警</dt>
-              <dd>{formatSwitchState(routingSaved.failureAlerts)}</dd>
-            </div>
-            <div className="mail-settings-summary-row">
-              <dt>Webhook / Telegram</dt>
-              <dd>{channelStatus}</dd>
-            </div>
-            <div className="mail-settings-summary-row">
-              <dt>异常邮件策略</dt>
-              <dd>{routingSaved.exceptionStrategy}</dd>
-            </div>
-            <div className="mail-settings-summary-row">
-              <dt>默认入口</dt>
-              <dd>{defaultRouteLabel}</dd>
-            </div>
-            <div className="mail-settings-summary-row">
-              <dt>最近更新时间</dt>
-              <dd>{lastUpdatedDisplay}</dd>
-            </div>
-          </dl>
-
-          <div className="mail-settings-flow-panel" aria-label="邮件策略链路">
-            <p className="panel-kicker">策略链路</p>
-            <ol>
-              <li>
-                <span>1</span>
-                <strong>发件身份</strong>
-                <small>{senderSaved.retryEnabled ? `${senderSaved.retryAttempts} · ${senderSaved.retryDelay}` : "不自动重试"}</small>
-              </li>
-              <li>
-                <span>2</span>
-                <strong>通知路由</strong>
-                <small>{routingSaved.exceptionAlerts ? `${channelStatus} · ${fallbackOwnerLabel}` : channelStatus}</small>
-              </li>
-              <li>
-                <span>3</span>
-                <strong>工作台入口</strong>
-                <small>{defaultRouteLabel}</small>
-              </li>
-            </ol>
-          </div>
-        </section>
-      </aside>
     </main>
   );
 }

@@ -221,7 +221,9 @@ describe("system settings route integration", () => {
     expect(await screen.findByRole("heading", { name: /^系统控制台$/i })).toBeInTheDocument();
     expect(screen.getByLabelText("系统设置概览")).toBeInTheDocument();
     expect(screen.getByLabelText("系统设置主设置")).toBeInTheDocument();
-    expect(screen.getByLabelText("系统设置状态侧栏")).toBeInTheDocument();
+    expect(screen.queryByLabelText("系统设置状态侧栏")).not.toBeInTheDocument();
+    expect(screen.queryByText("当前外观")).not.toBeInTheDocument();
+    expect(screen.queryByText("域名权限")).not.toBeInTheDocument();
     expect(screen.getByText("主题模式")).toBeInTheDocument();
     expect(await screen.findByRole("heading", { name: "域名设置" })).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: /^业务默认值$/i })).not.toBeInTheDocument();
@@ -234,17 +236,31 @@ describe("system settings route integration", () => {
     render(<App />);
 
     expect(await screen.findByRole("heading", { name: /^系统控制台$/i })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: /^能力开关$/i })).toBeInTheDocument();
     expect(await screen.findByRole("heading", { name: /^业务默认值$/i })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: /^运维中心$/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: /^系统诊断$/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: /^成熟度总览$/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: /^可靠性后台$/i })).not.toBeInTheDocument();
+    expect(await screen.findAllByText("20 / 天")).toHaveLength(2);
+    expect(screen.getByLabelText("运行策略概览")).toBeInTheDocument();
+  });
+
+  it("renders operations cards on /system/operations", async () => {
+    sessionRole = "admin";
+    window.history.pushState({}, "", "/system/operations");
+
+    render(<App />);
+
     expect(await screen.findByRole("heading", { name: /^运维中心$/i })).toBeInTheDocument();
     expect(await screen.findByRole("heading", { name: /^系统诊断$/i })).toBeInTheDocument();
     expect(await screen.findByRole("heading", { name: /^成熟度总览$/i })).toBeInTheDocument();
     expect(await screen.findByRole("heading", { name: /^可靠性后台$/i })).toBeInTheDocument();
+    expect(screen.getByLabelText("运维中心卡片")).toBeInTheDocument();
     expect(screen.getByText("Webhook message.received")).toBeInTheDocument();
     expect(screen.getByText("发件功能已开启但 RESEND_API_KEY 未配置")).toBeInTheDocument();
     expect(screen.getByText("同一邮箱 5 分钟内的重复入站会复用已有记录。")).toBeInTheDocument();
     expect(screen.getByText("可观测性和运维后台")).toBeInTheDocument();
     expect(screen.getByText("2 / 8")).toBeInTheDocument();
-    expect(await screen.findAllByText("20 / 天")).toHaveLength(2);
-    expect(screen.getByLabelText("运行策略概览")).toBeInTheDocument();
   });
 });

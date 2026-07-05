@@ -5,6 +5,7 @@ type InviteLike = {
   expiresAt: string | null;
   targetRole: "admin" | "member";
   redeemedByUserId: string | null;
+  redeemedByUserName?: string | null;
   redeemedAt: string | null;
   disabledAt: string | null;
 };

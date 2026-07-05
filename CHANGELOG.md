@@ -14,6 +14,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-07-05
+
+### Changed
+
+- Reworked the API keys page so the call example sits above the key metrics, key creation lives in the vault header, and the vault spans the full page width.
+- Made the API keys call example collapse by default and moved copy actions into each code block.
+- Tightened the API key vault header and record rows so the vault label aligns with its icon while credential names, prefixes, and scope chips scan more cleanly.
+- Reworked the Webhook page hero so event delivery spans the full width and developer reference, Signing Secret management, and signature examples live in a collapsed panel.
+- Simplified the Webhook page into a full-width layout with developer reference above the overview cards and endpoint actions on each endpoint row.
+- Moved Webhook subscription events into default-collapsed endpoint rows and removed the standalone event subscription card.
+- Trimmed Webhook card headers across endpoint, rule, and delivery panels to kicker-only labels aligned with their section icons.
+- Added a desktop sidebar collapse control so the workspace rail can shrink to icon-only navigation.
+- Changed the admin user list and quota user summary APIs to return newest-created users first by default.
+- Replaced the mail list date filters with a shared themed DateInput calendar instead of the browser-native date picker.
+- Added clickable year/month selection to DateInput and folded date-time scheduling into the same component with a showTime mode.
+- Changed DateInput showTime mode to use a scroll wheel time selector with the selected time centered in the panel.
+- Consolidated workspace sub-card and empty-state styling around shared visual tokens to reduce page-to-page drift.
+- Standardized workspace page buttons, checkbox fields, and quota inputs on shared UI primitives to keep interaction styling consistent across pages.
+- Moved runtime capability toggles into system settings and flattened user settings cards into a single full-width column after removing the mailbox overview side card.
+- Trimmed user settings card header copy while keeping section kickers, and moved invite creation fields into a dialog with user-list style pagination.
+- Matched invite pagination to the user list pagination bar with total count and page-size controls.
+- Simplified the commercial model panel by removing team workspace and organization audit cards while showing plan tiers in a colored responsive row.
+- Reworked quota governance into a two-column layout with users on the left and quota target plus limits on the right.
+- Added backend pagination for quota governance users with a default five-user page and a right-aligned icon save action.
+
+### Fixed
+
+- Display user names instead of raw user IDs in governance audit event details.
+- Prevented quota governance user rows from being squeezed by the compact list height, centered its pagination, and moved security governance below quota limits.
+- Display invite redemption users by name instead of raw user IDs, and show governance rate-limit policies as a responsive card grid.
+- Display DateInput showTime values with a readable `YYYY-MM-DD HH:mm` format while preserving `YYYY-MM-DDTHH:mm` submission values.
+- Aligned announcement text fields and changed announcement list hover feedback so the whole card changes state together.
+- Prevented the announcement card click target from clipping chip and timestamp content at rounded corners.
+- Initialized compact landing navigation from matchMedia so mobile integrations render once on the first pass.
+
 ## [0.1.6] - 2026-06-29
 
 ### Added

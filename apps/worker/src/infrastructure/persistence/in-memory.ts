@@ -228,6 +228,14 @@ export function createInMemoryStore(): AppStore {
   const announcements: AnnouncementRecord[] = [];
   const announcementReceipts: AnnouncementReceiptRecord[] = [];
 
+  function withInviteDisplayUser(invite: InviteRecord): InviteRecord {
+    const redeemedUser = invite.redeemedByUserId ? users.get(invite.redeemedByUserId) : null;
+    return {
+      ...invite,
+      redeemedByUserName: redeemedUser?.name || redeemedUser?.email || null
+    };
+  }
+
   function dictionaryItemKey(groupKey: string, value: string) {
     return `${groupKey}\u0000${value}`;
   }
@@ -338,7 +346,7 @@ export function createInMemoryStore(): AppStore {
             const matchesStatus = !options.status || user.status === options.status;
             return matchesSearch && matchesRole && matchesStatus;
           })
-          .sort((a, b) => a.email.localeCompare(b.email));
+          .sort((a, b) => b.createdAt.localeCompare(a.createdAt) || b.id.localeCompare(a.id));
         const startIndex = (options.page - 1) * options.pageSize;
 
         return {
@@ -522,13 +530,15 @@ export function createInMemoryStore(): AppStore {
           createdAt: nowIso()
         };
         invites.set(record.id, record);
-        return clone(record);
+        return clone(withInviteDisplayUser(record));
       },
       async findByCode(code) {
-        return clone(Array.from(invites.values()).find((entry) => entry.code === code) ?? null);
+        const invite = Array.from(invites.values()).find((entry) => entry.code === code) ?? null;
+        return clone(invite ? withInviteDisplayUser(invite) : null);
       },
       async findById(id) {
-        return clone(invites.get(id) ?? null);
+        const invite = invites.get(id) ?? null;
+        return clone(invite ? withInviteDisplayUser(invite) : null);
       },
       async redeem(code, userId) {
         const invite = Array.from(invites.values()).find((entry) => entry.code === code);
@@ -536,10 +546,10 @@ export function createInMemoryStore(): AppStore {
         invite.redeemedByUserId = userId;
         invite.redeemedAt = nowIso();
         invites.set(invite.id, invite);
-        return clone(invite);
+        return clone(withInviteDisplayUser(invite));
       },
       async list() {
-        return clone(Array.from(invites.values()).sort((a, b) => b.createdAt.localeCompare(a.createdAt)));
+        return clone(Array.from(invites.values()).sort((a, b) => b.createdAt.localeCompare(a.createdAt)).map(withInviteDisplayUser));
       },
       async listPage(options) {
         const sortedInvites = Array.from(invites.values()).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
@@ -549,7 +559,7 @@ export function createInMemoryStore(): AppStore {
           available: sortedInvites.filter(
             (invite) => !invite.redeemedAt && !invite.disabledAt && (!invite.expiresAt || new Date(invite.expiresAt) > now)
           ).length,
-          invites: sortedInvites.slice(startIndex, startIndex + options.pageSize),
+          invites: sortedInvites.slice(startIndex, startIndex + options.pageSize).map(withInviteDisplayUser),
           page: options.page,
           pageSize: options.pageSize,
           total: sortedInvites.length

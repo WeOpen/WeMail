@@ -587,6 +587,7 @@ export type InviteSummary = {
   expiresAt: string | null;
   targetRole: UserRole;
   redeemedByUserId: string | null;
+  redeemedByUserName?: string | null;
   redeemedAt: string | null;
   disabledAt: string | null;
   status?: InviteStatus;

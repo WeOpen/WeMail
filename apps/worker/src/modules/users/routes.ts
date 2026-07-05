@@ -51,7 +51,7 @@ export function registerUsersRoutes(app: Hono<AppContext>) {
 
   app.get("/api/users", async (c) => c.json(await listAdminUsers(getAppServices(c), parseUserListQuery(c.req.url))));
 
-  app.get("/api/users/summary", async (c) => c.json(await getAdminUserSettingsSummary(getAppServices(c))));
+  app.get("/api/users/summary", async (c) => c.json(await getAdminUserSettingsSummary(getAppServices(c), parseSettingsListQuery(c.req.url))));
 
   app.get("/api/users/governance", async (c) => c.json({ governance: await getAdminGovernanceSummary(getAppServices(c)) }));
 

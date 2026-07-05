@@ -5,7 +5,7 @@ import type { ExtractionType, MessageBatchAction, MessageFilter, MessageSummary 
 import { Button } from "../../shared/button";
 import { EmptyState } from "../../shared/empty-state/EmptyStatePrimitives";
 import { FilterBar } from "../../shared/filter-bar";
-import { Checkbox, FormField, SearchInput, TextInput } from "../../shared/form";
+import { Checkbox, DateInput, FormField, SearchInput } from "../../shared/form";
 import { Pagination } from "../../shared/pagination";
 import { Tabs, TabsList, TabsTrigger } from "../../shared/tabs";
 import { toMessageListItemViewModel } from "./view-models";
@@ -122,18 +122,18 @@ export function MessageStreamPanel({
         </FormField>
         <div className="message-date-filter-row">
           <FormField className="message-date-filter-field" label="开始日期">
-            <TextInput
+            <DateInput
               aria-label="按开始日期筛选"
-              onChange={(event) => onAdvancedFilterChange("startDate", event.target.value)}
-              type="date"
+              calendarLabel="打开开始日期选择器"
+              onValueChange={(value) => onAdvancedFilterChange("startDate", value)}
               value={advancedFilters.startDate}
             />
           </FormField>
           <FormField className="message-date-filter-field" label="结束日期">
-            <TextInput
+            <DateInput
               aria-label="按结束日期筛选"
-              onChange={(event) => onAdvancedFilterChange("endDate", event.target.value)}
-              type="date"
+              calendarLabel="打开结束日期选择器"
+              onValueChange={(value) => onAdvancedFilterChange("endDate", value)}
               value={advancedFilters.endDate}
             />
           </FormField>

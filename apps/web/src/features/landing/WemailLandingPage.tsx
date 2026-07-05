@@ -58,7 +58,11 @@ function useReducedMotion() {
 }
 
 function useCompactNavigation() {
-  const [isCompactNavigation, setIsCompactNavigation] = useState(false);
+  const [isCompactNavigation, setIsCompactNavigation] = useState(() => (
+    typeof window !== "undefined" &&
+    typeof window.matchMedia === "function" &&
+    window.matchMedia("(max-width: 980px)").matches
+  ));
 
   useEffect(() => {
     if (typeof window === "undefined" || typeof window.matchMedia !== "function") return;

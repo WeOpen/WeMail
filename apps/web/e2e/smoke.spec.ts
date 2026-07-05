@@ -372,13 +372,16 @@ test("shows the admin users workspace for an authenticated admin", async ({ page
       }
     });
   });
-  await page.route("**/api/users/summary", async (route) =>
+  await page.route("**/api/users/summary?**", async (route) =>
     route.fulfill({
       json: {
         quotaUsers: [
           { id: "admin-1", email: "admin@example.com", role: "admin", status: "active", createdAt: "2026-04-08T00:00:00.000Z", updatedAt: "2026-04-08T00:00:00.000Z" },
           { id: "member-1", email: "member@example.com", role: "member", status: "active", createdAt: "2026-04-10T00:00:00.000Z", updatedAt: "2026-04-10T00:00:00.000Z" }
         ],
+        quotaUsersPage: 1,
+        quotaUsersPageSize: 5,
+        quotaUsersTotal: 2,
         stats: { active: 2, total: 2 }
       }
     })
@@ -559,13 +562,16 @@ test("shows the admin dashboard mock board for an authenticated admin", async ({
       }
     });
   });
-  await page.route("**/api/users/summary", async (route) =>
+  await page.route("**/api/users/summary?**", async (route) =>
     route.fulfill({
       json: {
         quotaUsers: [
           { id: "admin-1", email: "admin@example.com", role: "admin", status: "active", createdAt: "2026-04-08T00:00:00.000Z", updatedAt: "2026-04-08T00:00:00.000Z" },
           { id: "member-1", email: "member@example.com", role: "member", status: "active", createdAt: "2026-04-10T00:00:00.000Z", updatedAt: "2026-04-10T00:00:00.000Z" }
         ],
+        quotaUsersPage: 1,
+        quotaUsersPageSize: 5,
+        quotaUsersTotal: 2,
         stats: { active: 2, total: 2 }
       }
     })

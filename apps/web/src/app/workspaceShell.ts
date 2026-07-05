@@ -148,6 +148,7 @@ const workspacePrimaryNav: WorkspacePrimaryNavConfig[] = [
     icon: "system",
     children: [
       { label: "系统设置", to: "/system/settings" },
+      { label: "运维中心", to: "/system/operations" },
       { label: "个人设置", to: "/system/profile" },
       { label: "关于我们", to: "/system/about" }
     ]

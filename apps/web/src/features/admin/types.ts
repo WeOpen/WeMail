@@ -9,6 +9,7 @@ export type InviteSummary = {
   expiresAt: string | null;
   targetRole: UserRole;
   redeemedByUserId: string | null;
+  redeemedByUserName?: string | null;
   redeemedAt: string | null;
   disabledAt: string | null;
   status?: InviteStatus;
@@ -43,6 +44,9 @@ export type AdminUserStats = {
 
 export type AdminUserSettingsSummaryPayload = {
   quotaUsers: UserSummary[];
+  quotaUsersPage: number;
+  quotaUsersPageSize: number;
+  quotaUsersTotal: number;
   stats: AdminUserStats;
 };
 

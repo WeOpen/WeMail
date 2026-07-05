@@ -1,13 +1,11 @@
 import type { FormEvent } from "react";
 import { Mailbox, TicketCheck, UserCheck, Users, type LucideIcon } from "lucide-react";
 
-import type { AdminGovernanceSummary, CommercialModelSummary, FeatureToggles, MailboxSummary, QuotaSummary, UserSummary } from "@wemail/shared";
+import type { AdminGovernanceSummary, CommercialModelSummary, MailboxSummary, QuotaSummary, UserSummary } from "@wemail/shared";
 
 import { CommercialModelPanel } from "../features/admin/CommercialModelPanel";
-import { FeatureTogglesPanel } from "../features/admin/FeatureTogglesPanel";
 import { GovernancePanel } from "../features/admin/GovernancePanel";
 import { InvitePanel } from "../features/admin/InvitePanel";
-import { MailboxOversightPanel } from "../features/admin/MailboxOversightPanel";
 import { QuotaPanel } from "../features/admin/QuotaPanel";
 import type { AdminUserStats, InviteCreatePayload, InviteSummary } from "../features/admin/types";
 import { MetricCard } from "../shared/metric-card";
@@ -16,6 +14,9 @@ import { Page, PageMain } from "../shared/page-layout";
 type UsersGlobalSettingsPageProps = {
   adminUsers: UserSummary[];
   adminSettingsUsers?: UserSummary[];
+  adminSettingsUsersPage?: number;
+  adminSettingsUsersPageSize?: number;
+  adminSettingsUsersTotal?: number;
   adminUserStats?: AdminUserStats;
   adminInvites: InviteSummary[];
   adminInvitesAvailable?: number;
@@ -23,21 +24,17 @@ type UsersGlobalSettingsPageProps = {
   adminInvitesPageSize?: number;
   adminInvitesTotal?: number;
   adminQuota: QuotaSummary | null;
-  adminFeatures: FeatureToggles | null;
   adminMailboxes: MailboxSummary[];
-  adminLatestMailbox?: MailboxSummary | null;
-  adminMailboxesPage?: number;
-  adminMailboxesPageSize?: number;
   adminMailboxesTotal?: number;
   adminGovernance?: AdminGovernanceSummary | null;
   adminCommercial?: CommercialModelSummary | null;
   onCreateInvite: (payload: InviteCreatePayload) => Promise<void>;
   onDisableInvite: (inviteId: string) => Promise<void>;
   onInvitePageChange?: (page: number) => Promise<void>;
-  onMailboxPageChange?: (page: number) => Promise<void>;
+  onInvitePageSizeChange?: (pageSize: number) => Promise<void>;
+  onQuotaUsersPageChange?: (page: number) => Promise<void>;
   onSelectQuotaUser: (userId: string) => Promise<void>;
   onSubmitQuota: (event: FormEvent<HTMLFormElement>, userId: string) => Promise<void>;
-  onToggleFeatures: (nextFeatureToggles: FeatureToggles) => Promise<void>;
 };
 
 function isInviteAvailable(invite: InviteSummary) {
@@ -47,6 +44,9 @@ function isInviteAvailable(invite: InviteSummary) {
 export function UsersGlobalSettingsPage({
   adminUsers,
   adminSettingsUsers,
+  adminSettingsUsersPage,
+  adminSettingsUsersPageSize,
+  adminSettingsUsersTotal,
   adminUserStats,
   adminInvites,
   adminInvitesAvailable,
@@ -54,23 +54,20 @@ export function UsersGlobalSettingsPage({
   adminInvitesPageSize,
   adminInvitesTotal,
   adminQuota,
-  adminFeatures,
   adminMailboxes,
-  adminLatestMailbox,
-  adminMailboxesPage,
-  adminMailboxesPageSize,
   adminMailboxesTotal,
   adminGovernance = null,
   adminCommercial = null,
   onCreateInvite,
   onDisableInvite,
   onInvitePageChange,
-  onMailboxPageChange,
+  onInvitePageSizeChange,
+  onQuotaUsersPageChange,
   onSelectQuotaUser,
-  onSubmitQuota,
-  onToggleFeatures
+  onSubmitQuota
 }: UsersGlobalSettingsPageProps) {
   const settingsUsers = adminSettingsUsers ?? adminUsers;
+  const inviteDisplayUsers = adminSettingsUsers ? [...adminUsers, ...adminSettingsUsers] : adminUsers;
   const activeUsers = adminUserStats?.active ?? adminUsers.filter((user) => user.status === "active").length;
   const totalUsers = adminUserStats?.total ?? adminUsers.length;
   const availableInvites = adminInvitesAvailable ?? adminInvites.filter(isInviteAvailable).length;
@@ -114,29 +111,24 @@ export function UsersGlobalSettingsPage({
             invitesPage={adminInvitesPage}
             invitesPageSize={adminInvitesPageSize}
             invitesTotal={adminInvitesTotal}
+            users={inviteDisplayUsers}
             onCreateInvite={onCreateInvite}
             onDisableInvite={onDisableInvite}
             onInvitePageChange={onInvitePageChange}
+            onInvitePageSizeChange={onInvitePageSizeChange}
           />
-          <GovernancePanel governance={adminGovernance} />
           <CommercialModelPanel commercial={adminCommercial} />
           <QuotaPanel
             adminUsers={settingsUsers}
             adminQuota={adminQuota}
+            quotaUsersPage={adminSettingsUsersPage}
+            quotaUsersPageSize={adminSettingsUsersPageSize}
+            quotaUsersTotal={adminSettingsUsersTotal}
+            onQuotaUsersPageChange={onQuotaUsersPageChange}
             onSelectQuotaUser={onSelectQuotaUser}
             onSubmitQuota={onSubmitQuota}
           />
-        </div>
-        <div className="users-global-side-column">
-          <FeatureTogglesPanel adminFeatures={adminFeatures} onToggleFeatures={onToggleFeatures} />
-          <MailboxOversightPanel
-            adminMailboxes={adminMailboxes}
-            latestMailbox={adminLatestMailbox}
-            mailboxesPage={adminMailboxesPage}
-            mailboxesPageSize={adminMailboxesPageSize}
-            mailboxesTotal={adminMailboxesTotal}
-            onMailboxPageChange={onMailboxPageChange}
-          />
+          <GovernancePanel governance={adminGovernance} />
         </div>
       </PageMain>
     </Page>

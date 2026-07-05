@@ -2,7 +2,6 @@ import { useEffect, useState, type ReactNode } from "react";
 import {
   ArchiveRestore,
   CheckCircle2,
-  ClipboardCheck,
   LockKeyhole,
   Save,
   ShieldAlert,
@@ -154,7 +153,6 @@ export function AccountsSettingsPage() {
   const [auditLoggingEnabled, setAuditLoggingEnabled] = useState(defaultAccountPolicy.protection.auditLoggingEnabled);
   const [protectionSaved, setProtectionSaved] = useState(false);
 
-  const [lastUpdatedLabel, setLastUpdatedLabel] = useState(defaultAccountPolicy.lastUpdatedLabel);
   const [isLoadingPolicy, setIsLoadingPolicy] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -167,11 +165,6 @@ export function AccountsSettingsPage() {
       : "基础保护";
   const creationMode = defaultTagsEnabled ? "默认标签已启用" : "手动标签";
   const hardDeleteLabel = allowHardDelete ? "允许" : "关闭";
-  const saveStateLabel = isLoadingPolicy
-    ? "加载中"
-    : creationSaved || lifecycleSaved || protectionSaved
-      ? "本次会话有更新"
-      : "等待调整";
   const isBusy = isLoadingPolicy || savingSection !== null;
   const controlsDisabled = isBusy || Boolean(loadError);
 
@@ -192,7 +185,6 @@ export function AccountsSettingsPage() {
     setRequireDangerPhrase(policy.protection.requireDangerPhrase);
     setHardDeleteLimit(policy.protection.hardDeleteLimit);
     setAuditLoggingEnabled(policy.protection.auditLoggingEnabled);
-    setLastUpdatedLabel(policy.lastUpdatedLabel);
   }
 
   useEffect(() => {
@@ -384,54 +376,58 @@ export function AccountsSettingsPage() {
                 }}
               />
 
-              <FormField className="accounts-settings-field" label="默认标签">
-                <TextInput
+              <div className="accounts-settings-pair-grid">
+                <FormField className="accounts-settings-field" label="默认标签">
+                  <TextInput
+                    disabled={controlsDisabled}
+                    onChange={(event) => {
+                      setDefaultTags(event.target.value);
+                      setCreationSaved(false);
+                    }}
+                    type="text"
+                    value={defaultTags}
+                  />
+                </FormField>
+
+                <FormField className="accounts-settings-field" label="默认状态">
+                  <SelectInput
+                    disabled={controlsDisabled}
+                    onChange={(event) => {
+                      setDefaultStatus(event.target.value as AccountCreationStatus);
+                      setCreationSaved(false);
+                    }}
+                    value={defaultStatus}
+                  >
+                    <option value="enabled">{statusLabels.enabled}</option>
+                    <option value="disabled">{statusLabels.disabled}</option>
+                    <option value="archived">{statusLabels.archived}</option>
+                  </SelectInput>
+                </FormField>
+              </div>
+
+              <div className="accounts-settings-pair-grid">
+                <SwitchRow
+                  checked={allowCreationOverride}
+                  description="创建账号时可按业务场景调整默认标签。"
                   disabled={controlsDisabled}
-                  onChange={(event) => {
-                    setDefaultTags(event.target.value);
+                  label="允许创建时覆盖默认标签"
+                  onChange={(checked) => {
+                    setAllowCreationOverride(checked);
                     setCreationSaved(false);
                   }}
-                  type="text"
-                  value={defaultTags}
                 />
-              </FormField>
 
-              <FormField className="accounts-settings-field" label="默认状态">
-                <SelectInput
+                <SwitchRow
+                  checked={requireCreatorNote}
+                  description="要求创建人留下用途说明，便于后续审计。"
                   disabled={controlsDisabled}
-                  onChange={(event) => {
-                    setDefaultStatus(event.target.value as AccountCreationStatus);
+                  label="创建账号时要求备注"
+                  onChange={(checked) => {
+                    setRequireCreatorNote(checked);
                     setCreationSaved(false);
                   }}
-                  value={defaultStatus}
-                >
-                  <option value="enabled">{statusLabels.enabled}</option>
-                  <option value="disabled">{statusLabels.disabled}</option>
-                  <option value="archived">{statusLabels.archived}</option>
-                </SelectInput>
-              </FormField>
-
-              <SwitchRow
-                checked={allowCreationOverride}
-                description="创建账号时可按业务场景调整默认标签。"
-                disabled={controlsDisabled}
-                label="允许创建时覆盖默认标签"
-                onChange={(checked) => {
-                  setAllowCreationOverride(checked);
-                  setCreationSaved(false);
-                }}
-              />
-
-              <SwitchRow
-                checked={requireCreatorNote}
-                description="要求创建人留下用途说明，便于后续审计。"
-                disabled={controlsDisabled}
-                label="创建账号时要求备注"
-                onChange={(checked) => {
-                  setRequireCreatorNote(checked);
-                  setCreationSaved(false);
-                }}
-              />
+                />
+              </div>
             </PolicySection>
 
             <PolicySection
@@ -489,28 +485,30 @@ export function AccountsSettingsPage() {
                 </FormField>
               </div>
 
-              <SwitchRow
-                checked={allowHardDelete}
-                description="启用后允许执行不可恢复的彻底删除。"
-                disabled={controlsDisabled}
-                label="允许彻底删除"
-                onChange={(checked) => {
-                  setAllowHardDelete(checked);
-                  setLifecycleSaved(false);
-                }}
-                tone="danger"
-              />
+              <div className="accounts-settings-pair-grid">
+                <SwitchRow
+                  checked={allowHardDelete}
+                  description="启用后允许执行不可恢复的彻底删除。"
+                  disabled={controlsDisabled}
+                  label="允许彻底删除"
+                  onChange={(checked) => {
+                    setAllowHardDelete(checked);
+                    setLifecycleSaved(false);
+                  }}
+                  tone="danger"
+                />
 
-              <SwitchRow
-                checked={requireSoftDeleteBeforeHardDelete}
-                description="彻底删除前先进入软删除保留期。"
-                disabled={controlsDisabled}
-                label="彻底删除前必须先软删除"
-                onChange={(checked) => {
-                  setRequireSoftDeleteBeforeHardDelete(checked);
-                  setLifecycleSaved(false);
-                }}
-              />
+                <SwitchRow
+                  checked={requireSoftDeleteBeforeHardDelete}
+                  description="彻底删除前先进入软删除保留期。"
+                  disabled={controlsDisabled}
+                  label="彻底删除前必须先软删除"
+                  onChange={(checked) => {
+                    setRequireSoftDeleteBeforeHardDelete(checked);
+                    setLifecycleSaved(false);
+                  }}
+                />
+              </div>
             </PolicySection>
 
             <PolicySection
@@ -564,93 +562,32 @@ export function AccountsSettingsPage() {
                 </FormField>
               </div>
 
-              <SwitchRow
-                checked={requireDangerPhrase}
-                description="危险操作必须输入确认词后才能继续。"
-                disabled={controlsDisabled}
-                label="危险操作要求确认词"
-                onChange={(checked) => {
-                  setRequireDangerPhrase(checked);
-                  setProtectionSaved(false);
-                }}
-              />
+              <div className="accounts-settings-pair-grid">
+                <SwitchRow
+                  checked={requireDangerPhrase}
+                  description="危险操作必须输入确认词后才能继续。"
+                  disabled={controlsDisabled}
+                  label="危险操作要求确认词"
+                  onChange={(checked) => {
+                    setRequireDangerPhrase(checked);
+                    setProtectionSaved(false);
+                  }}
+                />
 
-              <SwitchRow
-                checked={auditLoggingEnabled}
-                description="批量操作写入审计日志，便于追踪责任人。"
-                disabled={controlsDisabled}
-                label="记录批量操作日志"
-                onChange={(checked) => {
-                  setAuditLoggingEnabled(checked);
-                  setProtectionSaved(false);
-                }}
-              />
+                <SwitchRow
+                  checked={auditLoggingEnabled}
+                  description="批量操作写入审计日志，便于追踪责任人。"
+                  disabled={controlsDisabled}
+                  label="记录批量操作日志"
+                  onChange={(checked) => {
+                    setAuditLoggingEnabled(checked);
+                    setProtectionSaved(false);
+                  }}
+                />
+              </div>
             </PolicySection>
           </div>
 
-          <aside aria-label="账号策略侧栏" className="accounts-settings-side-rail">
-            <section className="panel workspace-card page-panel accounts-settings-rail-panel">
-              <div className="accounts-settings-rail-heading">
-                <ClipboardCheck size={19} strokeWidth={1.9} aria-hidden="true" />
-                <div>
-                  <p className="panel-kicker">策略状态</p>
-                  <h2>策略运行状态</h2>
-                </div>
-              </div>
-
-              <dl className="accounts-settings-summary-list">
-                <div className="accounts-settings-summary-row">
-                  <dt>默认状态</dt>
-                  <dd>{statusLabels[defaultStatus]}</dd>
-                </div>
-                <div className="accounts-settings-summary-row">
-                  <dt>默认标签</dt>
-                  <dd>{defaultTagsEnabled ? defaultTags : "未启用默认标签"}</dd>
-                </div>
-                <div className="accounts-settings-summary-row">
-                  <dt>不活跃处理</dt>
-                  <dd>{`${inactiveDays} 天后${inactiveActionLabels[inactiveAction]}`}</dd>
-                </div>
-                <div className="accounts-settings-summary-row">
-                  <dt>软删除保留期</dt>
-                  <dd>{`${softDeleteRetentionDays} 天`}</dd>
-                </div>
-                <div className="accounts-settings-summary-row">
-                  <dt>危险操作保护</dt>
-                  <dd>{requireDangerPhrase ? "确认词 + 二次确认" : "仅确认弹窗"}</dd>
-                </div>
-                <div className="accounts-settings-summary-row">
-                  <dt>最近更新时间</dt>
-                  <dd>{lastUpdatedLabel}</dd>
-                </div>
-              </dl>
-            </section>
-
-            <section className="panel workspace-card page-panel accounts-settings-rail-panel">
-              <div className="accounts-settings-rail-heading">
-                <ShieldCheck size={19} strokeWidth={1.9} aria-hidden="true" />
-                <div>
-                  <p className="panel-kicker">保护强度</p>
-                  <h2>{protectionLevel}</h2>
-                </div>
-              </div>
-
-              <div className="accounts-settings-rail-list">
-                <div className="accounts-settings-rail-row">
-                  <span>普通批量上限</span>
-                  <strong>{standardBulkLimit} 个</strong>
-                </div>
-                <div className="accounts-settings-rail-row">
-                  <span>彻底删除上限</span>
-                  <strong>{hardDeleteLimit} 个</strong>
-                </div>
-                <div className="accounts-settings-rail-row">
-                  <span>保存状态</span>
-                  <strong>{saveStateLabel}</strong>
-                </div>
-              </div>
-            </section>
-          </aside>
         </div>
       </Page>
 

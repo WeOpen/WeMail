@@ -3,10 +3,10 @@ import {
   Activity,
   Ban,
   CheckCircle2,
+  ChevronDown,
   Clock3,
   Copy,
   KeyRound,
-  ListChecks,
   Plus,
   ShieldCheck,
   Terminal,
@@ -21,10 +21,11 @@ import {
   type ApiKeySummary
 } from "@wemail/shared";
 import { Button } from "../../shared/button";
-import { FormField, TextInput } from "../../shared/form";
+import { Checkbox, FormField, TextInput } from "../../shared/form";
 import { MetricCard } from "../../shared/metric-card";
 import { OverlayDialog } from "../../shared/overlay";
 import { Pagination } from "../../shared/pagination";
+import { Tooltip, TooltipContent, TooltipTrigger } from "../../shared/tooltip";
 
 type CreateApiKeyResult = {
   key: {
@@ -45,6 +46,14 @@ type RevealState = {
   prefix: string;
   scopes: ApiKeyScope[];
   secret: string;
+};
+
+type ApiKeysCodeBlockProps = {
+  copied: boolean;
+  copyLabel: string;
+  label: string;
+  onCopy: () => void;
+  value: string;
 };
 
 const API_KEYS_PAGE_SIZE = 5;
@@ -86,8 +95,32 @@ async function copyText(text: string) {
   await navigator.clipboard.writeText(text);
 }
 
+function ApiKeysCodeBlock({ copied, copyLabel, label, onCopy, value }: ApiKeysCodeBlockProps) {
+  return (
+    <div className="integration-code-block api-keys-code-block">
+      <span className="api-keys-code-label">{label}</span>
+      <div className="api-keys-code-surface">
+        <pre><code>{value}</code></pre>
+        <Tooltip>
+          <TooltipTrigger
+            aria-label={copyLabel}
+            className={`ui-button ui-button-icon ui-button-size-sm ui-button-icon-only api-keys-code-copy-trigger${copied ? " is-copied" : ""}`}
+            onClick={onCopy}
+          >
+            <span className="ui-button-icon-slot" aria-hidden="true">
+              {copied ? <CheckCircle2 size={15} strokeWidth={1.9} /> : <Copy size={15} strokeWidth={1.9} />}
+            </span>
+          </TooltipTrigger>
+          <TooltipContent>{copied ? "已复制" : copyLabel}</TooltipContent>
+        </Tooltip>
+      </div>
+    </div>
+  );
+}
+
 export function ApiKeysPage({ apiKeys, onCreateApiKey, onRevokeApiKey }: ApiKeysPageProps) {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [isExampleOpen, setIsExampleOpen] = useState(false);
   const [label, setLabel] = useState("");
   const [selectedScopes, setSelectedScopes] = useState<ApiKeyScope[]>(defaultCreateScopes);
   const [isCreating, setIsCreating] = useState(false);
@@ -198,26 +231,59 @@ export function ApiKeysPage({ apiKeys, onCreateApiKey, onRevokeApiKey }: ApiKeys
     <main className="workspace-grid api-keys-layout-grid">
       <section className="panel workspace-card page-panel api-keys-hero-card">
         <div className="api-keys-hero-copy">
-          <p className="panel-kicker">凭证安全</p>
-          <h1>API 密钥</h1>
-          <p className="section-copy">
-            管理脚本、CLI 和外部系统访问 WeMail API 的个人凭证。创建后只展示一次，后续通过前缀、状态和使用时间来追踪。
-          </p>
+          <p className="panel-kicker">API密钥</p>
+          <h1 className="sr-only">API 密钥</h1>
         </div>
         <div className="api-keys-hero-actions">
           <div className="api-keys-live-chip" aria-label="活跃 API 密钥">
             <Activity aria-hidden="true" size={17} strokeWidth={1.9} />
             <span>{summary.activeKeys} 个活跃密钥</span>
           </div>
-          <Button
-            className="api-keys-create-button"
-            leadingIcon={<Plus size={16} strokeWidth={2} />}
-            onClick={() => setIsCreateOpen(true)}
-            variant="primary"
-          >
-            创建密钥
-          </Button>
         </div>
+
+        <section className="panel workspace-card page-panel integration-surface-card api-keys-terminal-card api-keys-top-terminal-card" aria-labelledby="api-keys-terminal-heading">
+          <h2 className="sr-only" id="api-keys-terminal-heading">接入终端</h2>
+          <button
+            aria-controls="api-keys-terminal-body"
+            aria-expanded={isExampleOpen}
+            aria-label={isExampleOpen ? "收起调用示例" : "展开调用示例"}
+            className="api-keys-terminal-toggle"
+            onClick={() => setIsExampleOpen((current) => !current)}
+            type="button"
+          >
+            <span className="api-keys-section-header">
+              <span className="api-keys-section-icon" aria-hidden="true">
+                <Terminal size={20} strokeWidth={1.8} />
+              </span>
+              <span className="integration-card-copy compact">
+                <span className="panel-kicker">调用示例</span>
+              </span>
+            </span>
+            <span className="api-keys-terminal-chevron" aria-hidden="true">
+              <ChevronDown size={18} strokeWidth={2} />
+            </span>
+          </button>
+          {isExampleOpen ? (
+            <div className="api-keys-terminal-body" id="api-keys-terminal-body">
+              <div className="api-keys-terminal-grid">
+                <ApiKeysCodeBlock
+                  copied={copiedToken === "authorization"}
+                  copyLabel="复制 Authorization Header"
+                  label="Authorization Header"
+                  onCopy={() => void handleCopy("authorization", `Authorization: Bearer ${quickstartSecret}`)}
+                  value={`Authorization: Bearer ${quickstartSecret}`}
+                />
+                <ApiKeysCodeBlock
+                  copied={copiedToken === "curl"}
+                  copyLabel="复制 curl 示例"
+                  label="curl 示例"
+                  onCopy={() => void handleCopy("curl", curlExample)}
+                  value={curlExample}
+                />
+              </div>
+            </div>
+          ) : null}
+        </section>
 
         <section className="api-keys-top-stats" aria-label="API 密钥状态概览">
           {statCards.map((card) => {
@@ -240,15 +306,24 @@ export function ApiKeysPage({ apiKeys, onCreateApiKey, onRevokeApiKey }: ApiKeys
 
       <div className="api-keys-credential-grid">
         <section className="panel workspace-card page-panel integration-surface-card api-keys-vault-card" aria-labelledby="api-keys-vault-heading">
-          <div className="api-keys-section-header">
-            <span className="api-keys-section-icon" aria-hidden="true">
-              <KeyRound size={20} strokeWidth={1.8} />
-            </span>
-            <div className="integration-card-copy compact">
-              <p className="panel-kicker">凭证库</p>
-              <h2 id="api-keys-vault-heading">密钥清单</h2>
-              <p className="section-copy">用用途命名密钥，按前缀定位依赖方；不在列表内展示完整 secret。</p>
+          <div className="api-keys-vault-header">
+            <div className="api-keys-section-header">
+              <span className="api-keys-section-icon" aria-hidden="true">
+                <KeyRound size={20} strokeWidth={1.8} />
+              </span>
+              <div className="integration-card-copy compact">
+                <p className="panel-kicker">凭证库</p>
+                <h2 className="sr-only" id="api-keys-vault-heading">密钥清单</h2>
+              </div>
             </div>
+            <Button
+              className="api-keys-create-button"
+              leadingIcon={<Plus size={16} strokeWidth={2} />}
+              onClick={() => setIsCreateOpen(true)}
+              variant="primary"
+            >
+              创建密钥
+            </Button>
           </div>
 
           {revealState ? (
@@ -287,9 +362,11 @@ export function ApiKeysPage({ apiKeys, onCreateApiKey, onRevokeApiKey }: ApiKeys
                     <span className="api-keys-record-icon" aria-hidden="true">
                       <KeyRound size={18} strokeWidth={1.8} />
                     </span>
-                    <div>
-                      <strong>{key.label}</strong>
-                      <code>{key.prefix}</code>
+                    <div className="api-keys-record-main">
+                      <div className="api-keys-record-name-line">
+                        <strong>{key.label}</strong>
+                        <code>{key.prefix}</code>
+                      </div>
                       <div className="api-keys-scope-list" aria-label={`${key.label} 权限范围`}>
                         {key.scopes.map((scope) => (
                           <span key={scope}>{formatScopeLabel(scope)}</span>
@@ -346,69 +423,6 @@ export function ApiKeysPage({ apiKeys, onCreateApiKey, onRevokeApiKey }: ApiKeys
             />
           ) : null}
         </section>
-
-        <aside className="api-keys-side-rail">
-          <section className="panel workspace-card page-panel integration-surface-card api-keys-terminal-card" aria-labelledby="api-keys-terminal-heading">
-            <div className="api-keys-section-header">
-              <span className="api-keys-section-icon" aria-hidden="true">
-                <Terminal size={20} strokeWidth={1.8} />
-              </span>
-              <div className="integration-card-copy compact">
-                <p className="panel-kicker">调用示例</p>
-                <h2 id="api-keys-terminal-heading">接入终端</h2>
-                <p className="section-copy">把密钥放到 Authorization Header 中，用同一套方式接入脚本和服务端任务。</p>
-              </div>
-            </div>
-            <div className="integration-code-block api-keys-code-block">
-              <span>Authorization Header</span>
-              <pre>{`Authorization: Bearer ${quickstartSecret}`}</pre>
-            </div>
-            <div className="integration-code-block api-keys-code-block">
-              <span>curl 示例</span>
-              <pre>{curlExample}</pre>
-            </div>
-            <div className="integration-inline-actions">
-              <Button leadingIcon={<Copy size={15} strokeWidth={1.9} />} onClick={() => void handleCopy("curl", curlExample)} variant="primary">
-                {copiedToken === "curl" ? "已复制代码" : "复制代码"}
-              </Button>
-            </div>
-          </section>
-
-          <section className="panel workspace-card page-panel integration-surface-card api-keys-lifecycle-card" aria-labelledby="api-keys-lifecycle-heading">
-            <div className="api-keys-section-header">
-              <span className="api-keys-section-icon" aria-hidden="true">
-                <ListChecks size={20} strokeWidth={1.8} />
-              </span>
-              <div className="integration-card-copy compact">
-                <p className="panel-kicker">安全节奏</p>
-                <h2 id="api-keys-lifecycle-heading">密钥生命周期</h2>
-              </div>
-            </div>
-            <ol className="api-keys-lifecycle-list">
-              <li>
-                <span>1</span>
-                <div>
-                  <strong>创建后立即复制</strong>
-                  <p>完整密钥只在生成后展示一次，关闭提示后不可再次查看。</p>
-                </div>
-              </li>
-              <li>
-                <span>2</span>
-                <div>
-                  <strong>按用途拆分</strong>
-                  <p>为 CLI、CI、外部系统分别命名，排查时可以直接定位依赖方。</p>
-                </div>
-              </li>
-              <li>
-                <span>3</span>
-                <div>
-                  <strong>异常时吊销</strong>
-                  <p>吊销会立即让使用该密钥的脚本失效，适合泄露或退役场景。</p>
-                </div>
-              </li>
-            </ol>
-          </section>
-        </aside>
       </div>
     </main>
 
@@ -433,17 +447,18 @@ export function ApiKeysPage({ apiKeys, onCreateApiKey, onRevokeApiKey }: ApiKeys
           </FormField>
           <div className="api-keys-scope-picker" role="group" aria-label="API 密钥权限范围">
             {API_KEY_SCOPE_DEFINITIONS.map((scope) => (
-              <label className="api-keys-scope-option" key={scope.id}>
-                <input
-                  checked={selectedScopes.includes(scope.id)}
-                  onChange={() => handleToggleScope(scope.id)}
-                  type="checkbox"
-                />
-                <span>
+              <Checkbox
+                checked={selectedScopes.includes(scope.id)}
+                className="api-keys-scope-option"
+                key={scope.id}
+                label={
+                  <span>
                   <strong>{scope.label}</strong>
                   <small>{scope.description}</small>
-                </span>
-              </label>
+                  </span>
+                }
+                onChange={() => handleToggleScope(scope.id)}
+              />
             ))}
           </div>
           <div className="workspace-dialog-actions integration-inline-actions">

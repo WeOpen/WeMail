@@ -4,7 +4,7 @@ export const paths = {
   "/api/users": {
     get: {
       tags: ["用户"],
-      summary: "获取用户列表",
+      summary: "获取用户列表，默认按创建时间倒序",
       operationId: "listUsers",
       security: [{ cookieAuth: [] }],
       parameters: [
@@ -21,7 +21,7 @@ export const paths = {
       ],
       responses: {
         200: {
-          description: "分页用户列表",
+          description: "分页用户列表，默认最新创建的用户在前。",
           content: {
             "application/json": {
               schema: {

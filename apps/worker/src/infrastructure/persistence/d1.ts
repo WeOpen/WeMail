@@ -291,6 +291,7 @@ function toInviteRecord(row: any) {
     code: row.code,
     createdByUserId: row.created_by_user_id,
     redeemedByUserId: row.redeemed_by_user_id,
+    redeemedByUserName: row.redeemed_by_user_name || row.redeemed_by_user_email || null,
     redeemedAt: row.redeemed_at,
     disabledAt: row.disabled_at,
     expiresAt: row.expires_at ?? null,
@@ -464,7 +465,7 @@ export function createD1Store(db: D1Database): AppStore {
           .bind(...bindings)
           .first<{ count: number }>();
         const result = await db
-          .prepare(`SELECT * FROM users${whereSql} ORDER BY email ASC LIMIT ? OFFSET ?`)
+          .prepare(`SELECT * FROM users${whereSql} ORDER BY created_at DESC, id DESC LIMIT ? OFFSET ?`)
           .bind(...bindings, options.pageSize, (options.page - 1) * options.pageSize)
           .all();
 
@@ -714,7 +715,13 @@ export function createD1Store(db: D1Database): AppStore {
           .bind(nowIso())
           .first<{ count: number }>();
         const result = await db
-          .prepare("SELECT * FROM user_invites ORDER BY created_at DESC LIMIT ? OFFSET ?")
+          .prepare(
+            `SELECT user_invites.*, users.name AS redeemed_by_user_name, users.email AS redeemed_by_user_email
+             FROM user_invites
+             LEFT JOIN users ON users.id = user_invites.redeemed_by_user_id
+             ORDER BY user_invites.created_at DESC
+             LIMIT ? OFFSET ?`
+          )
           .bind(options.pageSize, (options.page - 1) * options.pageSize)
           .all();
 

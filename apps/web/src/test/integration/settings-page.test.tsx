@@ -95,8 +95,13 @@ describe("settings pages", () => {
 
   it("opens api key creation in a dialog and reveals the generated key after submit", async () => {
     const user = userEvent.setup();
+    const writeText = vi.fn().mockResolvedValue(undefined);
     const onCreateApiKey = vi.fn().mockResolvedValue({
       key: { secret: "wk_live_secret_123456", prefix: "wk_live_abcd", scopes: [...DEFAULT_API_KEY_SCOPES] }
+    });
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { writeText }
     });
 
     renderWithRouter(
@@ -120,7 +125,12 @@ describe("settings pages", () => {
     expect(screen.getByRole("heading", { name: /^API 密钥$/i })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /密钥清单/i })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /接入终端/i })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: /密钥生命周期/i })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: /密钥生命周期/i })).not.toBeInTheDocument();
+    expect(screen.queryByText("凭证安全")).not.toBeInTheDocument();
+    expect(screen.getByText("API密钥")).toHaveClass("panel-kicker");
+    expect(screen.getByText("凭证库")).toHaveClass("panel-kicker");
+    expect(screen.queryByText(/管理脚本、CLI 和外部系统访问 WeMail API/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/用用途命名密钥/)).not.toBeInTheDocument();
     expect(screen.getByText("总密钥")).toBeInTheDocument();
     expect(screen.getByText("活跃密钥")).toBeInTheDocument();
     expect(screen.getByText("从未使用")).toBeInTheDocument();
@@ -129,12 +139,37 @@ describe("settings pages", () => {
     expect(screen.queryByRole("heading", { name: /安全建议/i })).not.toBeInTheDocument();
     expect(screen.queryByText(/如何选择这三种接入/i)).not.toBeInTheDocument();
     const heroCard = document.querySelector(".api-keys-hero-card");
+    const terminalCard = document.querySelector(".api-keys-terminal-card");
     const topStats = document.querySelector(".api-keys-top-stats");
+    const vaultCard = document.querySelector(".api-keys-vault-card");
     expect(heroCard).not.toBeNull();
+    expect(terminalCard).not.toBeNull();
     expect(topStats).not.toBeNull();
+    expect(vaultCard).not.toBeNull();
+    expect(heroCard).toContainElement(terminalCard as HTMLElement);
     expect(heroCard).toContainElement(topStats as HTMLElement);
+    expect((terminalCard as HTMLElement).compareDocumentPosition(topStats as HTMLElement) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(document.querySelector(".api-keys-credential-grid")).not.toBeNull();
-    expect(document.querySelector(".api-keys-terminal-card")).not.toBeNull();
+    expect(document.querySelector(".api-keys-side-rail")).toBeNull();
+    expect(within(vaultCard as HTMLElement).getByRole("button", { name: /创建密钥/i })).toBeInTheDocument();
+    expect((vaultCard as HTMLElement).querySelector(".api-keys-record-name-line")).not.toBeNull();
+    expect(screen.getByRole("button", { name: "展开调用示例" })).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByText("Authorization Header")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /复制代码/i })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "展开调用示例" }));
+
+    expect(screen.getByRole("button", { name: "收起调用示例" })).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByText("Authorization Header")).toBeInTheDocument();
+    expect(screen.getByText("curl 示例")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "复制 Authorization Header" }));
+
+    expect(writeText).toHaveBeenCalledWith("Authorization: Bearer <your-api-key>");
+
+    await user.click(screen.getByRole("button", { name: "复制 curl 示例" }));
+
+    expect(writeText).toHaveBeenCalledWith('curl https://api.example.com/messages \\\n  -H "Authorization: Bearer <your-api-key>"');
 
     await user.click(screen.getByRole("button", { name: /创建密钥/i }));
     const createDialog = screen.getByRole("dialog", { name: /创建 API 密钥/i });
@@ -199,23 +234,122 @@ describe("settings pages", () => {
     const statusPillRule = getStyleRule(".api-keys-status-pill");
     const recordRowRule = getStyleRule(".api-keys-record-row");
     const topStatsRule = getStyleRule(".api-keys-top-stats");
+    const credentialGridRule = getStyleRule(".api-keys-credential-grid");
+    const terminalGridRule = getStyleRule(".api-keys-terminal-grid");
+    const terminalToggleRule = getStyleRule(".api-keys-terminal-toggle");
+    const vaultHeaderRule = getStyleRule(".api-keys-vault-header");
+    const vaultSectionHeaderRule = getStyleRule(".api-keys-vault-header .api-keys-section-header");
+    const vaultCopyRule = getStyleRule(".api-keys-vault-header .integration-card-copy");
+    const codeSurfaceRule = getStyleRule(".api-keys-code-surface");
+    const recordNameLineRule = getStyleRule(".api-keys-record-name-line");
+    const scopeListRule = getStyleRule(".api-keys-scope-list");
+    const scopeChipRule = getStyleRule(".api-keys-scope-list span");
 
     expect(statusPillRule).toContain("min-width: 76px");
     expect(statusPillRule).toContain("white-space: nowrap");
     expect(statusPillRule).toContain("word-break: keep-all");
     expect(statusPillRule).toContain("flex-shrink: 0");
-    expect(recordRowRule).toContain("minmax(82px, auto)");
+    expect(recordRowRule).toContain("minmax(92px, auto)");
     expect(topStatsRule).toContain("grid-column: 1 / -1");
+    expect(credentialGridRule).toContain("grid-template-columns: minmax(0, 1fr)");
+    expect(terminalGridRule).toContain("grid-template-columns: repeat(2, minmax(0, 1fr))");
+    expect(terminalToggleRule).toContain("grid-template-columns: minmax(0, 1fr) auto");
+    expect(vaultHeaderRule).toContain("grid-template-columns: minmax(0, 1fr) auto");
+    expect(vaultSectionHeaderRule).toContain("align-items: center");
+    expect(vaultCopyRule).toContain("align-content: center");
+    expect(vaultCopyRule).toContain("min-height: 40px");
+    expect(codeSurfaceRule).toContain("grid-template-columns: minmax(0, 1fr) auto");
+    expect(recordNameLineRule).toContain("display: flex");
+    expect(recordNameLineRule).toContain("align-items: center");
+    expect(scopeListRule).toContain("grid-template-columns: repeat(2, max-content)");
+    expect(scopeListRule).toContain("justify-content: start");
+    expect(scopeChipRule).toContain("justify-self: start");
   });
 
-  it("renders a webhook control-center scaffold instead of the old placeholder", () => {
+  it("renders a webhook control-center scaffold instead of the old placeholder", async () => {
+    const user = userEvent.setup();
     renderWithRouter(<WebhookPage />);
 
-    expect(screen.getByRole("heading", { name: /事件订阅/i })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: /事件订阅/i })).not.toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /通知规则/i })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: /Payload 示例/i })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /开发者参考/i })).toBeInTheDocument();
+    expect(screen.getByText("Webhook", { selector: ".panel-kicker" })).toBeInTheDocument();
+    expect(screen.getByText("端点列表", { selector: ".panel-kicker" })).toBeInTheDocument();
+    expect(screen.getByText("规则引擎", { selector: ".panel-kicker" })).toBeInTheDocument();
+    expect(screen.getByText("运行观察", { selector: ".panel-kicker" })).toBeInTheDocument();
+    expect(screen.queryByText("端点配置", { selector: ".panel-kicker" })).not.toBeInTheDocument();
+    expect(screen.queryByText(/把收件、提取、通知和安全事件/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/按目标、事件、邮箱、关键词和静默时间控制/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/按当前端点查看投递状态/)).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "展开开发者参考" })).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByText("Payload 示例与签名校验")).not.toBeInTheDocument();
+    expect(screen.queryByText(/Secret 不会明文放进 Header/)).not.toBeInTheDocument();
+    expect(screen.queryByText("Signing Secret")).not.toBeInTheDocument();
+    expect(screen.queryByText("Headers")).not.toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /投递日志/i })).toBeInTheDocument();
     expect(screen.getByText("尚未创建端点", { selector: "strong" })).toBeInTheDocument();
+
+    const heroCard = document.querySelector(".webhook-page-grid > .webhook-hero-card");
+    const referenceCard = document.querySelector(".webhook-hero-reference-card");
+    const overviewGrid = document.querySelector(".webhook-overview-grid");
+    expect(heroCard).not.toBeNull();
+    expect(referenceCard).not.toBeNull();
+    expect(overviewGrid).not.toBeNull();
+    expect(heroCard).toContainElement(referenceCard as HTMLElement);
+    expect(referenceCard?.compareDocumentPosition(overviewGrid as Element)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(document.querySelector(".integration-primary-column > .webhook-reference-card")).toBeNull();
+    expect(document.querySelector(".webhook-side-column")).toBeNull();
+    expect(document.querySelector(".webhook-workbench-card .webhook-section-title-kicker")).not.toBeNull();
+    expect(document.querySelector(".webhook-rule-card .webhook-section-title-kicker")).not.toBeNull();
+    expect(document.querySelector(".webhook-delivery-card .webhook-section-title-kicker")).not.toBeNull();
+    expect(screen.getByRole("button", { name: "新增端点" }).closest(".webhook-workbench-card")).not.toBeNull();
+
+    await user.click(screen.getByRole("button", { name: "展开开发者参考" }));
+
+    expect(screen.getByRole("button", { name: "收起开发者参考" })).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByText("Signing Secret")).toBeInTheDocument();
+    expect(screen.getAllByText(/不会明文放进 Header/).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText("Headers")).toBeInTheDocument();
+    expect(screen.getByText("Body")).toBeInTheDocument();
+    expect(screen.getByText("Signature Verify")).toBeInTheDocument();
+  });
+
+  it("keeps the webhook hero and developer reference layout aligned", () => {
+    const pageRule = getStyleRule(".webhook-page-grid");
+    const primaryColumnRule = getStyleRule(".webhook-page-grid > .integration-primary-column");
+    const heroRule = getStyleRule(".webhook-hero-card");
+    const overviewRule = getStyleRule(".webhook-overview-grid");
+    const sectionTitleKickerRule = getStyleRule(".webhook-section-title-kicker");
+    const kickerOnlyRule = getStyleRule(".webhook-kicker-only");
+    const workbenchActionsRule = getStyleRule(".webhook-workbench-actions");
+    const endpointRowRule = getStyleRule(".webhook-endpoint-row");
+    const endpointMainRule = getStyleRule(".webhook-endpoint-main");
+    const endpointMetaRule = getStyleRule(".webhook-endpoint-meta");
+    const endpointActionsRule = getStyleRule(".webhook-endpoint-actions");
+    const endpointEventsRule = getStyleRule(".webhook-endpoint-events");
+    const referenceToggleRule = getStyleRule(".webhook-reference-toggle");
+    const referenceGridRule = getStyleRule(".webhook-hero-reference-card .webhook-reference-grid");
+    const signaturePanelRule = getStyleRule(".webhook-signature-panel");
+    const secretPanelRule = getStyleRule(".webhook-signature-panel .webhook-secret-panel");
+
+    expect(pageRule).toContain("grid-template-columns: minmax(0, 1fr)");
+    expect(primaryColumnRule).toContain("grid-column: 1 / -1");
+    expect(heroRule).toContain("grid-column: 1 / -1");
+    expect(overviewRule).toContain("grid-template-columns: repeat(5, minmax(0, 1fr))");
+    expect(sectionTitleKickerRule).toContain("align-items: center");
+    expect(kickerOnlyRule).toContain("align-content: center");
+    expect(kickerOnlyRule).toContain("min-height: 38px");
+    expect(workbenchActionsRule).toContain("justify-content: flex-end");
+    expect(endpointRowRule).toContain("grid-template-columns: minmax(0, 1fr) auto");
+    expect(endpointMainRule).toContain("grid-template-columns: minmax(0, 1fr) auto auto");
+    expect(endpointMainRule).toContain("align-items: center");
+    expect(endpointMetaRule).toContain("display: flex");
+    expect(endpointActionsRule).toContain("justify-content: flex-end");
+    expect(endpointEventsRule).toContain("grid-column: 1 / -1");
+    expect(referenceToggleRule).toContain("grid-template-columns: minmax(0, 1fr) auto");
+    expect(referenceGridRule).toContain("grid-template-columns: repeat(3, minmax(0, 1fr))");
+    expect(signaturePanelRule).toContain("grid-template-columns: minmax(220px, 0.8fr) minmax(0, 1.2fr)");
+    expect(secretPanelRule).toContain("grid-template-columns: minmax(0, 1fr) auto auto");
   });
 
   it("creates notification rules from the webhook page", async () => {
@@ -298,7 +432,7 @@ describe("settings pages", () => {
                 id: "endpoint-1",
                 name: "生产同步",
                 url: "https://hooks.example.test/wemail",
-                events: ["message.received"],
+                events: ["message.received", "message.extracted"],
                 signingSecret: "secret_123",
                 enabled: true,
                 createdAt: "2026-06-14T01:00:00.000Z",
@@ -345,7 +479,22 @@ describe("settings pages", () => {
 
     renderWithRouter(<WebhookPage />);
 
-    expect(await screen.findAllByText("生产同步")).toHaveLength(2);
+    expect(await screen.findByText("生产同步")).toBeInTheDocument();
+    const endpointRow = screen.getByText("https://hooks.example.test/wemail").closest(".webhook-endpoint-row");
+    expect(endpointRow).not.toBeNull();
+    expect(within(endpointRow as HTMLElement).getByText("2 项事件")).toBeInTheDocument();
+    expect(within(endpointRow as HTMLElement).getByText(/更新于/)).toBeInTheDocument();
+    expect(within(endpointRow as HTMLElement).getByRole("button", { name: "展开 生产同步 订阅事件" })).toHaveAttribute("aria-expanded", "false");
+    expect(within(endpointRow as HTMLElement).queryByText("message.received")).not.toBeInTheDocument();
+    expect(within(endpointRow as HTMLElement).getByRole("button", { name: "编辑 生产同步" })).toBeInTheDocument();
+    expect(within(endpointRow as HTMLElement).getByRole("button", { name: "暂停 生产同步" })).toBeInTheDocument();
+    expect(within(endpointRow as HTMLElement).getByRole("button", { name: "删除 生产同步" })).toBeInTheDocument();
+
+    await user.click(within(endpointRow as HTMLElement).getByRole("button", { name: "展开 生产同步 订阅事件" }));
+
+    expect(within(endpointRow as HTMLElement).getByRole("button", { name: "收起 生产同步 订阅事件" })).toHaveAttribute("aria-expanded", "true");
+    expect(within(endpointRow as HTMLElement).getByText("新邮件到达")).toBeInTheDocument();
+    expect(within(endpointRow as HTMLElement).getByText("message.received")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: /发送测试事件/i }));
 
     await waitFor(() => {

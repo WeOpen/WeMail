@@ -57,6 +57,11 @@ preview_id = "replace-with-staging-kv-preview-id"
 binding = "ATTACHMENTS"
 bucket_name = "wemail-staging-attachments"
 
+[[env.staging.ratelimits]]
+name = "RATE_LIMITER"
+namespace_id = "wemail-staging-rate-limit"
+simple = { limit = 60, period = 60 }
+
 [env.production]
 workers_dev = true
 routes = [
@@ -87,3 +92,8 @@ preview_id = "replace-with-production-kv-preview-id"
 [[env.production.r2_buckets]]
 binding = "ATTACHMENTS"
 bucket_name = "wemail-production-attachments"
+
+[[env.production.ratelimits]]
+name = "RATE_LIMITER"
+namespace_id = "wemail-production-rate-limit"
+simple = { limit = 60, period = 60 }

@@ -62,6 +62,8 @@ const loadInboxPage = () => import("../pages/InboxPage").then((module) => ({ def
 const loadMailSettingsPage = () =>
   import("../features/settings/MailSettingsPage").then((module) => ({ default: module.MailSettingsPage }));
 const loadOutboundPage = () => import("../features/outbound/OutboundPage").then((module) => ({ default: module.OutboundPage }));
+const loadSystemOperationsPage = () =>
+  import("../pages/SystemOperationsPage").then((module) => ({ default: module.SystemOperationsPage }));
 const loadSystemProfilePage = () => import("../pages/SystemProfilePage").then((module) => ({ default: module.SystemProfilePage }));
 const loadSystemSettingsPage = () => import("../pages/SystemSettingsPage").then((module) => ({ default: module.SystemSettingsPage }));
 const loadTelegramSettingsPage = () =>
@@ -83,6 +85,7 @@ const DashboardPage = lazy(loadDashboardPage);
 const InboxPage = lazy(loadInboxPage);
 const MailSettingsPage = lazy(loadMailSettingsPage);
 const OutboundPage = lazy(loadOutboundPage);
+const SystemOperationsPage = lazy(loadSystemOperationsPage);
 const SystemProfilePage = lazy(loadSystemProfilePage);
 const SystemSettingsPage = lazy(loadSystemSettingsPage);
 const TelegramSettingsPage = lazy(loadTelegramSettingsPage);
@@ -170,6 +173,9 @@ type AppRoutesProps = {
     adminUsers: UserSummary[];
     adminUsersTotal: number;
     adminSettingsUsers: UserSummary[];
+    adminSettingsUsersPage: number;
+    adminSettingsUsersPageSize: number;
+    adminSettingsUsersTotal: number;
     adminUserStats: AdminUserStats;
     adminInvites: InviteSummary[];
     adminInvitesAvailable: number;
@@ -179,9 +185,6 @@ type AppRoutesProps = {
     adminQuota: QuotaSummary | null;
     adminFeatures: FeatureToggles | null;
     adminMailboxes: MailboxSummary[];
-    adminLatestMailbox: MailboxSummary | null;
-    adminMailboxesPage: number;
-    adminMailboxesPageSize: number;
     adminMailboxesTotal: number;
     adminGovernance: AdminGovernanceSummary | null;
     adminCommercial: CommercialModelSummary | null;
@@ -192,13 +195,13 @@ type AppRoutesProps = {
     updateUserStatus: (userId: string, status: UserStatus) => Promise<void>;
     deleteUser: (userId: string) => Promise<void>;
     refreshAdminUsers: (query: AdminUsersQuery) => Promise<void>;
+    refreshAdminSettingsSummary: (query: { page: number; pageSize: number }) => Promise<void>;
     isLoadingUsers: boolean;
     usersError: string | null;
     suspendUsersOutbound: (userIds: string[]) => Promise<void>;
     createInvite: (payload: InviteCreatePayload) => Promise<void>;
     disableInvite: (inviteId: string) => Promise<void>;
     refreshAdminInvites: (query: { page: number; pageSize: number }) => Promise<void>;
-    refreshAdminMailboxes: (query: { page: number; pageSize: number }) => Promise<void>;
     selectQuotaUser: (userId: string) => Promise<void>;
     submitQuota: (event: FormEvent<HTMLFormElement>, userId: string) => Promise<void>;
     toggleFeatures: (nextFeatureToggles: FeatureToggles) => Promise<void>;
@@ -374,30 +377,29 @@ export function AppRoutes({
       restrictedUsersPage
     ) : (
       <UsersGlobalSettingsPage
-        adminFeatures={admin.adminFeatures}
         adminInvites={admin.adminInvites}
         adminInvitesAvailable={admin.adminInvitesAvailable}
         adminInvitesPage={admin.adminInvitesPage}
         adminInvitesPageSize={admin.adminInvitesPageSize}
         adminInvitesTotal={admin.adminInvitesTotal}
-        adminLatestMailbox={admin.adminLatestMailbox}
         adminMailboxes={admin.adminMailboxes}
-        adminMailboxesPage={admin.adminMailboxesPage}
-        adminMailboxesPageSize={admin.adminMailboxesPageSize}
         adminMailboxesTotal={admin.adminMailboxesTotal}
         adminGovernance={admin.adminGovernance}
         adminCommercial={admin.adminCommercial}
         adminQuota={admin.adminQuota}
         adminSettingsUsers={admin.adminSettingsUsers}
+        adminSettingsUsersPage={admin.adminSettingsUsersPage}
+        adminSettingsUsersPageSize={admin.adminSettingsUsersPageSize}
+        adminSettingsUsersTotal={admin.adminSettingsUsersTotal}
         adminUserStats={admin.adminUserStats}
         adminUsers={admin.adminUsers}
         onCreateInvite={admin.createInvite}
         onDisableInvite={admin.disableInvite}
         onInvitePageChange={(page) => admin.refreshAdminInvites({ page, pageSize: admin.adminInvitesPageSize })}
-        onMailboxPageChange={(page) => admin.refreshAdminMailboxes({ page, pageSize: admin.adminMailboxesPageSize })}
+        onInvitePageSizeChange={(pageSize) => admin.refreshAdminInvites({ page: 1, pageSize })}
+        onQuotaUsersPageChange={(page) => admin.refreshAdminSettingsSummary({ page, pageSize: admin.adminSettingsUsersPageSize })}
         onSelectQuotaUser={admin.selectQuotaUser}
         onSubmitQuota={admin.submitQuota}
-        onToggleFeatures={admin.toggleFeatures}
       />
     );
 
@@ -461,17 +463,24 @@ export function AppRoutes({
 
   const systemSettingsPage = (
     <SystemSettingsPage
+      adminFeatures={admin.adminFeatures}
       canManageDomains
       canManageRuntimeSettings={session.user.role === "admin"}
       runtimeSettings={settings.runtimeSettings}
-        systemDiagnostics={settings.systemDiagnostics}
-        systemMaturity={settings.systemMaturity}
-        systemOperations={settings.systemOperations}
-        systemReliability={settings.systemReliability}
       resolvedTheme={appearance.theme}
       themePreference={appearance.themePreference}
       onSelectThemePreference={appearance.setThemePreference}
       onSaveRuntimeSettings={settings.saveRuntimeSettings}
+      onToggleFeatures={admin.toggleFeatures}
+    />
+  );
+
+  const systemOperationsPage = (
+    <SystemOperationsPage
+      systemDiagnostics={settings.systemDiagnostics}
+      systemMaturity={settings.systemMaturity}
+      systemOperations={settings.systemOperations}
+      systemReliability={settings.systemReliability}
     />
   );
 
@@ -541,6 +550,7 @@ export function AppRoutes({
       <Route path="/announcements" element={lazyRoute(announcementsPage)} />
       <Route path="/system" element={<Navigate replace to="/system/settings" />} />
       <Route path="/system/settings" element={lazyRoute(systemSettingsPage)} />
+      <Route path="/system/operations" element={lazyRoute(systemOperationsPage)} />
       <Route path="/system/profile" element={lazyRoute(systemProfilePage)} />
       <Route path="/system/about" element={lazyRoute(<AboutPage />)} />
     </Routes>

@@ -824,7 +824,11 @@ describe("accounts pages", () => {
     expect(screen.getByRole("heading", { name: "默认创建规则" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "生命周期规则" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "批量操作保护" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "策略运行状态" })).toBeInTheDocument();
+    expect(screen.getByLabelText("账号策略表单")).toHaveClass("accounts-settings-main-column");
+    expect(screen.queryByLabelText("账号策略侧栏")).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "策略运行状态" })).not.toBeInTheDocument();
+    expect(screen.queryByText("保护强度")).not.toBeInTheDocument();
+    expect(document.querySelectorAll(".accounts-settings-pair-grid")).toHaveLength(4);
     expect(screen.queryByText(/mock-first/i)).not.toBeInTheDocument();
     expect(await screen.findByDisplayValue("真实标签, 运营")).toBeInTheDocument();
     expect(screen.getByRole("switch", { name: "自动附加默认标签" })).toHaveAttribute("aria-checked", "true");

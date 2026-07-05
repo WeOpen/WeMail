@@ -33,7 +33,7 @@ export async function queryAdminUsers(query: AdminUsersQuery) {
 export async function queryAdminDashboard(query?: AdminUsersQuery) {
   const [usersPayload, summaryPayload, invitesPayload, featuresPayload, mailboxesPayload, governancePayload, commercialPayload] = await Promise.all([
     fetchAdminUsers(query),
-    fetchAdminUserSummary(),
+    fetchAdminUserSummary(DEFAULT_ADMIN_SETTINGS_QUERY),
     fetchAdminInvites(DEFAULT_ADMIN_SETTINGS_QUERY),
     fetchAdminFeatures(),
     fetchAdminMailboxes(DEFAULT_ADMIN_SETTINGS_QUERY),
@@ -57,6 +57,9 @@ export async function queryAdminDashboard(query?: AdminUsersQuery) {
     usersPage: usersPayload.page ?? query?.page ?? 1,
     usersPageSize: usersPayload.pageSize ?? query?.pageSize ?? usersPayload.users.length,
     settingsUsers: settingsUsers as UserSummary[],
+    settingsUsersPage: summaryPayload.quotaUsersPage ?? DEFAULT_ADMIN_SETTINGS_QUERY.page,
+    settingsUsersPageSize: summaryPayload.quotaUsersPageSize ?? DEFAULT_ADMIN_SETTINGS_QUERY.pageSize,
+    settingsUsersTotal: summaryPayload.quotaUsersTotal ?? settingsUsers.length,
     userStats,
     invites: invites as InviteSummary[],
     invitesAvailable: invitesPayload.available ?? invites.length,
@@ -85,10 +88,13 @@ export async function queryAdminCommercial() {
   return (payload.commercial ?? null) as CommercialModelSummary | null;
 }
 
-export async function queryAdminUserSettingsSummary() {
-  const payload = await fetchAdminUserSummary();
+export async function queryAdminUserSettingsSummary(query: AdminSettingsListQuery = DEFAULT_ADMIN_SETTINGS_QUERY) {
+  const payload = await fetchAdminUserSummary(query);
   return {
     settingsUsers: (payload.quotaUsers ?? []) as UserSummary[],
+    settingsUsersPage: payload.quotaUsersPage ?? query.page,
+    settingsUsersPageSize: payload.quotaUsersPageSize ?? query.pageSize,
+    settingsUsersTotal: payload.quotaUsersTotal ?? payload.quotaUsers?.length ?? 0,
     userStats: payload.stats ?? { active: 0, total: 0 }
   };
 }

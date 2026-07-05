@@ -5,6 +5,7 @@ import { Button } from "./button";
 import type { WemailToastRecord } from "./toast";
 
 const EXIT_DURATION_MS = 220;
+const LONG_MESSAGE_THRESHOLD = 140;
 
 type WemailToastProps = {
   toast: WemailToastRecord;
@@ -32,6 +33,7 @@ function ToastIcon({ tone }: { tone: WemailToastRecord["tone"] }) {
 export function WemailToast({ toast, onDismiss }: WemailToastProps) {
   const [isLeaving, setIsLeaving] = useState(false);
   const dismissTimerRef = useRef<number | null>(null);
+  const isLongMessage = toast.message.length > LONG_MESSAGE_THRESHOLD || toast.message.includes("\n");
 
   const finalizeDismiss = useCallback(() => {
     onDismiss(toast.id);
@@ -63,7 +65,7 @@ export function WemailToast({ toast, onDismiss }: WemailToastProps) {
   return (
     <article
       aria-atomic="true"
-      className={`wemail-toast ${toast.tone}${isLeaving ? " leaving" : ""}`}
+      className={`wemail-toast ${toast.tone}${isLongMessage ? " is-long" : ""}${isLeaving ? " leaving" : ""}`}
       role={toast.tone === "error" ? "alert" : "status"}
     >
       <span className="wemail-toast-icon" aria-hidden="true">

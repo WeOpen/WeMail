@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -6,6 +8,8 @@ import type { SessionSummary } from "@wemail/shared";
 
 import { AppLayout } from "../app/AppLayout";
 import type { WorkspaceShellState } from "../app/workspaceShell";
+
+const sharedStyles = readFileSync("src/shared/styles/index.css", "utf8");
 
 const session: SessionSummary = {
   user: {
@@ -158,5 +162,36 @@ describe("AppLayout notice removal", () => {
     expect(within(settingsMenu).getByRole("menuitem", { name: "Telegram" })).toHaveAttribute("href", "/telegram");
     expect(within(settingsMenu).getByRole("menuitem", { name: "公告" })).toHaveAttribute("href", "/announcements");
     expect(within(settingsMenu).getByRole("menuitem", { name: "系统设置" })).toHaveAttribute("href", "/system/settings");
+  });
+
+  it("collapses the desktop sidebar to icon-only navigation", () => {
+    const { container } = render(
+      <MemoryRouter>
+        <AppLayout
+          session={session}
+          onLogout={vi.fn()}
+          onToggleTheme={vi.fn()}
+          shell={adminShell}
+          theme="light"
+        >
+          <div>dashboard body</div>
+        </AppLayout>
+      </MemoryRouter>
+    );
+
+    const shellRoot = container.querySelector(".workspace-shell");
+    expect(shellRoot).toHaveAttribute("data-rail-collapsed", "false");
+    expect(screen.getByRole("button", { name: "折叠左侧菜单" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "折叠左侧菜单" }));
+
+    const desktopSidebar = screen.getByRole("navigation", { name: "工作台导航" });
+    expect(shellRoot).toHaveAttribute("data-rail-collapsed", "true");
+    expect(screen.getByRole("button", { name: "展开左侧菜单" })).toBeInTheDocument();
+    expect(within(desktopSidebar).getByRole("link", { name: "仪表盘" })).toHaveAttribute("href", "/dashboard");
+    expect(within(desktopSidebar).getByRole("link", { name: "Webhook" })).toHaveAttribute("href", "/webhook");
+    expect(sharedStyles).toContain('.workspace-shell[data-rail-collapsed="true"] .workspace-frame');
+    expect(sharedStyles).toContain("grid-template-columns: 86px minmax(0, 1fr)");
+    expect(sharedStyles).toContain('.workspace-shell[data-rail-collapsed="true"] .workspace-rail-copy');
   });
 });

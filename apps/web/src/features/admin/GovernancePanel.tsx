@@ -34,12 +34,10 @@ export function GovernancePanel({ governance }: GovernancePanelProps) {
   const enforcedPolicies = governance?.rateLimits.filter((policy) => policy.enforced).length ?? 0;
 
   return (
-    <section className="panel workspace-card page-panel users-settings-panel users-governance-panel">
+    <section aria-label="安全治理" className="panel workspace-card page-panel users-settings-panel users-governance-panel">
       <div className="users-settings-panel-head">
         <div>
           <p className="panel-kicker">安全治理</p>
-          <h2>登录、审计与限流</h2>
-          <p className="section-copy">集中查看登录历史、风险操作、邀请码兑换和关键流量策略。</p>
         </div>
         <Badge variant={failedLogins > 0 ? "warning" : "success"}>{failedLogins > 0 ? `${failedLogins} 次失败` : "登录正常"}</Badge>
       </div>

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Activity,
   CheckCircle2,
+  ChevronDown,
   Clock3,
   Code2,
   Copy,
@@ -21,7 +22,6 @@ import {
 
 import type { NotificationRuleSummary, NotificationRuleTarget } from "@wemail/shared";
 
-import { SettingsSupportCard } from "./SettingsSupport";
 import { useAppStore } from "../../app/appStore";
 import { Button } from "../../shared/button";
 import { apiFetch } from "../../shared/api/client";
@@ -92,25 +92,47 @@ const notificationTargetLabels: Record<NotificationRuleTarget, string> = {
 };
 
 const sampleHeaders = [
-  "Content-Type: application/json",
-  "X-Wemail-Signature: sha256=...",
-  "X-Wemail-Delivery-Id: whd_01H..."
+  "content-type: application/json",
+  "user-agent: WeMail-Webhook/1.0",
+  "x-wemail-event: message.received",
+  "x-wemail-delivery-id: whd_01H...",
+  "x-wemail-signature: sha256=..."
 ].join("\n");
 
 const samplePayload = JSON.stringify(
   {
-    event: "message.received",
-    occurredAt: "2026-04-17T11:30:00.000Z",
-    mailboxId: "box_01H...",
-    message: {
-      id: "msg_01H...",
-      fromAddress: "ops@example.com",
+    createdAt: "2026-04-17T11:30:00.000Z",
+    data: {
+      message: "WeMail webhook event",
+      messageId: "msg_01H...",
       subject: "Your verification code"
-    }
+    },
+    deliveryId: "whd_01H...",
+    endpoint: {
+      id: "whe_01H...",
+      name: "Production Sync"
+    },
+    eventType: "message.received"
   },
   null,
   2
 );
+
+const signatureVerifyExample = JSON.stringify(
+  {
+    input: "raw request body + Signing Secret",
+    compareWith: "x-wemail-signature",
+    note: "Secret stays on your server; the header only contains the sha256 signature."
+  },
+  null,
+  2
+);
+
+const signatureHelpItems = [
+  "Signing Secret 只保存在 WeMail 和你的目标服务端，不会明文放进 Header。",
+  "WeMail 会用 Secret 对原始请求体计算 HMAC-SHA256，并把结果放到 x-wemail-signature。",
+  "目标服务收到请求后，用同一个 Secret 和原始 body 重新计算签名，再与 Header 比对。"
+];
 
 type WebhookEndpoint = {
   id: string;
@@ -293,6 +315,7 @@ export function WebhookPage() {
   const [deliveryTotal, setDeliveryTotal] = useState(0);
   const [deliveryStatus, setDeliveryStatus] = useState<WebhookDeliveryStatus>("all");
   const [selectedDelivery, setSelectedDelivery] = useState<WebhookDelivery | null>(null);
+  const [expandedEndpointIds, setExpandedEndpointIds] = useState<string[]>([]);
   const [createDraft, setCreateDraft] = useState<EndpointDraft>(emptyDraft);
   const [editingEndpointId, setEditingEndpointId] = useState<string | null>(null);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
@@ -302,6 +325,7 @@ export function WebhookPage() {
   const [isRuleSaving, setIsRuleSaving] = useState(false);
   const [isSendingTest, setIsSendingTest] = useState(false);
   const [isEndpointActionBusy, setIsEndpointActionBusy] = useState(false);
+  const [isDeveloperReferenceOpen, setIsDeveloperReferenceOpen] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [deliveryErrorMessage, setDeliveryErrorMessage] = useState<string | null>(null);
   const [notificationRuleErrorMessage, setNotificationRuleErrorMessage] = useState<string | null>(null);
@@ -400,7 +424,7 @@ export function WebhookPage() {
     () => endpoints.find((endpoint) => endpoint.id === selectedEndpointId) ?? null,
     [endpoints, selectedEndpointId]
   );
-  const selectedEventSet = useMemo(() => new Set(selectedEndpoint?.events ?? []), [selectedEndpoint?.events]);
+  const expandedEndpointSet = useMemo(() => new Set(expandedEndpointIds), [expandedEndpointIds]);
   const createDraftEventSet = useMemo(() => new Set(createDraft.events), [createDraft.events]);
   const latestDelivery = deliveries[0] ?? null;
   const enabledEndpointCount = endpoints.filter((endpoint) => endpoint.enabled).length;
@@ -471,6 +495,10 @@ export function WebhookPage() {
     }
   }, [deliveryPage, deliveryTotalPages]);
 
+  useEffect(() => {
+    setExpandedEndpointIds((current) => current.filter((endpointId) => endpoints.some((endpoint) => endpoint.id === endpointId)));
+  }, [endpoints]);
+
   function handleEndpointPageSizeChange(nextPageSize: number) {
     setEndpointPageSize(nextPageSize);
     setEndpointPage(1);
@@ -485,6 +513,14 @@ export function WebhookPage() {
     setSelectedEndpointId(endpointId);
     setDeliveryPage(1);
     setSelectedDelivery(null);
+  }
+
+  function handleToggleEndpointDetails(endpointId: string) {
+    handleSelectEndpoint(endpointId);
+    setExpandedEndpointIds((current) => {
+      if (current.includes(endpointId)) return current.filter((currentEndpointId) => currentEndpointId !== endpointId);
+      return [...current, endpointId];
+    });
   }
 
   function openCreateDialog() {
@@ -639,17 +675,18 @@ export function WebhookPage() {
     });
   }
 
-  async function handleToggleSelectedEndpoint() {
-    if (!selectedEndpoint || isEndpointActionBusy) return;
+  async function handleToggleEndpoint(endpoint: WebhookEndpoint) {
+    if (isEndpointActionBusy) return;
     setIsEndpointActionBusy(true);
     try {
-      const response = await updateEndpoint(selectedEndpoint, {
-        enabled: !selectedEndpoint.enabled,
-        events: selectedEndpoint.events,
-        name: selectedEndpoint.name,
-        url: selectedEndpoint.url
+      const response = await updateEndpoint(endpoint, {
+        enabled: !endpoint.enabled,
+        events: endpoint.events,
+        name: endpoint.name,
+        url: endpoint.url
       });
       setEndpoints((current) => current.map((endpoint) => (endpoint.id === response.endpoint.id ? response.endpoint : endpoint)));
+      setSelectedEndpointId(response.endpoint.id);
       pushToast({ message: response.endpoint.enabled ? "Webhook 端点已启用。" : "Webhook 端点已暂停。", tone: "success" });
     } catch (error) {
       pushToast({ message: `端点状态更新失败：${readErrorMessage(error)}`, tone: "error" });
@@ -658,19 +695,21 @@ export function WebhookPage() {
     }
   }
 
-  async function handleDeleteSelectedEndpoint() {
-    if (!selectedEndpoint || isEndpointActionBusy) return;
-    const confirmed = window.confirm(`删除 Webhook 端点“${selectedEndpoint.name}”？相关投递日志也会被移除。`);
+  async function handleDeleteEndpoint(endpoint: WebhookEndpoint) {
+    if (isEndpointActionBusy) return;
+    const confirmed = window.confirm(`删除 Webhook 端点“${endpoint.name}”？相关投递日志也会被移除。`);
     if (!confirmed) return;
+    const wasSelected = endpoint.id === selectedEndpointId;
     setIsEndpointActionBusy(true);
     try {
-      await apiFetch<{ ok: boolean }>(`/api/webhook/endpoints/${selectedEndpoint.id}`, { method: "DELETE" });
-      setEndpoints((current) => current.filter((endpoint) => endpoint.id !== selectedEndpoint.id));
-      setSelectedEndpointId(null);
-      setDeliveryPage(1);
+      await apiFetch<{ ok: boolean }>(`/api/webhook/endpoints/${endpoint.id}`, { method: "DELETE" });
+      setEndpoints((current) => current.filter((entry) => entry.id !== endpoint.id));
+      setEndpointTotal((current) => Math.max(0, current - 1));
+      setSelectedEndpointId((current) => (current === endpoint.id ? null : current));
+      if (wasSelected) setDeliveryPage(1);
       pushToast({ message: "Webhook 端点已删除。", tone: "success" });
       loadEndpoints({ page: endpointPage });
-      loadDeliveries({ endpointId: null, page: 1 });
+      if (wasSelected) loadDeliveries({ endpointId: null, page: 1 });
     } catch (error) {
       pushToast({ message: `端点删除失败：${readErrorMessage(error)}`, tone: "error" });
     } finally {
@@ -719,125 +758,240 @@ export function WebhookPage() {
 
   return (
     <main aria-busy={isLoading} className="workspace-grid integration-page-grid webhook-page-grid">
-      <div className="integration-primary-column">
-        <section className="panel workspace-card page-panel integration-surface-card webhook-hero-card">
-          <div className="webhook-hero-layout">
-            <div className="integration-card-copy webhook-hero-copy">
-              <p className="panel-kicker">事件推送</p>
-              <h1>Webhook 控制台</h1>
-              <p className="section-copy">把收件、提取、通知和安全事件推到你的服务端点，并在同一页完成验证与排障。</p>
-            </div>
-            <div className="webhook-hero-actions">
-              <Button leadingIcon={<Plus size={16} strokeWidth={1.9} />} onClick={openCreateDialog} variant="secondary">
-                新增端点
-              </Button>
-              <Button
-                disabled={!selectedEndpoint || isSendingTest}
-                isLoading={isSendingTest}
-                leadingIcon={<RadioTower size={16} strokeWidth={1.9} />}
-                loadingLabel="发送中"
-                onClick={handleSendTestEvent}
-                variant="primary"
-              >
-                发送测试事件
-              </Button>
-            </div>
+      <section className="panel workspace-card page-panel integration-surface-card webhook-hero-card">
+        <div className="webhook-hero-layout">
+          <div className="integration-card-copy webhook-hero-copy">
+            <p className="panel-kicker">Webhook</p>
+            <h1 className="sr-only">Webhook 控制台</h1>
           </div>
-
-          <div className="webhook-overview-grid" role="list" aria-label="Webhook 状态概览">
-            {overviewItems.map((item) => {
-              const OverviewIcon = item.icon;
-              return (
-                <div className="webhook-overview-tile" data-tone={item.tone} key={item.label} role="listitem">
-                  <span className="webhook-overview-icon" aria-hidden="true">
-                    <OverviewIcon size={18} strokeWidth={1.8} />
-                  </span>
-                  <span>{item.label}</span>
-                  <strong>{item.value}</strong>
-                  <small>{item.detail}</small>
-                </div>
-              );
-            })}
+          <div className="webhook-hero-actions">
+            <Button
+              disabled={!selectedEndpoint || isSendingTest}
+              isLoading={isSendingTest}
+              leadingIcon={<RadioTower size={16} strokeWidth={1.9} />}
+              loadingLabel="发送中"
+              onClick={handleSendTestEvent}
+              variant="primary"
+            >
+              发送测试事件
+            </Button>
           </div>
+        </div>
 
-          {errorMessage ? (
-            <p className="error-banner webhook-error-banner" role="alert">
-              {errorMessage}
-            </p>
-          ) : null}
-          {isLoading ? (
-            <p className="empty-state webhook-loading-state" role="status">
-              正在加载 Webhook 配置...
-            </p>
-          ) : null}
-        </section>
-
-        <section className="panel workspace-card page-panel integration-surface-card webhook-reference-card">
-          <div className="webhook-section-title">
-            <span className="webhook-section-icon" aria-hidden="true">
-              <Code2 size={18} strokeWidth={1.8} />
+        <section className="webhook-reference-card webhook-hero-reference-card" aria-labelledby="webhook-reference-heading">
+          <h2 className="sr-only" id="webhook-reference-heading">开发者参考</h2>
+          <button
+            aria-controls="webhook-reference-body"
+            aria-expanded={isDeveloperReferenceOpen}
+            aria-label={isDeveloperReferenceOpen ? "收起开发者参考" : "展开开发者参考"}
+            className="webhook-reference-toggle"
+            onClick={() => setIsDeveloperReferenceOpen((current) => !current)}
+            type="button"
+          >
+            <span className="webhook-section-title webhook-section-title-kicker">
+              <span className="webhook-section-icon" aria-hidden="true">
+                <Code2 size={18} strokeWidth={1.8} />
+              </span>
+              <span className="integration-card-copy compact webhook-kicker-only">
+                <span className="panel-kicker">开发者参考</span>
+              </span>
             </span>
-            <div className="integration-card-copy compact">
-              <p className="panel-kicker">开发者参考</p>
-              <h2>Payload 示例</h2>
-              <p className="section-copy">请求头、事件名称和主体结构放在同一块，复制给后端同事就能开始联调。</p>
+            <span className="webhook-reference-chevron" aria-hidden="true">
+              <ChevronDown size={18} strokeWidth={2} />
+            </span>
+          </button>
+          {isDeveloperReferenceOpen ? (
+            <div className="webhook-reference-body" id="webhook-reference-body">
+              <section className="webhook-signature-panel" aria-label="Signing Secret">
+                <div className="integration-card-copy compact">
+                  <p className="panel-kicker">签名校验</p>
+                  <h3>Signing Secret</h3>
+                  <p className="section-copy">把这个 Secret 保存在你的服务端，用它校验 x-wemail-signature 是否由 WeMail 生成。</p>
+                </div>
+                <div className="webhook-secret-panel">
+                  <code>{selectedEndpoint?.signingSecret ?? "创建端点后生成"}</code>
+                  <Button
+                    disabled={!selectedEndpoint?.signingSecret}
+                    leadingIcon={<Copy size={15} strokeWidth={1.9} />}
+                    onClick={() => void handleCopy("secret", selectedEndpoint?.signingSecret)}
+                    size="sm"
+                    variant="secondary"
+                  >
+                    {copiedToken === "secret" ? "已复制" : "复制 Secret"}
+                  </Button>
+                  <Button
+                    disabled={!selectedEndpoint || isEndpointActionBusy}
+                    leadingIcon={<RotateCw size={15} strokeWidth={1.9} />}
+                    onClick={() => void handleRotateSecret()}
+                    size="sm"
+                    variant="secondary"
+                  >
+                    轮换 Secret
+                  </Button>
+                </div>
+                <ul className="integration-bullet-list webhook-signature-list">
+                  {signatureHelpItems.map((item) => (
+                    <li key={item}>{item}</li>
+                  ))}
+                </ul>
+              </section>
+              <div className="webhook-reference-grid">
+                <WebhookCodeBlock
+                  copied={copiedToken === "headers"}
+                  copyLabel="复制 Headers 示例"
+                  label="Headers"
+                  onCopy={() => void handleCopy("headers", sampleHeaders)}
+                  value={sampleHeaders}
+                />
+                <WebhookCodeBlock
+                  copied={copiedToken === "body"}
+                  copyLabel="复制 Body 示例"
+                  label="Body"
+                  onCopy={() => void handleCopy("body", samplePayload)}
+                  value={samplePayload}
+                />
+                <WebhookCodeBlock
+                  copied={copiedToken === "signature"}
+                  copyLabel="复制签名校验说明"
+                  label="Signature Verify"
+                  onCopy={() => void handleCopy("signature", signatureVerifyExample)}
+                  value={signatureVerifyExample}
+                />
+              </div>
             </div>
-          </div>
-          <div className="webhook-reference-grid">
-            <WebhookCodeBlock
-              copied={copiedToken === "headers"}
-              copyLabel="复制 Headers 示例"
-              label="Headers"
-              onCopy={() => void handleCopy("headers", sampleHeaders)}
-              value={sampleHeaders}
-            />
-            <WebhookCodeBlock
-              copied={copiedToken === "body"}
-              copyLabel="复制 Body 示例"
-              label="Body"
-              onCopy={() => void handleCopy("body", samplePayload)}
-              value={samplePayload}
-            />
-          </div>
+          ) : null}
         </section>
 
+        <div className="webhook-overview-grid" role="list" aria-label="Webhook 状态概览">
+          {overviewItems.map((item) => {
+            const OverviewIcon = item.icon;
+            return (
+              <div className="webhook-overview-tile" data-tone={item.tone} key={item.label} role="listitem">
+                <span className="webhook-overview-icon" aria-hidden="true">
+                  <OverviewIcon size={18} strokeWidth={1.8} />
+                </span>
+                <span>{item.label}</span>
+                <strong>{item.value}</strong>
+                <small>{item.detail}</small>
+              </div>
+            );
+          })}
+        </div>
+
+        {errorMessage ? (
+          <p className="error-banner webhook-error-banner" role="alert">
+            {errorMessage}
+          </p>
+        ) : null}
+        {isLoading ? (
+          <p className="empty-state webhook-loading-state" role="status">
+            正在加载 Webhook 配置...
+          </p>
+        ) : null}
+      </section>
+
+      <div className="integration-primary-column">
         <section className="panel workspace-card page-panel integration-surface-card webhook-workbench-card">
           <div className="webhook-section-header">
-            <div className="webhook-section-title">
+            <div className="webhook-section-title webhook-section-title-kicker">
               <span className="webhook-section-icon" aria-hidden="true">
                 <WebhookIcon size={18} strokeWidth={1.8} />
               </span>
-              <div className="integration-card-copy compact">
-                <p className="panel-kicker">端点配置</p>
-                <h2>端点列表</h2>
-                <p className="section-copy">默认展示 5 条端点。点击端点可切换右侧状态、签名密钥、事件订阅和投递日志。</p>
+              <div className="integration-card-copy compact webhook-kicker-only">
+                <p className="panel-kicker">端点列表</p>
+                <h2 className="sr-only">端点列表</h2>
               </div>
             </div>
-            <span className="webhook-state-pill" data-state={endpointTotal > 0 ? "active" : "draft"}>
-              共 {endpointTotal} 个
-            </span>
+            <div className="webhook-workbench-actions">
+              <span className="webhook-state-pill" data-state={endpointTotal > 0 ? "active" : "draft"}>
+                共 {endpointTotal} 个
+              </span>
+              <Button leadingIcon={<Plus size={15} strokeWidth={1.9} />} onClick={openCreateDialog} size="sm" variant="primary">
+                新增端点
+              </Button>
+            </div>
           </div>
 
           <section aria-label="Webhook 端点列表" className="webhook-endpoint-list-panel webhook-endpoint-list-panel-full">
             {endpoints.length > 0 ? (
               <div className="webhook-endpoint-list" role="list">
-                {endpoints.map((endpoint) => (
-                  <button
-                    className="webhook-endpoint-row"
-                    data-selected={endpoint.id === selectedEndpoint?.id ? "true" : "false"}
-                    key={endpoint.id}
-                    onClick={() => handleSelectEndpoint(endpoint.id)}
-                    type="button"
-                  >
-                    <span>
-                      <strong>{endpoint.name}</strong>
-                      <small>{endpoint.url}</small>
-                    </span>
-                    <em data-state={endpoint.enabled ? "active" : "paused"}>{endpoint.enabled ? "启用" : "暂停"}</em>
-                    <small>{endpoint.events.length} 项事件</small>
-                    <small>更新于 {formatDate(endpoint.updatedAt)}</small>
-                  </button>
-                ))}
+                {endpoints.map((endpoint) => {
+                  const isExpanded = expandedEndpointSet.has(endpoint.id);
+                  const detailsId = `webhook-endpoint-events-${endpoint.id}`;
+                  return (
+                    <article
+                      className="webhook-endpoint-row"
+                      data-expanded={isExpanded ? "true" : "false"}
+                      data-selected={endpoint.id === selectedEndpoint?.id ? "true" : "false"}
+                      key={endpoint.id}
+                      role="listitem"
+                    >
+                      <button
+                        aria-controls={detailsId}
+                        aria-expanded={isExpanded}
+                        aria-label={`${isExpanded ? "收起" : "展开"} ${endpoint.name} 订阅事件`}
+                        className="webhook-endpoint-main"
+                        onClick={() => handleToggleEndpointDetails(endpoint.id)}
+                        type="button"
+                      >
+                        <span className="webhook-endpoint-summary">
+                          <strong>{endpoint.name}</strong>
+                          <small className="webhook-endpoint-url">{endpoint.url}</small>
+                          <span className="webhook-endpoint-meta">
+                            <small>{endpoint.events.length} 项事件</small>
+                            <small>更新于 {formatDate(endpoint.updatedAt)}</small>
+                          </span>
+                        </span>
+                        <em data-state={endpoint.enabled ? "active" : "paused"}>{endpoint.enabled ? "启用" : "暂停"}</em>
+                        <span className="webhook-endpoint-chevron" data-expanded={isExpanded ? "true" : "false"} aria-hidden="true">
+                          <ChevronDown size={16} strokeWidth={2} />
+                        </span>
+                      </button>
+                      <div className="webhook-endpoint-actions" aria-label={`${endpoint.name} 操作`} role="group">
+                        <Button
+                          aria-label={`编辑 ${endpoint.name}`}
+                          disabled={isEndpointActionBusy}
+                          leadingIcon={<Pencil size={14} strokeWidth={1.9} />}
+                          onClick={() => openEditDialog(endpoint)}
+                          size="xs"
+                          variant="secondary"
+                        >
+                          编辑
+                        </Button>
+                        <Button
+                          aria-label={`${endpoint.enabled ? "暂停" : "启用"} ${endpoint.name}`}
+                          disabled={isEndpointActionBusy}
+                          leadingIcon={<RefreshCw size={14} strokeWidth={1.9} />}
+                          onClick={() => void handleToggleEndpoint(endpoint)}
+                          size="xs"
+                          variant="secondary"
+                        >
+                          {endpoint.enabled ? "暂停" : "启用"}
+                        </Button>
+                        <Button
+                          aria-label={`删除 ${endpoint.name}`}
+                          disabled={isEndpointActionBusy}
+                          leadingIcon={<Trash2 size={14} strokeWidth={1.9} />}
+                          onClick={() => void handleDeleteEndpoint(endpoint)}
+                          size="xs"
+                          variant="danger"
+                        >
+                          删除
+                        </Button>
+                      </div>
+                      {isExpanded ? (
+                        <div className="webhook-endpoint-events" id={detailsId} aria-label={`${endpoint.name} 订阅事件`}>
+                          {endpoint.events.map((event) => (
+                            <span className="webhook-endpoint-event-chip" key={event}>
+                              <strong>{getEventLabel(event)}</strong>
+                              <code>{event}</code>
+                            </span>
+                          ))}
+                        </div>
+                      ) : null}
+                    </article>
+                  );
+                })}
               </div>
             ) : (
               <div className="integration-empty-state compact">
@@ -859,58 +1013,15 @@ export function WebhookPage() {
           </section>
         </section>
 
-        <section className="panel workspace-card page-panel integration-surface-card webhook-events-card">
-          <div className="webhook-section-header">
-            <div className="webhook-section-title">
-              <span className="webhook-section-icon" aria-hidden="true">
-                <ListChecks size={18} strokeWidth={1.8} />
-              </span>
-              <div className="integration-card-copy compact">
-                <p className="panel-kicker">事件订阅</p>
-                <h2>事件订阅</h2>
-                <p className="section-copy">这里展示当前选中端点的订阅事件。新增端点时可在弹窗里配置这些事件。</p>
-              </div>
-            </div>
-            <span className="webhook-state-pill" data-state={selectedEventCount > 0 ? "active" : "draft"}>
-              已选 {selectedEventCount} 项
-            </span>
-          </div>
-
-          <div className="webhook-event-matrix">
-            {webhookEventGroups.map((group) => (
-              <article className="webhook-event-group" key={group.title}>
-                <div>
-                  <strong>{group.title}</strong>
-                  <p>{group.description}</p>
-                </div>
-                <div className="webhook-event-list">
-                  {group.events.map((event) => (
-                    <CheckboxField
-                      checked={selectedEventSet.has(event.value)}
-                      className="webhook-event-option"
-                      description={<code>{event.value}</code>}
-                      disabled
-                      key={event.value}
-                      label={event.label}
-                      variant="card"
-                    />
-                  ))}
-                </div>
-              </article>
-            ))}
-          </div>
-        </section>
-
         <section className="panel workspace-card page-panel integration-surface-card webhook-rule-card">
           <div className="webhook-section-header">
-            <div className="webhook-section-title">
+            <div className="webhook-section-title webhook-section-title-kicker">
               <span className="webhook-section-icon" aria-hidden="true">
                 <ListChecks size={18} strokeWidth={1.8} />
               </span>
-              <div className="integration-card-copy compact">
+              <div className="integration-card-copy compact webhook-kicker-only">
                 <p className="panel-kicker">规则引擎</p>
-                <h2>通知规则</h2>
-                <p className="section-copy">按目标、事件、邮箱、关键词和静默时间控制哪些通知会被投递。</p>
+                <h2 className="sr-only">通知规则</h2>
               </div>
             </div>
             <Button
@@ -1047,14 +1158,13 @@ export function WebhookPage() {
 
         <section className="panel workspace-card page-panel integration-surface-card webhook-delivery-card">
           <div className="webhook-section-header">
-            <div className="webhook-section-title">
+            <div className="webhook-section-title webhook-section-title-kicker">
               <span className="webhook-section-icon" aria-hidden="true">
                 <Clock3 size={18} strokeWidth={1.8} />
               </span>
-              <div className="integration-card-copy compact">
+              <div className="integration-card-copy compact webhook-kicker-only">
                 <p className="panel-kicker">运行观察</p>
-                <h2>投递日志</h2>
-                <p className="section-copy">按当前端点查看投递状态、原始 Payload、目标响应和失败重试结果。</p>
+                <h2 className="sr-only">投递日志</h2>
               </div>
             </div>
             <Button
@@ -1070,9 +1180,10 @@ export function WebhookPage() {
 
           <div className="webhook-delivery-toolbar" aria-label="投递状态筛选">
             {webhookDeliveryStatusOptions.map((option) => (
-              <button
+              <Button
                 aria-pressed={deliveryStatus === option.value}
                 className="webhook-delivery-filter"
+                contentLayout="plain"
                 data-active={deliveryStatus === option.value ? "true" : "false"}
                 key={option.value}
                 onClick={() => {
@@ -1080,9 +1191,10 @@ export function WebhookPage() {
                   setDeliveryPage(1);
                 }}
                 type="button"
+                variant="text"
               >
                 {option.label}
-              </button>
+              </Button>
             ))}
           </div>
 
@@ -1151,83 +1263,6 @@ export function WebhookPage() {
           />
         </section>
       </div>
-
-      <aside className="integration-secondary-column webhook-side-column">
-        <SettingsSupportCard kicker="当前状态" title="接入状态概览" description="把启用状态和签名密钥放在右侧，排查时不用滚回页面顶部。">
-          <div className="webhook-side-status">
-            <article className="integration-stat-row">
-              <strong>当前端点</strong>
-              <span>{selectedEndpoint?.name ?? "未创建"}</span>
-            </article>
-            <article className="integration-stat-row">
-              <strong>最近更新</strong>
-              <span>{formatDate(selectedEndpoint?.updatedAt)}</span>
-            </article>
-            <article className="integration-stat-row">
-              <strong>订阅事件</strong>
-              <span>{selectedEventCount} 项</span>
-            </article>
-          </div>
-          <div className="webhook-side-actions">
-            <Button
-              disabled={!selectedEndpoint || isEndpointActionBusy}
-              leadingIcon={<Pencil size={15} strokeWidth={1.9} />}
-              onClick={() => selectedEndpoint && openEditDialog(selectedEndpoint)}
-              size="sm"
-              variant="secondary"
-            >
-              编辑
-            </Button>
-            <Button
-              disabled={!selectedEndpoint || isEndpointActionBusy}
-              leadingIcon={<RefreshCw size={15} strokeWidth={1.9} />}
-              onClick={() => void handleToggleSelectedEndpoint()}
-              size="sm"
-              variant="secondary"
-            >
-              {selectedEndpoint?.enabled ? "暂停" : "启用"}
-            </Button>
-            <Button
-              disabled={!selectedEndpoint || isEndpointActionBusy}
-              leadingIcon={<Trash2 size={15} strokeWidth={1.9} />}
-              onClick={() => void handleDeleteSelectedEndpoint()}
-              size="sm"
-              variant="danger"
-            >
-              删除
-            </Button>
-          </div>
-        </SettingsSupportCard>
-
-        <SettingsSupportCard kicker="签名校验" title="Signing Secret" description="目标服务应使用签名 Header 和原始请求体共同校验来源。">
-          <div className="webhook-secret-panel">
-            <code>{selectedEndpoint?.signingSecret ?? "创建端点后生成"}</code>
-            <Button
-              disabled={!selectedEndpoint?.signingSecret}
-              leadingIcon={<Copy size={15} strokeWidth={1.9} />}
-              onClick={() => void handleCopy("secret", selectedEndpoint?.signingSecret)}
-              size="sm"
-              variant="secondary"
-            >
-              {copiedToken === "secret" ? "已复制" : "复制 Secret"}
-            </Button>
-            <Button
-              disabled={!selectedEndpoint || isEndpointActionBusy}
-              leadingIcon={<RotateCw size={15} strokeWidth={1.9} />}
-              onClick={() => void handleRotateSecret()}
-              size="sm"
-              variant="secondary"
-            >
-              轮换 Secret
-            </Button>
-          </div>
-          <ul className="integration-bullet-list">
-            <li>每次请求都会携带签名 Header，用于校验来源。</li>
-            <li>建议以 Header + 原始请求体共同参与签名验证。</li>
-            <li>不要仅依赖来源 IP 判断请求可信度。</li>
-          </ul>
-        </SettingsSupportCard>
-      </aside>
 
       {isCreateDialogOpen ? (
         <OverlayDialog

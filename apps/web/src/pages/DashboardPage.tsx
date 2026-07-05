@@ -6,6 +6,7 @@ import {
   fetchDashboard,
   type DashboardPayload
 } from "../features/dashboard/api";
+import { Button } from "../shared/button";
 import { nivoTheme } from "../shared/chart";
 import { MetricCard } from "../shared/metric-card";
 import { Skeleton } from "../shared/skeleton";
@@ -203,16 +204,18 @@ export function DashboardPage({ canViewRoleCard = false }: DashboardPageProps) {
             <h2 className="panel-kicker dashboard-panel-title">趋势</h2>
             <div className="dashboard-trend-tabs" aria-label="趋势周期" role="tablist">
               {TREND_RANGE_OPTIONS.map((option) => (
-                <button
+                <Button
                   aria-selected={trendRange === option.value}
                   className="dashboard-trend-tab"
+                  contentLayout="plain"
                   key={option.value}
                   onClick={() => setTrendRange(option.value)}
                   role="tab"
                   type="button"
+                  variant="text"
                 >
                   {option.label}
-                </button>
+                </Button>
               ))}
             </div>
           </div>
@@ -340,16 +343,18 @@ export function DashboardPage({ canViewRoleCard = false }: DashboardPageProps) {
             <h2 className="panel-kicker dashboard-panel-title">增长</h2>
             <div className="dashboard-trend-tabs" aria-label="增长周期" role="tablist">
               {TREND_RANGE_OPTIONS.map((option) => (
-                <button
+                <Button
                   aria-selected={growthRange === option.value}
                   className="dashboard-trend-tab"
+                  contentLayout="plain"
                   key={option.value}
                   onClick={() => setGrowthRange(option.value)}
                   role="tab"
                   type="button"
+                  variant="text"
                 >
                   {option.label}
-                </button>
+                </Button>
               ))}
             </div>
           </div>

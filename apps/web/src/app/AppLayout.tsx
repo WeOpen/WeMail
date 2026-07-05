@@ -9,6 +9,8 @@ import {
   Mailbox,
   Megaphone,
   MoonStar,
+  PanelLeftClose,
+  PanelLeftOpen,
   Settings2,
   SunMedium,
   UserRound,
@@ -95,6 +97,7 @@ export function AppLayout({
   const navigate = useNavigate();
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [isMobileSettingsMenuOpen, setIsMobileSettingsMenuOpen] = useState(false);
+  const [isRailCollapsed, setIsRailCollapsed] = useState(false);
   const userMenuRef = useRef<HTMLDivElement | null>(null);
   const mobileDockRef = useRef<HTMLDivElement | null>(null);
   const railScrollRef = useRef<HTMLElement | null>(null);
@@ -194,6 +197,7 @@ export function AppLayout({
       data-date-format={profilePreferences?.dateFormat ?? "yyyy-mm-dd"}
       data-density={density}
       data-locale={profilePreferences?.locale ?? "zh-CN"}
+      data-rail-collapsed={isRailCollapsed ? "true" : "false"}
       data-timezone={profilePreferences?.timezone ?? "Asia/Shanghai"}
     >
       <header className="workspace-topbar panel">
@@ -281,9 +285,10 @@ export function AppLayout({
                     </div>
                     <div className="workspace-user-announcements-list">
                       {visibleAnnouncements.map((announcement) => (
-                        <button
+                        <Button
                           aria-label={`查看公告 ${announcement.title}`}
                           className="workspace-user-announcement-item"
+                          contentLayout="plain"
                           key={announcement.id}
                           onClick={() => {
                             setIsUserMenuOpen(false);
@@ -291,10 +296,11 @@ export function AppLayout({
                           }}
                           role="menuitem"
                           type="button"
+                          variant="text"
                         >
                           <strong>{announcement.title}</strong>
                           <span>{announcement.summary}</span>
-                        </button>
+                        </Button>
                       ))}
                     </div>
                   </section>
@@ -334,12 +340,32 @@ export function AppLayout({
       <div className="workspace-frame">
         <aside className="workspace-rail-shell panel" aria-label="workspace sidebar">
           <nav className="workspace-rail workspace-scroll-area" ref={railScrollRef} aria-label="工作台导航">
-            {shell.railSections.map((section) => (
+            {shell.railSections.map((section, sectionIndex) => (
               <section className="workspace-rail-section" key={section.title}>
-                <p className="panel-kicker">{section.title}</p>
+                <div className={`workspace-rail-section-header${sectionIndex === 0 ? " workspace-rail-section-header-primary" : ""}`}>
+                  <p className="panel-kicker workspace-rail-section-title">{section.title}</p>
+                  {sectionIndex === 0 ? (
+                    <Button
+                      aria-label={isRailCollapsed ? "展开左侧菜单" : "折叠左侧菜单"}
+                      className="workspace-rail-toggle"
+                      iconOnly
+                      onClick={() => setIsRailCollapsed((currentState) => !currentState)}
+                      size="sm"
+                      type="button"
+                      variant="icon"
+                    >
+                      {isRailCollapsed ? (
+                        <PanelLeftOpen absoluteStrokeWidth aria-hidden="true" className="workspace-icon" strokeWidth={1.9} />
+                      ) : (
+                        <PanelLeftClose absoluteStrokeWidth aria-hidden="true" className="workspace-icon" strokeWidth={1.9} />
+                      )}
+                    </Button>
+                  ) : null}
+                </div>
                 <div className="workspace-rail-list">
                   {section.items.map((item) => (
                     <NavLink
+                      aria-label={item.label}
                       key={`${section.title}-${item.label}`}
                       className={({ isActive }) =>
                         `workspace-rail-link${isActive || item.id === shell.activePrimaryId ? " active" : ""}`
@@ -407,16 +433,19 @@ export function AppLayout({
               <span className="sr-only">{item.label}</span>
             </NavLink>
           ))}
-          <button
+          <Button
             aria-expanded={isMobileSettingsMenuOpen}
             aria-haspopup="menu"
             aria-label="设置菜单"
             className={`workspace-mobile-dock-item workspace-mobile-settings-trigger${isMobileSettingsMenuOpen || isSettingsActive ? " active" : ""}`}
+            contentLayout="plain"
+            iconOnly
             onClick={() => setIsMobileSettingsMenuOpen((currentState) => !currentState)}
             type="button"
+            variant="text"
           >
             <Settings2 absoluteStrokeWidth aria-hidden="true" className="workspace-rail-icon workspace-icon" strokeWidth={1.9} />
-          </button>
+          </Button>
         </nav>
       </div>
     </div>

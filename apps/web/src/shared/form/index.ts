@@ -1,6 +1,8 @@
 export {
   Checkbox,
   CheckboxField,
+  DateInput,
+  DateTimeInput,
   FormField,
   MultiSelect,
   Radio,

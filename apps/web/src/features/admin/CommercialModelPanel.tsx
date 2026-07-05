@@ -15,14 +15,11 @@ function formatPlanName(planId: PlanTierSummary["id"]) {
 }
 
 export function CommercialModelPanel({ commercial }: CommercialModelPanelProps) {
-  const workspace = commercial?.teamWorkspaces[0] ?? null;
-
   return (
     <section aria-label="商业与团队模型" className="panel workspace-card users-settings-panel users-commercial-panel">
       <div className="users-settings-panel-head">
         <div>
           <p className="panel-kicker">商业化</p>
-          <h2>套餐、团队与配额</h2>
         </div>
         <Badge variant={commercial?.currentPlanId === "team" ? "brand" : "info"}>
           {commercial ? formatPlanName(commercial.currentPlanId) : "加载中"}
@@ -56,7 +53,12 @@ export function CommercialModelPanel({ commercial }: CommercialModelPanelProps) 
 
           <div className="users-commercial-plan-grid" aria-label="套餐层级">
             {commercial.planTiers.map((tier) => (
-              <article className="users-commercial-plan" data-active={tier.id === commercial.currentPlanId} key={tier.id}>
+              <article
+                className="users-commercial-plan"
+                data-active={tier.id === commercial.currentPlanId}
+                data-plan={tier.id}
+                key={tier.id}
+              >
                 <div>
                   <strong>{tier.name}</strong>
                   <Badge variant={tier.id === commercial.currentPlanId ? "brand" : "neutral"}>
@@ -67,53 +69,9 @@ export function CommercialModelPanel({ commercial }: CommercialModelPanelProps) 
               </article>
             ))}
           </div>
-
-          {workspace ? (
-            <div className="users-commercial-workspace" aria-label="默认团队空间">
-              <div>
-                <p className="panel-kicker">团队空间</p>
-                <h3>{workspace.name}</h3>
-              </div>
-              <dl>
-                <div>
-                  <dt>成员</dt>
-                  <dd>{workspace.memberCount}</dd>
-                </div>
-                <div>
-                  <dt>管理员</dt>
-                  <dd>{workspace.adminCount}</dd>
-                </div>
-                <div>
-                  <dt>共享邮箱</dt>
-                  <dd>{workspace.sharedMailboxCount}</dd>
-                </div>
-                <div>
-                  <dt>审计事件</dt>
-                  <dd>{workspace.auditEventCount}</dd>
-                </div>
-              </dl>
-            </div>
-          ) : null}
-
-          <div className="users-commercial-audit" aria-label="组织级审计">
-            <strong>组织级审计</strong>
-            {commercial.organizationAudit.length > 0 ? (
-              commercial.organizationAudit.slice(0, 3).map((event) => (
-                <p key={event.id}>
-                  <span>{event.eventLabel}</span>
-                  <small>{event.detail}</small>
-                </p>
-              ))
-            ) : (
-              <p>
-                <span>暂无审计事件</span>
-                <small>高风险操作会显示在这里。</small>
-              </p>
-            )}
-          </div>
         </>
       ) : (
-        <p className="section-copy">正在加载套餐、团队空间和组织级用量。</p>
+        <p className="empty-state">正在加载套餐和组织级用量。</p>
       )}
     </section>
   );

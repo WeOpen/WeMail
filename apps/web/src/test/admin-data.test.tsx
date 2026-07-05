@@ -56,9 +56,12 @@ describe("admin data", () => {
       const url = getUrl(input);
       calls.push(url);
 
-      if (url.endsWith("/api/users/summary")) {
+      if (url.includes("/api/users/summary?")) {
         return jsonResponse({
-          quotaUsers,
+          quotaUsers: quotaUsers.slice(0, 5),
+          quotaUsersPage: 1,
+          quotaUsersPageSize: 5,
+          quotaUsersTotal: quotaUsers.length,
           stats: { active: 11, total: 12 }
         });
       }
@@ -121,11 +124,14 @@ describe("admin data", () => {
     const dashboard = await queryAdminDashboard();
 
     expect(dashboard.userStats).toEqual({ active: 11, total: 12 });
-    expect(dashboard.settingsUsers).toHaveLength(12);
+    expect(dashboard.settingsUsers).toHaveLength(5);
+    expect(dashboard.settingsUsersPage).toBe(1);
+    expect(dashboard.settingsUsersPageSize).toBe(5);
+    expect(dashboard.settingsUsersTotal).toBe(12);
     expect(dashboard.invitesTotal).toBe(7);
     expect(dashboard.invitesAvailable).toBe(6);
     expect(dashboard.mailboxesTotal).toBe(6);
-    expect(calls.some((url) => url.endsWith("/api/users/summary"))).toBe(true);
+    expect(calls.some((url) => url.includes("/api/users/summary?page=1&pageSize=5"))).toBe(true);
     expect(calls.some((url) => url.includes("/api/users/invites?page=1&pageSize=5"))).toBe(true);
     expect(calls.some((url) => url.includes("/api/users/accounts?page=1&pageSize=5"))).toBe(true);
   });

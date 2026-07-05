@@ -1,4 +1,4 @@
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { defaultMailSettings, type MailSettings, type MailSettingsUpdateInput } from "@wemail/shared";
@@ -175,18 +175,20 @@ describe("mail settings integration", () => {
     mockMailShell();
     render(<App />);
 
-    expect(await screen.findByRole("heading", { name: /^邮件设置$/i })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: /^邮件设置$/i })).toHaveClass("sr-only");
+    expect(screen.getByText(/^邮件中心$/i)).toBeInTheDocument();
+    expect(screen.queryByText(/把发件身份、异常流转和工作台默认行为/i)).not.toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /^发件规则$/i })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /^通知与路由$/i })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /^工作台行为偏好$/i })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: /^当前策略摘要$/i })).toBeInTheDocument();
+    expect(screen.queryByRole("complementary", { name: /当前策略摘要/i })).not.toBeInTheDocument();
     expect(screen.getByLabelText(/^默认发件身份$/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/^Webhook 通知$/i)).toBeInTheDocument();
     expect(screen.queryByText(/qa@example\.com/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/邮件设置先做占位/i)).not.toBeInTheDocument();
   });
 
-  it("keeps a lightweight summary rail in sync with locally saved sender and routing rules", async () => {
+  it("keeps the full-width overview in sync with locally saved sender and routing rules", async () => {
     mockMailShell();
     const user = userEvent.setup();
     render(<App />);
@@ -199,13 +201,13 @@ describe("mail settings integration", () => {
     await user.click(screen.getByRole("button", { name: /^保存发件规则$/i }));
     expect(screen.getByText(/发件规则已保存/i)).toBeInTheDocument();
 
-    const summary = screen.getByRole("complementary", { name: /当前策略摘要/i });
-    expect(within(summary).getByText("Support Mail <support@wemail.test>")).toBeInTheDocument();
+    expect(screen.getByText("Support Mail <support@wemail.test>")).toBeInTheDocument();
+    expect(screen.queryByRole("complementary", { name: /当前策略摘要/i })).not.toBeInTheDocument();
 
     await user.click(screen.getByLabelText(/^失败告警$/i));
     await user.click(screen.getByRole("button", { name: /^保存通知与路由$/i }));
     expect(screen.getByText(/通知与路由已保存/i)).toBeInTheDocument();
-    expect(within(summary).getByText(/^关闭$/i)).toBeInTheDocument();
+    expect(screen.getByText("Webhook + Telegram")).toBeInTheDocument();
   });
 
   it("selects notification targets from configured Webhook and Telegram channels instead of direct input", async () => {

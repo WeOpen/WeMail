@@ -62,7 +62,7 @@ describe("buildWorkspaceShellState", () => {
             icon: "system",
             label: "系统设置",
             to: "/system/settings",
-            hint: "系统设置 · 个人设置 · 关于我们"
+            hint: "系统设置 · 运维中心 · 个人设置 · 关于我们"
           }
         ]
       }
@@ -198,5 +198,65 @@ describe("buildWorkspaceShellState", () => {
     expect(shell.activePrimaryId).toBe("api-keys");
     expect(shell.routeLabel).toBe("API 接口");
     expect(shell.secondaryNav.map((item) => item.to)).toEqual(["/api-keys", "/api-keys/interfaces"]);
+  });
+
+  it("keeps announcements as an independent settings route", () => {
+    const shell = buildWorkspaceShellState({
+      pathname: "/announcements",
+      session: {
+        user: {
+          id: "member-1",
+          email: "member@example.com",
+          name: "Member User",
+          role: "member",
+          status: "active",
+          createdAt: "2026-04-14T00:00:00.000Z",
+          updatedAt: "2026-04-14T00:00:00.000Z"
+        },
+        featureToggles: {
+          aiEnabled: true,
+          telegramEnabled: true,
+          outboundEnabled: true,
+          mailboxCreationEnabled: true
+        }
+      }
+    });
+
+    expect(shell.activePrimaryId).toBe("announcements");
+    expect(shell.routeLabel).toBe("公告");
+    expect(shell.secondaryNav).toEqual([]);
+  });
+
+  it("places operations between system settings and profile in the system secondary navigation", () => {
+    const shell = buildWorkspaceShellState({
+      pathname: "/system/operations",
+      session: {
+        user: {
+          id: "admin-1",
+          email: "admin@example.com",
+          name: "Admin User",
+          role: "admin",
+          status: "active",
+          createdAt: "2026-04-14T00:00:00.000Z",
+          updatedAt: "2026-04-14T00:00:00.000Z"
+        },
+        featureToggles: {
+          aiEnabled: true,
+          telegramEnabled: true,
+          outboundEnabled: true,
+          mailboxCreationEnabled: true
+        }
+      }
+    });
+
+    expect(shell.activePrimaryId).toBe("system");
+    expect(shell.routeLabel).toBe("运维中心");
+    expect(shell.secondaryNav.map((item) => item.label)).toEqual(["系统设置", "运维中心", "个人设置", "关于我们"]);
+    expect(shell.secondaryNav.map((item) => item.to)).toEqual([
+      "/system/settings",
+      "/system/operations",
+      "/system/profile",
+      "/system/about"
+    ]);
   });
 });

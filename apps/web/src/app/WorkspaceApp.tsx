@@ -142,9 +142,23 @@ function getSettingsDataQuery(pathname: string, isAdmin: boolean): SettingsDataQ
       includeApiKeys: false,
       includeDictionaries: false,
       includeRuntimeSettings: true,
+      includeSystemDiagnostics: false,
+      includeSystemMaturity: false,
+      includeSystemOperations: false,
+      includeSystemReliability: false,
+      includeTelegram: false
+    };
+  }
+
+  if (pathname === "/system/operations" && isAdmin) {
+    return {
+      includeApiKeys: false,
+      includeDictionaries: false,
+      includeRuntimeSettings: false,
       includeSystemDiagnostics: true,
       includeSystemMaturity: true,
       includeSystemOperations: true,
+      includeSystemReliability: true,
       includeTelegram: false
     };
   }

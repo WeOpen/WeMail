@@ -42,6 +42,7 @@ describe("inbox list styles", () => {
     const detailActionsRule = getRuleBody(".detail-panel-actions");
     const detailSubjectRule = getRuleBody(".detail-panel-subject");
     const detailActionGroupRule = getRuleBody(".detail-panel-action-group");
+    const announcementsItemOpenRule = getRuleBody(".announcements-item-open.ui-button");
 
     expect(inboxGridRule).toContain("minmax(360px, 0.72fr)");
     expect(inboxGridRule).toContain("minmax(320px, 0.76fr)");
@@ -49,6 +50,8 @@ describe("inbox list styles", () => {
     expect(messageFilterTabsListRule).toContain("margin-inline: auto");
     expect(messageFilterTabRule).toContain("gap: 6px");
     expect(messageItemRule).toContain("overflow: visible");
+    expect(announcementsItemOpenRule).toContain("overflow: visible");
+    expect(announcementsItemOpenRule).toContain("border-radius: 16px");
     expect(messageItemRule).toContain("min-height: 132px");
     expect(messageItemRule).toContain("align-content: start");
     expect(messageItemRule).toContain("gap: 12px");
@@ -97,6 +100,57 @@ describe("inbox list styles", () => {
     expect(messageItemRule).toContain("contain-intrinsic-size: 132px");
     expect(announcementsItemRule).toContain("content-visibility: auto");
     expect(announcementsItemRule).toContain("contain-intrinsic-size:");
+  });
+});
+
+describe("users governance styles", () => {
+  it("lays rate limit policies out as four cards before responsive collapse", () => {
+    const policyListRule = getRuleBody(".users-governance-policy-list");
+    const policyCardRule = getRuleBody(".users-governance-policy");
+
+    expect(policyListRule).toContain("grid-template-columns: repeat(4, minmax(0, 1fr))");
+    expect(policyListRule).toContain("grid-template-columns: repeat(2, minmax(0, 1fr))");
+    expect(policyListRule).toContain("grid-template-columns: minmax(0, 1fr)");
+    expect(policyCardRule).toContain("grid-template-columns: minmax(0, 1fr)");
+    expect(policyCardRule).toContain("min-height: 132px");
+  });
+
+  it("keeps commercial plans in a colored responsive three-tier row", () => {
+    const planGridRule = getRuleBody(".users-commercial-plan-grid");
+    const freePlanRule = getRuleBody(".users-commercial-plan[data-plan=\"free\"]");
+    const proPlanRule = getRuleBody(".users-commercial-plan[data-plan=\"pro\"]");
+    const teamPlanRule = getRuleBody(".users-commercial-plan[data-plan=\"team\"]");
+
+    expect(planGridRule).toContain("grid-template-columns: repeat(3, minmax(0, 1fr))");
+    expect(planGridRule).toContain("grid-template-columns: repeat(2, minmax(0, 1fr))");
+    expect(planGridRule).toContain("grid-template-columns: 1fr");
+    expect(freePlanRule).toContain("--users-commercial-plan-color: var(--info-500)");
+    expect(proPlanRule).toContain("--users-commercial-plan-color: var(--success-500)");
+    expect(teamPlanRule).toContain("--users-commercial-plan-color: var(--accent)");
+  });
+
+  it("places quota governance users and quota targets in a responsive two-column layout", () => {
+    const quotaLayoutRule = getRuleBody(".users-quota-layout");
+    const quotaUserListRule = getRuleBody(".users-quota-user-list");
+    const quotaUserRowRule = getRuleBody(".users-quota-user-row");
+    const quotaLimitGridRule = getRuleBody(".users-quota-limit-grid");
+    const quotaFormFooterRule = getRuleBody(".users-quota-form-footer");
+    const quotaSaveButtonRule = getRuleBody(".users-quota-form-footer .ui-button");
+    const quotaPaginationRule = getRuleBody(".users-quota-pagination");
+    const quotaPaginationListRule = getRuleBody(".users-quota-pagination .ui-pagination-list");
+
+    expect(quotaLayoutRule).toContain("grid-template-columns: minmax(340px, 1fr) minmax(380px, 1fr)");
+    expect(quotaLayoutRule).toContain("grid-template-columns: minmax(0, 1fr)");
+    expect(quotaUserListRule).toContain("max-height: none");
+    expect(quotaUserListRule).toContain("overflow: visible");
+    expect(quotaUserRowRule).toContain("grid-template-columns: minmax(0, 1fr) auto");
+    expect(quotaUserRowRule).toContain("min-height: 86px");
+    expect(quotaLimitGridRule).toContain("grid-template-columns: repeat(2, minmax(0, 1fr))");
+    expect(quotaLimitGridRule).toContain("grid-template-columns: minmax(0, 1fr)");
+    expect(quotaFormFooterRule).toContain("justify-content: space-between");
+    expect(quotaSaveButtonRule).toContain("margin-left: auto");
+    expect(quotaPaginationRule).toContain("justify-content: center");
+    expect(quotaPaginationListRule).toContain("justify-content: center");
   });
 });
 

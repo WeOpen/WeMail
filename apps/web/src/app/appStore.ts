@@ -55,6 +55,9 @@ type SessionScopedState = {
   adminUsers: UserSummary[];
   adminUsersTotal: number;
   adminSettingsUsers: UserSummary[];
+  adminSettingsUsersPage: number;
+  adminSettingsUsersPageSize: number;
+  adminSettingsUsersTotal: number;
   adminUserStats: AdminUserStats;
   adminInvites: InviteSummary[];
   adminInvitesAvailable: number;
@@ -87,6 +90,9 @@ type AdminDashboardState = {
   usersPage: number;
   usersPageSize: number;
   settingsUsers: UserSummary[];
+  settingsUsersPage: number;
+  settingsUsersPageSize: number;
+  settingsUsersTotal: number;
   userStats: AdminUserStats;
   invites: InviteSummary[];
   invitesAvailable: number;
@@ -129,7 +135,13 @@ type AppActions = {
   ) => void;
   setAdminDashboard: (dashboard: AdminDashboardState) => void;
   setAdminUsers: (users: UserSummary[], total: number) => void;
-  setAdminUserSettingsSummary: (payload: { settingsUsers: UserSummary[]; userStats: AdminUserStats }) => void;
+  setAdminUserSettingsSummary: (payload: {
+    settingsUsers: UserSummary[];
+    settingsUsersPage: number;
+    settingsUsersPageSize: number;
+    settingsUsersTotal: number;
+    userStats: AdminUserStats;
+  }) => void;
   setAdminInvites: (payload: {
     invites: InviteSummary[];
     invitesAvailable: number;
@@ -190,6 +202,9 @@ function createSessionScopedState(): SessionScopedState {
     adminUsers: [],
     adminUsersTotal: 0,
     adminSettingsUsers: [],
+    adminSettingsUsersPage: 1,
+    adminSettingsUsersPageSize: 5,
+    adminSettingsUsersTotal: 0,
     adminUserStats: { active: 0, total: 0 },
     adminInvites: [],
     adminInvitesAvailable: 0,
@@ -278,6 +293,9 @@ export const useAppStore = create<AppStore>()((set) => ({
       adminUsers: dashboard.users,
       adminUsersTotal: dashboard.usersTotal,
       adminSettingsUsers: dashboard.settingsUsers,
+      adminSettingsUsersPage: dashboard.settingsUsersPage,
+      adminSettingsUsersPageSize: dashboard.settingsUsersPageSize,
+      adminSettingsUsersTotal: dashboard.settingsUsersTotal,
       adminUserStats: dashboard.userStats,
       adminInvites: dashboard.invites,
       adminInvitesAvailable: dashboard.invitesAvailable,
@@ -296,6 +314,9 @@ export const useAppStore = create<AppStore>()((set) => ({
   setAdminUserSettingsSummary: (payload) =>
     set({
       adminSettingsUsers: payload.settingsUsers,
+      adminSettingsUsersPage: payload.settingsUsersPage,
+      adminSettingsUsersPageSize: payload.settingsUsersPageSize,
+      adminSettingsUsersTotal: payload.settingsUsersTotal,
       adminUserStats: payload.userStats
     }),
   setAdminInvites: (payload) =>

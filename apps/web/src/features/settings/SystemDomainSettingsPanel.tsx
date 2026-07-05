@@ -3,7 +3,7 @@ import { CircleHelp, Save, Trash2 } from "lucide-react";
 import type { MailDomainSummary, UserRole } from "@wemail/shared";
 
 import { Button } from "../../shared/button";
-import { FormField, TextInput } from "../../shared/form";
+import { CheckboxField, FormField, TextInput } from "../../shared/form";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../../shared/tooltip";
 import { fetchSystemDomains, updateSystemDomains } from "./api";
 
@@ -204,14 +204,12 @@ export function SystemDomainSettingsPanel() {
           <p className="system-domain-role-hint">默认所有用户可用；勾选角色后仅对应角色可用。</p>
           <div>
             {roleOptions.map((role) => (
-              <label key={role.value}>
-                <input
-                  checked={allowedRoleInput.includes(role.value)}
-                  onChange={() => toggleAllowedRole(role.value)}
-                  type="checkbox"
-                />
-                <span>{role.label}</span>
-              </label>
+              <CheckboxField
+                checked={allowedRoleInput.includes(role.value)}
+                key={role.value}
+                label={role.label}
+                onChange={() => toggleAllowedRole(role.value)}
+              />
             ))}
           </div>
         </fieldset>

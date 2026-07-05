@@ -30,15 +30,15 @@ export async function listAdminUsers(context: AdminUseCaseContext, options: User
   };
 }
 
-export async function getAdminUserSettingsSummary(context: AdminUseCaseContext) {
+export async function getAdminUserSettingsSummary(context: AdminUseCaseContext, options: PageListOptions = { page: 1, pageSize: 5 }) {
   const stats = await context.store.users.summary();
-  const quotaUsers = await context.store.users.list({
-    page: 1,
-    pageSize: Math.max(stats.total, 1)
-  });
+  const quotaUsers = await context.store.users.list(options);
 
   return {
     quotaUsers: quotaUsers.users.map(toAdminUserSummary),
+    quotaUsersPage: quotaUsers.page,
+    quotaUsersPageSize: quotaUsers.pageSize,
+    quotaUsersTotal: quotaUsers.total,
     stats
   };
 }
@@ -285,10 +285,20 @@ function formatAuditEventLabel(eventType: string) {
   return labels[eventType] ?? eventType;
 }
 
-function formatAuditEventDetail(event: AuditEventRecord, payload: Record<string, unknown>) {
+function formatAuditUserLabel(user: UserRecord | null) {
+  if (!user) return "未知用户";
+  return user.name || user.email;
+}
+
+function formatAuditActorLabel(event: AuditEventRecord, actor: UserRecord | undefined) {
+  if (actor) return `${actor.name} / ${actor.email}`;
+  return event.actorType === "user" ? "未知用户" : event.actorId;
+}
+
+function formatAuditEventDetail(event: AuditEventRecord, payload: Record<string, unknown>, usersById: Map<string, UserRecord>) {
   if (event.eventType === "invite-create") return `数量 ${String(payload.count ?? 1)}，角色 ${String(payload.targetRole ?? "member")}`;
   if (event.eventType === "login-failed" || event.eventType === "oauth-login-failed") return String(payload.reason ?? "unknown");
-  if (typeof payload.userId === "string") return `用户 ${payload.userId}`;
+  if (typeof payload.userId === "string") return `用户 ${formatAuditUserLabel(usersById.get(payload.userId) ?? null)}`;
   if (typeof payload.provider === "string") return `来源 ${payload.provider}`;
   if (typeof payload.email === "string") return payload.email;
   return "已记录";
@@ -320,10 +330,10 @@ function mapAuditEvent(event: AuditEventRecord, usersById: Map<string, UserRecor
   return {
     id: event.id,
     actorId: event.actorId,
-    actorLabel: actor ? `${actor.name} / ${actor.email}` : event.actorId,
+    actorLabel: formatAuditActorLabel(event, actor),
     eventType: event.eventType,
     eventLabel: formatAuditEventLabel(event.eventType),
-    detail: formatAuditEventDetail(event, payload),
+    detail: formatAuditEventDetail(event, payload, usersById),
     createdAt: event.createdAt
   };
 }

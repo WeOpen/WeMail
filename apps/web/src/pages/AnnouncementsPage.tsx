@@ -14,7 +14,7 @@ import {
 } from "../features/announcements/api";
 import { Button } from "../shared/button";
 import { nivoTheme } from "../shared/chart";
-import { Checkbox, FormField, SelectInput, TextareaInput, TextInput } from "../shared/form";
+import { Checkbox, DateInput, FormField, SelectInput, TextareaInput, TextInput } from "../shared/form";
 import { OverlayDialog } from "../shared/overlay";
 import { Pagination } from "../shared/pagination";
 import { Skeleton } from "../shared/skeleton";
@@ -474,20 +474,22 @@ export function AnnouncementsPage({ canPublish = false }: AnnouncementsPageProps
                   }
                 >
                   {pinnedAnnouncements.map((announcement, index) => (
-                    <button
+                    <Button
                       aria-label={announcement.title}
                       aria-selected={index === activePinnedIndex}
                       className="announcements-carousel-step"
+                      contentLayout="plain"
                       data-state={index === activePinnedIndex ? "active" : "idle"}
                       key={announcement.id}
                       onClick={() => setActivePinnedIndex(index)}
                       role="tab"
                       type="button"
+                      variant="text"
                     >
                       <span aria-hidden="true" className="announcements-carousel-step-track">
                         <span className="announcements-carousel-step-fill" />
                       </span>
-                    </button>
+                    </Button>
                   ))}
                 </div>
               ) : null}
@@ -654,11 +656,13 @@ export function AnnouncementsPage({ canPublish = false }: AnnouncementsPageProps
             ) : filteredAnnouncements.length > 0 ? (
               filteredAnnouncements.map((announcement) => (
                 <article className="announcements-item" key={announcement.id}>
-                  <button
+                  <Button
                     aria-label={`查看公告 ${announcement.title}`}
                     className="announcements-item-open"
+                    contentLayout="plain"
                     onClick={() => openViewDialog(announcement)}
                     type="button"
+                    variant="text"
                   >
                     <div className="announcements-item-head">
                       <div className="announcements-item-title">
@@ -690,7 +694,7 @@ export function AnnouncementsPage({ canPublish = false }: AnnouncementsPageProps
                         </span>
                       ) : null}
                     </div>
-                  </button>
+                  </Button>
                   {canPublish ? (
                     <div className="announcements-item-actions">
                       <Button
@@ -827,18 +831,20 @@ export function AnnouncementsPage({ canPublish = false }: AnnouncementsPageProps
                 </SelectInput>
               </FormField>
               <FormField label="起始时间">
-                <TextInput
+                <DateInput
                   aria-label="起始时间"
-                  onChange={(event) => updateFormField("startAt", event.currentTarget.value)}
-                  type="datetime-local"
+                  calendarLabel="打开起始日期选择器"
+                  onValueChange={(value) => updateFormField("startAt", value)}
+                  showTime
                   value={formState.startAt}
                 />
               </FormField>
               <FormField label="结束时间">
-                <TextInput
+                <DateInput
                   aria-label="结束时间"
-                  onChange={(event) => updateFormField("endAt", event.currentTarget.value)}
-                  type="datetime-local"
+                  calendarLabel="打开结束日期选择器"
+                  onValueChange={(value) => updateFormField("endAt", value)}
+                  showTime
                   value={formState.endAt}
                 />
               </FormField>

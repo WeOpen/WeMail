@@ -52,6 +52,9 @@ export function useAdminData({ session, onToast }: UseAdminDataOptions) {
   const adminUsers = useAppStore((state) => state.adminUsers);
   const adminUsersTotal = useAppStore((state) => state.adminUsersTotal);
   const adminSettingsUsers = useAppStore((state) => state.adminSettingsUsers);
+  const adminSettingsUsersPage = useAppStore((state) => state.adminSettingsUsersPage);
+  const adminSettingsUsersPageSize = useAppStore((state) => state.adminSettingsUsersPageSize);
+  const adminSettingsUsersTotal = useAppStore((state) => state.adminSettingsUsersTotal);
   const adminUserStats = useAppStore((state) => state.adminUserStats);
   const adminInvites = useAppStore((state) => state.adminInvites);
   const adminInvitesAvailable = useAppStore((state) => state.adminInvitesAvailable);
@@ -77,6 +80,7 @@ export function useAdminData({ session, onToast }: UseAdminDataOptions) {
   const [adminGovernance, setAdminGovernance] = useState<AdminGovernanceSummary | null>(null);
   const [adminCommercial, setAdminCommercial] = useState<CommercialModelSummary | null>(null);
   const lastUsersQuery = useRef<AdminUsersQuery>(DEFAULT_ADMIN_USERS_QUERY);
+  const lastSettingsUsersQuery = useRef<AdminSettingsListQuery>(DEFAULT_ADMIN_SETTINGS_QUERY);
   const lastInvitesQuery = useRef<AdminSettingsListQuery>(DEFAULT_ADMIN_SETTINGS_QUERY);
   const lastMailboxesQuery = useRef<AdminSettingsListQuery>(DEFAULT_ADMIN_SETTINGS_QUERY);
 
@@ -124,9 +128,10 @@ export function useAdminData({ session, onToast }: UseAdminDataOptions) {
     setAdminCommercial(await queryAdminCommercial());
   }, [session]);
 
-  const refreshAdminSettingsSummary = useCallback(async () => {
+  const refreshAdminSettingsSummary = useCallback(async (query: AdminSettingsListQuery = lastSettingsUsersQuery.current) => {
     if (session?.user.role !== "admin") return;
-    setAdminUserSettingsSummary(await queryAdminUserSettingsSummary());
+    lastSettingsUsersQuery.current = query;
+    setAdminUserSettingsSummary(await queryAdminUserSettingsSummary(query));
   }, [session, setAdminUserSettingsSummary]);
 
   const refreshAdminInvites = useCallback(
@@ -267,6 +272,9 @@ export function useAdminData({ session, onToast }: UseAdminDataOptions) {
     adminUsers,
     adminUsersTotal,
     adminSettingsUsers,
+    adminSettingsUsersPage,
+    adminSettingsUsersPageSize,
+    adminSettingsUsersTotal,
     adminUserStats,
     adminInvites,
     adminInvitesAvailable,
@@ -284,6 +292,7 @@ export function useAdminData({ session, onToast }: UseAdminDataOptions) {
     adminCommercial,
     refreshAdminData,
     refreshAdminUsers,
+    refreshAdminSettingsSummary,
     refreshAdminInvites,
     refreshAdminMailboxes,
     isLoadingUsers,

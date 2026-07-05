@@ -2,6 +2,7 @@ import { useState } from "react";
 
 import { Activity, Braces, ChevronDown, Database, KeyRound, Layers3, LockKeyhole, Route, ShieldCheck } from "lucide-react";
 
+import { Button } from "../../shared/button";
 import { apiInterfaceGroups, type ApiEndpoint, type ApiMethod } from "./api-interface-catalog.generated";
 
 type EndpointParameter = {
@@ -132,13 +133,15 @@ export function ApiInterfacesPage() {
 
                   return (
                     <article className="api-interfaces-endpoint-row" key={endpointKey} role="listitem" aria-label={endpointKey}>
-                      <button
+                      <Button
                         className="api-interfaces-endpoint-trigger"
-                        type="button"
                         aria-controls={detailsId}
                         aria-expanded={isExpanded}
                         aria-label={`展开 ${endpointKey} 参数示例`}
+                        contentLayout="plain"
                         onClick={() => setExpandedEndpointKey((currentKey) => (currentKey === endpointKey ? null : endpointKey))}
+                        type="button"
+                        variant="text"
                       >
                         <span className="api-interfaces-method-chip" data-method={endpoint.method}>
                           {endpoint.method}
@@ -152,7 +155,7 @@ export function ApiInterfacesPage() {
                           <span className="api-interfaces-access-chip">{endpoint.access}</span>
                           <ChevronDown className="api-interfaces-endpoint-chevron" size={17} strokeWidth={2} aria-hidden="true" data-expanded={isExpanded} />
                         </span>
-                      </button>
+                      </Button>
                       {isExpanded ? <EndpointExamplePanel endpoint={endpoint} id={detailsId} /> : null}
                     </article>
                   );

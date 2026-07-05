@@ -2,6 +2,12 @@ import { describe, expect, it } from "vitest";
 
 import { createWorkerTestHarness, registerUserAndGetCookie } from "../helpers/test-env";
 
+function waitForNextTimestamp() {
+  return new Promise((resolve) => {
+    setTimeout(resolve, 2);
+  });
+}
+
 describe("worker admin integration", () => {
   it("allows an admin session to create users without coupling quota disabled to user status", async () => {
     const { app, env, cookie } = await registerUserAndGetCookie({
@@ -89,6 +95,48 @@ describe("worker admin integration", () => {
       status: "active"
     });
     expect(listPayload.users.find((user) => user.email === "new.user@example.com")?.updatedAt).toEqual(expect.any(String));
+  });
+
+  it("lists admin users newest first by default", async () => {
+    const { app, env, cookie } = await registerUserAndGetCookie({
+      email: "admin@example.com",
+      inviteCode: "INVITE-ADMIN-USERS-SORT"
+    });
+
+    async function createUser(email: string, name: string) {
+      const response = await app.request(
+        "/api/users",
+        {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            cookie
+          },
+          body: JSON.stringify({
+            email,
+            name,
+            password: "password123",
+            role: "member"
+          })
+        },
+        env
+      );
+
+      expect(response.status).toBe(201);
+    }
+
+    await waitForNextTimestamp();
+    await createUser("zzz-old@example.com", "Old User");
+    await waitForNextTimestamp();
+    await createUser("aaa-new@example.com", "New User");
+
+    const listResponse = await app.request("/api/users?page=1&pageSize=1", { headers: { cookie } }, env);
+    const listPayload = (await listResponse.json()) as { users: Array<{ email: string }> };
+    const summaryResponse = await app.request("/api/users/summary?page=1&pageSize=1", { headers: { cookie } }, env);
+    const summaryPayload = (await summaryResponse.json()) as { quotaUsers: Array<{ email: string }> };
+
+    expect(listPayload.users[0]?.email).toBe("aaa-new@example.com");
+    expect(summaryPayload.quotaUsers[0]?.email).toBe("aaa-new@example.com");
   });
 
   it("allows admins to update user roles", async () => {
@@ -330,8 +378,8 @@ describe("worker admin integration", () => {
       pageSize: 10
     });
     expect(pagePayload.users.map((user) => user.email)).toEqual([
-      "paged-11@example.com",
-      "paged-12@example.com"
+      "paged-02@example.com",
+      "paged-01@example.com"
     ]);
 
     const searchResponse = await app.request(
@@ -808,12 +856,32 @@ describe("worker admin integration", () => {
     const summaryResponse = await app.request("/api/users/summary", { headers: { cookie } }, env);
     const summaryPayload = (await summaryResponse.json()) as {
       quotaUsers: unknown[];
+      quotaUsersPage: number;
+      quotaUsersPageSize: number;
+      quotaUsersTotal: number;
       stats: { active: number; total: number };
     };
 
     expect(summaryResponse.status).toBe(200);
     expect(summaryPayload.stats).toEqual({ active: 11, total: 12 });
-    expect(summaryPayload.quotaUsers).toHaveLength(12);
+    expect(summaryPayload.quotaUsers).toHaveLength(5);
+    expect(summaryPayload.quotaUsersPage).toBe(1);
+    expect(summaryPayload.quotaUsersPageSize).toBe(5);
+    expect(summaryPayload.quotaUsersTotal).toBe(12);
+
+    const summarySecondPageResponse = await app.request("/api/users/summary?page=2&pageSize=5", { headers: { cookie } }, env);
+    const summarySecondPagePayload = (await summarySecondPageResponse.json()) as {
+      quotaUsers: unknown[];
+      quotaUsersPage: number;
+      quotaUsersPageSize: number;
+      quotaUsersTotal: number;
+    };
+
+    expect(summarySecondPageResponse.status).toBe(200);
+    expect(summarySecondPagePayload.quotaUsers).toHaveLength(5);
+    expect(summarySecondPagePayload.quotaUsersPage).toBe(2);
+    expect(summarySecondPagePayload.quotaUsersPageSize).toBe(5);
+    expect(summarySecondPagePayload.quotaUsersTotal).toBe(12);
   });
 
   it("paginates admin invites and mailboxes on the backend", async () => {
