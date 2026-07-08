@@ -27,6 +27,34 @@ describe("extractImportantInfo", () => {
     expect(result.value).toContain("verify");
   });
 
+  it("does not treat prose after verification code wording as an auth code", () => {
+    const result = extractImportantInfo({
+      subject: "NVIDIA email verification",
+      text: "Your verification code will expire shortly."
+    });
+
+    expect(result).toEqual({
+      method: "none",
+      type: "none",
+      value: "",
+      label: ""
+    });
+  });
+
+  it("keeps extracting alphanumeric codes that contain digits", () => {
+    const result = extractImportantInfo({
+      subject: "Your verification code",
+      text: "Use verification code A1B2C3 to continue."
+    });
+
+    expect(result).toEqual({
+      method: "regex",
+      type: "auth_code",
+      value: "A1B2C3",
+      label: "Verification code"
+    });
+  });
+
   it("returns none when nothing useful is found", () => {
     const result = extractImportantInfo({
       subject: "Newsletter",

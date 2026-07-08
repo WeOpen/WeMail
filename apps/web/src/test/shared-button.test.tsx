@@ -1,8 +1,12 @@
+import { readFileSync } from "node:fs";
+
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { Button, ButtonAnchor, ButtonLink } from "../shared/button";
+
+const sharedStyles = readFileSync("src/shared/styles/index.css", "utf8");
 
 describe("shared button primitives", () => {
   afterEach(() => {
@@ -62,6 +66,16 @@ describe("shared button primitives", () => {
     expect(button).toHaveAttribute("data-state", "loading");
     expect(button).toHaveClass("ui-button-loading");
     expect(screen.getByText("保存资料")).toHaveAttribute("aria-hidden", "true");
+  });
+
+  it("uses a unified dark-mode primary button treatment", () => {
+    expect(sharedStyles).toMatch(/:root\[data-theme="dark"\]\s*\{[^}]*--button-primary-bg:\s*linear-gradient\(180deg,\s*var\(--accent-strong\),\s*var\(--accent\)\);/);
+    expect(sharedStyles).toMatch(/:root\[data-theme="dark"\]\s*\{[^}]*--button-primary-text:\s*#1a0d00;/);
+    expect(sharedStyles).toMatch(/\.ui-button-primary\s*\{[^}]*background:\s*var\(--button-primary-bg\);/);
+    expect(sharedStyles).toMatch(/\.ui-button-primary\s*\{[^}]*color:\s*var\(--button-primary-text\);/);
+    expect(sharedStyles).toMatch(
+      /:root\[data-theme="dark"\] \.ui-button-primary,\s*:root\[data-theme="dark"\] \.ui-button-primary \.ui-button-icon-slot,\s*:root\[data-theme="dark"\] \.ui-button-primary \.ui-button-label,\s*:root\[data-theme="dark"\] \.ui-button-primary \.ui-button-loading-label\s*\{[^}]*color:\s*var\(--button-primary-text\);/
+    );
   });
 
   it("prevents disabled link buttons from navigating or firing clicks", () => {

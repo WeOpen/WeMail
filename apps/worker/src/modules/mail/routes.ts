@@ -41,6 +41,8 @@ const extractionTypes = new Set<ExtractionType>([
 ]);
 const outboundStatuses = new Set<OutboundListStatus>(["all", "sent", "failed"]);
 const messageBatchActions = new Set<MessageBatchAction>(["delete", "export"]);
+const previewableImageContentTypes = new Set(["image/avif", "image/gif", "image/jpeg", "image/png", "image/webp"]);
+const remoteImageMaxBytes = 2 * 1024 * 1024;
 
 type QueryRequestContext = {
   req: {
@@ -128,7 +130,15 @@ function parseOutboundListQuery(c: QueryRequestContext) {
   };
 }
 
-function buildAttachmentContentDisposition(filename: string) {
+function normalizeContentType(value: string) {
+  return value.split(";")[0].trim().toLowerCase();
+}
+
+function isPreviewableImageContentType(value: string) {
+  return previewableImageContentTypes.has(normalizeContentType(value));
+}
+
+function buildAttachmentContentDisposition(filename: string, disposition: "attachment" | "inline" = "attachment") {
   const lineBreakIndex = Math.min(
     ...[filename.indexOf("\r"), filename.indexOf("\n")].filter((index) => index >= 0)
   );
@@ -145,7 +155,79 @@ function buildAttachmentContentDisposition(filename: string) {
     .replace(/["\\;]/g, "_")
     .trim() || "attachment";
 
-  return `attachment; filename="${fallbackFilename}"; filename*=UTF-8''${encodeURIComponent(normalizedFilename)}`;
+  return `${disposition}; filename="${fallbackFilename}"; filename*=UTF-8''${encodeURIComponent(normalizedFilename)}`;
+}
+
+function isBlockedRemoteImageHostname(hostname: string) {
+  const normalized = hostname.toLowerCase();
+  if (!normalized || normalized === "localhost") return true;
+  if (normalized.endsWith(".localhost")) return true;
+
+  const ipv4Match = normalized.match(/^(\d+)\.(\d+)\.(\d+)\.(\d+)$/);
+  if (!ipv4Match) return normalized === "::1" || normalized === "[::1]";
+
+  const octets = ipv4Match.slice(1).map(Number);
+  if (octets.some((octet) => !Number.isInteger(octet) || octet < 0 || octet > 255)) return true;
+  const [first, second] = octets;
+  return (
+    first === 0 ||
+    first === 10 ||
+    first === 127 ||
+    first === 169 && second === 254 ||
+    first === 172 && second >= 16 && second <= 31 ||
+    first === 192 && second === 168 ||
+    first === 100 && second >= 64 && second <= 127
+  );
+}
+
+function parseRemoteImageUrl(value: string | undefined) {
+  if (!value) return null;
+  try {
+    const url = new URL(value);
+    if (url.protocol !== "https:") return null;
+    if (isBlockedRemoteImageHostname(url.hostname)) return null;
+    return url;
+  } catch {
+    return null;
+  }
+}
+
+async function proxyRemoteImage(rawUrl: string | undefined) {
+  const url = parseRemoteImageUrl(rawUrl);
+  if (!url) return jsonError("Remote image URL must be a public HTTPS URL", 400);
+
+  const response = await fetch(url.toString(), {
+    headers: {
+      accept: "image/avif,image/webp,image/png,image/jpeg,image/gif"
+    },
+    redirect: "follow"
+  });
+  if (!response.ok) return jsonError("Remote image fetch failed", 502);
+
+  const contentType = normalizeContentType(response.headers.get("content-type") ?? "");
+  if (!previewableImageContentTypes.has(contentType)) {
+    return jsonError("Remote image type is not allowed", 415);
+  }
+
+  const contentLength = Number(response.headers.get("content-length") ?? "0");
+  if (Number.isFinite(contentLength) && contentLength > remoteImageMaxBytes) {
+    return jsonError("Remote image is too large", 413);
+  }
+
+  const body = await response.arrayBuffer();
+  if (body.byteLength > remoteImageMaxBytes) {
+    return jsonError("Remote image is too large", 413);
+  }
+
+  return new Response(body, {
+    headers: {
+      "cache-control": "private, max-age=3600",
+      "content-disposition": "inline",
+      "content-type": contentType,
+      "referrer-policy": "no-referrer",
+      "x-content-type-options": "nosniff"
+    }
+  });
 }
 
 export function registerMailRoutes(app: Hono<AppContext>) {
@@ -195,6 +277,20 @@ export function registerMailRoutes(app: Hono<AppContext>) {
     return c.json(toMessageDetailResponse(message));
   });
 
+  app.get("/api/mail/messages/:messageId/remote-image", async (c) => {
+    const user = requireUser(c);
+    if (!user) return jsonError("Authentication required", 401);
+
+    const message = await getMessageDetailUseCase(getAppServices(c), {
+      userId: user.id,
+      userRole: user.role,
+      messageId: c.req.param("messageId")
+    });
+    if (message instanceof Response) return message;
+
+    return proxyRemoteImage(c.req.query("url"));
+  });
+
   app.get("/api/mail/messages/:messageId/attachments/:attachmentId", async (c) => {
     const user = requireUser(c);
     if (!user) return jsonError("Authentication required", 401);
@@ -211,10 +307,16 @@ export function registerMailRoutes(app: Hono<AppContext>) {
     if (!c.env.ATTACHMENTS) return c.json({ attachment });
     const object = await c.env.ATTACHMENTS.get(attachment.key);
     if (!object) return jsonError("Attachment missing", 404);
+    const disposition =
+      c.req.query("preview") === "1" && isPreviewableImageContentType(attachment.contentType)
+        ? "inline"
+        : "attachment";
     return new Response(object.body, {
       headers: {
         "content-type": attachment.contentType,
-        "content-disposition": buildAttachmentContentDisposition(attachment.filename)
+        "content-disposition": buildAttachmentContentDisposition(attachment.filename, disposition),
+        "referrer-policy": "no-referrer",
+        "x-content-type-options": "nosniff"
       }
     });
   });

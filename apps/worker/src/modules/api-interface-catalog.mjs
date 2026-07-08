@@ -154,8 +154,17 @@ export const apiInterfaceGroups = [
         method: "GET",
         path: "/api/mail/messages/:messageId/attachments/:attachmentId",
         title: "下载附件",
-        description: "从 R2 读取指定附件。",
-        access: "登录用户"
+        description: "从 R2 读取指定附件，图片附件支持 preview=1 内联预览。",
+        access: "登录用户",
+        example: { queryParameters: { preview: "1" } }
+      },
+      {
+        method: "GET",
+        path: "/api/mail/messages/:messageId/remote-image",
+        title: "代理远程图片",
+        description: "通过 Worker 代理公开 HTTPS 邮件图片，并拒绝 SVG、HTML、超大图片和内网地址。",
+        access: "登录用户",
+        example: { queryParameters: { url: "https://cdn.example.test/banner.png" } }
       },
       {
         method: "GET",

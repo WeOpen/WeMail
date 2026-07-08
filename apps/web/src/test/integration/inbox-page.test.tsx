@@ -275,11 +275,23 @@ function createMockMessageListResponse(input: string): MessageListResult {
 
 function createMockMessageDetailResponse(messageId: string) {
   const message = mockInboxMessages.find((entry) => entry.id === messageId) ?? mockInboxMessages[0];
+  const bodyText =
+    messageId === "msg-2"
+      ? `Detail body loaded from backend for ${messageId}\nView in browser https://contoso.test/magic.\nRemote image blocked: https://cdn.example.test/banner.png`
+      : `Detail body loaded from backend for ${messageId}`;
+  const attachments =
+    messageId === "msg-2"
+      ? [
+          ...message.attachments,
+          { id: "att-image", filename: "diagram.png", contentType: "image/png", size: 2048, key: "attachments/diagram.png" }
+        ]
+      : message.attachments;
 
   return {
     message: {
       ...message,
-      bodyText: `Detail body loaded from backend for ${messageId}`
+      bodyText,
+      attachments
     }
   };
 }
@@ -713,6 +725,63 @@ describe("mail list integration", () => {
     expect(within(extractionCard).getByLabelText(/^置信度 92%$/i)).toBeInTheDocument();
   });
 
+  it("renders safe http links inside the message body as clickable links", async () => {
+    const user = userEvent.setup();
+
+    render(<App />);
+
+    await screen.findByRole("button", { name: /^复制验证码$/i });
+    const messageResults = within(screen.getByRole("group", { name: /^消息结果列表$/i }));
+
+    await user.click(messageResults.getByRole("button", { name: /Your login link/i }));
+
+    const bodyLink = await screen.findByRole("link", { name: "https://contoso.test/magic" });
+
+    expect(bodyLink).toHaveAttribute("href", "https://contoso.test/magic");
+    expect(bodyLink).toHaveAttribute("target", "_blank");
+    expect(bodyLink).toHaveAttribute("rel", expect.stringContaining("noopener"));
+    expect(bodyLink).toHaveAttribute("rel", expect.stringContaining("noreferrer"));
+  });
+
+  it("renders image attachments as inline previews from the attachment endpoint", async () => {
+    const user = userEvent.setup();
+
+    render(<App />);
+
+    await screen.findByRole("button", { name: /^复制验证码$/i });
+    const messageResults = within(screen.getByRole("group", { name: /^消息结果列表$/i }));
+
+    await user.click(messageResults.getByRole("button", { name: /Your login link/i }));
+
+    const imagePreview = await screen.findByRole("img", { name: "diagram.png" });
+
+    expect(imagePreview).toHaveAttribute("src", "/api/mail/messages/msg-2/attachments/att-image?preview=1");
+    expect(imagePreview).toHaveAttribute("loading", "lazy");
+  });
+
+  it("keeps remote message images blocked until the user loads them through the proxy", async () => {
+    const user = userEvent.setup();
+
+    render(<App />);
+
+    await screen.findByRole("button", { name: /^复制验证码$/i });
+    const messageResults = within(screen.getByRole("group", { name: /^消息结果列表$/i }));
+
+    await user.click(messageResults.getByRole("button", { name: /Your login link/i }));
+
+    const loadButton = await screen.findByRole("button", { name: /加载远程图片 cdn\.example\.test/i });
+    expect(screen.queryByRole("img", { name: /远程图片 cdn\.example\.test/i })).not.toBeInTheDocument();
+
+    await user.click(loadButton);
+
+    const remoteImage = screen.getByRole("img", { name: /远程图片 cdn\.example\.test/i });
+    expect(remoteImage).toHaveAttribute(
+      "src",
+      `/api/mail/messages/msg-2/remote-image?url=${encodeURIComponent("https://cdn.example.test/banner.png")}`
+    );
+    expect(remoteImage).toHaveAttribute("referrerpolicy", "no-referrer");
+  });
+
   it("loads the selected message detail by id instead of relying on list payload", async () => {
     const user = userEvent.setup();
 
@@ -729,7 +798,7 @@ describe("mail list integration", () => {
     const messageResults = within(screen.getByRole("group", { name: /^消息结果列表$/i }));
     await user.click(messageResults.getByRole("button", { name: /Your login link/i }));
 
-    expect(await screen.findByText("Detail body loaded from backend for msg-2")).toBeInTheDocument();
+    expect(await screen.findByText(/Detail body loaded from backend for msg-2/i)).toBeInTheDocument();
   });
 
   it("shows a retryable message-list error state when backend loading fails", async () => {

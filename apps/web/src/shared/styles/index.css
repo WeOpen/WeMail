@@ -36,6 +36,14 @@
   --accent: #ff7a00;
   --accent-strong: #ff8b26;
   --accent-soft: rgba(255, 122, 0, 0.14);
+  --button-primary-bg: var(--surface-contrast);
+  --button-primary-bg-hover: var(--surface-contrast);
+  --button-primary-bg-active: var(--surface-contrast);
+  --button-primary-border: transparent;
+  --button-primary-text: var(--bg-elevated);
+  --button-primary-shadow: 0 12px 30px rgba(0, 0, 0, 0.16);
+  --button-primary-shadow-hover: 0 16px 34px rgba(0, 0, 0, 0.2);
+  --button-primary-shadow-active: 0 8px 20px rgba(0, 0, 0, 0.18);
   --workspace-subcard-bg: color-mix(in srgb, var(--surface-muted) 86%, transparent);
   --workspace-subcard-border: color-mix(in srgb, var(--border) 82%, transparent);
   --workspace-empty-bg:
@@ -73,6 +81,20 @@
   --accent: #ff7a00;
   --accent-strong: #ff922d;
   --accent-soft: rgba(255, 122, 0, 0.16);
+  --button-primary-bg: linear-gradient(180deg, var(--accent-strong), var(--accent));
+  --button-primary-bg-hover: linear-gradient(180deg, #ffa24a, var(--accent));
+  --button-primary-bg-active: linear-gradient(180deg, #ef6f00, #d95f00);
+  --button-primary-border: color-mix(in srgb, var(--accent) 68%, rgba(255, 255, 255, 0.18));
+  --button-primary-text: #1a0d00;
+  --button-primary-shadow:
+    0 16px 34px rgba(255, 122, 0, 0.24),
+    0 10px 24px rgba(0, 0, 0, 0.34);
+  --button-primary-shadow-hover:
+    0 20px 42px rgba(255, 122, 0, 0.3),
+    0 12px 28px rgba(0, 0, 0, 0.38);
+  --button-primary-shadow-active:
+    0 10px 24px rgba(255, 122, 0, 0.22),
+    0 8px 18px rgba(0, 0, 0, 0.36);
   --workspace-subcard-bg: color-mix(in srgb, var(--surface-muted) 88%, transparent);
   --workspace-subcard-border: color-mix(in srgb, var(--border) 86%, transparent);
   --workspace-empty-bg:
@@ -566,17 +588,27 @@ textarea:focus {
 }
 
 .ui-button-primary {
-  background: var(--surface-contrast);
-  color: var(--bg-elevated);
-  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.16);
+  border-color: var(--button-primary-border);
+  background: var(--button-primary-bg);
+  color: var(--button-primary-text);
+  box-shadow: var(--button-primary-shadow);
 }
 
 .ui-button-primary:hover {
-  box-shadow: 0 16px 34px rgba(0, 0, 0, 0.2);
+  background: var(--button-primary-bg-hover);
+  box-shadow: var(--button-primary-shadow-hover);
 }
 
 .ui-button-primary:active {
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.18);
+  background: var(--button-primary-bg-active);
+  box-shadow: var(--button-primary-shadow-active);
+}
+
+:root[data-theme="dark"] .ui-button-primary,
+:root[data-theme="dark"] .ui-button-primary .ui-button-icon-slot,
+:root[data-theme="dark"] .ui-button-primary .ui-button-label,
+:root[data-theme="dark"] .ui-button-primary .ui-button-loading-label {
+  color: var(--button-primary-text);
 }
 
 .ui-button-secondary {
@@ -3682,6 +3714,61 @@ button:disabled {
   line-height: 1.65;
 }
 
+.message-body-link {
+  color: var(--accent);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+  overflow-wrap: anywhere;
+}
+
+.message-body-link:hover {
+  color: var(--accent-strong);
+}
+
+.remote-image-panel {
+  display: grid;
+  gap: 10px;
+}
+
+.remote-image-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.remote-image-card {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid color-mix(in srgb, var(--warning) 34%, var(--border));
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--warning-soft) 34%, var(--surface));
+}
+
+.remote-image-placeholder,
+.remote-image-preview {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: 14px;
+}
+
+.remote-image-placeholder {
+  display: grid;
+  place-items: center;
+  gap: 8px;
+  padding: 16px;
+  color: var(--text-muted);
+  text-align: center;
+  background: color-mix(in srgb, var(--surface-muted) 78%, transparent);
+}
+
+.remote-image-preview {
+  border: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
+  background: var(--surface-muted);
+  object-fit: contain;
+}
+
 .detail-retention-label,
 .message-raw-section-header,
 .link-risk-card,
@@ -3757,6 +3844,21 @@ button:disabled {
   grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
   border-radius: 18px;
+}
+
+.inbox-detail-panel .attachment-grid .attachment-preview-card-image {
+  grid-template-columns: minmax(84px, 0.45fr) minmax(0, 1fr);
+  align-items: start;
+}
+
+.attachment-image-preview {
+  grid-row: span 2;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  border: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
+  border-radius: 12px;
+  background: var(--surface-muted);
+  object-fit: cover;
 }
 
 .inbox-detail-panel .attachment-grid a small {

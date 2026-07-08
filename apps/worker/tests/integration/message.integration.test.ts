@@ -88,6 +88,45 @@ describe("worker message integration", () => {
     expect(updatedMailbox?.lastActiveAt).toEqual(expect.any(String));
   });
 
+  it("stores html-only inbound email as readable text without treating prose as a code", async () => {
+    const { env, store, mailbox } = await registerMemberAndCreateMailbox();
+    const rawEmail = [
+      "From: NVIDIA <account@nvidia.com>",
+      `To: ${mailbox.address}`,
+      "Subject: NVIDIA email verification",
+      "MIME-Version: 1.0",
+      "Content-Type: text/html; charset=utf-8",
+      "",
+      "<!DOCTYPE html>",
+      "<html>",
+      "<body>",
+      "<h1>NVIDIA email verification</h1>",
+      "<p>Your verification code will expire shortly.</p>",
+      "<img src=\"https://cdn.example.test/banner.png\" onerror=\"alert(1)\" />",
+      "<p><a href=\"https://www.nvidia.com/verify/email?token=abc123\">Verify email</a></p>",
+      "</body>",
+      "</html>"
+    ].join("\r\n");
+
+    const message = await processInboundEmail(env, store, {
+      to: mailbox.address,
+      raw: new Response(rawEmail).body!
+    });
+    const extraction = JSON.parse(message.extractionJson) as { type: string; value: string };
+
+    expect(message.bodyText).toContain("NVIDIA email verification");
+    expect(message.bodyText).toContain("Your verification code will expire shortly.");
+    expect(message.bodyText).toContain("Remote image blocked: https://cdn.example.test/banner.png");
+    expect(message.bodyText).not.toContain("<!DOCTYPE");
+    expect(message.bodyText).not.toContain("<html");
+    expect(message.bodyText).not.toContain("onerror");
+    expect(extraction.value).not.toBe("will");
+    expect(extraction).toMatchObject({
+      type: "auth_link",
+      value: "https://www.nvidia.com/verify/email?token=abc123"
+    });
+  });
+
   it("does not send telegram notifications when the global telegram feature is disabled", async () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
@@ -670,6 +709,54 @@ describe("worker message integration", () => {
     expect(payload.attachment.key).toBe("attachments/test.txt");
   });
 
+  it("serves image attachments inline only when preview is requested", async () => {
+    const { app, env, store, cookie, mailbox } = await registerMemberAndCreateMailbox();
+
+    const message = await store.messages.create({
+      mailboxId: mailbox.id,
+      fromAddress: "sender@example.com",
+      subject: "Image attachment",
+      previewText: "Attached",
+      bodyText: "See image",
+      extractionJson: JSON.stringify({
+        method: "none",
+        type: "none",
+        value: "",
+        label: "No extraction"
+      }),
+      oversizeStatus: null,
+      attachmentCount: 1,
+      receivedAt: new Date().toISOString(),
+      expiresAt: new Date(Date.now() + 60_000).toISOString()
+    });
+
+    await store.attachments.createMany(message.id, [
+      {
+        id: "attachment-image",
+        filename: "diagram.png",
+        contentType: "image/png",
+        size: 7,
+        key: "attachments/diagram.png"
+      }
+    ]);
+
+    const response = await app.request(
+      `/api/mail/messages/${message.id}/attachments/attachment-image?preview=1`,
+      { headers: { cookie } },
+      {
+        ...env,
+        ATTACHMENTS: {
+          get: async () => ({ body: new Response("pngdata").body })
+        } as unknown as R2Bucket
+      }
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toBe("image/png");
+    expect(response.headers.get("content-disposition")).toContain("inline;");
+    expect(response.headers.get("x-content-type-options")).toBe("nosniff");
+  });
+
   it("sanitizes downloaded attachment filenames in content-disposition", async () => {
     const { app, env, store, cookie, mailbox } = await registerMemberAndCreateMailbox();
 
@@ -719,5 +806,55 @@ describe("worker message integration", () => {
     expect(contentDisposition).not.toContain("\r");
     expect(contentDisposition).not.toContain("\n");
     expect(contentDisposition).not.toContain("x-extra");
+  });
+
+  it("proxies only safe remote images for visible messages", async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response("<svg><script /></svg>", { headers: { "content-type": "image/svg+xml" } }))
+      .mockResolvedValueOnce(new Response("pngdata", { headers: { "content-type": "image/png" } }));
+    vi.stubGlobal("fetch", fetchMock);
+    const { app, env, store, cookie, mailbox } = await registerMemberAndCreateMailbox();
+
+    const message = await store.messages.create({
+      mailboxId: mailbox.id,
+      fromAddress: "sender@example.com",
+      subject: "Remote image",
+      previewText: "Remote image",
+      bodyText: "Remote image blocked: https://cdn.example.test/banner.png",
+      extractionJson: JSON.stringify({
+        method: "none",
+        type: "none",
+        value: "",
+        label: "No extraction"
+      }),
+      oversizeStatus: null,
+      attachmentCount: 0,
+      receivedAt: new Date().toISOString(),
+      expiresAt: new Date(Date.now() + 60_000).toISOString()
+    });
+
+    const invalidProtocolResponse = await app.request(
+      `/api/mail/messages/${message.id}/remote-image?url=${encodeURIComponent("javascript:alert(1)")}`,
+      { headers: { cookie } },
+      env
+    );
+    const svgResponse = await app.request(
+      `/api/mail/messages/${message.id}/remote-image?url=${encodeURIComponent("https://cdn.example.test/bad.svg")}`,
+      { headers: { cookie } },
+      env
+    );
+    const pngResponse = await app.request(
+      `/api/mail/messages/${message.id}/remote-image?url=${encodeURIComponent("https://cdn.example.test/banner.png")}`,
+      { headers: { cookie } },
+      env
+    );
+
+    expect(invalidProtocolResponse.status).toBe(400);
+    expect(svgResponse.status).toBe(415);
+    expect(pngResponse.status).toBe(200);
+    expect(pngResponse.headers.get("content-type")).toBe("image/png");
+    expect(pngResponse.headers.get("content-disposition")).toContain("inline");
+    expect(pngResponse.headers.get("x-content-type-options")).toBe("nosniff");
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 });

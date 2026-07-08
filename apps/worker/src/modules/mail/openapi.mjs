@@ -84,9 +84,29 @@ export const paths = {
       security: [{ cookieAuth: [] }, { bearerAuth: [] }],
       parameters: [
         { name: "messageId", in: "path", required: true, schema: { type: "string" } },
-        { name: "attachmentId", in: "path", required: true, schema: { type: "string" } }
+        { name: "attachmentId", in: "path", required: true, schema: { type: "string" } },
+        { name: "preview", in: "query", required: false, schema: { type: "string", enum: ["1"] }, description: "图片附件预览模式，安全图片会以内联方式返回。" }
       ],
       responses: { 200: { description: "附件元数据或文件流" }, 404: { $ref: "#/components/responses/Error" } }
+    }
+  },
+  "/api/mail/messages/{messageId}/remote-image": {
+    get: {
+      tags: ["邮件"],
+      summary: "代理加载远程邮件图片",
+      operationId: "proxyMailRemoteImage",
+      security: [{ cookieAuth: [] }, { bearerAuth: [] }],
+      parameters: [
+        { name: "messageId", in: "path", required: true, schema: { type: "string" } },
+        { name: "url", in: "query", required: true, schema: { type: "string", format: "uri" }, description: "公开 HTTPS 图片 URL。SVG、HTML、超大图片和内网地址会被拒绝。" }
+      ],
+      responses: {
+        200: { description: "代理后的安全图片响应。" },
+        400: { $ref: "#/components/responses/Error" },
+        413: { $ref: "#/components/responses/Error" },
+        415: { $ref: "#/components/responses/Error" },
+        502: { $ref: "#/components/responses/Error" }
+      }
     }
   },
   "/api/mail/outbound": {

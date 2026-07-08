@@ -14,6 +14,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.4] - 2026-07-09
+
+### Fixed
+
+- Converted HTML-only inbound email bodies into readable text before storage and avoided misclassifying prose such as "verification code will" as a verification code.
+- Rendered safe HTTP(S) links inside plain-text message bodies as clickable external links without executing email HTML.
+- Added safer image handling for mail details: image attachments can preview inline, remote HTML images are blocked by default, and manually loaded remote images go through a checked Worker proxy.
+
 ## [0.2.3] - 2026-07-05
 
 ### Fixed

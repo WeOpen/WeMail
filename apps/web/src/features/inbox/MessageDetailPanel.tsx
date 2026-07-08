@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import {
   AlertTriangle,
   ClipboardCopy,
@@ -62,6 +62,73 @@ function DetailActionButton({ icon, isDisabled = false, label, onClick, variant 
 
 function openMessageResource(href: string) {
   window.open(href, "_blank", "noopener,noreferrer");
+}
+
+const bodyUrlPattern = /https?:\/\/[^\s<>"']+/gi;
+const remoteImageMarkerPattern = /^Remote image blocked:\s*(https:\/\/[^\s<>"']+)\s*$/gim;
+const trailingUrlPunctuationPattern = /[),.;:!?]+$/;
+const previewableImageContentTypes = new Set(["image/avif", "image/gif", "image/jpeg", "image/png", "image/webp"]);
+
+function splitSafeBodyUrl(value: string) {
+  const trailing = value.match(trailingUrlPunctuationPattern)?.[0] ?? "";
+  return {
+    href: value.slice(0, value.length - trailing.length),
+    trailing
+  };
+}
+
+function renderMessageBodyText(bodyText: string) {
+  const nodes: ReactNode[] = [];
+  let lastIndex = 0;
+
+  for (const match of bodyText.matchAll(bodyUrlPattern)) {
+    const rawUrl = match[0];
+    const index = match.index ?? 0;
+    const { href, trailing } = splitSafeBodyUrl(rawUrl);
+    if (!href) continue;
+
+    if (index > lastIndex) {
+      nodes.push(bodyText.slice(lastIndex, index));
+    }
+    nodes.push(
+      <a
+        className="message-body-link"
+        href={href}
+        key={`${href}-${index}`}
+        rel="noopener noreferrer"
+        target="_blank"
+        title={href}
+      >
+        {href}
+      </a>
+    );
+    if (trailing) nodes.push(trailing);
+    lastIndex = index + rawUrl.length;
+  }
+
+  if (lastIndex < bodyText.length) {
+    nodes.push(bodyText.slice(lastIndex));
+  }
+
+  return nodes.length > 0 ? nodes : bodyText;
+}
+
+function isPreviewableImageContentType(value: string) {
+  return previewableImageContentTypes.has(value.split(";")[0].trim().toLowerCase());
+}
+
+function getRemoteImageBlocks(bodyText: string) {
+  const urls = new Set<string>();
+  for (const match of bodyText.matchAll(remoteImageMarkerPattern)) {
+    urls.add(match[1]);
+  }
+  return Array.from(urls).map((url) => {
+    try {
+      return { hostname: new URL(url).hostname, url };
+    } catch {
+      return { hostname: "未知域名", url };
+    }
+  });
 }
 
 function getExtractionInsight(viewModel: NonNullable<ReturnType<typeof toMessageDetailViewModel>>) {
@@ -145,6 +212,7 @@ function analyzeExtractionLink(value: string) {
 }
 
 export function MessageDetailPanel({ errorMessage = null, isLoading = false, onRetry, selectedMessage }: MessageDetailPanelProps) {
+  const [loadedRemoteImages, setLoadedRemoteImages] = useState<Set<string>>(() => new Set());
   const viewModel = toMessageDetailViewModel(selectedMessage);
 
   if (!viewModel) {
@@ -182,6 +250,7 @@ export function MessageDetailPanel({ errorMessage = null, isLoading = false, onR
   const ExtractionInsightIcon = extractionInsight.Icon as LucideIcon;
   const retentionLabel = formatRetentionLabel(viewModel.expiresAt);
   const linkRisk = extractionInsight.kind === "link" ? analyzeExtractionLink(viewModel.extraction.value) : null;
+  const remoteImages = getRemoteImageBlocks(viewModel.bodyText);
 
   return (
     <section aria-label="阅读与提取详情" className="panel workspace-card detail-panel inbox-detail-panel">
@@ -276,27 +345,90 @@ export function MessageDetailPanel({ errorMessage = null, isLoading = false, onR
         </div>
       ) : null}
       {viewModel.oversizeStatus ? <div className="warning-card">超大邮件处理：{viewModel.oversizeStatus}</div> : null}
+      {remoteImages.length > 0 ? (
+        <section className="remote-image-panel" aria-label="远程图片">
+          <div className="message-raw-section-header">
+            <strong>远程图片</strong>
+            <small>默认阻止加载</small>
+          </div>
+          <div className="remote-image-grid">
+            {remoteImages.map((remoteImage) => {
+              const imageKey = `${viewModel.id}:${remoteImage.url}`;
+              const isLoaded = loadedRemoteImages.has(imageKey);
+              const proxyUrl = `/api/mail/messages/${viewModel.id}/remote-image?url=${encodeURIComponent(remoteImage.url)}`;
+
+              return (
+                <div className="remote-image-card" key={imageKey}>
+                  {isLoaded ? (
+                    <img
+                      alt={`远程图片 ${remoteImage.hostname}`}
+                      className="remote-image-preview"
+                      loading="lazy"
+                      referrerPolicy="no-referrer"
+                      src={proxyUrl}
+                    />
+                  ) : (
+                    <div className="remote-image-placeholder">
+                      <AlertTriangle size={18} strokeWidth={1.9} aria-hidden="true" />
+                      <span>已阻止来自 {remoteImage.hostname} 的远程图片</span>
+                    </div>
+                  )}
+                  <Button
+                    leadingIcon={<ExternalLink size={14} strokeWidth={1.9} aria-hidden="true" />}
+                    onClick={() => {
+                      setLoadedRemoteImages((current) => {
+                        const next = new Set(current);
+                        next.add(imageKey);
+                        return next;
+                      });
+                    }}
+                    size="sm"
+                    variant="secondary"
+                  >
+                    加载远程图片 {remoteImage.hostname}
+                  </Button>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      ) : null}
       <section className="message-raw-section" aria-label="邮件原文">
         <div className="message-raw-section-header">
           <strong>原文</strong>
           <small>纯文本正文</small>
         </div>
-        <pre className="message-body">{viewModel.bodyText}</pre>
+        <pre className="message-body">{renderMessageBodyText(viewModel.bodyText)}</pre>
       </section>
       <div className="attachment-grid">
-        {viewModel.attachments.map((attachment) => (
-          <a
-            className="attachment-preview-card"
-            key={attachment.id}
-            href={`/api/mail/messages/${viewModel.id}/attachments/${attachment.id}`}
-            target="_blank"
-            rel="noreferrer"
-          >
-            <Paperclip size={15} strokeWidth={1.9} aria-hidden="true" />
-            <span>{attachment.filename}</span>
-            <small>{attachment.contentType} · {attachment.sizeLabel}</small>
-          </a>
-        ))}
+        {viewModel.attachments.map((attachment) => {
+          const attachmentHref = `/api/mail/messages/${viewModel.id}/attachments/${attachment.id}`;
+          const isImagePreview = isPreviewableImageContentType(attachment.contentType);
+
+          return (
+            <a
+              className={isImagePreview ? "attachment-preview-card attachment-preview-card-image" : "attachment-preview-card"}
+              key={attachment.id}
+              href={attachmentHref}
+              target="_blank"
+              rel="noreferrer"
+            >
+              {isImagePreview ? (
+                <img
+                  alt={attachment.filename}
+                  className="attachment-image-preview"
+                  loading="lazy"
+                  referrerPolicy="no-referrer"
+                  src={`${attachmentHref}?preview=1`}
+                />
+              ) : (
+                <Paperclip size={15} strokeWidth={1.9} aria-hidden="true" />
+              )}
+              <span>{attachment.filename}</span>
+              <small>{attachment.contentType} · {attachment.sizeLabel}</small>
+            </a>
+          );
+        })}
         {viewModel.attachments.length === 0 ? <p className="empty-state workspace-inline-empty">这封邮件没有附件。</p> : null}
       </div>
     </section>

@@ -11,6 +11,15 @@ function pickLink(links: string[], matcher: RegExp) {
   return links.find((link) => matcher.test(link));
 }
 
+function normalizeCodeCandidate(value: string) {
+  return value.replace(/[\s-]/g, "");
+}
+
+function isLikelyCodeCandidate(value: string) {
+  const normalized = normalizeCodeCandidate(value);
+  return /^[A-Z0-9]{4,8}$/i.test(normalized) && /\d/.test(normalized);
+}
+
 export function extractImportantInfo(input: {
   subject?: string;
   text?: string;
@@ -21,11 +30,11 @@ export function extractImportantInfo(input: {
 
   for (const pattern of codePatterns) {
     const match = text.match(pattern);
-    if (match?.[1]) {
+    if (match?.[1] && isLikelyCodeCandidate(match[1])) {
       return {
         method: "regex",
         type: "auth_code",
-        value: match[1].replace(/[\s-]/g, ""),
+        value: normalizeCodeCandidate(match[1]),
         label: "Verification code"
       };
     }

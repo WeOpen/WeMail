@@ -3,6 +3,79 @@ import PostalMime from "postal-mime";
 import { extractImportantInfo, type ExtractionResult } from "@wemail/shared";
 import type { AppBindings, AttachmentRecord, PersistedMessageRecord, ResendClient, TelegramApiClient } from "../core/bindings";
 
+const htmlEntityMap: Record<string, string> = {
+  amp: "&",
+  apos: "'",
+  gt: ">",
+  lt: "<",
+  nbsp: " ",
+  quot: "\""
+};
+
+function decodeHtmlEntities(value: string) {
+  return value.replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (entity, rawName: string) => {
+    const name = rawName.toLowerCase();
+    if (name.startsWith("#x")) {
+      const codePoint = Number.parseInt(name.slice(2), 16);
+      return Number.isFinite(codePoint) && codePoint >= 0 && codePoint <= 0x10ffff
+        ? String.fromCodePoint(codePoint)
+        : entity;
+    }
+    if (name.startsWith("#")) {
+      const codePoint = Number.parseInt(name.slice(1), 10);
+      return Number.isFinite(codePoint) && codePoint >= 0 && codePoint <= 0x10ffff
+        ? String.fromCodePoint(codePoint)
+        : entity;
+    }
+    return htmlEntityMap[name] ?? entity;
+  });
+}
+
+function normalizeTextLines(value: string) {
+  return value
+    .split(/\r?\n/)
+    .map((line) => line.replace(/[ \t\f\v]+/g, " ").trim())
+    .filter(Boolean)
+    .join("\n");
+}
+
+function normalizeRemoteImageSrc(value: string) {
+  const decoded = decodeHtmlEntities(value.trim());
+  try {
+    const url = new URL(decoded);
+    return url.protocol === "https:" ? url.toString() : null;
+  } catch {
+    return null;
+  }
+}
+
+function htmlToReadableText(html: string) {
+  const withRemoteImageBlocks = html.replace(
+    /<img\b[^>]*\bsrc=(["']?)([^"'\s>]+)\1[^>]*>/gi,
+    (_match, _quote: string, src: string) => {
+      const safeSrc = normalizeRemoteImageSrc(src);
+      return safeSrc ? `\nRemote image blocked: ${safeSrc}\n` : " ";
+    }
+  );
+  const withLinks = withRemoteImageBlocks.replace(
+    /<a\b[^>]*\bhref=(["']?)([^"'\s>]+)\1[^>]*>([\s\S]*?)<\/a>/gi,
+    (_match, _quote: string, href: string, label: string) => `${label} ${href}`
+  );
+  const text = withLinks
+    .replace(/<\s*(script|style|head)\b[\s\S]*?<\/\s*\1\s*>/gi, " ")
+    .replace(/<!--[\s\S]*?-->/g, " ")
+    .replace(/<\s*(br|\/p|\/div|\/h[1-6]|\/li|\/tr)\b[^>]*>/gi, "\n")
+    .replace(/<\s*(p|div|h[1-6]|li|tr|td|th)\b[^>]*>/gi, "\n")
+    .replace(/<[^>]+>/g, " ");
+  return normalizeTextLines(decodeHtmlEntities(text));
+}
+
+function pickReadableBodyText(parsed: { text?: string; html?: string }) {
+  const text = parsed.text?.trim();
+  if (text) return parsed.text ?? "";
+  return parsed.html ? htmlToReadableText(parsed.html) : "";
+}
+
 export async function parseRawEmail(raw: ReadableStream<Uint8Array>) {
   const chunks: Uint8Array[] = [];
   const reader = raw.getReader();
@@ -40,7 +113,7 @@ export async function parseRawEmail(raw: ReadableStream<Uint8Array>) {
   return {
     fromAddress: parsed.from?.address ?? "unknown@sender.invalid",
     subject: parsed.subject ?? "(no subject)",
-    text: parsed.text ?? parsed.html ?? "",
+    text: pickReadableBodyText(parsed),
     attachments: normalizedAttachments
   };
 }
