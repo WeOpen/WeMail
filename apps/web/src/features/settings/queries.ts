@@ -2,6 +2,7 @@ import type {
   ApiKeySummary,
   DataReliabilitySummary,
   DictionaryCatalogGroup,
+  FeatureToggles,
   ProductMaturitySummary,
   RuntimeSettings,
   SystemDiagnosticsSummary,
@@ -15,6 +16,7 @@ import {
   fetchDictionaries,
   fetchRuntimeSettings,
   fetchSystemDiagnostics,
+  fetchSystemFeatures,
   fetchSystemMaturity,
   fetchSystemOperations,
   fetchSystemReliability,
@@ -35,6 +37,7 @@ export type SettingsDataQueryOptions = {
   includeDictionaries?: boolean;
   includeRuntimeSettings?: boolean;
   includeSystemDiagnostics?: boolean;
+  includeSystemFeatures?: boolean;
   includeSystemMaturity?: boolean;
   includeSystemOperations?: boolean;
   includeSystemReliability?: boolean;
@@ -55,6 +58,7 @@ export async function querySettingsData(options?: SettingsDataQueryOptions) {
   const shouldFetchDictionaries = options?.includeDictionaries ?? true;
   const shouldFetchRuntimeSettings = options?.includeRuntimeSettings ?? false;
   const shouldFetchSystemDiagnostics = options?.includeSystemDiagnostics ?? false;
+  const shouldFetchSystemFeatures = options?.includeSystemFeatures ?? false;
   const shouldFetchSystemMaturity = options?.includeSystemMaturity ?? false;
   const shouldFetchSystemOperations = options?.includeSystemOperations ?? false;
   const shouldFetchSystemReliability = options?.includeSystemReliability ?? false;
@@ -66,6 +70,7 @@ export async function querySettingsData(options?: SettingsDataQueryOptions) {
     deliveryPayload,
     dictionaryPayload,
     runtimeSettingsPayload,
+    systemFeaturesPayload,
     systemDiagnosticsPayload,
     systemMaturityPayload,
     systemOperationsPayload,
@@ -76,6 +81,7 @@ export async function querySettingsData(options?: SettingsDataQueryOptions) {
     settleOptionalRequest(shouldFetchTelegram ? fetchTelegramDeliveries() : null),
     settleOptionalRequest(shouldFetchDictionaries ? fetchDictionaries() : null),
     settleOptionalRequest(shouldFetchRuntimeSettings ? fetchRuntimeSettings() : null),
+    settleOptionalRequest(shouldFetchSystemFeatures ? fetchSystemFeatures() : null),
     settleOptionalRequest(shouldFetchSystemDiagnostics ? fetchSystemDiagnostics() : null),
     settleOptionalRequest(shouldFetchSystemMaturity ? fetchSystemMaturity() : null),
     settleOptionalRequest(shouldFetchSystemOperations ? fetchSystemOperations() : null),
@@ -86,6 +92,9 @@ export async function querySettingsData(options?: SettingsDataQueryOptions) {
     apiKeys: keyPayload ? (keyPayload.keys as ApiKeySummary[]) : undefined,
     dictionaries: dictionaryPayload ? ((dictionaryPayload.dictionaries ?? []) as DictionaryCatalogGroup[]) : undefined,
     runtimeSettings: runtimeSettingsPayload ? ((runtimeSettingsPayload.settings ?? null) as RuntimeSettings | null) : undefined,
+    systemFeatures: systemFeaturesPayload
+      ? ((systemFeaturesPayload.featureToggles ?? null) as FeatureToggles | null)
+      : undefined,
     systemDiagnostics: systemDiagnosticsPayload
       ? ((systemDiagnosticsPayload.diagnostics ?? null) as SystemDiagnosticsSummary | null)
       : undefined,

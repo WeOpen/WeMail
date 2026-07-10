@@ -237,6 +237,7 @@ describe("system settings route integration", () => {
 
     expect(await screen.findByRole("heading", { name: /^系统控制台$/i })).toBeInTheDocument();
     expect(await screen.findByRole("heading", { name: /^能力开关$/i })).toBeInTheDocument();
+    expect(await screen.findByRole("checkbox", { name: /AI 提取/i })).toBeChecked();
     expect(await screen.findByRole("heading", { name: /^业务默认值$/i })).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: /^运维中心$/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: /^系统诊断$/i })).not.toBeInTheDocument();

@@ -39,6 +39,7 @@ const runtimeSettingsOnlyQuery: SettingsDataQueryOptions = {
   includeApiKeys: false,
   includeDictionaries: false,
   includeRuntimeSettings: true,
+  includeSystemFeatures: true,
   includeSystemDiagnostics: true,
   includeSystemMaturity: true,
   includeSystemOperations: true,
@@ -60,12 +61,14 @@ export function useSettingsData({ session, onToast }: UseSettingsDataOptions) {
   const dictionaryByGroup = useAppStore((state) => state.dictionaryByGroup);
   const setSettingsData = useAppStore((state) => state.setSettingsData);
   const setDictionaries = useAppStore((state) => state.setDictionaries);
+  const setAdminFeatures = useAppStore((state) => state.setAdminFeatures);
 
   const refreshSettingsData = useCallback(async (options?: SettingsDataQueryOptions) => {
     if (!session) return;
     const data = await querySettingsData({
       ...options,
       includeRuntimeSettings: options?.includeRuntimeSettings ?? session.user.role === "admin",
+      includeSystemFeatures: options?.includeSystemFeatures ?? session.user.role === "admin",
       includeSystemDiagnostics: options?.includeSystemDiagnostics ?? session.user.role === "admin",
       includeSystemMaturity: options?.includeSystemMaturity ?? session.user.role === "admin",
       includeSystemOperations: options?.includeSystemOperations ?? session.user.role === "admin",
@@ -81,8 +84,9 @@ export function useSettingsData({ session, onToast }: UseSettingsDataOptions) {
       data.systemOperations,
       data.systemReliability
     );
+    if (data.systemFeatures) setAdminFeatures(data.systemFeatures);
     if (data.dictionaries) setDictionaries(data.dictionaries);
-  }, [session, setDictionaries, setSettingsData]);
+  }, [session, setAdminFeatures, setDictionaries, setSettingsData]);
 
   const createApiKey = useCallback(
     async (label: string, scopes: ApiKeyScope[]) => {

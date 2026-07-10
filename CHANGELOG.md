@@ -16,7 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- Prevented large mailbox sets from exceeding D1 SQL variable limits in system maturity queries, and isolated settings data requests so one failed module no longer hides API keys, capability toggles, or operations data.
+- Prevented large mailbox sets from exceeding D1 SQL variable limits in system maturity queries, isolated settings data requests so one failed module no longer hides API keys or operations data, and loaded capability toggles directly on the system settings route.
 
 ## [0.2.5] - 2026-07-10
 

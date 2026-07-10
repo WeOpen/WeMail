@@ -3,6 +3,7 @@ import type {
   ApiKeyScope,
   DataReliabilitySummary,
   DictionaryCatalogGroup,
+  FeatureToggles,
   MailSettings,
   MailSettingsUpdateInput,
   MailDomainSettings,
@@ -144,6 +145,12 @@ export function updateSystemDomains(domains: MailDomainSummary[]) {
 
 export function fetchRuntimeSettings() {
   return apiFetch<{ settings: RuntimeSettings }>("/api/system/runtime-settings", {
+    cacheTtlMs: SETTINGS_CACHE_TTL_MS
+  });
+}
+
+export function fetchSystemFeatures() {
+  return apiFetch<{ featureToggles: FeatureToggles }>("/api/system/features", {
     cacheTtlMs: SETTINGS_CACHE_TTL_MS
   });
 }
