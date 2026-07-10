@@ -231,6 +231,47 @@ describe("settings pages", () => {
     expect(screen.getByRole("button", { name: "第 2 页" })).toHaveAttribute("aria-current", "page");
   });
 
+  it("shows api key owners when an admin reviews the credential vault", () => {
+    renderWithRouter(
+      <ApiKeysPage
+        apiKeys={[
+          {
+            id: "key-member",
+            label: "成员脚本",
+            owner: {
+              id: "user-member",
+              email: "member-long-address@example.com",
+              name: "成员用户",
+              role: "member",
+              status: "active",
+              createdAt: "2026-04-01T00:00:00.000Z",
+              updatedAt: "2026-04-01T00:00:00.000Z"
+            },
+            prefix: "wk_live_member",
+            scopes: ["mail:read", "settings:read"],
+            createdAt: "2026-04-08T00:00:00.000Z",
+            lastUsedAt: null,
+            revokedAt: null
+          }
+        ]}
+        currentUserRole="admin"
+        onCreateApiKey={vi.fn()}
+        onRevokeApiKey={vi.fn()}
+      />
+    );
+
+    const recordList = document.querySelector(".api-keys-record-list");
+    if (!recordList) throw new Error("api key record list missing");
+
+    expect(within(recordList as HTMLElement).getByText("所属用户")).toBeInTheDocument();
+    expect(within(recordList as HTMLElement).getByText("成员用户")).toBeInTheDocument();
+    expect(within(recordList as HTMLElement).getByText("member-l...address@example.com")).toHaveClass("truncated-email");
+    expect(within(recordList as HTMLElement).getByText("member-l...address@example.com")).toHaveAttribute(
+      "title",
+      "member-long-address@example.com"
+    );
+  });
+
   it("keeps api key status chips wide enough for Chinese labels", () => {
     const statusPillRule = getStyleRule(".api-keys-status-pill");
     const recordRowRule = getStyleRule(".api-keys-record-row");

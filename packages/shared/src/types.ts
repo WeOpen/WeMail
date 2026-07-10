@@ -445,6 +445,7 @@ export type ApiKeyScope =
 export type ApiKeySummary = {
   id: string;
   label: string;
+  owner?: UserSummary;
   prefix: string;
   scopes: ApiKeyScope[];
   createdAt: string;

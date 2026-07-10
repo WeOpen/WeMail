@@ -1,0 +1,771 @@
+---
+title: 从 0 到 1 快速部署 WeMail
+description: 从 Fork 仓库、创建 Cloudflare 资源到首次管理员注册和真实收件的完整生产部署教程
+---
+
+这篇教程面向第一次部署 WeMail 的用户。你不需要先理解整个代码库，只要按顺序完成每一节，就可以得到一个可登录、可创建邮箱、可接收真实邮件的生产环境。
+
+教程主线采用当前仓库支持最完整、登录最稳定的组合：
+
+| 范围 | 推荐方案 |
+| --- | --- |
+| 前端 | Cloudflare Pages |
+| API | Cloudflare Worker，通过前端域名的 `/api/*` 访问 |
+| 数据库 | Cloudflare D1 |
+| 缓存 | Cloudflare KV |
+| 附件 | Cloudflare R2 |
+| 收件 | Cloudflare Email Routing |
+| 发布 | GitHub Actions 手动触发 production workflow |
+| 登录 | 首次先用邮箱密码注册管理员，OAuth 上线后再配置 |
+
+如果你只想尽快上线，可以先完成“必做”章节。GitHub、LinuxDo、Resend、Telegram 都是可选增强，不会阻止核心收件服务启动。
+
+## 完成后你会得到什么
+
+假设你拥有域名 `example.com`，本教程最终会形成下面的地址：
+
+| 用途 | 示例地址 |
+| --- | --- |
+| WeMail 前端 | `https://mail.example.com` |
+| Worker API | `https://mail.example.com/api/...` |
+| 健康检查 | `https://mail.example.com/api/system/health` |
+| 收件地址 | `anything@example.com` |
+| 可选独立 API 域名 | `https://wemail-api.example.com` |
+
+前端和 API 使用同一个站点域名，浏览器 session cookie 最稳定。真实邮件继续使用根域名 `example.com`，不会和 Pages 自定义域名冲突。
+
+![WeMail Cloudflare 资源关系](/docs/screenshots/cloudflare-resources.png)
+
+## 预计耗时
+
+| 情况 | 预计时间 |
+| --- | --- |
+| 已有 Cloudflare 域名和 GitHub 账号 | 30-60 分钟 |
+| 域名尚未接入 Cloudflare | 需要额外等待 DNS nameserver 生效 |
+| 同时配置 OAuth、Resend、Telegram | 再增加 30-60 分钟 |
+
+## 开始前准备
+
+你需要：
+
+- 一个 GitHub 账号。
+- 一个 Cloudflare 账号。
+- 一个已经接入 Cloudflare DNS 的域名。
+- 本地安装 Git、Node.js 22 和 pnpm 10.18.2。
+- 对目标 GitHub 仓库有 Actions 和 Environment 配置权限。
+
+检查本地工具：
+
+```bash
+git --version
+node -v
+pnpm -v
+```
+
+没有 pnpm 时执行：
+
+```bash
+corepack enable
+corepack prepare pnpm@10.18.2 --activate
+pnpm -v
+```
+
+## 先填写部署参数表
+
+部署过程中会反复使用这些值。建议先写到本地私有笔记，不要把真实 token 或资源 ID 提交到 Git。
+
+| 参数 | 本教程示例 | 你的值 |
+| --- | --- | --- |
+| 根域名 | `example.com` | |
+| WeMail 前端域名 | `mail.example.com` | |
+| 收件域名 | `example.com` | |
+| Pages 项目名 | `wemail-web` | |
+| production D1 名称 | `wemail-production` | 固定使用这个名称 |
+| production KV 名称 | `CACHE` | |
+| production R2 名称 | `wemail-production-attachments` | 固定使用这个名称最省事 |
+| 管理员邮箱 | `admin@example.com` | |
+| Cloudflare Account ID | 控制台中获取 | |
+
+下文出现 `example.com` 和 `mail.example.com` 时，都要替换成你自己的值。
+
+## 第 1 步：Fork 并克隆仓库
+
+打开 WeMail GitHub 仓库：
+
+```text
+https://github.com/WeOpen/WeMail
+```
+
+点击右上角 `Fork`，创建到你自己的 GitHub 账号或组织中。然后克隆你的 Fork：
+
+```bash
+git clone https://github.com/<你的账号>/WeMail.git
+cd WeMail
+```
+
+确认当前分支：
+
+```bash
+git branch --show-current
+```
+
+应该输出：
+
+```text
+main
+```
+
+安装依赖并验证版本元数据：
+
+```bash
+pnpm install --frozen-lockfile
+pnpm version:check
+```
+
+如果 GitHub Fork 默认关闭 Actions，进入仓库 `Actions` 页面，点击允许执行 workflows。
+
+![deploy-from-zero-github-fork](/docs/screenshots/deploy-from-zero-github-fork.png)
+
+## 第 2 步：修改生产域名配置
+
+打开：
+
+```text
+apps/worker/wrangler.toml
+```
+
+仓库中的域名是项目维护者自己的示例配置，Fork 后必须替换。生产环境推荐改成下面这样：
+
+```toml
+[env.production]
+workers_dev = true
+routes = [
+  { pattern = "mail.example.com/api/*", zone_name = "example.com" }
+]
+
+[env.production.vars]
+ENVIRONMENT = "production"
+APP_NAME = "WeMail"
+COOKIE_NAME = "wemail_session"
+COOKIE_SECURE = "true"
+CORS_ALLOWED_ORIGINS = "https://mail.example.com"
+ADMIN_EMAILS = "admin@example.com"
+```
+
+注意：
+
+- `pattern` 必须是前端正式域名加 `/api/*`。
+- `zone_name` 填 Cloudflare 中的根域名，不带协议。
+- `CORS_ALLOWED_ORIGINS` 填完整前端来源，必须包含 `https://`，末尾不要加 `/`。
+- 同域 `/api` 模式不需要 `COOKIE_DOMAIN`，可以删除仓库示例里的这一行。
+- `ADMIN_EMAILS` 可以写一个或多个管理员邮箱，多个值用英文逗号分隔。
+- 不要修改 binding 名称 `DB`、`CACHE`、`ATTACHMENTS`。
+
+确认 production R2 bucket 名称：
+
+```toml
+[[env.production.r2_buckets]]
+binding = "ATTACHMENTS"
+bucket_name = "wemail-production-attachments"
+```
+
+确认 production Rate Limiting namespace 是整数形式字符串：
+
+```toml
+[[env.production.ratelimits]]
+name = "RATE_LIMITER"
+namespace_id = "1002"
+simple = { limit = 60, period = 60 }
+```
+
+如果你的 Cloudflare 账号已有 Worker 使用 `1002`，换成另一个未使用的整数，例如 `2002`。它不是 Cloudflare 资源 ID，也不是 secret。
+
+staging 暂时不用也没关系，但建议顺手把 `[env.staging]` 中的示例域名换成你自己的测试域名，避免以后误部署到维护者域名。
+
+![wrangler.toml 绑定示意图](/docs/screenshots/wrangler-bindings.png)
+
+## 第 3 步：登录 Cloudflare CLI
+
+在仓库根目录执行：
+
+```bash
+cd apps/worker
+pnpm exec wrangler login
+pnpm exec wrangler whoami
+```
+
+浏览器会打开 Cloudflare 授权页。授权完成后，`whoami` 应显示当前账号与 Account ID。
+
+如果账号下有多个 Cloudflare Account，确认当前账号就是域名所在的账号。
+
+
+## 第 4 步：创建 production D1
+
+仍在 `apps/worker` 目录执行：
+
+```bash
+pnpm exec wrangler d1 create wemail-production
+```
+
+命令会返回一个 `database_id`。记录它，稍后写入 GitHub production Environment secret：
+
+```text
+CLOUDFLARE_D1_DATABASE_ID
+```
+
+不要把真实 ID 写进 `wrangler.toml`。文件中继续保留：
+
+```toml
+database_id = "replace-with-production-d1-id"
+```
+
+GitHub Actions 部署时会临时注入真实 ID。
+
+## 第 5 步：创建 production KV
+
+创建正式 KV namespace：
+
+```bash
+pnpm exec wrangler kv namespace create CACHE --env production
+```
+
+创建 preview namespace：
+
+```bash
+pnpm exec wrangler kv namespace create CACHE --preview --env production
+```
+
+记录两个返回值：
+
+| 返回值 | GitHub Secret |
+| --- | --- |
+| 正式 namespace `id` | `CLOUDFLARE_KV_NAMESPACE_ID` |
+| preview namespace `id` | `CLOUDFLARE_KV_PREVIEW_NAMESPACE_ID` |
+
+同样不要把真实 ID 提交到 `wrangler.toml`。
+
+## 第 6 步：创建 production R2
+
+当前 stock 配置已经声明 `ATTACHMENTS` R2 binding。最快方式是直接创建匹配名称的 bucket：
+
+```bash
+pnpm exec wrangler r2 bucket create wemail-production-attachments
+```
+
+R2 用来保存邮件附件的真实文件内容。bucket 名不是 secret，可以保留在 `wrangler.toml`。
+
+如果你明确不需要附件，可以删除 `[[env.production.r2_buckets]]` 整个配置块；否则 bucket 不存在会导致 Worker 部署失败。
+
+## 第 7 步：创建 Pages 项目
+
+使用 CLI 创建最直接：
+
+```bash
+pnpm exec wrangler pages project create wemail-web --production-branch main
+```
+
+如果 `wemail-web` 已被占用，可以换一个名字，例如：
+
+```text
+my-wemail-web
+```
+
+把最终项目名记录为 GitHub secret：
+
+```text
+CLOUDFLARE_PAGES_PROJECT_NAME
+```
+
+也可以在 Cloudflare Dashboard 中进入 `Workers & Pages -> Create -> Pages` 手动创建。只需要先创建空项目，不要再配置第二套自动构建；本项目由 GitHub Actions 构建并上传 `apps/web/dist`。
+
+
+## 第 8 步：创建 Cloudflare API Token
+
+进入 Cloudflare：
+
+```text
+My Profile -> API Tokens -> Create Token -> Custom token
+```
+
+建议至少给这些权限：
+
+| 权限范围 | 权限 |
+| --- | --- |
+| Account / Workers Scripts | Edit |
+| Account / Workers KV Storage | Edit |
+| Account / D1 | Edit |
+| Account / Workers R2 Storage | Edit |
+| Account / Cloudflare Pages | Edit |
+| Zone / Zone | Read |
+| Zone / Workers Routes | Edit |
+
+Account Resources 只选择部署 WeMail 的 Cloudflare Account；Zone Resources 只选择你的目标域名。
+
+创建后立即复制 token。Cloudflare 通常只完整显示一次。
+
+把它记录为：
+
+```text
+CLOUDFLARE_API_TOKEN
+```
+
+
+## 第 9 步：配置 GitHub production Environment
+
+进入你 Fork 后的 GitHub 仓库：
+
+```text
+Settings -> Environments -> New environment
+```
+
+创建：
+
+```text
+production
+```
+
+在 `Environment secrets` 添加：
+
+| Secret 名称 | 值 |
+| --- | --- |
+| `CLOUDFLARE_API_TOKEN` | 上一步创建的 Cloudflare token |
+| `CLOUDFLARE_ACCOUNT_ID` | Cloudflare Account ID |
+| `CLOUDFLARE_PAGES_PROJECT_NAME` | 例如 `wemail-web` |
+| `CLOUDFLARE_D1_DATABASE_ID` | production D1 database ID |
+| `CLOUDFLARE_KV_NAMESPACE_ID` | production KV namespace ID |
+| `CLOUDFLARE_KV_PREVIEW_NAMESPACE_ID` | production KV preview ID |
+
+在 `Environment variables` 添加：
+
+| Variable 名称 | 值 |
+| --- | --- |
+| `VITE_API_BASE_URL` | `https://mail.example.com` |
+
+这里不要加 `/api`。前端会自动拼成：
+
+```text
+https://mail.example.com/api/...
+```
+
+即使你使用同域 `/api` 模式，当前 workflow 也会检查 `VITE_API_BASE_URL` 是否存在，所以仍然需要配置它。
+
+production Environment 建议配置 required reviewers。个人快速部署时可以先不加，稳定后再打开审批保护。
+
+## 第 10 步：提交你的域名配置
+
+回到仓库根目录：
+
+```bash
+cd ../..
+git status --short
+git diff -- apps/worker/wrangler.toml
+```
+
+确认 diff 中只有你自己的域名、非敏感变量、R2 名称和 Rate Limiting namespace，没有 D1/KV ID 或 token。
+
+运行本地发布前检查：
+
+```bash
+pnpm version:check
+pnpm test
+pnpm typecheck
+pnpm lint
+pnpm build
+pnpm api-catalog:check
+```
+
+提交并推送到你的 `main`：
+
+```bash
+git add apps/worker/wrangler.toml
+git commit -m "Configure production deployment"
+git push origin main
+```
+
+## 第 11 步：触发第一次 production 部署
+
+进入 GitHub：
+
+```text
+Actions -> Deploy Cloudflare -> Run workflow
+```
+
+选择：
+
+| 项目 | 值 |
+| --- | --- |
+| Branch | `main` |
+| environment | `production` |
+
+![GitHub Actions 发布示意图](/docs/screenshots/github-actions-workflow.png)
+
+workflow 会依次执行：
+
+1. `prepare`：校验 production 必须来自 `main`，检查 secrets 和 variable。
+2. `verify`：运行版本检查、测试、类型检查、lint 和 build。
+3. `deploy-worker`：注入 D1/KV ID、执行远端 migrations、部署 Worker 和 `/api/*` route。
+4. `deploy-pages`：上传 `apps/web/dist` 到 Pages production。
+
+四个 job 都是绿色才算成功。
+
+如果卡在 `Waiting`，通常是 production Environment 配置了审批，需要仓库管理员批准。
+
+如果失败，先展开失败的 job，不要反复重跑。常见错误：
+
+| 错误 | 处理 |
+| --- | --- |
+| `Missing required secrets or variables` | 回 production Environment 补对应名称 |
+| `cannot read zone` | API token 缺 `Zone: Read`，或 `zone_name` 写错 |
+| `cannot access Worker routes` | API token 缺 `Workers Routes: Edit` |
+| D1 migration 失败 | 检查 D1 ID 是否属于当前 Account，名称是否是 `wemail-production` |
+| R2 bucket not found | 创建 `wemail-production-attachments`，或删除 R2 binding |
+| Pages project not found | 检查 `CLOUDFLARE_PAGES_PROJECT_NAME` |
+
+## 第 12 步：绑定 Pages 自定义域名
+
+进入 Cloudflare Pages 项目：
+
+```text
+Workers & Pages -> 你的 Pages 项目 -> Custom domains
+```
+
+添加：
+
+```text
+mail.example.com
+```
+
+等待状态变成 active。
+
+Worker 的 `mail.example.com/api/*` route 已由 `wrangler deploy` 配置。最终请求关系是：
+
+| 请求 | 处理方 |
+| --- | --- |
+| `https://mail.example.com/` | Pages |
+| `https://mail.example.com/login` | Pages |
+| `https://mail.example.com/api/system/health` | Worker |
+
+
+
+## 第 13 步：验证 Worker 和前端
+
+先验证 API：
+
+```bash
+curl -i https://mail.example.com/api/system/health
+```
+
+期望状态码是 `200`，返回内容包含：
+
+```json
+{
+  "ok": true,
+  "environment": "production",
+  "appName": "WeMail"
+}
+```
+
+然后打开：
+
+```text
+https://mail.example.com
+https://mail.example.com/login
+https://mail.example.com/register
+```
+
+如果页面能打开但 API 404：
+
+1. 检查 `wrangler.toml` 的 route 是否是 `mail.example.com/api/*`。
+2. 检查 production workflow 的 `deploy-worker` 是否成功。
+3. 检查 Cloudflare Worker Routes 中是否存在该 route。
+4. 检查 `VITE_API_BASE_URL` 是否是 `https://mail.example.com`，不要带 `/api`。
+
+## 第 14 步：注册第一个管理员
+
+这是首次上线最关键的一步。
+
+当 production D1 中还没有任何用户时，第一个邮箱密码注册用户：
+
+- 可以不填写邀请码。
+- 会自动成为管理员。
+
+打开：
+
+```text
+https://mail.example.com/register
+```
+
+填写用户名、管理员邮箱和密码，把邀请码留空，然后提交。
+
+建议使用 `wrangler.toml` 中 `ADMIN_EMAILS` 已列出的邮箱。
+
+重要安全提醒：公开站点上线后，尽快完成第一个管理员注册。更稳妥的方式是在首次注册完成前暂时给 `mail.example.com` 加 Cloudflare Access，或在低流量时间完成部署。
+
+OAuth 新用户不能用来完成这个 bootstrap：GitHub/LinuxDo 新用户仍然需要邀请码。第一次请使用邮箱密码注册。
+
+注册成功后进入：
+
+```text
+用户 -> 用户设置
+```
+
+创建后续用户使用的邀请码。普通用户和新的 OAuth 用户都需要有效邀请码。
+
+
+## 第 15 步：完成系统初始化
+
+管理员登录后进入：
+
+```text
+系统设置
+```
+
+按顺序配置：
+
+### 15.1 功能开关
+
+没有接入的能力先关闭：
+
+- AI。
+- Telegram。
+- 发件。
+- 邮箱创建。
+
+邮箱创建功能要在配置真实收件域名后再开启。Web、登录、管理员后台不依赖 Resend 或 Telegram。
+
+### 15.2 业务默认值
+
+检查：
+
+- 每个用户可创建邮箱数量。
+- 邮件保留天数。
+- 每日发件额度。
+- API 每日调用额度。
+- 单附件和附件总大小。
+- AI fallback 次数。
+
+### 15.3 域名设置
+
+把默认 `example.com` 替换成真实 Email Routing 收件域名，例如：
+
+```text
+example.com
+```
+
+如果希望用户创建 `anything@inbox.example.com`，这里填：
+
+```text
+inbox.example.com
+```
+
+保存后再打开邮箱创建功能。
+
+
+## 第 16 步：配置 Email Routing
+
+前端和 API 成功不代表真实收件已经可用。还需要让 Cloudflare Email Routing 把邮件交给 WeMail Worker。
+
+![Email Routing 配置流程](/docs/screenshots/email-routing-flow.png)
+
+进入 Cloudflare 目标域名：
+
+```text
+Email -> Email Routing
+```
+
+按控制台提示：
+
+1. 启用 Email Routing。
+2. 添加或确认 Cloudflare 要求的 MX 记录。
+3. 添加或确认 Cloudflare 要求的 TXT 记录。
+4. 创建一个 Custom address 或 Catch-all route。
+5. Action 选择 `Send to a Worker`。
+6. Worker 选择刚才部署的 WeMail production Worker。
+
+第一次建议先创建一个具体地址验证，不要立即开 Catch-all。例如：
+
+```text
+smoke@example.com
+```
+
+然后在 WeMail 里创建完全相同的邮箱账号，再从 Gmail、Outlook 或其他外部邮箱发送测试邮件。
+
+
+详细排障见 [Email Routing](/docs/email-routing)。
+
+## 第 17 步：完成真实收件测试
+
+在 WeMail 中创建测试邮箱：
+
+```text
+smoke@example.com
+```
+
+从外部邮箱发送：
+
+```text
+To: smoke@example.com
+Subject: WeMail production smoke
+Body: Hello WeMail
+```
+
+验收：
+
+- 邮件列表出现新邮件。
+- 发件人、主题和正文正确。
+- 邮件详情可以打开。
+- HTML 邮件能显示可读正文。
+- 外部链接可以点击。
+- 远程图片默认不自动加载。
+- 带附件的新邮件可以预览或下载。
+
+查看实时 Worker 日志：
+
+```bash
+cd apps/worker
+pnpm exec wrangler tail --env production
+```
+
+如果日志完全没有邮件事件，优先检查 Email Routing；如果有事件但邮件没入库，检查地址是否与 WeMail 中创建的账号完全一致。
+
+## 可选增强 1：GitHub OAuth
+
+核心收件跑通后，再配置快捷登录。
+
+GitHub OAuth callback：
+
+```text
+https://mail.example.com/api/auth/oauth/github/callback
+```
+
+在 GitHub 创建 OAuth App：
+
+```text
+Settings -> Developer settings -> OAuth Apps -> New OAuth App
+```
+
+然后在 Cloudflare Worker 的 `Settings -> Variables and Secrets` 添加加密 secrets：
+
+```text
+GITHUB_OAUTH_CLIENT_ID
+GITHUB_OAUTH_CLIENT_SECRET
+GITHUB_OAUTH_CALLBACK_URL
+```
+
+三个值必须同时存在，callback 必须与 GitHub OAuth App 完全一致。
+
+新 GitHub 用户登录后仍会弹邀请码；已有相同邮箱的 WeMail 用户会直接登录。
+
+
+完整说明见 [OAuth 快捷登录配置](/docs/oauth-login)。
+
+## 可选增强 2：LinuxDo OAuth
+
+LinuxDo callback：
+
+```text
+https://mail.example.com/api/auth/oauth/linuxdo/callback
+```
+
+在 Worker secrets 添加：
+
+```text
+LINUXDO_OAUTH_CLIENT_ID
+LINUXDO_OAUTH_CLIENT_SECRET
+LINUXDO_OAUTH_CALLBACK_URL
+```
+
+LinuxDo 应用 scope 使用：
+
+```text
+openid profile email
+```
+
+## 可选增强 3：Resend 发件
+
+先在 Resend 添加并验证你的发件域名，根据 Resend 控制台给出的值配置 SPF 和 DKIM DNS 记录。
+
+在 Worker secrets 添加：
+
+```text
+RESEND_API_KEY
+RESEND_FROM
+```
+
+`RESEND_FROM` 示例：
+
+```text
+WeMail <noreply@example.com>
+```
+
+重新部署或等待 Cloudflare secret 版本生效后，在系统设置中开启发件功能，再发送一封测试邮件。
+
+不要在 Resend 域名未验证时开启生产发件。
+
+## 可选增强 4：Telegram
+
+通过 BotFather 创建 Bot 后，在 Worker secrets 添加：
+
+```text
+TELEGRAM_BOT_TOKEN
+TELEGRAM_WEBHOOK_SECRET
+```
+
+非敏感 Bot username 可以写到 `wrangler.toml`：
+
+```toml
+TELEGRAM_BOT_USERNAME = "YourBotName"
+```
+
+然后进入 WeMail 的 Telegram 页面：
+
+1. 点击“配置 Webhook”。
+2. 点击“配置 Bot 菜单”。
+3. 生成绑定码。
+4. 在 Telegram 中完成绑定。
+5. 发送测试消息。
+
+不需要手工调用 Telegram `setWebhook` API，页面按钮会调用 Worker 自动配置。
+
+## 建议补一个 staging 环境
+
+快速 production 上线成功后，建议再创建：
+
+- `wemail-staging` D1。
+- staging KV 和 preview KV。
+- `wemail-staging-attachments` R2。
+- GitHub `staging` Environment。
+- `staging-mail.example.com` Pages/Worker route。
+
+之后每次发版：
+
+1. 从功能分支部署 staging。
+2. 验证登录、收件、附件、API Key、Webhook。
+3. 合入 `main`。
+4. 从 `main` 部署 production。
+
+## 最终验收清单
+
+- [ ] GitHub production workflow 四个 job 全绿。
+- [ ] `https://mail.example.com` 可以访问。
+- [ ] `/api/system/health` 返回 `ok: true`。
+- [ ] 第一个管理员已注册。
+- [ ] 普通用户注册需要邀请码。
+- [ ] 刷新页面不会丢失登录态。
+- [ ] 系统域名已改成真实 Email Routing 域名。
+- [ ] 可以创建邮箱账号。
+- [ ] 外部测试邮件能进入邮件列表。
+- [ ] HTML 邮件正文和安全链接正常。
+- [ ] R2 附件可以预览或下载。
+- [ ] 未配置的功能已经关闭。
+- [ ] Worker 日志没有持续 5xx、D1 或邮件解析错误。
+
+
+## 下一步
+
+- 深入理解 Cloudflare 资源：[Cloudflare 资源准备](/docs/cloudflare-resources)
+- 调整 Worker 配置：[Worker 配置](/docs/worker-config)
+- 配置 OAuth：[OAuth 快捷登录配置](/docs/oauth-login)
+- 排查真实收件：[Email Routing](/docs/email-routing)
+- 查看发布 workflow：[GitHub Actions 发布](/docs/github-actions)
+- 上线后巡检：[上线验收与排障](/docs/operations)

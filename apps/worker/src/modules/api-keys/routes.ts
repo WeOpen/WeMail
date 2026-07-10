@@ -13,8 +13,11 @@ export function registerApiKeysRoutes(app: Hono<AppContext>) {
   app.get("/api/api-keys", async (c) => {
     const user = requireUser(c);
     if (!user) return jsonError("Authentication required", 401);
+    const includeAllUsers = user.role === "admin" && requireSessionAuth(c);
     return c.json({
-      keys: (await listApiKeys(getAppServices(c), user.id)).map(toApiKeySummary)
+      keys: (await listApiKeys(getAppServices(c), { userId: user.id, includeAllUsers })).map(({ key, owner }) =>
+        toApiKeySummary(key, includeAllUsers ? owner : undefined)
+      )
     });
   });
 
@@ -37,6 +40,12 @@ export function registerApiKeysRoutes(app: Hono<AppContext>) {
   app.delete("/api/api-keys/:id", async (c) => {
     const user = requireUser(c);
     if (!user) return jsonError("Authentication required", 401);
-    return c.json(await revokeApiKeyUseCase(getAppServices(c), { userId: user.id, keyId: c.req.param("id") }));
+    return c.json(
+      await revokeApiKeyUseCase(getAppServices(c), {
+        userId: user.id,
+        keyId: c.req.param("id"),
+        allowAnyUser: user.role === "admin" && requireSessionAuth(c)
+      })
+    );
   });
 }

@@ -14,6 +14,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.5] - 2026-07-10
+
+### Added
+
+- Allowed admin sessions to review API key summaries across all users and revoke keys owned by other users.
+- Added a complete zero-to-production deployment tutorial covering Cloudflare resources, GitHub Actions, first-admin bootstrap, Email Routing, optional integrations, verification, and screenshot guidance.
+
+### Fixed
+
+- Prevented dashboard chart tooltips from being clipped by chart and neighboring card boundaries.
+
 ## [0.2.4] - 2026-07-09
 
 ### Fixed

@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "WeMail 菜单化后端 API",
-    "version": "0.2.4",
+    "version": "0.2.5",
     "description": "WeMail 后端 API 已按管理后台左侧菜单分组。旧 /auth、/admin、/api/mailboxes、/api/messages、/api/outbound、/api/keys、/api/telegram 路径不再保留。"
   },
   "servers": [
@@ -22,7 +22,7 @@
     },
     {
       "name": "API 密钥",
-      "description": "个人 API Key 管理。"
+      "description": "个人与管理员 API Key 管理。"
     },
     {
       "name": "Webhook",
@@ -309,7 +309,7 @@
         ],
         "responses": {
           "200": {
-            "description": "API Key 列表"
+            "description": "API Key 列表。管理员会话会返回所有用户密钥摘要。"
           }
         }
       },
@@ -373,7 +373,7 @@
         ],
         "responses": {
           "200": {
-            "$ref": "#/components/responses/Ok"
+            "description": "吊销成功。管理员会话可以吊销其他用户的 API Key。"
           }
         }
       }

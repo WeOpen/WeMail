@@ -2,6 +2,7 @@
   "title": "WeMail",
   "pages": [
     "index",
+    "deploy-from-zero",
     "quickstart",
     "cloudflare-resources",
     "worker-config",

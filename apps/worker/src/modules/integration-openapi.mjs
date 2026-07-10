@@ -1,6 +1,6 @@
 export const tags = [
   { name: "仪表盘", description: "工作台总览数据。" },
-  { name: "API 密钥", description: "个人 API Key 管理。" },
+  { name: "API 密钥", description: "个人与管理员 API Key 管理。" },
   { name: "Webhook", description: "事件端点和投递日志。" },
   { name: "Telegram", description: "Telegram 订阅。" },
   { name: "公告", description: "公告列表与发布。" },
@@ -24,7 +24,7 @@ export const paths = {
       summary: "获取 API Key 列表",
       operationId: "listApiKeys",
       security: [{ cookieAuth: [] }, { bearerAuth: [] }],
-      responses: { 200: { description: "API Key 列表" } }
+      responses: { 200: { description: "API Key 列表。管理员会话会返回所有用户密钥摘要。" } }
     },
     post: {
       tags: ["API 密钥"],
@@ -50,7 +50,7 @@ export const paths = {
       operationId: "revokeApiKey",
       security: [{ cookieAuth: [] }, { bearerAuth: [] }],
       parameters: [{ $ref: "#/components/parameters/IdPath" }],
-      responses: { 200: { $ref: "#/components/responses/Ok" } }
+      responses: { 200: { description: "吊销成功。管理员会话可以吊销其他用户的 API Key。" } }
     }
   },
   "/api/telegram/subscription": {

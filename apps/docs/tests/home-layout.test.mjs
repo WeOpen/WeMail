@@ -8,6 +8,8 @@ const layoutPage = readFileSync(resolve(process.cwd(), "app", "layout.tsx"), "ut
 const deploymentPage = readFileSync(resolve(process.cwd(), "content", "docs", "deployment.mdx"), "utf8");
 const githubActionsPage = readFileSync(resolve(process.cwd(), "content", "docs", "github-actions.mdx"), "utf8");
 const operationsPage = readFileSync(resolve(process.cwd(), "content", "docs", "operations.mdx"), "utf8");
+const deployFromZeroPage = readFileSync(resolve(process.cwd(), "content", "docs", "deploy-from-zero.mdx"), "utf8");
+const docsMeta = readFileSync(resolve(process.cwd(), "content", "docs", "meta.json"), "utf8");
 const deployRunbook = readFileSync(resolve(process.cwd(), "..", "..", "docs", "deploy-runbook.md"), "utf8");
 const deployWorkflow = readFileSync(resolve(process.cwd(), "..", "..", ".github", "workflows", "deploy-cloudflare.yml"), "utf8");
 
@@ -37,6 +39,7 @@ assert.ok(!metadataBlock.includes("themeColor"));
 const vercelDeployQuery = "vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2FWeOpen%2FWeMail";
 
 assert.ok(homePage.includes(vercelDeployQuery));
+assert.ok(homePage.includes('/docs/deploy-from-zero'));
 assert.ok(homePage.includes("root-directory=apps%2Fdocs"));
 assert.ok(homePage.includes("env=NEXT_PUBLIC_SITE_URL"));
 assert.ok(homePage.includes("docs-home-vercel-action"));
@@ -60,6 +63,15 @@ assert.ok(deployRunbook.includes("VITE_API_BASE_URL"));
 assert.ok(deployRunbook.includes("wemail-api.example.com"));
 assert.ok(deployWorkflow.includes("WEB_API_BASE_URL: ${{ vars.VITE_API_BASE_URL || secrets.VITE_API_BASE_URL }}"));
 assert.ok(deployWorkflow.includes("VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL || secrets.VITE_API_BASE_URL }}"));
+
+assert.ok(docsMeta.includes('"deploy-from-zero"'));
+assert.ok(deployFromZeroPage.includes("从 0 到 1 快速部署 WeMail"));
+assert.ok(deployFromZeroPage.includes("CLOUDFLARE_D1_DATABASE_ID"));
+assert.ok(deployFromZeroPage.includes("CLOUDFLARE_KV_PREVIEW_NAMESPACE_ID"));
+assert.ok(deployFromZeroPage.includes("VITE_API_BASE_URL"));
+assert.ok(deployFromZeroPage.includes("第一个邮箱密码注册用户"));
+assert.ok(deployFromZeroPage.includes("Email Routing"));
+assert.ok(deployFromZeroPage.includes("/docs/screenshots/deploy-from-zero-github-fork.png"));
 
 assert.ok(deployRunbook.includes("系统设置里的默认邮箱域名"));
 assert.ok(!deployRunbook.includes("对应邮件域名"));

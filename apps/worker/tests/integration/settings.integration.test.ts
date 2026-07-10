@@ -133,6 +133,90 @@ describe("worker settings integration", () => {
     expect(revokeResponse.status).toBe(200);
   });
 
+  it("lets admins list and revoke api keys owned by other users", async () => {
+    const { app, env, store } = createWorkerTestHarness();
+    await store.invites.create({ code: "INVITE-ADMIN-API-KEYS", createdByUserId: "system" });
+    await store.invites.create({ code: "INVITE-MEMBER-API-KEYS", createdByUserId: "system" });
+
+    const adminRegisterResponse = await app.request(
+      "/api/auth/register",
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          email: "admin@example.com",
+          name: "Admin Owner",
+          password: "password123",
+          inviteCode: "INVITE-ADMIN-API-KEYS"
+        })
+      },
+      env
+    );
+    const memberRegisterResponse = await app.request(
+      "/api/auth/register",
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          email: "api-key-member@example.com",
+          name: "Key Member",
+          password: "password123",
+          inviteCode: "INVITE-MEMBER-API-KEYS"
+        })
+      },
+      env
+    );
+    const adminCookie = adminRegisterResponse.headers.get("set-cookie") ?? "";
+    const memberCookie = memberRegisterResponse.headers.get("set-cookie") ?? "";
+
+    await app.request(
+      "/api/api-keys",
+      {
+        method: "POST",
+        headers: {
+          cookie: memberCookie,
+          "content-type": "application/json"
+        },
+        body: JSON.stringify({ label: "Member deploy key", scopes: ["mail:read", "settings:read"] })
+      },
+      env
+    );
+
+    const adminListResponse = await app.request("/api/api-keys", { headers: { cookie: adminCookie } }, env);
+    const adminListPayload = (await adminListResponse.json()) as {
+      keys: Array<{
+        id: string;
+        label: string;
+        owner: { id: string; email: string; name: string; role: string };
+        revokedAt: string | null;
+      }>;
+    };
+    const memberKey = adminListPayload.keys.find((key) => key.label === "Member deploy key");
+
+    expect(adminListResponse.status).toBe(200);
+    expect(memberKey?.owner).toMatchObject({
+      email: "api-key-member@example.com",
+      name: "Key Member",
+      role: "member"
+    });
+
+    const revokeResponse = await app.request(
+      `/api/api-keys/${memberKey?.id}`,
+      {
+        method: "DELETE",
+        headers: { cookie: adminCookie }
+      },
+      env
+    );
+    const memberListResponse = await app.request("/api/api-keys", { headers: { cookie: memberCookie } }, env);
+    const memberListPayload = (await memberListResponse.json()) as {
+      keys: Array<{ label: string; revokedAt: string | null }>;
+    };
+
+    expect(revokeResponse.status).toBe(200);
+    expect(memberListPayload.keys.find((key) => key.label === "Member deploy key")?.revokedAt).toEqual(expect.any(String));
+  });
+
   it("rejects admin automation API key scope for non-admin users", async () => {
     const { app, env, store } = await registerUserAndGetCookie({
       email: "admin@example.com",

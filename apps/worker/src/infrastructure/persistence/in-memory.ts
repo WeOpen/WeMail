@@ -848,6 +848,11 @@ export function createInMemoryStore(): AppStore {
       async listByUser(userId) {
         return clone(Array.from(apiKeys.values()).filter((entry) => entry.userId === userId));
       },
+      async listAll() {
+        return clone(
+          Array.from(apiKeys.values()).sort((a, b) => b.createdAt.localeCompare(a.createdAt) || b.id.localeCompare(a.id))
+        );
+      },
       async findActiveByHash(hash) {
         return clone(
           Array.from(apiKeys.values()).find((entry) => entry.keyHash === hash && entry.revokedAt === null) ?? null

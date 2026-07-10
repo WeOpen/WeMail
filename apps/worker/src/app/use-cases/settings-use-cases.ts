@@ -1,6 +1,6 @@
 import type { ApiKeyScope, FeatureToggles, MailDomainSettings, TelegramOverviewSummary } from "@wemail/shared";
 
-import type { AppBindings, AppStore, TelegramSubscriptionRecord } from "../../core/bindings";
+import type { ApiKeyRecord, AppBindings, AppStore, TelegramSubscriptionRecord, UserRecord } from "../../core/bindings";
 import { resolveAppConfig } from "../../core/config";
 import { createApiKeySecret, hashString } from "../../shared/auth";
 import { defaultMailDomains, getMailDomains, normalizeMailDomainEntries } from "../services/config-service";
@@ -154,8 +154,31 @@ export async function configureTelegramWebhookUseCase(context: SettingsUseCaseCo
   return result;
 }
 
-export async function listApiKeys(context: SettingsUseCaseContext, userId: string) {
-  return context.store.apiKeys.listByUser(userId);
+export type ApiKeyWithOwner = {
+  key: ApiKeyRecord;
+  owner: UserRecord | null;
+};
+
+async function attachApiKeyOwners(context: SettingsUseCaseContext, keys: ApiKeyRecord[]): Promise<ApiKeyWithOwner[]> {
+  const ownerIds = [...new Set(keys.map((key) => key.userId))];
+  const ownerEntries = await Promise.all(
+    ownerIds.map(async (ownerId) => [ownerId, await context.store.users.findById(ownerId)] as const)
+  );
+  const ownerById = new Map(ownerEntries);
+
+  return keys.map((key) => ({
+    key,
+    owner: ownerById.get(key.userId) ?? null
+  }));
+}
+
+export async function listApiKeys(
+  context: SettingsUseCaseContext,
+  payload: { userId: string; includeAllUsers?: boolean }
+): Promise<ApiKeyWithOwner[]> {
+  const keys = payload.includeAllUsers ? await context.store.apiKeys.listAll() : await context.store.apiKeys.listByUser(payload.userId);
+  if (!payload.includeAllUsers) return keys.map((key) => ({ key, owner: null }));
+  return attachApiKeyOwners(context, keys);
 }
 
 export async function createApiKeyUseCase(
@@ -183,16 +206,21 @@ export async function createApiKeyUseCase(
 
 export async function revokeApiKeyUseCase(
   context: SettingsUseCaseContext,
-  payload: { userId: string; keyId: string }
+  payload: { userId: string; keyId: string; allowAnyUser?: boolean }
 ) {
-  const existing = (await context.store.apiKeys.listByUser(payload.userId)).find((key) => key.id === payload.keyId);
-  await context.store.apiKeys.revoke(payload.keyId, payload.userId);
-  await recordAudit(context.store, "user", payload.userId, "api-key-revoke", { keyId: payload.keyId });
+  const visibleKeys = payload.allowAnyUser ? await context.store.apiKeys.listAll() : await context.store.apiKeys.listByUser(payload.userId);
+  const existing = visibleKeys.find((key) => key.id === payload.keyId);
+  const ownerUserId = existing?.userId ?? payload.userId;
+  await context.store.apiKeys.revoke(payload.keyId, ownerUserId);
+  await recordAudit(context.store, "user", ownerUserId, "api-key-revoke", {
+    keyId: payload.keyId,
+    actorUserId: payload.userId
+  });
   await sendTelegramNotification(context, {
-    userId: payload.userId,
+    userId: ownerUserId,
     eventId: "api_key.revoked",
     text: `WeMail API key revoked\nLabel: ${existing?.label ?? "Unknown key"}\nPrefix: ${existing?.prefix ?? payload.keyId}`,
-    metadata: { apiKeyId: payload.keyId, prefix: existing?.prefix ?? null }
+    metadata: { apiKeyId: payload.keyId, actorUserId: payload.userId, prefix: existing?.prefix ?? null }
   });
   return { ok: true };
 }

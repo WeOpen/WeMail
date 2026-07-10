@@ -1260,6 +1260,10 @@ export function createD1Store(db: D1Database): AppStore {
         const result = await db.prepare("SELECT * FROM api_keys WHERE user_id = ? ORDER BY created_at DESC").bind(userId).all();
         return (result.results ?? []).map(toApiKeyRecord);
       },
+      async listAll() {
+        const result = await db.prepare("SELECT * FROM api_keys ORDER BY created_at DESC, id DESC").all();
+        return (result.results ?? []).map(toApiKeyRecord);
+      },
       async findActiveByHash(hash) {
         const row = await db
           .prepare("SELECT * FROM api_keys WHERE key_hash = ? AND revoked_at IS NULL")

@@ -2,7 +2,6 @@ import Link from "next/link";
 import Image from "next/image";
 import {
   ArrowRight,
-  BookOpenText,
   Cloud,
   Code2,
   FileText,
@@ -12,10 +11,10 @@ import {
 
 const guideCards = [
   {
-    href: "/docs/quickstart",
-    title: "本地启动",
-    description: "初始化本地 D1、生成邀请码，并同时启动 Web 与 Worker。",
-    icon: BookOpenText,
+    href: "/docs/deploy-from-zero",
+    title: "快速部署",
+    description: "从 Fork 到 Cloudflare production、首次管理员和真实收件。",
+    icon: Rocket,
   },
   {
     href: "/docs/cloudflare-resources",
@@ -63,7 +62,7 @@ export default function HomePage() {
 
           <div className="docs-home-nav-links" aria-label="文档导航">
             <Link href="/docs">文档</Link>
-            <Link href="/docs/quickstart">本地启动</Link>
+            <Link href="/docs/deploy-from-zero">快速部署</Link>
             <Link href="/docs/github-actions">发布</Link>
           </div>
 
@@ -115,7 +114,7 @@ export default function HomePage() {
               开始阅读
               <ArrowRight aria-hidden="true" />
             </Link>
-            <Link className="docs-home-secondary-action" href="/docs/cloudflare-resources">
+            <Link className="docs-home-secondary-action" href="/docs/deploy-from-zero">
               部署路线
             </Link>
             <a className="docs-home-vercel-action" href={vercelDeployUrl} rel="noreferrer noopener" target="_blank">

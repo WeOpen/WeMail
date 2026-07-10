@@ -564,14 +564,14 @@ export const apiInterfaceGroups: ApiInterfaceGroup[] = [
     "id": "api-keys",
     "kicker": "程序访问",
     "title": "API 密钥",
-    "description": "用于脚本、CLI 和服务端任务的个人访问凭证。",
+    "description": "用于脚本、CLI、服务端任务和管理员安全治理的访问凭证。",
     "endpoints": [
       {
         "method": "GET",
         "path": "/api/api-keys",
         "title": "密钥列表",
-        "description": "读取当前用户 API 密钥摘要。",
-        "access": "登录用户"
+        "description": "读取当前用户 API 密钥摘要；管理员会话可查看所有用户密钥摘要。",
+        "access": "登录用户，管理员会话可全局查看"
       },
       {
         "method": "POST",
@@ -593,8 +593,8 @@ export const apiInterfaceGroups: ApiInterfaceGroup[] = [
         "method": "DELETE",
         "path": "/api/api-keys/:id",
         "title": "吊销密钥",
-        "description": "立即吊销指定 API 密钥。",
-        "access": "登录用户"
+        "description": "立即吊销指定 API 密钥；管理员会话可吊销其他用户密钥。",
+        "access": "登录用户，管理员会话可跨用户吊销"
       }
     ]
   },

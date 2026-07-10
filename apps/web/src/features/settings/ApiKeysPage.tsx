@@ -27,6 +27,7 @@ import { MetricCard } from "../../shared/metric-card";
 import { OverlayDialog } from "../../shared/overlay";
 import { Pagination } from "../../shared/pagination";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../../shared/tooltip";
+import { formatDisplayEmail } from "../../shared/display";
 
 type CreateApiKeyResult = {
   key: {
@@ -91,6 +92,11 @@ function getStatusTone(key: ApiKeySummary) {
 
 function formatScopeLabel(scope: ApiKeyScope) {
   return scopeLabelById.get(scope) ?? scope;
+}
+
+function formatOwnerName(key: ApiKeySummary) {
+  if (!key.owner) return "";
+  return key.owner.name.trim() || formatDisplayEmail(key.owner.email);
 }
 
 async function copyText(text: string) {
@@ -211,6 +217,7 @@ export function ApiKeysPage({ apiKeys, currentUserRole = "member", onCreateApiKe
     (currentSafePage - 1) * pageSize,
     currentSafePage * pageSize
   );
+  const shouldShowOwners = currentUserRole === "admin";
   const createScopeDefinitions = API_KEY_SCOPE_DEFINITIONS.filter(
     (scope) => currentUserRole === "admin" || scope.id !== ADMIN_AUTOMATION_SCOPE
   );
@@ -373,6 +380,15 @@ export function ApiKeysPage({ apiKeys, currentUserRole = "member", onCreateApiKe
                         <strong>{key.label}</strong>
                         <code>{key.prefix}</code>
                       </div>
+                      {shouldShowOwners && key.owner ? (
+                        <div className="api-keys-record-owner">
+                          <span>所属用户</span>
+                          <strong>{formatOwnerName(key)}</strong>
+                          <small className="truncated-email" title={key.owner.email}>
+                            {formatDisplayEmail(key.owner.email)}
+                          </small>
+                        </div>
+                      ) : null}
                       <div className="api-keys-scope-list" aria-label={`${key.label} 权限范围`}>
                         {key.scopes.map((scope) => (
                           <span key={scope}>{formatScopeLabel(scope)}</span>

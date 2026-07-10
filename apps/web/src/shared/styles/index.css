@@ -4184,11 +4184,13 @@ button:disabled {
 
 .dashboard-panel {
   position: relative;
+  z-index: 0;
+  isolation: isolate;
   display: grid;
   min-width: 0;
   gap: 18px;
   padding: 22px;
-  overflow: hidden;
+  overflow: visible;
   border-radius: 24px;
   background:
     linear-gradient(
@@ -4199,6 +4201,14 @@ button:disabled {
   box-shadow:
     var(--elevation-sm),
     inset 0 1px 0 color-mix(in srgb, #ffffff 34%, transparent);
+}
+
+.dashboard-panel:hover {
+  z-index: 3;
+}
+
+.dashboard-panel:focus-within {
+  z-index: 3;
 }
 
 .dashboard-panel-head {
@@ -4220,7 +4230,7 @@ button:disabled {
 .dashboard-trend-panel {
   grid-template-rows: auto auto minmax(220px, 1fr);
   height: 100%;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .dashboard-trend-tabs {
@@ -4316,7 +4326,7 @@ button:disabled {
       color-mix(in srgb, var(--surface-strong) 72%, transparent),
       color-mix(in srgb, var(--surface-muted) 62%, transparent)
     );
-  overflow: hidden;
+  overflow: visible;
 }
 
 .dashboard-chart-skeleton-area {
@@ -5711,6 +5721,34 @@ button:disabled {
   color: var(--text-muted);
   font-size: 0.78rem;
   overflow-wrap: anywhere;
+}
+
+.api-keys-record-owner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px 8px;
+  min-width: 0;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  line-height: 1.35;
+}
+
+.api-keys-record-owner span {
+  color: var(--text-soft);
+  font-size: 0.72rem;
+  font-weight: 760;
+}
+
+.api-keys-record-owner strong {
+  font-size: 0.84rem;
+}
+
+.api-keys-record-owner small {
+  min-width: 0;
+  color: var(--text-soft);
+  font-size: 0.78rem;
+  line-height: 1.35;
 }
 
 .api-keys-scope-list {

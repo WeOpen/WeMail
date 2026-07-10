@@ -1,8 +1,18 @@
+import { readFileSync } from "node:fs";
+
 import { cleanup, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { App } from "../../app/App";
 import { jsonResponse } from "../helpers/mock-api";
+
+const sharedStyles = readFileSync("src/shared/styles/index.css", "utf8");
+
+function getStyleRule(selector: string) {
+  const escapedSelector = selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const match = sharedStyles.match(new RegExp(`${escapedSelector}\\s*\\{([\\s\\S]*?)\\}`));
+  return match?.[1] ?? "";
+}
 
 describe("dashboard integration", () => {
   beforeEach(() => {
@@ -14,6 +24,13 @@ describe("dashboard integration", () => {
   afterEach(() => {
     cleanup();
     window.history.pushState({}, "", "/");
+  });
+
+  it("keeps chart tooltips visible above chart and neighboring card boundaries", () => {
+    expect(getStyleRule(".dashboard-panel")).toContain("overflow: visible");
+    expect(getStyleRule(".dashboard-panel:hover")).toContain("z-index: 3");
+    expect(getStyleRule(".dashboard-trend-panel")).toContain("overflow: visible");
+    expect(getStyleRule(".dashboard-trend-chart")).toContain("overflow: visible");
   });
 
   it(

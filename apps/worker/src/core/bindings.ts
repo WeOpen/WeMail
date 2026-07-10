@@ -612,6 +612,7 @@ export interface AppStore {
       keyHash: string;
     }) => Promise<ApiKeyRecord>;
     listByUser: (userId: string) => Promise<ApiKeyRecord[]>;
+    listAll: () => Promise<ApiKeyRecord[]>;
     findActiveByHash: (hash: string) => Promise<ApiKeyRecord | null>;
     touch: (id: string) => Promise<void>;
     revoke: (id: string, userId: string) => Promise<void>;
