@@ -978,8 +978,9 @@ export function createD1Store(db: D1Database): AppStore {
         const scopeConditions: string[] = [];
 
         if (mailboxIds.length > 0) {
-          scopeConditions.push(`account_id IN (${mailboxIds.map(() => "?").join(", ")})`);
-          bindings.push(...mailboxIds);
+          // D1 limits bound SQL variables; json_each keeps large mailbox scopes to one binding.
+          scopeConditions.push("account_id IN (SELECT value FROM json_each(?))");
+          bindings.push(JSON.stringify(mailboxIds));
         }
         if (query.includeUnmatched) {
           scopeConditions.push("account_id LIKE 'unmatched:%'");

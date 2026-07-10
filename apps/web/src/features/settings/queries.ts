@@ -41,6 +41,15 @@ export type SettingsDataQueryOptions = {
   includeTelegram?: boolean;
 };
 
+async function settleOptionalRequest<T>(request: Promise<T> | null): Promise<T | null> {
+  if (!request) return null;
+  try {
+    return await request;
+  } catch {
+    return null;
+  }
+}
+
 export async function querySettingsData(options?: SettingsDataQueryOptions) {
   const shouldFetchApiKeys = options?.includeApiKeys ?? true;
   const shouldFetchDictionaries = options?.includeDictionaries ?? true;
@@ -62,15 +71,15 @@ export async function querySettingsData(options?: SettingsDataQueryOptions) {
     systemOperationsPayload,
     systemReliabilityPayload
   ] = await Promise.all([
-    shouldFetchApiKeys ? fetchApiKeys() : Promise.resolve(null),
-    shouldFetchTelegram ? fetchTelegramOverview() : Promise.resolve(null),
-    shouldFetchTelegram ? fetchTelegramDeliveries() : Promise.resolve(null),
-    shouldFetchDictionaries ? fetchDictionaries() : Promise.resolve(null),
-    shouldFetchRuntimeSettings ? fetchRuntimeSettings() : Promise.resolve(null),
-    shouldFetchSystemDiagnostics ? fetchSystemDiagnostics() : Promise.resolve(null),
-    shouldFetchSystemMaturity ? fetchSystemMaturity() : Promise.resolve(null),
-    shouldFetchSystemOperations ? fetchSystemOperations() : Promise.resolve(null),
-    shouldFetchSystemReliability ? fetchSystemReliability() : Promise.resolve(null)
+    settleOptionalRequest(shouldFetchApiKeys ? fetchApiKeys() : null),
+    settleOptionalRequest(shouldFetchTelegram ? fetchTelegramOverview() : null),
+    settleOptionalRequest(shouldFetchTelegram ? fetchTelegramDeliveries() : null),
+    settleOptionalRequest(shouldFetchDictionaries ? fetchDictionaries() : null),
+    settleOptionalRequest(shouldFetchRuntimeSettings ? fetchRuntimeSettings() : null),
+    settleOptionalRequest(shouldFetchSystemDiagnostics ? fetchSystemDiagnostics() : null),
+    settleOptionalRequest(shouldFetchSystemMaturity ? fetchSystemMaturity() : null),
+    settleOptionalRequest(shouldFetchSystemOperations ? fetchSystemOperations() : null),
+    settleOptionalRequest(shouldFetchSystemReliability ? fetchSystemReliability() : null)
   ]);
 
   return {

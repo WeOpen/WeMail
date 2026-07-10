@@ -140,6 +140,25 @@ describe("settings queries", () => {
     expect(requestedUrls.some((url) => url.includes("/api/system/runtime-settings"))).toBe(false);
   });
 
+  it("keeps successful settings data when one optional system endpoint fails", async () => {
+    vi.spyOn(globalThis, "fetch").mockImplementation((input) => {
+      const url = String(input);
+      if (url.endsWith("/api/api-keys")) return jsonResponse({ keys: [{ id: "key-1", label: "Deploy key" }] });
+      if (url.endsWith("/api/system/maturity")) return jsonResponse({ error: "query failed" }, 500);
+      return jsonResponse({});
+    });
+
+    const data = await querySettingsData({
+      includeApiKeys: true,
+      includeDictionaries: false,
+      includeSystemMaturity: true,
+      includeTelegram: false
+    });
+
+    expect(data.apiKeys).toEqual([expect.objectContaining({ id: "key-1", label: "Deploy key" })]);
+    expect(data.systemMaturity).toBeUndefined();
+  });
+
   it("creates a telegram one-time link code through the backend", async () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(() =>
       jsonResponse({
