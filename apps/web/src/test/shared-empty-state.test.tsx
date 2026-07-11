@@ -37,4 +37,10 @@ describe("shared empty-state primitives", () => {
     expect(screen.getByTestId("error-state")).toHaveClass("ui-empty-state", "ui-empty-state-error");
     expect(screen.getByTestId("no-access-state")).toHaveClass("ui-empty-state", "ui-empty-state-no-access");
   });
+
+  it("shows the shared empty-state icon when callers do not provide one", () => {
+    render(<EmptyState title="暂无数据" />);
+
+    expect(screen.getByRole("region", { name: "暂无数据" }).querySelector(".ui-empty-state-media svg")).not.toBeNull();
+  });
 });

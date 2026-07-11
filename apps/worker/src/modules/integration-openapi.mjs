@@ -361,15 +361,6 @@ export const paths = {
       responses: { 200: { description: "产品成熟度总览" }, 403: { $ref: "#/components/responses/Error" } }
     }
   },
-  "/api/system/operations": {
-    get: {
-      tags: ["系统设置"],
-      summary: "获取运维中心概要",
-      operationId: "getSystemOperations",
-      security: [{ cookieAuth: [] }],
-      responses: { 200: { description: "最近失败和运维信号" }, 403: { $ref: "#/components/responses/Error" } }
-    }
-  },
   "/api/system/reliability": {
     get: {
       tags: ["系统设置"],

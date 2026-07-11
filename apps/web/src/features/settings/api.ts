@@ -12,7 +12,6 @@ import type {
   RuntimeSettings,
   RuntimeSettingsUpdateInput,
   SystemDiagnosticsSummary,
-  SystemOperationsSummary,
   TelegramDeliverySummary,
   TelegramLinkCodeSummary,
   TelegramOverviewSummary,
@@ -163,12 +162,6 @@ export function fetchSystemDiagnostics() {
 
 export function fetchSystemMaturity() {
   return apiFetch<{ maturity: ProductMaturitySummary }>("/api/system/maturity", {
-    cacheTtlMs: SETTINGS_CACHE_TTL_MS
-  });
-}
-
-export function fetchSystemOperations() {
-  return apiFetch<{ operations: SystemOperationsSummary }>("/api/system/operations", {
     cacheTtlMs: SETTINGS_CACHE_TTL_MS
   });
 }

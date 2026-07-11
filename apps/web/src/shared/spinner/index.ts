@@ -1,1 +1,1 @@
-export { Spinner } from "./SpinnerPrimitives";
+export { LoadingState, Spinner } from "./SpinnerPrimitives";

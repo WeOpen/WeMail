@@ -120,10 +120,11 @@ describe("shared table primitives", () => {
     );
   });
 
-  it("supports plain loading copy without the card background", () => {
+  it("supports plain loading state with a visible spinner and no card background", () => {
     expect(sharedStyles).toMatch(/\.ui-table-state-card-plain\s*\{[^}]*border:\s*0;/);
     expect(sharedStyles).toMatch(/\.ui-table-state-card-plain\s*\{[^}]*background:\s*transparent;/);
     expect(sharedStyles).toMatch(/\.ui-table-state-card-plain\s*\{[^}]*box-shadow:\s*none;/);
-    expect(sharedStyles).toMatch(/\.ui-table-state-card-plain \.ui-spinner-indicator\s*\{[^}]*display:\s*none;/);
+    expect(sharedStyles).not.toMatch(/\.ui-table-state-card-plain \.ui-spinner-indicator\s*\{[^}]*display:\s*none;/);
+    expect(sharedStyles).toMatch(/\.ui-table-state-card-plain \.ui-spinner-indicator\s*\{[^}]*width:\s*18px;/);
   });
 });

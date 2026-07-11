@@ -1,3 +1,4 @@
+import { Inbox } from "lucide-react";
 import { forwardRef, type HTMLAttributes, type ReactNode, useId } from "react";
 
 type EmptyStateVariant = "default" | "error" | "no-access";
@@ -40,11 +41,9 @@ export const EmptyState = forwardRef<HTMLElement, EmptyStateProps>(function Empt
         ref={ref}
         role="region"
       >
-        {icon ? (
-          <div aria-hidden="true" className="ui-empty-state-media">
-            {icon}
-          </div>
-        ) : null}
+        <div aria-hidden="true" className="ui-empty-state-media">
+          {icon ?? <Inbox size={26} strokeWidth={1.7} />}
+        </div>
         <div className="ui-empty-state-copy">
           <h2 className="ui-empty-state-title" id={titleId}>
             {title}

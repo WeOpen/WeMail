@@ -497,7 +497,6 @@ export const apiInterfaceGroups = [
       { method: "GET", path: "/api/system/health", title: "健康检查", description: "返回服务状态和功能开关。", access: "公开" },
       { method: "GET", path: "/api/system/diagnostics", title: "系统诊断", description: "读取部署就绪和集成配置诊断。", access: "管理员" },
       { method: "GET", path: "/api/system/maturity", title: "产品成熟度", description: "读取 8 个成熟产品方向的进度、证据和下一步动作。", access: "管理员" },
-      { method: "GET", path: "/api/system/operations", title: "运维中心", description: "读取最近失败、诊断问题、投递异常和存储绑定信号。", access: "管理员" },
       { method: "GET", path: "/api/system/reliability", title: "数据可靠性", description: "读取 D1/R2、migration、清理运行记录、幂等策略和备份恢复 runbook。", access: "管理员" },
       { method: "GET", path: "/api/system/features", title: "功能开关", description: "读取平台功能开关。", access: "管理员" },
       {
@@ -508,13 +507,13 @@ export const apiInterfaceGroups = [
         access: "管理员",
         example: { requestBody: { aiEnabled: true, mailboxCreationEnabled: true, outboundEnabled: true, telegramEnabled: true } }
       },
-      { method: "GET", path: "/api/system/domains", title: "邮箱域名", description: "读取允许创建邮箱的域名。", access: "登录会话用户" },
+      { method: "GET", path: "/api/system/domains", title: "邮箱域名", description: "读取允许创建邮箱的域名。", access: "管理员" },
       {
         method: "PATCH",
         path: "/api/system/domains",
         title: "更新邮箱域名",
         description: "保存域名与角色权限。",
-        access: "登录会话用户",
+        access: "管理员",
         example: { requestBody: { domains: [{ domain: "example.com", allowedRoles: [] }] } }
       },
       {

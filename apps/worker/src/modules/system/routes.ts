@@ -8,9 +8,7 @@ import type {
   RuntimeSettingsUpdateInput,
   SystemDiagnosticCheck,
   SystemDiagnosticStatus,
-  SystemDiagnosticsSummary,
-  SystemOperationEvent,
-  SystemOperationsSummary
+  SystemDiagnosticsSummary
 } from "@wemail/shared";
 
 import type { AppContext } from "../../app/context";
@@ -258,26 +256,6 @@ async function countOutboundState(store: AppStore, mailboxIds: string[]) {
   );
 }
 
-function parseAuditPayload(value: string) {
-  try {
-    return JSON.parse(value) as Record<string, unknown>;
-  } catch {
-    return {};
-  }
-}
-
-function makeOperationSignal(label: string, value: number | string, status: SystemDiagnosticStatus) {
-  return {
-    label,
-    value: typeof value === "number" ? formatCount(value) : value,
-    status
-  };
-}
-
-function compareOperationEvents(a: SystemOperationEvent, b: SystemOperationEvent) {
-  return b.occurredAt.localeCompare(a.occurredAt);
-}
-
 const knownMigrationSummaries = [
   ["0001", "基础菜单与邮件域模型", "初始化用户、邮箱、邮件、附件、配额和审计表。"],
   ["0007", "外发邮件详情", "保存发件请求、Provider 响应、失败原因和消息 ID。"],
@@ -287,124 +265,6 @@ const knownMigrationSummaries = [
   ["0016", "通知规则", "持久化通知规则和投递抑制条件。"],
   ["0017", "清理任务运行记录", "记录定时清理任务成功/失败和删除数量。"]
 ] as const;
-
-async function collectOutboundFailures(store: AppStore, mailboxIds: string[], limit: number) {
-  const batches = await Promise.all(
-    mailboxIds.map((mailboxId) =>
-      store.outboundMessages.listByMailbox({
-        mailboxId,
-        page: 1,
-        pageSize: limit,
-        status: "failed"
-      })
-    )
-  );
-
-  return batches
-    .flatMap((batch) => batch.messages)
-    .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
-    .slice(0, limit);
-}
-
-async function collectTelegramFailures(store: AppStore, users: UserRecord[], limit: number) {
-  const batches = await Promise.all(users.map((user) => store.audit.listByActorAndTypes(user.id, ["telegram-delivery"], limit)));
-  return batches
-    .flatMap((batch) => batch)
-    .filter((event) => parseAuditPayload(event.payloadJson).delivered !== true)
-    .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
-    .slice(0, limit);
-}
-
-async function buildSystemOperations(c: Context<AppContext>): Promise<SystemOperationsSummary> {
-  const store = c.get("store");
-  const generatedAt = new Date().toISOString();
-  const diagnostics = await buildSystemDiagnostics(c);
-  const [users, allMailboxes] = await Promise.all([collectAllUsers(store), store.mailboxes.listAll()]);
-  const mailboxIds = allMailboxes.map((mailbox) => mailbox.id);
-  const [webhookBatches, telegramFailures, outboundFailures, expiredMessages] = await Promise.all([
-    Promise.all(users.map((user) => store.webhookDeliveries.listByUser(user.id))),
-    collectTelegramFailures(store, users, 8),
-    collectOutboundFailures(store, mailboxIds, 8),
-    store.messages.listExpired(generatedAt)
-  ]);
-  const webhookFailures = webhookBatches
-    .flatMap((batch) => batch)
-    .filter((delivery) => delivery.status !== "success")
-    .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
-    .slice(0, 8);
-  const diagnosticIssues = diagnostics.checks.filter((check) => check.status !== "ok");
-
-  const recentEvents: SystemOperationEvent[] = [
-    ...diagnosticIssues.map((check) => ({
-      id: `diagnostic:${check.id}`,
-      source: "diagnostic" as const,
-      severity: check.status === "error" ? "error" as const : "warning" as const,
-      label: check.label,
-      message: check.message,
-      occurredAt: generatedAt,
-      actionLabel: check.action ? "查看配置建议" : undefined
-    })),
-    ...webhookFailures.map((delivery) => ({
-      id: `webhook:${delivery.id}`,
-      source: "webhook" as const,
-      severity: "error" as const,
-      label: `Webhook ${delivery.eventType}`,
-      message: delivery.errorText ?? `状态码 ${delivery.statusCode ?? "未知"}`,
-      occurredAt: delivery.createdAt,
-      actionLabel: "查看并重试",
-      actionHref: "/webhook"
-    })),
-    ...telegramFailures.map((event) => {
-      const payload = parseAuditPayload(event.payloadJson);
-      return {
-        id: `telegram:${event.id}`,
-        source: "telegram" as const,
-        severity: "error" as const,
-        label: typeof payload.label === "string" ? payload.label : "Telegram 投递",
-        message: typeof payload.reason === "string" ? payload.reason : "Telegram 投递失败",
-        occurredAt: event.createdAt,
-        actionLabel: "查看 Telegram 设置",
-        actionHref: "/settings/telegram"
-      };
-    }),
-    ...outboundFailures.map((message) => ({
-      id: `outbound:${message.id}`,
-      source: "outbound" as const,
-      severity: "error" as const,
-      label: `发信失败：${message.subject || message.toAddress}`,
-      message: message.errorText ?? "发信服务未返回失败原因",
-      occurredAt: message.createdAt,
-      actionLabel: "查看发信记录",
-      actionHref: "/mail/outbound"
-    }))
-  ]
-    .sort(compareOperationEvents)
-    .slice(0, 10);
-
-  const failureCount = webhookFailures.length + telegramFailures.length + outboundFailures.length;
-  const diagnosticsStatus = diagnostics.overallStatus;
-  const storageStatus: SystemDiagnosticStatus = c.env.DB ? (c.env.ATTACHMENTS ? "ok" : "warning") : "error";
-
-  return {
-    generatedAt,
-    overallStatus: resolveOverallStatus([
-      { status: failureCount > 0 ? "error" : "ok" },
-      { status: diagnosticsStatus },
-      { status: storageStatus },
-      { status: expiredMessages.length > 0 ? "warning" : "ok" }
-    ]),
-    signals: [
-      makeOperationSignal("最近失败", failureCount, failureCount > 0 ? "error" : "ok"),
-      makeOperationSignal("诊断问题", diagnosticIssues.length, diagnosticsStatus),
-      makeOperationSignal("Webhook 失败", webhookFailures.length, webhookFailures.length > 0 ? "error" : "ok"),
-      makeOperationSignal("Telegram 失败", telegramFailures.length, telegramFailures.length > 0 ? "error" : "ok"),
-      makeOperationSignal("发信失败", outboundFailures.length, outboundFailures.length > 0 ? "error" : "ok"),
-      makeOperationSignal("过期待清理邮件", expiredMessages.length, expiredMessages.length > 0 ? "warning" : "ok"),
-      makeOperationSignal("D1/R2 绑定", c.env.DB ? (c.env.ATTACHMENTS ? "完整" : "缺 R2") : "缺 D1", storageStatus)
-    ],
-    recentEvents
-  };
-}
 
 async function buildDataReliability(c: Context<AppContext>): Promise<DataReliabilitySummary> {
   const config = resolveAppConfig(c.env);
@@ -654,12 +514,6 @@ export function registerSystemRoutes(app: Hono<AppContext>) {
     return c.json({ maturity: await buildProductMaturity(c) });
   });
 
-  app.get("/api/system/operations", async (c) => {
-    const user = requireUser(c);
-    if (!user || user.role !== "admin" || !requireSessionAuth(c)) return jsonError("Admin session required", 403);
-    return c.json({ operations: await buildSystemOperations(c) });
-  });
-
   app.get("/api/system/reliability", async (c) => {
     const user = requireUser(c);
     if (!user || user.role !== "admin" || !requireSessionAuth(c)) return jsonError("Admin session required", 403);
@@ -689,7 +543,7 @@ export function registerSystemRoutes(app: Hono<AppContext>) {
 
   app.get("/api/system/domains", async (c) => {
     const user = requireUser(c);
-    if (!user || !requireSessionAuth(c)) return jsonError("Session authentication required", 403);
+    if (!user || user.role !== "admin" || !requireSessionAuth(c)) return jsonError("Admin session required", 403);
     const payload = await cachedJson(c.env.CACHE, CACHE_KEYS.mailDomains, CACHE_TTL_SECONDS.systemDomains, () =>
       getMailDomainSettingsUseCase(getAppServices(c), c.env)
     );
@@ -698,7 +552,7 @@ export function registerSystemRoutes(app: Hono<AppContext>) {
 
   app.patch("/api/system/domains", async (c) => {
     const user = requireUser(c);
-    if (!user || !requireSessionAuth(c)) return jsonError("Session authentication required", 403);
+    if (!user || user.role !== "admin" || !requireSessionAuth(c)) return jsonError("Admin session required", 403);
 
     const result = await updateMailDomainsUseCase(getAppServices(c), await c.req.json(), user.id);
     if (result instanceof Response) return result;

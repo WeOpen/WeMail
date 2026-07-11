@@ -6,7 +6,6 @@ import type {
   ProductMaturitySummary,
   RuntimeSettings,
   SystemDiagnosticsSummary,
-  SystemOperationsSummary,
   TelegramDeliverySummary,
   TelegramOverviewSummary
 } from "@wemail/shared";
@@ -18,7 +17,6 @@ import {
   fetchSystemDiagnostics,
   fetchSystemFeatures,
   fetchSystemMaturity,
-  fetchSystemOperations,
   fetchSystemReliability,
   fetchTelegramDeliveries,
   fetchTelegramOverview
@@ -39,7 +37,6 @@ export type SettingsDataQueryOptions = {
   includeSystemDiagnostics?: boolean;
   includeSystemFeatures?: boolean;
   includeSystemMaturity?: boolean;
-  includeSystemOperations?: boolean;
   includeSystemReliability?: boolean;
   includeTelegram?: boolean;
 };
@@ -60,7 +57,6 @@ export async function querySettingsData(options?: SettingsDataQueryOptions) {
   const shouldFetchSystemDiagnostics = options?.includeSystemDiagnostics ?? false;
   const shouldFetchSystemFeatures = options?.includeSystemFeatures ?? false;
   const shouldFetchSystemMaturity = options?.includeSystemMaturity ?? false;
-  const shouldFetchSystemOperations = options?.includeSystemOperations ?? false;
   const shouldFetchSystemReliability = options?.includeSystemReliability ?? false;
   const shouldFetchTelegram = options?.includeTelegram ?? true;
 
@@ -73,7 +69,6 @@ export async function querySettingsData(options?: SettingsDataQueryOptions) {
     systemFeaturesPayload,
     systemDiagnosticsPayload,
     systemMaturityPayload,
-    systemOperationsPayload,
     systemReliabilityPayload
   ] = await Promise.all([
     settleOptionalRequest(shouldFetchApiKeys ? fetchApiKeys() : null),
@@ -84,7 +79,6 @@ export async function querySettingsData(options?: SettingsDataQueryOptions) {
     settleOptionalRequest(shouldFetchSystemFeatures ? fetchSystemFeatures() : null),
     settleOptionalRequest(shouldFetchSystemDiagnostics ? fetchSystemDiagnostics() : null),
     settleOptionalRequest(shouldFetchSystemMaturity ? fetchSystemMaturity() : null),
-    settleOptionalRequest(shouldFetchSystemOperations ? fetchSystemOperations() : null),
     settleOptionalRequest(shouldFetchSystemReliability ? fetchSystemReliability() : null)
   ]);
 
@@ -100,9 +94,6 @@ export async function querySettingsData(options?: SettingsDataQueryOptions) {
       : undefined,
     systemMaturity: systemMaturityPayload
       ? ((systemMaturityPayload.maturity ?? null) as ProductMaturitySummary | null)
-      : undefined,
-    systemOperations: systemOperationsPayload
-      ? ((systemOperationsPayload.operations ?? null) as SystemOperationsSummary | null)
       : undefined,
     systemReliability: systemReliabilityPayload
       ? ((systemReliabilityPayload.reliability ?? null) as DataReliabilitySummary | null)

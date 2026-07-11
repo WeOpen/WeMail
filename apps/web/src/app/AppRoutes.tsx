@@ -63,8 +63,6 @@ const loadInboxPage = () => import("../pages/InboxPage").then((module) => ({ def
 const loadMailSettingsPage = () =>
   import("../features/settings/MailSettingsPage").then((module) => ({ default: module.MailSettingsPage }));
 const loadOutboundPage = () => import("../features/outbound/OutboundPage").then((module) => ({ default: module.OutboundPage }));
-const loadSystemOperationsPage = () =>
-  import("../pages/SystemOperationsPage").then((module) => ({ default: module.SystemOperationsPage }));
 const loadSystemProfilePage = () => import("../pages/SystemProfilePage").then((module) => ({ default: module.SystemProfilePage }));
 const loadSystemSettingsPage = () => import("../pages/SystemSettingsPage").then((module) => ({ default: module.SystemSettingsPage }));
 const loadTelegramSettingsPage = () =>
@@ -86,7 +84,6 @@ const DashboardPage = lazy(loadDashboardPage);
 const InboxPage = lazy(loadInboxPage);
 const MailSettingsPage = lazy(loadMailSettingsPage);
 const OutboundPage = lazy(loadOutboundPage);
-const SystemOperationsPage = lazy(loadSystemOperationsPage);
 const SystemProfilePage = lazy(loadSystemProfilePage);
 const SystemSettingsPage = lazy(loadSystemSettingsPage);
 const TelegramSettingsPage = lazy(loadTelegramSettingsPage);
@@ -470,7 +467,7 @@ export function AppRoutes({
   const systemSettingsPage = (
     <SystemSettingsPage
       adminFeatures={admin.adminFeatures}
-      canManageDomains
+      canManageDomains={session.user.role === "admin"}
       canManageRuntimeSettings={session.user.role === "admin"}
       runtimeSettings={settings.runtimeSettings}
       resolvedTheme={appearance.theme}
@@ -478,15 +475,6 @@ export function AppRoutes({
       onSelectThemePreference={appearance.setThemePreference}
       onSaveRuntimeSettings={settings.saveRuntimeSettings}
       onToggleFeatures={admin.toggleFeatures}
-    />
-  );
-
-  const systemOperationsPage = (
-    <SystemOperationsPage
-      systemDiagnostics={settings.systemDiagnostics}
-      systemMaturity={settings.systemMaturity}
-      systemOperations={settings.systemOperations}
-      systemReliability={settings.systemReliability}
     />
   );
 
@@ -558,7 +546,7 @@ export function AppRoutes({
       <Route path="/announcements" element={lazyRoute(announcementsPage)} />
       <Route path="/system" element={<Navigate replace to="/system/settings" />} />
       <Route path="/system/settings" element={lazyRoute(systemSettingsPage)} />
-      <Route path="/system/operations" element={lazyRoute(systemOperationsPage)} />
+      <Route path="/system/operations" element={<Navigate replace to="/system/settings" />} />
       <Route path="/system/profile" element={lazyRoute(systemProfilePage)} />
       <Route path="/system/about" element={lazyRoute(<AboutPage />)} />
     </Routes>

@@ -42,7 +42,6 @@ const runtimeSettingsOnlyQuery: SettingsDataQueryOptions = {
   includeSystemFeatures: true,
   includeSystemDiagnostics: true,
   includeSystemMaturity: true,
-  includeSystemOperations: true,
   includeSystemReliability: true,
   includeTelegram: false
 };
@@ -71,7 +70,6 @@ export function useSettingsData({ session, onToast }: UseSettingsDataOptions) {
       includeSystemFeatures: options?.includeSystemFeatures ?? session.user.role === "admin",
       includeSystemDiagnostics: options?.includeSystemDiagnostics ?? session.user.role === "admin",
       includeSystemMaturity: options?.includeSystemMaturity ?? session.user.role === "admin",
-      includeSystemOperations: options?.includeSystemOperations ?? session.user.role === "admin",
       includeSystemReliability: options?.includeSystemReliability ?? session.user.role === "admin"
     });
     setSettingsData(
@@ -81,7 +79,7 @@ export function useSettingsData({ session, onToast }: UseSettingsDataOptions) {
       data.runtimeSettings,
       data.systemDiagnostics,
       data.systemMaturity,
-      data.systemOperations,
+      undefined,
       data.systemReliability
     );
     if (data.systemFeatures) setAdminFeatures(data.systemFeatures);

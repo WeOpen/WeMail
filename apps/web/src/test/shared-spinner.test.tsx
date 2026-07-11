@@ -1,11 +1,20 @@
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 
-import { Spinner } from "../shared/spinner";
+import { LoadingState, Spinner } from "../shared/spinner";
 
 describe("shared spinner primitive", () => {
   afterEach(() => {
     cleanup();
+  });
+
+  it("renders a reusable loading state with an animated indicator", () => {
+    render(<LoadingState label="正在加载账号列表" />);
+
+    const loadingState = screen.getByRole("status", { name: "正在加载账号列表" });
+    expect(loadingState).toHaveAttribute("aria-busy", "true");
+    expect(loadingState.querySelector(".ui-spinner-indicator")).not.toBeNull();
+    expect(screen.getByText("正在加载账号列表")).toBeInTheDocument();
   });
 
   it("renders an indeterminate status spinner with Chinese default copy", () => {

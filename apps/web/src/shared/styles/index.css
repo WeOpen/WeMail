@@ -944,11 +944,12 @@ textarea:focus {
 }
 
 .ui-table-state-card-loading.ui-table-state-card-plain {
-  gap: 0;
+  gap: 8px;
 }
 
 .ui-table-state-card-plain .ui-spinner-indicator {
-  display: none;
+  width: 18px;
+  height: 18px;
 }
 
 .ui-table-state-card-plain .ui-spinner-label {
@@ -957,6 +958,27 @@ textarea:focus {
 }
 
 .ui-table-state-description {
+  margin: 0;
+  color: var(--text-soft);
+  font-size: 0.9rem;
+}
+
+.ui-loading-state {
+  display: grid;
+  min-height: 112px;
+  place-items: center;
+  align-content: center;
+  gap: 8px;
+  padding: 20px;
+  color: var(--text-soft);
+  text-align: center;
+}
+
+.ui-loading-state .ui-spinner {
+  justify-content: center;
+}
+
+.ui-loading-state-description {
   margin: 0;
   color: var(--text-soft);
   font-size: 0.9rem;

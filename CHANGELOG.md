@@ -14,6 +14,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.7] - 2026-07-11
+
+### Fixed
+
+- Unified shared empty and loading states with a default empty-state icon and visible animated loading indicators, including compact table loading states.
+
+### Changed
+
+- Restricted system domain settings to administrators and removed the operations center page, navigation entry, data loading, and public API endpoint.
+
 ## [0.2.6] - 2026-07-11
 
 ### Fixed

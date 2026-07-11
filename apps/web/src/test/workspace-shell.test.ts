@@ -62,7 +62,7 @@ describe("buildWorkspaceShellState", () => {
             icon: "system",
             label: "系统设置",
             to: "/system/settings",
-            hint: "系统设置 · 运维中心 · 个人设置 · 关于我们"
+            hint: "系统设置 · 个人设置 · 关于我们"
           }
         ]
       }
@@ -227,9 +227,9 @@ describe("buildWorkspaceShellState", () => {
     expect(shell.secondaryNav).toEqual([]);
   });
 
-  it("places operations between system settings and profile in the system secondary navigation", () => {
+  it("omits the removed operations center from system navigation", () => {
     const shell = buildWorkspaceShellState({
-      pathname: "/system/operations",
+      pathname: "/system/settings",
       session: {
         user: {
           id: "admin-1",
@@ -250,11 +250,10 @@ describe("buildWorkspaceShellState", () => {
     });
 
     expect(shell.activePrimaryId).toBe("system");
-    expect(shell.routeLabel).toBe("运维中心");
-    expect(shell.secondaryNav.map((item) => item.label)).toEqual(["系统设置", "运维中心", "个人设置", "关于我们"]);
+    expect(shell.routeLabel).toBe("系统设置");
+    expect(shell.secondaryNav.map((item) => item.label)).toEqual(["系统设置", "个人设置", "关于我们"]);
     expect(shell.secondaryNav.map((item) => item.to)).toEqual([
       "/system/settings",
-      "/system/operations",
       "/system/profile",
       "/system/about"
     ]);

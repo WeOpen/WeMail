@@ -624,7 +624,7 @@ describe("worker admin integration", () => {
     expect(memberMailboxPayload.mailbox.address).toMatch(/@member\.example\.com$/);
   });
 
-  it("allows member sessions to manage mailbox domain suffixes for the workspace", async () => {
+  it("rejects mailbox domain settings access for member sessions", async () => {
     const { app, env, store } = await registerUserAndGetCookie({
       email: "domain-admin@example.com",
       inviteCode: "INVITE-DOMAINS-MEMBER-MANAGE-ADMIN"
@@ -651,7 +651,7 @@ describe("worker admin integration", () => {
     const memberCookie = memberRegisterResponse.headers.get("set-cookie") ?? "";
 
     const defaultResponse = await app.request("/api/system/domains", { headers: { cookie: memberCookie } }, env);
-    expect(defaultResponse.status).toBe(200);
+    expect(defaultResponse.status).toBe(403);
 
     const updateResponse = await app.request(
       "/api/system/domains",
@@ -667,16 +667,7 @@ describe("worker admin integration", () => {
       },
       env
     );
-    const updatePayload = (await updateResponse.json()) as {
-      domains: Array<{ domain: string; allowedRoles: string[] }>;
-      primaryDomain: string;
-    };
-
-    expect(updateResponse.status).toBe(200);
-    expect(updatePayload).toEqual({
-      domains: [{ domain: "team.example.com", allowedRoles: [] }],
-      primaryDomain: "team.example.com"
-    });
+    expect(updateResponse.status).toBe(403);
   });
 
   it("rejects admin routes without an admin session", async () => {

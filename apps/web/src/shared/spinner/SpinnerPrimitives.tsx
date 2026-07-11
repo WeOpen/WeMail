@@ -1,4 +1,4 @@
-import { forwardRef, type HTMLAttributes } from "react";
+import { forwardRef, type HTMLAttributes, type ReactNode } from "react";
 
 type SpinnerSize = "xs" | "sm" | "md" | "lg";
 type SpinnerTone = "default" | "muted" | "accent" | "success" | "warning" | "danger";
@@ -9,6 +9,12 @@ type SpinnerProps = HTMLAttributes<HTMLSpanElement> & {
   showLabel?: boolean;
   size?: SpinnerSize;
   tone?: SpinnerTone;
+};
+
+type LoadingStateProps = HTMLAttributes<HTMLElement> & {
+  description?: ReactNode;
+  label: string;
+  size?: SpinnerSize;
 };
 
 function cx(...parts: Array<string | false | null | undefined>) {
@@ -41,5 +47,24 @@ export const Spinner = forwardRef<HTMLSpanElement, SpinnerProps>(function Spinne
       <span aria-hidden="true" className="ui-spinner-indicator" />
       {showLabel ? <span className="ui-spinner-label">{label}</span> : null}
     </span>
+  );
+});
+
+export const LoadingState = forwardRef<HTMLElement, LoadingStateProps>(function LoadingState(
+  { className, description, label, size = "md", ...props },
+  ref
+) {
+  return (
+    <section
+      {...props}
+      aria-busy="true"
+      aria-label={label}
+      className={cx("ui-loading-state", className)}
+      ref={ref}
+      role="status"
+    >
+      <Spinner decorative showLabel label={label} size={size} tone="accent" />
+      {description ? <p className="ui-loading-state-description">{description}</p> : null}
+    </section>
   );
 });

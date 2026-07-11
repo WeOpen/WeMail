@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { AdminGovernanceSummary, ProductMaturitySummary, SystemDiagnosticsSummary, SystemOperationsSummary } from "@wemail/shared";
+import type { AdminGovernanceSummary, ProductMaturitySummary, SystemDiagnosticsSummary } from "@wemail/shared";
 
 import { createApp, runCleanup } from "../src/app/create-app";
 import { createInMemoryStore } from "../src/infrastructure/persistence/in-memory";
@@ -669,102 +669,11 @@ describe("worker app", () => {
     expect(payload.error).toMatch(/admin session/i);
   });
 
-  it("returns operations failures for admin sessions", async () => {
-    const store = createInMemoryStore();
-    const app = createApp({ store });
-    const adminCookie = await registerSessionUser({ app, store, email: "admin@example.com" });
-    const admin = await store.users.findByEmail("admin@example.com");
-    if (!admin) throw new Error("admin missing");
-    const endpoint = await store.webhookEndpoints.create({
-      userId: admin.id,
-      name: "Ops hook",
-      url: "https://hooks.example.test/wemail",
-      eventsJson: JSON.stringify(["message.received"]),
-      enabled: true
-    });
-    await store.webhookDeliveries.record({
-      endpointId: endpoint.id,
-      eventType: "message.received",
-      status: "failed",
-      statusCode: 500,
-      durationMs: 120,
-      errorText: "target failed",
-      payloadJson: JSON.stringify({ event: "message.received" }),
-      responseText: "boom"
-    });
-    const mailbox = await store.mailboxes.create({
-      userId: admin.id,
-      address: "ops@example.com",
-      label: "Ops"
-    });
-    await store.outboundMessages.create({
-      mailboxId: mailbox.id,
-      fromAddress: "ops@example.com",
-      toAddress: "user@example.com",
-      subject: "Ops alert",
-      bodyText: "hello",
-      status: "failed",
-      errorText: "resend quota exceeded",
-      providerMessageId: null,
-      requestPayloadJson: "{}",
-      responsePayloadJson: null
-    });
-    await store.audit.record({
-      actorType: "user",
-      actorId: admin.id,
-      eventType: "telegram-delivery",
-      payloadJson: JSON.stringify({
-        eventId: "telegram.test",
-        label: "测试通知",
-        delivered: false,
-        reason: "telegram_api_failed"
-      })
-    });
+  it("does not expose the removed operations endpoint", async () => {
+    const app = createApp({ store: createInMemoryStore() });
+    const response = await app.request("/api/system/operations", {}, env);
 
-    const response = await app.request(
-      "/api/system/operations",
-      {
-        headers: { cookie: adminCookie }
-      },
-      env
-    );
-    const payload = (await response.json()) as { operations: SystemOperationsSummary };
-
-    expect(response.status).toBe(200);
-    expect(payload.operations.overallStatus).toBe("error");
-    expect(payload.operations.signals).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ label: "Webhook 失败", value: "1", status: "error" }),
-        expect.objectContaining({ label: "Telegram 失败", value: "1", status: "error" }),
-        expect.objectContaining({ label: "发信失败", value: "1", status: "error" })
-      ])
-    );
-    expect(payload.operations.recentEvents).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ source: "webhook", message: "target failed" }),
-        expect.objectContaining({ source: "telegram", message: "telegram_api_failed" }),
-        expect.objectContaining({ source: "outbound", message: "resend quota exceeded" })
-      ])
-    );
-  });
-
-  it("rejects operations failures for member sessions", async () => {
-    const store = createInMemoryStore();
-    const app = createApp({ store });
-    await registerSessionUser({ app, store, email: "admin@example.com" });
-    const memberCookie = await registerSessionUser({ app, store, email: "member-ops@example.com" });
-
-    const response = await app.request(
-      "/api/system/operations",
-      {
-        headers: { cookie: memberCookie }
-      },
-      env
-    );
-    const payload = (await response.json()) as { error?: string };
-
-    expect(response.status).toBe(403);
-    expect(payload.error).toMatch(/admin session/i);
+    expect(response.status).toBe(404);
   });
 
   it("paginates webhook endpoints for the current session user", async () => {

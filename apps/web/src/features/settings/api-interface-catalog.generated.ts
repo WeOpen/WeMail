@@ -895,13 +895,6 @@ export const apiInterfaceGroups: ApiInterfaceGroup[] = [
       },
       {
         "method": "GET",
-        "path": "/api/system/operations",
-        "title": "运维中心",
-        "description": "读取最近失败、诊断问题、投递异常和存储绑定信号。",
-        "access": "管理员"
-      },
-      {
-        "method": "GET",
         "path": "/api/system/reliability",
         "title": "数据可靠性",
         "description": "读取 D1/R2、migration、清理运行记录、幂等策略和备份恢复 runbook。",
@@ -934,14 +927,14 @@ export const apiInterfaceGroups: ApiInterfaceGroup[] = [
         "path": "/api/system/domains",
         "title": "邮箱域名",
         "description": "读取允许创建邮箱的域名。",
-        "access": "登录会话用户"
+        "access": "管理员"
       },
       {
         "method": "PATCH",
         "path": "/api/system/domains",
         "title": "更新邮箱域名",
         "description": "保存域名与角色权限。",
-        "access": "登录会话用户",
+        "access": "管理员",
         "example": {
           "requestBody": {
             "domains": [
