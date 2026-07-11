@@ -1,6 +1,6 @@
 ﻿import { readFileSync } from "node:fs";
 
-import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -88,6 +88,30 @@ const telegramLinkCode: TelegramLinkCodeSummary = {
 };
 
 describe("settings pages", () => {
+  it("shows API key loading and retryable failure states instead of an empty vault", () => {
+    const onRetry = vi.fn();
+    const { rerender } = renderWithRouter(
+      <ApiKeysPage apiKeys={[]} isLoading onCreateApiKey={vi.fn()} onRevokeApiKey={vi.fn()} />
+    );
+
+    expect(screen.getByRole("status", { name: "正在加载 API 密钥" })).toBeInTheDocument();
+
+    rerender(
+      <MemoryRouter>
+        <ApiKeysPage
+          apiKeys={[]}
+          errorMessage="Rate limit exceeded"
+          onCreateApiKey={vi.fn()}
+          onRetry={onRetry}
+          onRevokeApiKey={vi.fn()}
+        />
+      </MemoryRouter>
+    );
+
+    expect(screen.getByRole("region", { name: "API 密钥加载失败" })).toHaveTextContent("Rate limit exceeded");
+    fireEvent.click(screen.getByRole("button", { name: "重新加载" }));
+    expect(onRetry).toHaveBeenCalledOnce();
+  });
   afterEach(() => {
     cleanup();
     vi.unstubAllGlobals();

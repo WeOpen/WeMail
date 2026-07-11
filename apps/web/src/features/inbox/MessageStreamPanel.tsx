@@ -7,6 +7,7 @@ import { EmptyState } from "../../shared/empty-state/EmptyStatePrimitives";
 import { FilterBar } from "../../shared/filter-bar";
 import { Checkbox } from "../../shared/form";
 import { Pagination } from "../../shared/pagination";
+import { LoadingState } from "../../shared/spinner";
 import { Tabs, TabsList, TabsTrigger } from "../../shared/tabs";
 import { toMessageListItemViewModel } from "./view-models";
 
@@ -135,7 +136,7 @@ export function MessageStreamPanel({
       ) : null}
 
       {isLoading && messages.length === 0 && !errorMessage ? (
-        <p className="message-list-status empty-state" aria-live="polite">正在加载邮件...</p>
+        <LoadingState className="message-list-status" label="正在加载邮件" size="sm" />
       ) : null}
 
       <div aria-label="消息结果列表" className="message-list inbox-message-list workspace-stack-list" role="group">

@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 
 import type { ApiKeyScope, SessionSummary } from "@wemail/shared";
 
@@ -15,6 +15,7 @@ import {
   sendTelegramTestAction
 } from "./actions";
 import { querySettingsData, type SettingsDataQueryOptions } from "./queries";
+import { fetchApiKeys } from "./api";
 
 type UseSettingsDataOptions = {
   session: SessionSummary | null;
@@ -47,6 +48,8 @@ const runtimeSettingsOnlyQuery: SettingsDataQueryOptions = {
 };
 
 export function useSettingsData({ session, onToast }: UseSettingsDataOptions) {
+  const [isLoadingApiKeys, setIsLoadingApiKeys] = useState(false);
+  const [apiKeysError, setApiKeysError] = useState<string | null>(null);
   const apiKeys = useAppStore((state) => state.apiKeys);
   const telegram = useAppStore((state) => state.telegram);
   const telegramOverview = useAppStore((state) => state.telegramOverview);
@@ -64,6 +67,19 @@ export function useSettingsData({ session, onToast }: UseSettingsDataOptions) {
 
   const refreshSettingsData = useCallback(async (options?: SettingsDataQueryOptions) => {
     if (!session) return;
+    if (options?.includeApiKeys) {
+      setIsLoadingApiKeys(true);
+      setApiKeysError(null);
+      try {
+        const payload = await fetchApiKeys();
+        setSettingsData(payload.keys);
+      } catch (error) {
+        setApiKeysError(error instanceof Error ? error.message : "API 密钥加载失败");
+      } finally {
+        setIsLoadingApiKeys(false);
+      }
+      return;
+    }
     const data = await querySettingsData({
       ...options,
       includeRuntimeSettings: options?.includeRuntimeSettings ?? session.user.role === "admin",
@@ -153,6 +169,8 @@ export function useSettingsData({ session, onToast }: UseSettingsDataOptions) {
 
   return {
     apiKeys,
+    apiKeysError,
+    isLoadingApiKeys,
     dictionaries,
     dictionaryByGroup,
     runtimeSettings,

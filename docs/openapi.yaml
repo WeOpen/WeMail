@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "WeMail 菜单化后端 API",
-    "version": "0.2.7",
+    "version": "0.2.8",
     "description": "WeMail 后端 API 已按管理后台左侧菜单分组。旧 /auth、/admin、/api/mailboxes、/api/messages、/api/outbound、/api/keys、/api/telegram 路径不再保留。"
   },
   "servers": [

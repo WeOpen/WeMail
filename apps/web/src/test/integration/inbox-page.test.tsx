@@ -1244,6 +1244,7 @@ describe("mail list integration", () => {
 
     expect(refreshButton).toBeDisabled();
     expect(refreshButton).toHaveAttribute("aria-busy", "true");
+    expect(screen.getByRole("status", { name: "正在加载邮件" }).querySelector(".ui-spinner-indicator")).not.toBeNull();
   });
 
   it("shows the refresh button as loading when automatic polling refreshes messages", async () => {

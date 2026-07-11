@@ -24,6 +24,8 @@ import {
 import { Button } from "../../shared/button";
 import { Checkbox, FormField, TextInput } from "../../shared/form";
 import { MetricCard } from "../../shared/metric-card";
+import { EmptyState } from "../../shared/empty-state";
+import { LoadingState } from "../../shared/spinner";
 import { OverlayDialog } from "../../shared/overlay";
 import { Pagination } from "../../shared/pagination";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../../shared/tooltip";
@@ -40,8 +42,11 @@ type CreateApiKeyResult = {
 type ApiKeysPageProps = {
   apiKeys: ApiKeySummary[];
   currentUserRole?: UserRole;
+  errorMessage?: string | null;
+  isLoading?: boolean;
   onCreateApiKey: (label: string, scopes: ApiKeyScope[]) => Promise<CreateApiKeyResult>;
   onRevokeApiKey: (keyId: string) => Promise<void>;
+  onRetry?: () => void;
 };
 
 type RevealState = {
@@ -127,7 +132,7 @@ function ApiKeysCodeBlock({ copied, copyLabel, label, onCopy, value }: ApiKeysCo
   );
 }
 
-export function ApiKeysPage({ apiKeys, currentUserRole = "member", onCreateApiKey, onRevokeApiKey }: ApiKeysPageProps) {
+export function ApiKeysPage({ apiKeys, currentUserRole = "member", errorMessage, isLoading = false, onCreateApiKey, onRetry, onRevokeApiKey }: ApiKeysPageProps) {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isExampleOpen, setIsExampleOpen] = useState(false);
   const [label, setLabel] = useState("");
@@ -367,7 +372,16 @@ export function ApiKeysPage({ apiKeys, currentUserRole = "member", onCreateApiKe
             </section>
           ) : null}
 
-          {apiKeys.length > 0 ? (
+          {isLoading ? (
+            <LoadingState label="正在加载 API 密钥" />
+          ) : errorMessage ? (
+            <EmptyState
+              actions={onRetry ? <Button onClick={onRetry} variant="secondary">重新加载</Button> : undefined}
+              description={errorMessage}
+              title="API 密钥加载失败"
+              variant="error"
+            />
+          ) : apiKeys.length > 0 ? (
             <div className="api-keys-record-list" role="list">
               {paginatedApiKeys.map((key) => (
                 <article className="api-keys-record-row" data-state={getStatusTone(key)} key={key.id} role="listitem">

@@ -135,6 +135,8 @@ type AppRoutesProps = {
   selectedMessage: MessageSummary | null;
   settings: {
     apiKeys: ApiKeySummary[];
+    apiKeysError: string | null;
+    isLoadingApiKeys: boolean;
     runtimeSettings: RuntimeSettings | null;
     systemDiagnostics: SystemDiagnosticsSummary | null;
     systemMaturity: ProductMaturitySummary | null;
@@ -320,9 +322,12 @@ export function AppRoutes({
   const apiKeysPage = (
     <ApiKeysPage
       apiKeys={settings.apiKeys}
+      errorMessage={settings.apiKeysError}
+      isLoading={settings.isLoadingApiKeys}
       currentUserRole={session.user.role}
       onCreateApiKey={settings.createApiKey}
       onRevokeApiKey={settings.revokeApiKey}
+      onRetry={() => settings.refreshSettingsData({ includeApiKeys: true, includeDictionaries: false, includeRuntimeSettings: false, includeTelegram: false })}
     />
   );
   const apiInterfacesPage = <ApiInterfacesPage />;

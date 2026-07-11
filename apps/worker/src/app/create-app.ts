@@ -76,9 +76,8 @@ export function createApp(options?: { store?: AppContext["Variables"]["store"] }
         "/api/auth/register",
         "/api/auth/login",
         "/api/accounts",
-        "/api/mail/send",
-        "/api/api-keys"
-      ].includes(c.req.path);
+        "/api/mail/send"
+      ].includes(c.req.path) || (c.req.path === "/api/api-keys" && c.req.method === "POST");
       if (limited) {
         const result = await c.env.RATE_LIMITER.limit({ key: `${c.req.path}:${ip}` });
         if (!result.success) return jsonError("Rate limit exceeded", 429);

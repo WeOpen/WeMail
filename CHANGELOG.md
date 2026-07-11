@@ -14,6 +14,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.8] - 2026-07-12
+
+### Fixed
+
+- Restored fast API key listing by excluding read requests from creation rate limits and showing explicit loading, failure, and retry states instead of silently rendering an empty vault.
+- Replaced the inbox's plain loading copy with the shared animated loading state while keeping refresh progress visible on the refresh action.
+
 ## [0.2.7] - 2026-07-11
 
 ### Fixed
