@@ -14,9 +14,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.6] - 2026-07-11
+
 ### Fixed
 
 - Prevented large mailbox sets from exceeding D1 SQL variable limits in system maturity queries, isolated settings data requests so one failed module no longer hides API keys or operations data, and loaded capability toggles directly on the system settings route.
+- Tightened the inbox batch toolbar and full-width detail cards, anchored message pagination to the list panel bottom, and made message switching immediate while reusing recently loaded details.
+- Added the recipient address to message details with the shared long-email shortening treatment.
 
 ## [0.2.5] - 2026-07-10
 

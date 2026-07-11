@@ -148,7 +148,6 @@ export function MessageStreamPanel({
                 label={<span className="sr-only">选择当前页邮件</span>}
                 onChange={(event) => onTogglePageSelection(event.currentTarget.checked)}
               />
-              <span>选择当前页</span>
             </label>
             <span className="message-batch-count">已选 {selectedCount}</span>
             <div className="message-batch-actions">

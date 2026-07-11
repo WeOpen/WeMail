@@ -166,6 +166,9 @@ export function useInboxWorkspace({
       return;
     }
 
+    // Drop the previous full detail immediately so the newly selected list item renders without waiting on the network.
+    setSelectedMessageDetail(null);
+    setSelectedMessageError(null);
     setIsLoadingSelectedMessage(true);
     try {
       const message = await queryMessageDetail(messageId);

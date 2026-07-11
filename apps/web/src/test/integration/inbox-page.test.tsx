@@ -74,6 +74,7 @@ const mockInboxMessages: MessageSummary[] = [
     id: "msg-1",
     mailboxId: "box-1",
     fromAddress: "no-reply@acme.dev",
+    toAddress: "inbox-owner@example.com",
     subject: "Verify your email",
     previewText: "Use 482913 to finish sign in",
     bodyText: "Use 482913 to finish sign in",
@@ -660,8 +661,11 @@ describe("mail list integration", () => {
     expect(screen.queryByText(/^\d+ \/ \d+ 条匹配$/i)).not.toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: /^消息列表$/i })).not.toBeInTheDocument();
     expect(screen.queryByText(/^阅读与提取详情$/i)).not.toBeInTheDocument();
+    expect(screen.queryByText("选择当前页")).not.toBeInTheDocument();
+    expect(screen.getByText("已选 0")).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: /^消息详情$/i })).not.toBeInTheDocument();
     expect(screen.getByRole("region", { name: /^阅读与提取详情$/i })).toBeInTheDocument();
+    expect(screen.getByText("收件人：inbox-owner@example.com")).toBeInTheDocument();
     expect(screen.getByText(/^LOGIN LINK$/i)).toBeInTheDocument();
     const extractionCard = screen.getByLabelText("邮件识别结果");
     expect(within(extractionCard).getByText(/^识别到验证码$/i)).toBeInTheDocument();
@@ -1044,6 +1048,7 @@ describe("mail list integration", () => {
     expect(detailPanel.getAllByRole("heading", { name: /^请选择一封消息$/i })).toHaveLength(1);
     expect(detailPanel.queryByText(/这是一条前端预览邮件/i)).not.toBeInTheDocument();
     expect(screen.getByRole("navigation", { name: /^消息列表分页$/i })).toBeInTheDocument();
+    expect(screen.queryByText("选择当前页")).not.toBeInTheDocument();
   });
 
   it("requests backend message queries for search, extraction tabs, and pagination", async () => {

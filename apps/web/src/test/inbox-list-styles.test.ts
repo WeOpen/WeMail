@@ -31,7 +31,11 @@ describe("inbox list styles", () => {
     const messageFilterTabsListRule = getRuleBody(".message-filter-tabs .message-filter-tabs-list.ui-tabs-list[data-variant=\"segmented\"]");
     const messageFilterTabRule = getRuleBody(".message-filter-tabs .message-filter-tab.ui-tabs-trigger[data-variant=\"segmented\"]");
     const messageBatchSelectRule = getRuleBody(".message-batch-select-all");
-    const messageBatchSelectTextRule = getRuleBody(".message-batch-select-all > span:not(.sr-only)");
+    const messageBatchToolbarRule = getRuleBody(".message-batch-toolbar");
+    const messageBatchCountRule = getRuleBody(".message-batch-count");
+    const messageWorkbenchRule = getRuleBody(".message-workbench-panel");
+    const messagePaginationRule = getRuleBody(".message-pagination");
+    const inboxMessageListRule = getRuleBody(".inbox-message-list");
     const messageIconRule = getRuleBody(".message-item-attachment-chip svg,\n.message-extraction-chip-icon,\n.message-filter-tab-icon");
     const mailboxSelectShellRule = getRuleBody(".mailbox-select-trigger-shell");
     const mailboxSelectClearRule = getRuleBody(".mailbox-select-clear.ui-button");
@@ -42,6 +46,7 @@ describe("inbox list styles", () => {
     const extractionCardPrimaryRule = getRuleBody(".extraction-card-primary strong");
     const extractionCardLinkRule = getRuleBody(".extraction-card-primary .extraction-card-value-link");
     const extractionConfidenceFillRule = getRuleBody(".extraction-confidence-fill");
+    const linkRiskCardRule = getRuleBody(".link-risk-card");
     const detailActionsRule = getRuleBody(".detail-panel-actions");
     const detailSubjectRule = getRuleBody(".detail-panel-subject");
     const detailActionGroupRule = getRuleBody(".detail-panel-action-group");
@@ -56,7 +61,12 @@ describe("inbox list styles", () => {
     expect(messageFilterTabRule).toContain("gap: 6px");
     expect(messageBatchSelectRule).toContain("justify-self: start");
     expect(messageBatchSelectRule).toContain("text-align: left");
-    expect(messageBatchSelectTextRule).toContain("text-align: left");
+    expect(messageBatchToolbarRule).toContain("grid-template-columns: auto minmax(0, 1fr) auto");
+    expect(messageBatchCountRule).toContain("justify-self: start");
+    expect(messageWorkbenchRule).toContain("flex-direction: column");
+    expect(messageWorkbenchRule).toContain("height: auto");
+    expect(messagePaginationRule).toContain("margin-top: auto");
+    expect(inboxMessageListRule).toContain("flex: 1 1 auto");
     expect(messageItemRule).toContain("overflow: visible");
     expect(announcementsItemOpenRule).toContain("overflow: visible");
     expect(announcementsItemOpenRule).toContain("border-radius: 16px");
@@ -83,7 +93,8 @@ describe("inbox list styles", () => {
     expect(mailboxSelectTableRule).toContain("table-layout: fixed");
     expect(mailboxSelectPaginationRule).toContain("justify-content: space-between");
     expect(extractionCardRule).toContain("grid-template-columns: minmax(0, 1fr) minmax(132px, 0.28fr)");
-    expect(extractionCardRule).toContain("width: min(100%, 660px)");
+    expect(extractionCardRule).toContain("width: 100%");
+    expect(extractionCardRule).toContain("justify-self: stretch");
     expect(extractionCardRule).toContain("min-height: 72px");
     expect(extractionCardRule).toContain("padding: 12px 14px");
     expect(extractionCardRule).toContain("background: #fff1e5");
@@ -91,6 +102,7 @@ describe("inbox list styles", () => {
     expect(extractionCardLinkRule).toContain("\"SFMono-Regular\", Consolas, \"Liberation Mono\", monospace");
     expect(extractionCardLinkRule).toContain("font-size: clamp(0.86rem, 1.15vw, 1.02rem)");
     expect(extractionConfidenceFillRule).toContain("linear-gradient(90deg, #ff7a00 0%, #20c997 100%)");
+    expect(linkRiskCardRule).toContain("width: 100%");
     expect(messageMainRule).toContain("line-height: 1.35");
     expect(messageTimeRule).toContain("font-size: 0.86rem");
     expect(messageTimeRule).toContain("font-variant-numeric: tabular-nums");

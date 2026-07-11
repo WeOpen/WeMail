@@ -16,6 +16,7 @@ import {
 import type { MessageSummary } from "@wemail/shared";
 
 import { Button } from "../../shared/button";
+import { formatDisplayEmail } from "../../shared/display";
 import { EmptyState } from "../../shared/empty-state/EmptyStatePrimitives";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../../shared/tooltip";
 import { toMessageDetailViewModel } from "./view-models";
@@ -296,7 +297,10 @@ export function MessageDetailPanel({ errorMessage = null, isLoading = false, onR
         </div>
       </div>
       <div className="detail-meta workspace-meta-row">
-        <span>发件人：{viewModel.fromAddress}</span>
+        <span className="truncated-email" title={viewModel.fromAddress}>发件人：{formatDisplayEmail(viewModel.fromAddress)}</span>
+        <span className="truncated-email" title={viewModel.toAddress ?? undefined}>
+          收件人：{viewModel.toAddress ? formatDisplayEmail(viewModel.toAddress) : "未知"}
+        </span>
         <span>{viewModel.receivedAtLabel}</span>
         <span className="detail-retention-label">
           <Clock3 size={14} strokeWidth={1.9} aria-hidden="true" />

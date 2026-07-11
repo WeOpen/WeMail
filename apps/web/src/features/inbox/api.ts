@@ -16,6 +16,7 @@ import { apiFetch } from "../../shared/api/client";
 import type { OutboundHistoryDetail } from "./types";
 
 const MAILBOX_SETUP_CACHE_TTL_MS = 30_000;
+const MESSAGE_DETAIL_CACHE_TTL_MS = 30_000;
 
 export type MailboxListQueryInput = {
   page?: number;
@@ -106,7 +107,9 @@ export function fetchMessages(query?: MessageListQueryInput | string | null) {
 }
 
 export function fetchMessageDetail(messageId: string) {
-  return apiFetch<{ message: MessageSummary }>(`/api/mail/messages/${encodeURIComponent(messageId)}`);
+  return apiFetch<{ message: MessageSummary }>(`/api/mail/messages/${encodeURIComponent(messageId)}`, {
+    cacheTtlMs: MESSAGE_DETAIL_CACHE_TTL_MS
+  });
 }
 
 export type MessageBatchPayload = {

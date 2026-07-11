@@ -3122,6 +3122,7 @@ button:disabled {
 
 .message-pagination {
   justify-content: center;
+  margin-top: auto;
   border-top: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
   padding-top: 12px;
 }
@@ -3142,6 +3143,12 @@ button:disabled {
   min-width: 0;
   min-height: 100%;
   align-content: start;
+}
+
+.message-workbench-panel {
+  display: flex;
+  flex-direction: column;
+  height: min(58rem, calc(100vh - 210px));
 }
 
 .workspace-card-header.message-panel-header {
@@ -3502,9 +3509,10 @@ button:disabled {
 }
 
 .inbox-message-list {
+  flex: 1 1 auto;
   align-content: start;
   gap: 14px;
-  max-height: min(52rem, calc(100vh - 320px));
+  max-height: none;
   min-height: 280px;
   overflow: auto;
   padding-right: 4px;
@@ -3512,7 +3520,7 @@ button:disabled {
 
 .message-batch-toolbar {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   gap: 10px;
   align-items: center;
   padding: 10px;
@@ -3550,6 +3558,7 @@ button:disabled {
 }
 
 .message-batch-count {
+  justify-self: start;
   color: var(--text-muted);
   font-size: 0.82rem;
   font-weight: 760;
@@ -3606,9 +3615,9 @@ button:disabled {
 .inbox-detail-panel .extraction-card {
   grid-template-columns: minmax(0, 1fr) minmax(132px, 0.28fr);
   align-items: center;
-  justify-self: start;
+  justify-self: stretch;
   gap: 12px;
-  width: min(100%, 660px);
+  width: 100%;
   min-height: 72px;
   padding: 12px 14px;
   border-radius: 12px;
@@ -3785,7 +3794,7 @@ button:disabled {
 .link-risk-card {
   justify-content: space-between;
   gap: 12px;
-  width: min(100%, 660px);
+  width: 100%;
   padding: 12px 14px;
   border: 1px solid color-mix(in srgb, var(--success) 34%, var(--border));
   border-radius: 14px;
@@ -11458,6 +11467,10 @@ button:disabled {
 
   .detail-panel {
     grid-column: auto;
+  }
+
+  .message-workbench-panel {
+    height: auto;
   }
 
 }
