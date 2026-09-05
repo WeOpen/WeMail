@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 
 import type {
   ExtractionType,
@@ -128,7 +128,22 @@ export function InboxPage({
   const [label, setLabel] = useState("");
   const [domain, setDomain] = useState("");
   const [creatorNote, setCreatorNote] = useState("");
+  const [composerFieldErrors, setComposerFieldErrors] = useState<{
+    label?: string;
+    domain?: string;
+    creatorNote?: string;
+  }>({});
+  const composerFormRef = useRef<HTMLFormElement | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  function clearComposerFieldError(key: "label" | "domain" | "creatorNote") {
+    setComposerFieldErrors((current) => {
+      if (!current[key]) return current;
+      const next = { ...current };
+      delete next[key];
+      return next;
+    });
+  }
   const [outboundDrawerOpen, setOutboundDrawerOpen] = useState(false);
   const [mailboxSelectorOpen, setMailboxSelectorOpen] = useState(false);
   const [mailboxSearchValue, setMailboxSearchValue] = useState("");
@@ -196,12 +211,6 @@ export function InboxPage({
   const safeMailboxPage = Math.min(mailboxPage, Math.max(1, Math.ceil(mailboxSelectorTotal / mailboxSelectorPageSize)));
   const detailMessage = selectedMessage ?? messages.find((message) => message.id === selectedMessageId) ?? messages[0] ?? null;
   const activeMessageId = detailMessage?.id ?? null;
-  const canCreateMailbox =
-    Boolean(label.trim()) &&
-    Boolean(domain) &&
-    (!requireCreatorNote || Boolean(creatorNote.trim())) &&
-    !isSubmitting &&
-    !isLoadingDomains;
   const domainPlaceholderLabel = isLoadingDomains ? "加载域名中" : availableDomains.length === 0 ? "暂无可用域名" : "请选择域名";
 
   useEffect(() => {
@@ -209,6 +218,7 @@ export function InboxPage({
       setLabel(suggestedLabel);
       setDomain("");
       setCreatorNote("");
+      setComposerFieldErrors({});
       setIsSubmitting(false);
     }
   }, [mailboxComposerOpen, suggestedLabel]);
@@ -279,8 +289,28 @@ export function InboxPage({
   const handleCreateMailbox = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const nextLabel = label.trim();
-    if (!canCreateMailbox || !nextLabel) return;
+    const nextErrors: { label?: string; domain?: string; creatorNote?: string } = {};
+    if (!nextLabel) nextErrors.label = "请输入邮箱标签";
+    if (!domain) nextErrors.domain = "请选择邮箱域名";
+    if (requireCreatorNote && !creatorNote.trim()) nextErrors.creatorNote = "请填写用途备注";
 
+    // Validate on submit and focus the first invalid field — the same pattern
+    // as the auth forms — instead of disabling the primary action until valid.
+    if (Object.keys(nextErrors).length > 0) {
+      setComposerFieldErrors(nextErrors);
+      const form = composerFormRef.current;
+      if (nextErrors.label) {
+        form?.querySelector<HTMLInputElement>('input[name="mailboxLabel"]')?.focus();
+      } else if (nextErrors.domain) {
+        // SelectInput's ref targets the hidden native select; focus the trigger.
+        form?.querySelector<HTMLElement>('[role="combobox"]')?.focus();
+      } else {
+        form?.querySelector<HTMLInputElement>('input[name="mailboxCreatorNote"]')?.focus();
+      }
+      return;
+    }
+
+    setComposerFieldErrors({});
     setIsSubmitting(true);
     try {
       await onCreateMailbox({
@@ -385,6 +415,7 @@ export function InboxPage({
   return (
     <>
       <main className="workspace-grid inbox-page-grid">
+        <h1 className="sr-only">邮件列表</h1>
         <InboxSummaryBar
           attachmentCount={messageListSummary.attachmentCount}
           extractionCount={messageListSummary.extractionCount}
@@ -404,6 +435,7 @@ export function InboxPage({
         <div className="workspace-grid inbox-grid">
           <MessageStreamPanel
             filter={messageFilter}
+            hasMailboxes={mailboxes.length > 0}
             messages={messages}
             page={safeMessagePage}
             pageSize={messageListPageSize}
@@ -444,25 +476,47 @@ export function InboxPage({
           onClose={onCloseMailboxComposer}
           title="创建新邮箱"
         >
-          <form className="composer-form workspace-dialog-form" onSubmit={(event) => void handleCreateMailbox(event)}>
+          <form
+            className="composer-form workspace-dialog-form"
+            noValidate
+            onSubmit={(event) => void handleCreateMailbox(event)}
+            ref={composerFormRef}
+          >
             <p className="section-copy">填写邮箱标签并选择可用域名，系统将生成邮箱地址。</p>
-            <FormField label="邮箱标签" required>
+            <FormField
+              label="邮箱标签"
+              message={composerFieldErrors.label}
+              required
+              tone={composerFieldErrors.label ? "error" : "default"}
+            >
               <TextInput
+                aria-invalid={composerFieldErrors.label ? "true" : undefined}
                 aria-label="邮箱标签"
                 name="mailboxLabel"
-                onChange={(event) => setLabel(event.target.value)}
+                onChange={(event) => {
+                  setLabel(event.target.value);
+                  clearComposerFieldError("label");
+                }}
                 placeholder="例如：ops、admin、support"
                 required
                 type="text"
                 value={label}
               />
             </FormField>
-            <FormField label="邮箱域名" required>
+            <FormField
+              label="邮箱域名"
+              message={composerFieldErrors.domain}
+              required
+              tone={composerFieldErrors.domain ? "error" : "default"}
+            >
               <SelectInput
                 aria-label="邮箱域名"
                 disabled={isLoadingDomains || availableDomains.length === 0}
                 name="mailboxDomain"
-                onChange={(event) => setDomain(event.target.value)}
+                onChange={(event) => {
+                  setDomain(event.target.value);
+                  clearComposerFieldError("domain");
+                }}
                 required
                 value={domain}
               >
@@ -477,11 +531,20 @@ export function InboxPage({
               </SelectInput>
             </FormField>
             {requireCreatorNote ? (
-              <FormField label="用途备注" required>
+              <FormField
+                label="用途备注"
+                message={composerFieldErrors.creatorNote}
+                required
+                tone={composerFieldErrors.creatorNote ? "error" : "default"}
+              >
                 <TextInput
+                  aria-invalid={composerFieldErrors.creatorNote ? "true" : undefined}
                   aria-label="用途备注"
                   name="mailboxCreatorNote"
-                  onChange={(event) => setCreatorNote(event.target.value)}
+                  onChange={(event) => {
+                    setCreatorNote(event.target.value);
+                    clearComposerFieldError("creatorNote");
+                  }}
                   placeholder="例如：市场活动回收、客服收件"
                   required
                   type="text"
@@ -493,7 +556,7 @@ export function InboxPage({
               <Button onClick={onCloseMailboxComposer} variant="secondary">
                 取消
               </Button>
-              <Button disabled={!canCreateMailbox} type="submit" variant="primary">
+              <Button disabled={isSubmitting} type="submit" variant="primary">
                 {isSubmitting ? "创建中…" : "创建邮箱"}
               </Button>
             </div>

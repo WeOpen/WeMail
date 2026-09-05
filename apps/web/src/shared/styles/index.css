@@ -10567,6 +10567,9 @@ button:disabled {
   flex-wrap: wrap;
   gap: 14px;
   font-size: 0.92rem;
+  /* Grid items default to min-width: auto, so the nowrap email spans pushed
+     this row past the detail panel's track at narrow widths. */
+  min-width: 0;
 }
 
 .extraction-card,

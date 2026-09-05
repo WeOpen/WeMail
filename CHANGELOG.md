@@ -18,6 +18,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Gave the auth tab switcher a visible keyboard focus indicator (the selected tab previously showed no focus change at all) and raised the `--text-soft` token to an AA-compliant contrast in both themes (light 2.78→4.7:1, dark 4.1→5.1:1).
 - Registration now marks the invite code as required and validates it inline, adds `autocomplete` to all auth inputs, announces server auth errors with `role="alert"`, and resolves OAuth links against the API origin so they work in split web/worker deployments.
+- Workspace routes now set a per-page document title (e.g. "邮件列表 · WeMail") and the dashboard and inbox pages render a page-level heading, following the existing per-page sr-only h1 convention.
+- Link-type extraction chips now name the link by type (登录链接 / 服务链接 / 订阅链接 / 有用链接) instead of a fixed English "LOGIN LINK" label.
+- The create-mailbox dialog keeps its primary action enabled and validates on submit with field-level messages, instead of disabling the button until the form is valid.
+- The mail list empty state now points users without any mailbox to creating one, and the detail metadata row no longer overflows its panel by a few pixels at 320px width.
 
 ## [0.2.10] - 2026-09-05
 

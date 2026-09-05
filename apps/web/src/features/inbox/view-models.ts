@@ -2,13 +2,22 @@ import type { MessageSummary } from "@wemail/shared";
 
 import { formatAttachmentSize, formatReceivedAt, formatSenderName } from "./formatters";
 
+const linkChipLabels: Partial<Record<MessageSummary["extraction"]["type"], string>> = {
+  auth_link: "登录链接",
+  service_link: "服务链接",
+  subscription_link: "订阅链接",
+  other_link: "有用链接"
+};
+
 function toExtractionChip(message: MessageSummary) {
   if (message.extraction.type === "auth_code" && message.extraction.value.trim()) {
     return { tone: "code", icon: "key", primary: message.extraction.value, secondary: "已提取验证码" } as const;
   }
 
-  if (["auth_link", "service_link", "subscription_link", "other_link"].includes(message.extraction.type)) {
-    return { tone: "link", icon: "link", primary: "LOGIN LINK", secondary: message.extraction.label || "已识别链接" } as const;
+  if (linkChipLabels[message.extraction.type]) {
+    // The chip names what the link is for; a fixed English label both broke
+    // the Chinese voice and mislabeled service/subscription links as login.
+    return { tone: "link", icon: "link", primary: linkChipLabels[message.extraction.type], secondary: message.extraction.label || "已识别链接" } as const;
   }
 
   return {

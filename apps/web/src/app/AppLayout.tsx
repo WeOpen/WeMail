@@ -143,6 +143,14 @@ export function AppLayout({
   const activeSecondaryRoute =
     shell.secondaryNav.find((item) => item.to === location.pathname)?.to ?? shell.secondaryNav[0]?.to ?? "";
   const hasAnnouncementBadge = announcementCount > 0;
+  const activePageLabel =
+    shell.secondaryNav.find((item) => item.to === activeSecondaryRoute)?.label ?? shell.activePrimaryLabel;
+
+  // Screen-reader and browser-history users identify the page by its title;
+  // without this every route shares the static "WeMail" document title.
+  useEffect(() => {
+    document.title = `${activePageLabel} · WeMail`;
+  }, [activePageLabel]);
 
   useEffect(() => {
     const areas = [railScrollRef.current, mainScrollRef.current].filter(Boolean) as Array<HTMLElement>;

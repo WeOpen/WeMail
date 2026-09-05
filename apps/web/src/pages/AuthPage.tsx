@@ -1,5 +1,5 @@
 import type { FormEvent, KeyboardEvent } from "react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 
 import { AuthForms } from "../features/auth/AuthForms";
@@ -54,6 +54,11 @@ export function AuthPage({ authError, onRegister, onLogin, onOAuthFinalize, onTo
   const oauthCallbackError = resolveOAuthCallbackError(searchParams);
   const [oauthInviteCode, setOAuthInviteCode] = useState("");
   const [isOAuthInviteSubmitting, setIsOAuthInviteSubmitting] = useState(false);
+
+  // Distinguish the auth tab from every other WeMail tab in the browser.
+  useEffect(() => {
+    document.title = `${mode === "register" ? "注册" : "登录"} · WeMail`;
+  }, [mode]);
 
   function switchMode(nextMode: (typeof AUTH_MODES)[number]) {
     if (nextMode === mode) return;
