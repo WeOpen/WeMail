@@ -34,18 +34,128 @@ import type {
   SessionRecord,
   UserPreferencesRecord
 } from "../../core/bindings";
-import {
-  filterAnnouncements,
-  getAnnouncementSummary,
-  getFeaturedAnnouncements,
-  paginateAnnouncements
-} from "../../shared/announcements";
+import { announcementStatuses } from "../../shared/announcements";
 
 function nowIso() {
   return new Date().toISOString();
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000;
+
+// ---------------------------------------------------------------------------
+// Announcement SQL pushdown.
+//
+// The WHERE fragments below must stay semantically identical to
+// src/shared/announcements.ts (isAnnouncementVisible + matchesAnnouncementFilters).
+// ISO-8601 text compares lexicographically == chronologically in SQLite.
+// Manage scope + admin bypasses every check *including* the archived
+// exclusion, exactly like isAnnouncementVisible.
+// ---------------------------------------------------------------------------
+
+type AnnouncementSqlFilter = {
+  whereSql: string;
+  params: (string | number)[];
+};
+
+function buildAnnouncementStatusPredicate(status: string, nowIsoValue: string) {
+  // Mirrors resolveAnnouncementStatus branch-for-branch for non-archived rows.
+  if (status === "已发布") {
+    return "(status <> '已归档' AND start_at IS NULL AND end_at IS NULL)";
+  }
+  if (status === "即将开始") {
+    return "(status <> '已归档' AND start_at IS NOT NULL AND start_at > ? AND (end_at IS NULL OR end_at >= ?))";
+  }
+  if (status === "已结束") {
+    return "(status <> '已归档' AND end_at IS NOT NULL AND end_at < ?)";
+  }
+  if (status === "进行中") {
+    return (
+      "(status <> '已归档' AND (start_at IS NOT NULL OR end_at IS NOT NULL) AND " +
+      "(start_at IS NULL OR start_at <= ?) AND (end_at IS NULL OR end_at >= ?))"
+    );
+  }
+  return "(status = ?)";
+}
+
+function buildAnnouncementVisibilityPredicate(
+  scope: "visible" | "manage" | undefined,
+  userRole: "admin" | "member" | undefined,
+  nowIsoValue: string
+) {
+  if (scope === "manage" && userRole === "admin") {
+    return { sql: "1 = 1", params: [] as (string | number)[] };
+  }
+  const parts: string[] = ["status <> '已归档'"];
+  const params: (string | number)[] = [];
+  if (!userRole) {
+    return { sql: "1 = 0", params };
+  }
+  // isAnnouncementAudienceVisible: 管理员→admin, 普通成员→member, else all.
+  parts.push("(audience NOT IN ('管理员', '普通成员') OR audience = ?)");
+  params.push(userRole === "admin" ? "管理员" : "普通成员");
+  // isWithinPublishWindow (non-null dates are always valid per JS parse).
+  parts.push("(start_at IS NULL OR start_at <= ?) AND (end_at IS NULL OR end_at >= ?)");
+  params.push(nowIsoValue, nowIsoValue);
+  return { sql: parts.join(" AND "), params };
+}
+
+function escapeAnnouncementLikeKeyword(keyword: string) {
+  // q is a keyword substring match over title/summary/tags; % _ and \ are
+  // escaped so user input cannot widen the pattern.
+  return keyword.replace(/[\\%_]/g, (ch) => `\\${ch}`);
+}
+
+function buildAnnouncementFilter(options: {
+  q?: string;
+  scope?: "visible" | "manage";
+  status?: string;
+  time?: "7d" | "30d";
+  type?: string;
+  userRole?: "admin" | "member";
+}): AnnouncementSqlFilter {
+  const nowIsoValue = nowIso();
+  const parts: string[] = [];
+  const params: (string | number)[] = [];
+
+  const visibility = buildAnnouncementVisibilityPredicate(options.scope, options.userRole, nowIsoValue);
+  parts.push(visibility.sql);
+  params.push(...visibility.params);
+
+  const keyword = options.q?.trim().toLowerCase();
+  if (keyword) {
+    parts.push(
+      "(instr(lower(title), ?) > 0 OR instr(lower(summary), ?) > 0 OR instr(lower(tags_json), ?) > 0)"
+    );
+    const likeKeyword = escapeAnnouncementLikeKeyword(keyword);
+    params.push(likeKeyword, likeKeyword, likeKeyword);
+  }
+
+  if (options.type) {
+    parts.push("type = ?");
+    params.push(options.type);
+  }
+
+  if (options.status) {
+    const statusPredicate = buildAnnouncementStatusPredicate(options.status, nowIsoValue);
+    parts.push(statusPredicate);
+    if (statusPredicate === "(status = ?)") {
+      params.push(options.status);
+    } else {
+      // 进行中 / 即将开始 / 已结束 reference `now` once or twice.
+      const nowCount = (statusPredicate.match(/\?/g) ?? []).length;
+      for (let i = 0; i < nowCount; i += 1) params.push(nowIsoValue);
+    }
+  }
+
+  if (options.time) {
+    const days = options.time === "7d" ? 7 : 30;
+    const cutoff = new Date(Date.now() - days * DAY_MS).toISOString();
+    parts.push("published_at >= ?");
+    params.push(cutoff);
+  }
+
+  return { whereSql: `WHERE ${parts.join(" AND ")}`, params };
+}
 
 function getSafePage(value: number) {
   return Number.isFinite(value) && value > 0 ? Math.trunc(value) : 1;
@@ -2070,26 +2180,64 @@ export function createD1Store(db: D1Database): AppStore {
       async listPage(options) {
         const page = getSafePage(options.page);
         const pageSize = getSafePageSize(options.pageSize);
-        const result = await db.prepare("SELECT * FROM announcements").all();
-        const filteredAnnouncements = filterAnnouncements((result.results ?? []).map(toAnnouncementRecord), {
-          ...options,
-          page,
-          pageSize
-        });
+        // Filtering and pagination are pushed into SQL; the JS helpers in
+        // shared/announcements.ts remain the source of truth for semantics and
+        // are exercised against the in-memory store in tests.
+        const filter = buildAnnouncementFilter(options);
+        const baseParams = [...filter.params];
+        const countResult = await db
+          .prepare(`SELECT COUNT(*) AS count FROM announcements ${filter.whereSql}`)
+          .bind(...baseParams)
+          .first<{ count: number }>();
+        const rows = await db
+          .prepare(
+            `SELECT * FROM announcements ${filter.whereSql} ORDER BY pinned DESC, published_at DESC LIMIT ? OFFSET ?`
+          )
+          .bind(...baseParams, pageSize, (page - 1) * pageSize)
+          .all();
         return {
-          announcements: paginateAnnouncements(filteredAnnouncements, { ...options, page, pageSize }),
-          total: filteredAnnouncements.length,
+          announcements: (rows.results ?? []).map(toAnnouncementRecord),
+          total: countResult?.count ?? 0,
           page,
           pageSize
         };
       },
       async listFeatured(options) {
-        const result = await db.prepare("SELECT * FROM announcements").all();
-        return getFeaturedAnnouncements((result.results ?? []).map(toAnnouncementRecord), options);
+        const filter = buildAnnouncementFilter(options);
+        const rows = await db
+          .prepare(
+            `SELECT * FROM announcements ${filter.whereSql} AND pinned = 1 ORDER BY pinned DESC, published_at DESC`
+          )
+          .bind(...filter.params)
+          .all();
+        return (rows.results ?? []).map(toAnnouncementRecord);
       },
       async summary(options) {
-        const result = await db.prepare("SELECT * FROM announcements").all();
-        return getAnnouncementSummary((result.results ?? []).map(toAnnouncementRecord), options);
+        // Group the derived status in SQL with the same predicates the JS
+        // resolver uses, falling back to the stored status for 已归档.
+        const filter = buildAnnouncementFilter(options);
+        const nowIsoValue = nowIso();
+        const rows = await db
+          .prepare(
+            `SELECT
+              CASE
+                WHEN status = '已归档' THEN '已归档'
+                WHEN start_at IS NOT NULL AND start_at > ? AND (end_at IS NULL OR end_at >= ?) THEN '即将开始'
+                WHEN end_at IS NOT NULL AND end_at < ? THEN '已结束'
+                WHEN start_at IS NULL AND end_at IS NULL THEN '已发布'
+                ELSE '进行中'
+              END AS derived_status,
+              COUNT(*) AS count
+             FROM announcements ${filter.whereSql}
+             GROUP BY derived_status`
+          )
+          .bind(nowIsoValue, nowIsoValue, nowIsoValue, ...filter.params)
+          .all();
+        const counts = new Map<string, number>();
+        for (const row of (rows.results ?? []) as Array<{ derived_status: string; count: number }>) {
+          counts.set(row.derived_status, row.count);
+        }
+        return announcementStatuses.map((status) => ({ label: status, value: counts.get(status) ?? 0 }));
       },
       async create(input) {
         const now = nowIso();
