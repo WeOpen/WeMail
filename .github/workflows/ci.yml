@@ -30,6 +30,12 @@ jobs:
       - name: Version check
         run: pnpm version:check
 
+      - name: Migration numbering check
+        run: node scripts/check-migration-numbering.mjs
+
+      - name: API interface catalog check
+        run: pnpm api-catalog:check
+
       - name: Test
         run: pnpm test
 

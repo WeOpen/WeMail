@@ -590,7 +590,9 @@ export interface AppStore {
     listForMailboxes: (query: MessageRecordListQuery) => Promise<MessageRecordListResult>;
     listByMailbox: (mailboxId: string) => Promise<PersistedMessageRecord[]>;
     findById: (id: string) => Promise<PersistedMessageRecord | null>;
-    listExpired: (beforeIso: string) => Promise<PersistedMessageRecord[]>;
+    // options.limit bounds the query; omitting it keeps the historical
+    // unbounded semantics used by diagnostics endpoints.
+    listExpired: (beforeIso: string, options?: { limit?: number }) => Promise<PersistedMessageRecord[]>;
     deleteMany: (ids: string[]) => Promise<void>;
   };
   attachments: {

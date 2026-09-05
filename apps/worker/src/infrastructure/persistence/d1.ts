@@ -1086,8 +1086,17 @@ export function createD1Store(db: D1Database): AppStore {
         const row = await db.prepare("SELECT * FROM mail_messages WHERE id = ?").bind(id).first<any>();
         return row ? toMessageRecord(row) : null;
       },
-      async listExpired(beforeIso) {
-        const result = await db.prepare("SELECT * FROM mail_messages WHERE expires_at <= ?").bind(beforeIso).all();
+      async listExpired(beforeIso, options) {
+        // Ordered by the expiry index (see migration 0020) so the cleanup cron
+        // can page through bounded batches without a full-table scan.
+        const limit = options?.limit;
+        const sql =
+          "SELECT * FROM mail_messages WHERE expires_at <= ? ORDER BY expires_at ASC, id ASC" +
+          (limit !== undefined ? " LIMIT ?" : "");
+        const statement = limit !== undefined
+          ? db.prepare(sql).bind(beforeIso, limit)
+          : db.prepare(sql).bind(beforeIso);
+        const result = await statement.all();
         return (result.results ?? []).map(toMessageRecord);
       },
       async deleteMany(ids) {

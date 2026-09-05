@@ -45,8 +45,13 @@ async function fetchJson<T>(url: string, init?: RequestInit) {
     headers: {
       "content-type": "application/json",
       ...(init?.headers ?? {})
-    }
+    },
+    // Propagate caller aborts so stale polling/refresh requests can be
+    // cancelled on unmount or query change instead of running to completion.
+    signal: init?.signal
   });
+
+  if (response.ok && (response.status === 204 || response.status === 205)) return undefined as T;
 
   if (!response.ok) {
     const payload = (await response.json().catch(() => ({ error: `Request failed: ${response.status}` }))) as {
@@ -54,8 +59,6 @@ async function fetchJson<T>(url: string, init?: RequestInit) {
     };
     throw new Error(payload.error ?? `Request failed: ${response.status}`);
   }
-
-  if (response.status === 204 || response.status === 205) return undefined as T;
 
   const text = await response.text();
   if (!text) return undefined as T;

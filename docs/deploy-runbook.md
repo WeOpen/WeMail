@@ -143,6 +143,7 @@ pnpm exec wrangler secret put TELEGRAM_WEBHOOK_SECRET --env production
 - `[[env.staging.d1_databases]]` / `[[env.production.d1_databases]]`
 - `[[env.staging.kv_namespaces]]` / `[[env.production.kv_namespaces]]`
 - `[[env.staging.r2_buckets]]` / `[[env.production.r2_buckets]]`（如启用附件存储）
+- `[env.staging.triggers]` / `[env.production.triggers]` 的 `crons = ["0 * * * *"]`：驱动 `scheduled` 处理器执行 `runCleanup`（过期邮件、软删除邮箱清理）。漏配此项时清理任务不会运行，数据将按保留期无限累积
 - AI、Rate Limiter、Queues 等其他启用的绑定
 
 ## 4. 上线流程总览

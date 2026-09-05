@@ -56,8 +56,11 @@ export async function queryMailboxOptions(query: MailboxListQueryInput): Promise
   };
 }
 
-export async function queryMessages(query?: MessageListQueryInput | string | null): Promise<MessageListResult> {
-  const payload = await fetchMessages(query);
+export async function queryMessages(
+  query?: MessageListQueryInput | string | null,
+  options?: { signal?: AbortSignal }
+): Promise<MessageListResult> {
+  const payload = await fetchMessages(query, options);
   const messages = (payload.messages ?? []) as MessageSummary[];
   const summary = payload.summary ?? (messages.length > 0 ? summarizeMessages(messages) : emptyMessageSummary);
 
