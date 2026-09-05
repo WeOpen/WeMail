@@ -27,10 +27,9 @@ import {
 
 type FormCheckVariant = "inline" | "card";
 
-export { DateInput, DateTimeInput } from "./DateInput";
-export type { DateInputProps, DateTimeInputProps } from "./DateInput";
-export { SelectInput } from "./SelectInput";
-export { MultiSelect } from "./MultiSelect";
+// Type-only re-export keeps MultiSelectOption single-sourced in MultiSelect.tsx
+// without creating a runtime cycle (MultiSelect imports Checkbox from here).
+export type { MultiSelectOption } from "./MultiSelect";
 
 
 type FormFieldProps = {
@@ -84,12 +83,6 @@ type SearchInputProps = Omit<ComponentPropsWithoutRef<"input">, "type"> & {
   onClear?: () => void;
 };
 
-export type MultiSelectOption = {
-  description?: ReactNode;
-  disabled?: boolean;
-  label: ReactNode;
-  value: string;
-};
 
 
 export function FormField({ children, className, description, htmlFor, label, message, required, tone = "default" }: FormFieldProps) {

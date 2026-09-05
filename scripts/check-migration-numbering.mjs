@@ -10,33 +10,36 @@ import { resolve } from "node:path";
 const migrationsDir = resolve(process.cwd(), "apps/worker/src/infrastructure/db/migrations");
 
 // Historical conflicts that are already applied in remote D1 databases.
-// Renaming them would desync `wrangler d1 migrations` state, so they are
-// grandfathered here. Do not add new entries.
-const GRANDFATHERED = new Set(["0013"]);
+// Renaming them would desync `wrangler d1 migrations` state, so exactly these
+// two files are grandfathered. Any other 0013 file (added or renamed) fails.
+// Do not add new entries.
+const GRANDFATHERED_DUPLICATES = new Set([
+  "0013-oauth-login.sql",
+  "0013-telegram-chat-index.sql"
+]);
 
 function main() {
   const files = readdirSync(migrationsDir)
     .filter((name) => /^\d{4}-.*\.sql$/.test(name))
     .sort();
 
-  const seen = new Map();
-  const duplicates = new Map();
+  const byNumber = new Map();
   for (const file of files) {
     const number = file.slice(0, 4);
-    if (seen.has(number)) {
-      duplicates.set(number, [seen.get(number), file]);
-    } else {
-      seen.set(number, file);
-    }
+    byNumber.set(number, [...(byNumber.get(number) ?? []), file]);
   }
 
   const failures = [];
-  for (const [number, pair] of duplicates) {
-    if (GRANDFATHERED.has(number)) {
-      console.warn(`[migration-numbering] duplicate ${number} is grandfathered: ${pair.join(", ")}`);
+  for (const [number, group] of byNumber) {
+    if (group.length < 2) continue;
+
+    const isExactlyGrandfathered =
+      group.length === GRANDFATHERED_DUPLICATES.size && group.every((file) => GRANDFATHERED_DUPLICATES.has(file));
+    if (isExactlyGrandfathered) {
+      console.warn(`[migration-numbering] duplicate ${number} is grandfathered: ${group.join(", ")}`);
       continue;
     }
-    failures.push(`${number}: ${pair.join(", ")}`);
+    failures.push(`${number}: ${group.join(", ")}`);
   }
 
   if (failures.length > 0) {

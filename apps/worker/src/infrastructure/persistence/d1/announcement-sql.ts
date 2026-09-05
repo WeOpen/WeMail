@@ -67,12 +67,6 @@ function buildAnnouncementVisibilityPredicate(
   return { sql: parts.join(" AND "), params };
 }
 
-function escapeAnnouncementLikeKeyword(keyword: string) {
-  // q is a keyword substring match over title/summary/tags; % _ and \ are
-  // escaped so user input cannot widen the pattern.
-  return keyword.replace(/[\\%_]/g, (ch) => `\\${ch}`);
-}
-
 export function buildAnnouncementFilter(options: {
   q?: string;
   scope?: "visible" | "manage";
@@ -91,11 +85,13 @@ export function buildAnnouncementFilter(options: {
 
   const keyword = options.q?.trim().toLowerCase();
   if (keyword) {
+    // instr() is a plain substring search with no wildcard metacharacters, so
+    // the keyword is bound as-is; escaping (as a LIKE pattern would need) would
+    // wrongly hide rows containing literal %, _, or \.
     parts.push(
       "(instr(lower(title), ?) > 0 OR instr(lower(summary), ?) > 0 OR instr(lower(tags_json), ?) > 0)"
     );
-    const likeKeyword = escapeAnnouncementLikeKeyword(keyword);
-    params.push(likeKeyword, likeKeyword, likeKeyword);
+    params.push(keyword, keyword, keyword);
   }
 
   if (options.type) {

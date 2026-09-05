@@ -115,6 +115,14 @@ export function useInboxWorkspace({
     selectedMessageIdRef.current = selectedMessageId;
   }, [selectedMessageId]);
 
+  // Unmount cancels the in-flight message request; the requestId guard already
+  // ignores late state updates, this also stops the network work itself.
+  useEffect(() => {
+    return () => {
+      messagesAbortControllerRef.current?.abort();
+    };
+  }, []);
+
   const refreshMailboxes = useCallback(
     async (nextSelectedMailboxId?: string | null) => {
       if (!enabled) return;
@@ -155,8 +163,9 @@ export function useInboxWorkspace({
         setMessageListError(null);
       } catch (error) {
         if (messagesRequestIdRef.current !== requestId) return;
-        // An abort means a newer refresh superseded this one; it is not a user-facing error.
-        if (abortController.signal.aborted) return;
+        // Aborts are never user-facing errors: either a newer refresh
+        // superseded this one, or the shared request was cancelled elsewhere.
+        if (abortController.signal.aborted || (error instanceof Error && error.name === "AbortError")) return;
         setMessageListError(error instanceof Error ? error.message : "邮件列表加载失败");
       } finally {
         if (messagesRequestIdRef.current === requestId) setIsLoadingMessages(false);

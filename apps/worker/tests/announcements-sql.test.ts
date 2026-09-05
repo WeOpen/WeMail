@@ -244,18 +244,42 @@ describe("D1 announcement SQL pushdown", () => {
     }
   });
 
-  it("escapes LIKE-hostile keywords in search", async () => {
+  it("matches keywords containing % literally, matching the JS helper", async () => {
+    // instr() has no wildcard semantics: a keyword like "50%" must match rows
+    // containing a literal "50%". Escaping (as a LIKE pattern would) would
+    // regress this to zero matches.
     const { store, sqlite } = createSqliteBackedStore();
     try {
+      sqlite
+        .prepare(
+          "INSERT INTO announcements (id, title, summary, type, status, audience, priority, author_user_id, author_label, tags_json, pinned, start_at, end_at, published_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+        )
+        .run(
+          "ann-percent",
+          "折扣 50% 限时",
+          "维护说明摘要",
+          "产品更新",
+          "已发布",
+          "全部成员",
+          "中",
+          null,
+          "系统",
+          "[]",
+          0,
+          null,
+          null,
+          "2026-09-01T00:00:00.000Z",
+          "2026-09-05T12:00:00.000Z"
+        );
       const result = await store.announcements.listPage({
         page: 1,
         pageSize: 10,
-        q: "100%",
+        q: "50%",
         scope: "visible",
         userRole: "member"
       });
-      // "100%" matches no seeded title/summary/tags literally.
-      expect(result.total).toBe(0);
+      expect(result.total).toBe(1);
+      expect(result.announcements[0]?.id).toBe("ann-percent");
     } finally {
       sqlite.close();
     }

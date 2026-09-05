@@ -38,6 +38,26 @@ function buildRequestKey(method: string, url: string, cacheKey?: string) {
   return cacheKey ?? `${method}:${url}`;
 }
 
+function toAbortError() {
+  return Object.assign(new Error("Aborted"), { name: "AbortError" });
+}
+
+// Races a shared promise against the caller's own signal: the caller rejects
+// promptly on its own abort while the shared request keeps running for the
+// participants that still want it.
+function raceWithSignal<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> {
+  if (signal.aborted) return Promise.reject(toAbortError());
+
+  let onAbort: (() => void) | undefined;
+  const abortPromise = new Promise<never>((_, reject) => {
+    onAbort = () => reject(toAbortError());
+    signal.addEventListener("abort", onAbort, { once: true });
+  });
+  return Promise.race([promise, abortPromise]).finally(() => {
+    if (onAbort) signal.removeEventListener("abort", onAbort);
+  });
+}
+
 async function fetchJson<T>(url: string, init?: RequestInit) {
   const response = await fetch(url, {
     credentials: "include",
@@ -128,7 +148,19 @@ export async function apiFetch<T>(path: string, init?: ApiFetchOptions) {
 
   if (canReuseGet && dedupe) {
     const inFlightRequest = inFlightGetRequests.get(requestKey);
-    if (inFlightRequest) return inFlightRequest as Promise<T>;
+    if (inFlightRequest) {
+      if (!requestInit.signal) return inFlightRequest as Promise<T>;
+      // Joining a request other callers may abort for reasons that are not
+      // ours: our own abort rejects immediately via the race, and a foreign
+      // AbortError falls through so we issue our own request instead of
+      // surfacing an error we did not cause.
+      try {
+        return await raceWithSignal(inFlightRequest as Promise<T>, requestInit.signal);
+      } catch (error) {
+        const isAbortError = error instanceof Error && error.name === "AbortError";
+        if (!isAbortError || requestInit.signal.aborted) throw error;
+      }
+    }
   }
 
   const startedCacheVersion = getCacheVersion(requestKey);
@@ -148,6 +180,8 @@ export async function apiFetch<T>(path: string, init?: ApiFetchOptions) {
   try {
     return await request;
   } finally {
-    inFlightGetRequests.delete(requestKey);
+    // Identity guard: a retried request may have replaced this entry while the
+    // aborted original was unwinding; only remove our own.
+    if (inFlightGetRequests.get(requestKey) === request) inFlightGetRequests.delete(requestKey);
   }
 }
