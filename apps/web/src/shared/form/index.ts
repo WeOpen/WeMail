@@ -1,14 +1,15 @@
 export {
   Checkbox,
   CheckboxField,
-  DateInput,
-  DateTimeInput,
   FormField,
-  MultiSelect,
   Radio,
   RadioGroupField,
   SearchInput,
-  SelectInput,
   TextInput,
   TextareaInput
 } from "./FormPrimitives";
+export { DateInput, DateTimeInput } from "./DateInput";
+export type { DateInputProps, DateTimeInputProps } from "./DateInput";
+export { SelectInput } from "./SelectInput";
+export { MultiSelect } from "./MultiSelect";
+export type { MultiSelectOption } from "./MultiSelect";

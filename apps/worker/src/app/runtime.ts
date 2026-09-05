@@ -257,24 +257,53 @@ export async function processInboundEmail(
   return processInboundForMailbox(store, env, mailbox, toAddress, parsed);
 }
 
+// Cleanup must finish within one cron invocation; bounding each phase keeps the
+// run predictable while still draining the full backlog in one pass.
+const CLEANUP_BATCH_SIZE = 500;
+const R2_DELETE_CONCURRENCY = 10;
+
+async function deleteR2ObjectsConcurrently(
+  bucket: NonNullable<AppBindings["ATTACHMENTS"]>,
+  keys: string[]
+) {
+  for (let offset = 0; offset < keys.length; offset += R2_DELETE_CONCURRENCY) {
+    await Promise.all(keys.slice(offset, offset + R2_DELETE_CONCURRENCY).map((key) => bucket.delete(key)));
+  }
+}
+
 export async function runCleanup(store: AppStore, env: AppBindings) {
   const startedAt = new Date().toISOString();
 
   try {
-    const expired = await store.messages.listExpired(new Date().toISOString());
-    const expiredIds = expired.map((entry) => entry.id);
-    const attachments = await store.attachments.listByMessageIds(expiredIds);
-    const accountPolicy = parseAccountPolicyRecord(await store.accountSettings.get());
-    let deletedAccounts = 0;
+    let deletedMessages = 0;
+    let deletedAttachments = 0;
+    let hasMoreExpiredMessages = true;
 
-    if (env.ATTACHMENTS) {
-      for (const attachment of attachments) {
-        await env.ATTACHMENTS.delete(attachment.key);
+    while (hasMoreExpiredMessages) {
+      // Bounded batches so a large backlog cannot produce unbounded queries or
+      // a single over-long cron execution. IN (...) statement size is bounded
+      // separately by chunkForD1BindLimit inside the D1 store helpers.
+      const expired = await store.messages.listExpired(new Date().toISOString(), {
+        limit: CLEANUP_BATCH_SIZE
+      });
+      hasMoreExpiredMessages = expired.length === CLEANUP_BATCH_SIZE;
+      if (expired.length === 0) break;
+
+      const expiredIds = expired.map((entry) => entry.id);
+      const attachments = await store.attachments.listByMessageIds(expiredIds);
+
+      if (env.ATTACHMENTS) {
+        await deleteR2ObjectsConcurrently(env.ATTACHMENTS, attachments.map((attachment) => attachment.key));
       }
+
+      await store.attachments.deleteByMessageIds(expiredIds);
+      await store.messages.deleteMany(expiredIds);
+      deletedMessages += expiredIds.length;
+      deletedAttachments += attachments.length;
     }
 
-    await store.attachments.deleteByMessageIds(expiredIds);
-    await store.messages.deleteMany(expiredIds);
+    const accountPolicy = parseAccountPolicyRecord(await store.accountSettings.get());
+    let deletedAccounts = 0;
 
     if (accountPolicy.lifecycle.allowHardDelete) {
       const cutoff = new Date(
@@ -308,7 +337,7 @@ export async function runCleanup(store: AppStore, env: AppBindings) {
       deletedAccounts = expiredAccountIds.length;
     }
 
-    const result = { deletedMessages: expiredIds.length, deletedAttachments: attachments.length, deletedAccounts };
+    const result = { deletedMessages, deletedAttachments, deletedAccounts };
     await store.cleanupRuns.record({
       status: "success",
       startedAt,

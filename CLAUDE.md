@@ -82,12 +82,13 @@ Dependency direction: `app → pages → features → shared`. Pages must not de
 
 | Layer | Purpose |
 |---|---|
-| `app/` | Route registration, request/response mapping, use case orchestration (`routes/`, `use-cases/`, `services/`, `mappers/`) |
+| `app/` | Request middleware (auth/CORS/rate limit in `create-app.ts`), use case orchestration (`use-cases/`, `services/`, `mappers/`), runtime entry (`runtime.ts`); legacy `routes/` holds only shared DTO/request parsers |
+| `modules/` | HTTP route registration per menu domain (`modules/<domain>/routes.ts`) — wired by `modules/register-modules.ts` |
 | `core/` | Type contracts, Cloudflare bindings, context definitions — no implementations |
 | `infrastructure/` | D1 database, R2 storage, external service integrations |
 | `shared/` | Email parsing (postal-mime), security utilities, pure helpers |
 
-Dependency direction: `app → core/infrastructure/shared`. Infrastructure must not depend on `app/`.
+Dependency direction: `app → modules → core/infrastructure/shared`. Infrastructure must not depend on `app/`.
 
 ### Shared package (`packages/shared/`)
 
@@ -130,9 +131,9 @@ Not allowed: DOM operations, Cloudflare bindings, database logic, runtime-specif
 - Backend runs on **Cloudflare Workers** (not Node.js) — no Node built-ins, use Web APIs. `nodejs_compat` flag is on, but prefer Web APIs
 - Database: **D1** (SQLite-compatible), Object storage: **R2**
 - Email inbound processing via Cloudflare Email Routing
-- Scheduled cleanup tasks via Cloudflare Cron Triggers
+- Scheduled cleanup tasks via Cloudflare Cron Triggers (`[env.*.triggers] crons = ["0 * * * *"]` in wrangler.toml, hourly)
 - Deploy environments are split in `apps/worker/wrangler.toml`: `default` (local), `env.staging`, `env.production` — each points at its own D1 instance and vars
-- Feature flags live in wrangler vars (`ENABLE_AI`, `ENABLE_TELEGRAM`, `ENABLE_OUTBOUND`, `ENABLE_MAILBOX_CREATION`) and gate code paths; honor them when adding new behavior
+- Feature flags (`ENABLE_AI`, `ENABLE_TELEGRAM`, `ENABLE_OUTBOUND`, `ENABLE_MAILBOX_CREATION`) are code-level *defaults* parsed from wrangler vars in `core/config.ts`; the live values come from D1 `system_settings` (edited in the admin UI, cached in KV). Gate new behavior behind the resolved feature toggles, not the raw env vars
 
 **Database migrations:**
 - Migration files live in `apps/worker/src/infrastructure/db/migrations/`

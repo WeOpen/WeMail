@@ -774,8 +774,12 @@ export function createInMemoryStore(): AppStore {
       async findById(id) {
         return clone(messages.get(id) ?? null);
       },
-      async listExpired(beforeIso) {
-        return clone(Array.from(messages.values()).filter((entry) => entry.expiresAt <= beforeIso));
+      async listExpired(beforeIso, options) {
+        const limit = options?.limit;
+        const expired = Array.from(messages.values())
+          .filter((entry) => entry.expiresAt <= beforeIso)
+          .sort((a, b) => a.expiresAt.localeCompare(b.expiresAt) || a.id.localeCompare(b.id));
+        return clone(limit !== undefined ? expired.slice(0, limit) : expired);
       },
       async deleteMany(ids) {
         for (const id of ids) messages.delete(id);

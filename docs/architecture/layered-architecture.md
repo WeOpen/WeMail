@@ -40,16 +40,18 @@ apps/web/src/
 
 ```text
 apps/worker/src/
-  app/              # 路由注册、请求流程、响应映射
+  app/              # 请求中间件、用例编排、运行时入口（auth/CORS/限流在 create-app.ts）
+  modules/          # 按菜单域组织的 /api/* 路由注册（modules/<domain>/routes.ts）
   core/             # 类型契约、绑定定义、上下文接口
   infrastructure/   # D1、R2、外部服务集成
   shared/           # 通用安全、邮件解析、纯辅助逻辑
 ```
 
-依赖方向：`app -> core/infrastructure/shared`
+依赖方向：`app -> modules -> core/infrastructure/shared`
 
 说明：
-- `app/` 负责 HTTP 入口和流程编排
+- `app/` 负责请求中间件、鉴权、限流与用例编排；旧 `app/routes/` 仅保留被模块复用的 DTO/request 解析
+- `modules/` 按左侧菜单域注册 HTTP 路由，由 `modules/register-modules.ts` 统一装配
 - `core/` 定义接口与核心契约
 - `infrastructure/` 承载持久化和外部依赖接入
 - `shared/` 提供通用复用逻辑

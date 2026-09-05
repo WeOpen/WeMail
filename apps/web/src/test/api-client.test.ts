@@ -113,4 +113,59 @@ describe("api client", () => {
     await expect(apiFetch<void>("/api/announcements/ann-1", { method: "DELETE" })).resolves.toBeUndefined();
     expect(fetchSpy).toHaveBeenCalledTimes(1);
   });
+
+  it("retries its own request when a joined in-flight GET is aborted by another caller", async () => {
+    // Polling tick (first) and a manual refresh (second) share one URL; the
+    // second caller must not inherit the first caller's AbortError through the
+    // deduped promise.
+    const firstController = new AbortController();
+    const secondController = new AbortController();
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockImplementationOnce((_url: unknown, init?: RequestInit) => pendingUntilAborted(init?.signal))
+      .mockImplementationOnce(() => jsonResponse({ ok: true }));
+
+    const firstPayload = apiFetch<{ ok: boolean }>("/api/mail/messages?page=1", {
+      signal: firstController.signal
+    });
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    const secondPayload = apiFetch<{ ok: boolean }>("/api/mail/messages?page=1", {
+      signal: secondController.signal
+    });
+
+    firstController.abort();
+
+    await expect(firstPayload).rejects.toMatchObject({ name: "AbortError" });
+    await expect(secondPayload).resolves.toEqual({ ok: true });
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+  });
+
+  it("rejects a joined caller whose own signal aborts, without retrying", async () => {
+    const firstController = new AbortController();
+    const secondController = new AbortController();
+    vi.spyOn(globalThis, "fetch").mockImplementation((_url: unknown, init?: RequestInit) =>
+      pendingUntilAborted(init?.signal)
+    );
+
+    const firstPayload = apiFetch<void>("/api/mail/messages?page=2", { signal: firstController.signal });
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    const secondPayload = apiFetch<void>("/api/mail/messages?page=2", { signal: secondController.signal });
+
+    secondController.abort();
+
+    await expect(secondPayload).rejects.toMatchObject({ name: "AbortError" });
+    firstController.abort();
+    await expect(firstPayload).rejects.toMatchObject({ name: "AbortError" });
+  });
 });
+
+function pendingUntilAborted(signal?: AbortSignal | null): Promise<Response> {
+  return new Promise((_resolve, reject) => {
+    const abortError = Object.assign(new Error("Aborted"), { name: "AbortError" });
+    if (signal?.aborted) {
+      reject(abortError);
+      return;
+    }
+    signal?.addEventListener("abort", () => reject(abortError), { once: true });
+  });
+}

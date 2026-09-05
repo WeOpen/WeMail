@@ -14,6 +14,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.10] - 2026-09-05
+
+### Fixed
+
+- Scheduled the hourly retention cleanup on staging and production (it previously had no Cloudflare cron trigger, so expired messages and R2 attachments accumulated forever) and made the sweep index-backed, batched, and parallel for attachment deletes (D1 migration 0020).
+- Stopped the cleanup and batch-delete paths from exceeding Cloudflare D1's 100 bound-parameter limit on large id lists, which previously made the hourly cleanup fail outright on any backlog over 100 messages.
+- Cut every authenticated request from four D1 session round-trips to two by throttling last-seen updates to once per minute.
+- Superseded inbox refreshes no longer surface "request aborted" errors: stale requests are cancelled (also on unmount), and callers sharing a deduplicated GET no longer inherit each other's aborts.
+- Announcement keyword search in the D1 backend now matches the JS source of truth exactly — multi-word keywords across title/summary/tags, tags containing JSON punctuation, and literal `%` / `_` characters — and empty-string start/end dates are normalized so the board list and detail view agree (D1 migration 0021).
+
+### Changed
+
+- Announcement list filtering, pagination, and status summaries now run in D1 SQL instead of scanning the whole table into JS on every board render.
+- Split the 2,341-line D1 persistence module, the 1,699-line form primitives module, and the 1,449-line webhook console into per-aggregate / per-widget modules with unchanged public entry points, verified byte-identical against the originals.
+- CI now enforces migration numbering uniqueness and API interface catalog freshness on every pull request.
+
+### Security
+
+- Local development CORS origins are only honored when `ENVIRONMENT=local`; staging and production no longer unconditionally allow them.
+- OAuth start/callback/finalize endpoints are now behind the shared rate limiter, like login and registration.
+
 ## [0.2.9] - 2026-08-08
 
 ### Changed

@@ -3,6 +3,18 @@ import { resolveAppConfig } from "../../core/config";
 import { hashString, readSessionCookies } from "../../shared/auth";
 import { CACHE_KEYS, CACHE_TTL_SECONDS, cachedJson } from "./cache-service";
 
+// Minimum gap between session last-seen writes. See getSessionAuth.
+const SESSION_TOUCH_INTERVAL_MS = 60_000;
+
+// The persisted touch uses COALESCE so null fields keep existing values; mirror
+// that behavior when synthesizing the returned session record.
+function pruneSessionMetadata(metadata: { userAgent?: string | null; ipAddress?: string | null }) {
+  const next: { userAgent?: string | null; ipAddress?: string | null } = {};
+  if (metadata.userAgent != null) next.userAgent = metadata.userAgent;
+  if (metadata.ipAddress != null) next.ipAddress = metadata.ipAddress;
+  return next;
+}
+
 export function sessionExpiryIso(env?: Pick<AppBindings, "SESSION_TTL_HOURS">) {
   const expires = new Date();
   const ttlHours = env ? resolveAppConfig(env as AppBindings).session.ttlHours : 72;
@@ -39,9 +51,18 @@ export async function getSessionAuth(c: any, store: AppStore) {
     }
     const user = await store.users.findById(session.userId);
     if (user?.status !== "active") continue;
-    await store.sessions.touch(session.id, getRequestSessionMetadata(c));
-    const refreshedSession = await store.sessions.findById(session.id);
-    return { user, session: refreshedSession ?? session };
+
+    // Throttle the last-seen write: without this, every authenticated request
+    // performs an UPDATE plus a re-read. Metadata drift of up to one minute is
+    // acceptable for device listings.
+    const shouldTouch = Date.now() - new Date(session.lastSeenAt).getTime() >= SESSION_TOUCH_INTERVAL_MS;
+    const touchedSession = shouldTouch
+      ? { ...session, ...pruneSessionMetadata(getRequestSessionMetadata(c)) }
+      : session;
+    if (shouldTouch) {
+      await store.sessions.touch(session.id, getRequestSessionMetadata(c));
+    }
+    return { user, session: touchedSession };
   }
   return null;
 }

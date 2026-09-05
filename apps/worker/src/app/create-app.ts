@@ -11,13 +11,33 @@ import { getApiKeyAuth, getSessionAuth, resolveFeatureToggles } from "./services
 import { resolveStore } from "./services/store-service";
 import { processInboundEmail, runCleanup } from "./runtime";
 
+const LOCAL_DEV_ORIGINS = ["http://127.0.0.1:5173", "http://localhost:5173"] as const;
+
+// Endpoints that accept unauthenticated or credential-sensitive traffic. The
+// Cloudflare rate limiter namespace only sees these paths, so new entry points
+// with the same risk profile must be added here.
+const RATE_LIMITED_PATHS = new Set<string>([
+  "/api/auth/register",
+  "/api/auth/login",
+  "/api/accounts",
+  "/api/mail/send"
+]);
+
+function isRateLimitedRequest(method: string, path: string) {
+  if (RATE_LIMITED_PATHS.has(path)) return true;
+  if (path === "/api/api-keys" && method === "POST") return true;
+  // OAuth start/callback/finalize exchange tokens and create sessions; treat
+  // them like login for brute-force protection.
+  return path.startsWith("/api/auth/oauth/");
+}
+
 function resolveCorsOrigin(env: AppContext["Bindings"], origin?: string) {
   if (!origin) return undefined;
-  if (origin === "http://127.0.0.1:5173" || origin === "http://localhost:5173") {
+  const { cors, environment } = resolveAppConfig(env);
+  if (environment === "local" && (LOCAL_DEV_ORIGINS as readonly string[]).includes(origin)) {
     return origin;
   }
-  const { allowedOrigins } = resolveAppConfig(env).cors;
-  return allowedOrigins.includes(origin) ? origin : undefined;
+  return cors.allowedOrigins.includes(origin) ? origin : undefined;
 }
 
 function resolveApiKeyScopeRequirement(method: string, path: string): ApiKeyScope | null {
@@ -72,13 +92,7 @@ export function createApp(options?: { store?: AppContext["Variables"]["store"] }
 
     if (c.env.RATE_LIMITER) {
       const ip = c.req.header("cf-connecting-ip") ?? "local";
-      const limited = [
-        "/api/auth/register",
-        "/api/auth/login",
-        "/api/accounts",
-        "/api/mail/send"
-      ].includes(c.req.path) || (c.req.path === "/api/api-keys" && c.req.method === "POST");
-      if (limited) {
+      if (isRateLimitedRequest(c.req.method, c.req.path)) {
         const result = await c.env.RATE_LIMITER.limit({ key: `${c.req.path}:${ip}` });
         if (!result.success) return jsonError("Rate limit exceeded", 429);
       }

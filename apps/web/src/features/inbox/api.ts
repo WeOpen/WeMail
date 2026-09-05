@@ -85,7 +85,7 @@ function normalizeMessageListQuery(query?: MessageListQueryInput | string | null
   return query ?? {};
 }
 
-export function fetchMessages(query?: MessageListQueryInput | string | null) {
+export function fetchMessages(query?: MessageListQueryInput | string | null, options?: { signal?: AbortSignal }) {
   const normalizedQuery = normalizeMessageListQuery(query);
   const params = new URLSearchParams();
   const search = normalizedQuery.search?.trim();
@@ -102,7 +102,7 @@ export function fetchMessages(query?: MessageListQueryInput | string | null) {
   if (typeof normalizedQuery.hasAttachment === "boolean") params.set("hasAttachment", String(normalizedQuery.hasAttachment));
   if (normalizedQuery.extractionType) params.set("extractionType", normalizedQuery.extractionType);
 
-  return apiFetch<MessageListResponse>(`/api/mail/messages?${params.toString()}`);
+  return apiFetch<MessageListResponse>(`/api/mail/messages?${params.toString()}`, { signal: options?.signal });
 }
 
 export function fetchMessageDetail(messageId: string) {
