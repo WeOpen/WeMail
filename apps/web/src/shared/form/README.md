@@ -2,6 +2,18 @@
 
 共享表单原语层。
 
+## 🗂️ 文件结构
+
+`index.ts` 是对外桶导出；`FormPrimitives.tsx` 保留核心原语并 re-export 拆分模块：
+
+| 文件 | 职责 |
+|---|---|
+| `FormPrimitives.tsx` | `FormField` / `TextInput` / `SearchInput` / `TextareaInput` / `Checkbox` / `Radio` / `CheckboxField` / `RadioGroupField`，并 re-export 其余模块 |
+| `internal.tsx` | 模块内部共享工具：cx、DOM ref 工具、行文本提取、render 辅助 |
+| `DateInput.tsx` | `DateInput` / `DateTimeInput` 及日历弹层、日期时间解析 |
+| `SelectInput.tsx` | `SelectInput` combobox 触发 + listbox 浮层 |
+| `MultiSelect.tsx` | `MultiSelect` 多选面板 |
+
 ## ✅ 放什么
 - 字段原语：`FormField`、`TextInput`、`SearchInput`、`SelectInput`、`TextareaInput`
 - 独立布尔 / 单选原语：`Checkbox`、`Radio`
