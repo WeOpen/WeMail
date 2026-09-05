@@ -25,6 +25,7 @@ export type MessageAdvancedFilters = {
 
 type MessageStreamPanelProps = {
   filter: MessageFilter;
+  hasMailboxes?: boolean;
   errorMessage?: string | null;
   isBatchActionRunning?: boolean;
   isLoading?: boolean;
@@ -67,6 +68,7 @@ const extractionIcons = {
 
 export function MessageStreamPanel({
   filter,
+  hasMailboxes = false,
   errorMessage = null,
   isBatchActionRunning = false,
   isLoading = false,
@@ -223,7 +225,11 @@ export function MessageStreamPanel({
         {messages.length === 0 && !isLoading && !errorMessage ? (
           <EmptyState
             className="message-empty-card"
-            description="当前筛选下没有消息，切换筛选或等待新邮件到达。"
+            description={
+              hasMailboxes
+                ? "当前筛选下没有消息，切换筛选或等待新邮件到达。"
+                : "还没有邮箱，先创建一个邮箱开始收信。"
+            }
             icon={<Inbox size={26} strokeWidth={1.8} aria-hidden="true" />}
             title="暂无邮件"
           />

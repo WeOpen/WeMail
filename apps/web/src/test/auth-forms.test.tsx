@@ -61,16 +61,18 @@ describe("AuthForms", () => {
     expect(screen.getByLabelText(/^邮箱/)).toHaveValue("login@example.com");
   });
 
-  it("renders GitHub and LinuxDo OAuth links with the post-auth target", () => {
+  it("renders GitHub and LinuxDo OAuth links pointing at the API origin", () => {
     render(<AuthForms {...authFormProps} mode="login" oauthNext="/settings/profile" />);
 
+    // Raw anchors must resolve through the API client's base URL so they work
+    // when web and worker are deployed on separate origins (dev, previews).
     expect(screen.getByRole("link", { name: "使用 GitHub 登录" })).toHaveAttribute(
       "href",
-      "/api/auth/oauth/github/start?next=%2Fsettings%2Fprofile"
+      "http://127.0.0.1:8787/api/auth/oauth/github/start?next=%2Fsettings%2Fprofile"
     );
     expect(screen.getByRole("link", { name: "使用 LinuxDo 登录" })).toHaveAttribute(
       "href",
-      "/api/auth/oauth/linuxdo/start?next=%2Fsettings%2Fprofile"
+      "http://127.0.0.1:8787/api/auth/oauth/linuxdo/start?next=%2Fsettings%2Fprofile"
     );
   });
 
@@ -147,7 +149,7 @@ describe("AuthForms", () => {
     expect(screen.getByLabelText(/^邮箱/)).toHaveAttribute("aria-invalid", "true");
   });
 
-  it("submits registration when only the invite code is empty", () => {
+  it("blocks registration when the invite code is empty", () => {
     const onRegister = vi.fn();
     render(<AuthForms authError={null} mode="register" onLogin={vi.fn()} onRegister={onRegister} />);
 
@@ -156,9 +158,11 @@ describe("AuthForms", () => {
     fireEvent.change(screen.getByLabelText(/^密码/), { target: { value: "password123" } });
     fireEvent.submit(screen.getByRole("button", { name: "立即注册" }).closest("form")!);
 
-    expect(onRegister).toHaveBeenCalledOnce();
-    expect(screen.queryByText("请输入邀请码")).not.toBeInTheDocument();
-    expect(screen.getByLabelText(/^邀请码/)).not.toHaveAttribute("aria-invalid");
+    // The invite is required server-side, so an empty field is caught here
+    // with a field-level message instead of a banner error after submit.
+    expect(onRegister).not.toHaveBeenCalled();
+    expect(screen.getByText("请输入邀请码")).toHaveClass("auth-field-validation");
+    expect(screen.getByLabelText(/^邀请码/)).toHaveAttribute("aria-invalid", "true");
   });
 
   it("shows register backend errors in Chinese", async () => {

@@ -666,7 +666,7 @@ describe("mail list integration", () => {
     expect(screen.queryByRole("heading", { name: /^消息详情$/i })).not.toBeInTheDocument();
     expect(screen.getByRole("region", { name: /^阅读与提取详情$/i })).toBeInTheDocument();
     expect(screen.getByText("收件人：inbox-owner@example.com")).toBeInTheDocument();
-    expect(screen.getByText(/^LOGIN LINK$/i)).toBeInTheDocument();
+    expect(screen.getByText(/^登录链接$/i)).toBeInTheDocument();
     const extractionCard = screen.getByLabelText("邮件识别结果");
     expect(within(extractionCard).getByText(/^识别到验证码$/i)).toBeInTheDocument();
     expect(within(extractionCard).getByText(/^482913$/i)).toBeInTheDocument();
@@ -705,7 +705,7 @@ describe("mail list integration", () => {
 
     const linkMessage = messageResults.getByRole("button", { name: /Your login link/i });
     const linkMessageTop = linkMessage.querySelector(".message-item-top");
-    expect(within(linkMessageTop as HTMLElement).getByText(/^LOGIN LINK$/i).closest(".message-extraction-chip")?.querySelector(".message-extraction-chip-icon")).not.toBeNull();
+    expect(within(linkMessageTop as HTMLElement).getByText(/^登录链接$/i).closest(".message-extraction-chip")?.querySelector(".message-extraction-chip-icon")).not.toBeNull();
     expect(within(linkMessageTop as HTMLElement).getByText(/^附件 1$/i).closest(".message-item-attachment-chip")?.querySelector("svg")).not.toBeNull();
   });
 
@@ -931,7 +931,14 @@ describe("mail list integration", () => {
     const domainCombobox = within(dialog).getByRole("combobox", { name: /^邮箱域名$/i });
     expect(domainCombobox).toHaveTextContent("请选择域名");
     expect(within(dialog).getByRole("button", { name: /^取消$/i })).toBeInTheDocument();
-    expect(within(dialog).getByRole("button", { name: /^创建邮箱$/i })).toBeDisabled();
+
+    // The primary action stays enabled; validation runs on submit with a
+    // field-level message and moves focus to the first invalid control.
+    const submitButton = within(dialog).getByRole("button", { name: /^创建邮箱$/i });
+    expect(submitButton).toBeEnabled();
+    await user.click(submitButton);
+    expect(await within(dialog).findByText("请选择邮箱域名")).toBeInTheDocument();
+    expect(domainCombobox).toHaveFocus();
 
     await user.click(domainCombobox);
     expect(await screen.findByRole("option", { name: /^example.com$/i })).toBeInTheDocument();
@@ -939,7 +946,7 @@ describe("mail list integration", () => {
     await user.click(screen.getByRole("option", { name: /^example.com$/i }));
 
     expect(domainCombobox).toHaveTextContent("example.com");
-    expect(within(dialog).getByRole("button", { name: /^创建邮箱$/i })).toBeEnabled();
+    expect(within(dialog).queryByText("请选择邮箱域名")).not.toBeInTheDocument();
   });
 
   it("shows the real empty state instead of preview messages when the backend list is empty", async () => {
@@ -1064,7 +1071,7 @@ describe("mail list integration", () => {
     await waitFor(() => {
       expect(getMailMessageRequestParams().some((params) => params.get("search") === "contoso")).toBe(true);
     });
-    expect(messageResults().getByText(/^LOGIN LINK$/i)).toBeInTheDocument();
+    expect(messageResults().getByText(/^登录链接$/i)).toBeInTheDocument();
     expect(messageResults().queryByText(/^482913$/i)).not.toBeInTheDocument();
     expect(messageResults().queryByText(/^未提取$/i)).not.toBeInTheDocument();
 
@@ -1074,7 +1081,7 @@ describe("mail list integration", () => {
     await waitFor(() => {
       expect(getMailMessageRequestParams().some((params) => params.get("filter") === "attachment" && !params.has("search"))).toBe(true);
     });
-    expect(messageResults().getByText(/^LOGIN LINK$/i)).toBeInTheDocument();
+    expect(messageResults().getByText(/^登录链接$/i)).toBeInTheDocument();
     expect(messageResults().getByText(/^附件 1$/i)).toBeInTheDocument();
     expect(messageResults().queryByText(/^482913$/i)).not.toBeInTheDocument();
 
@@ -1086,7 +1093,7 @@ describe("mail list integration", () => {
     expect(messageResults().getAllByText(/^未提取$/i).length).toBeGreaterThan(0);
     expect(messageResults().getByText(/Welcome to Demo App/i)).toBeInTheDocument();
     expect(messageResults().getByText(/Second mailbox notice/i)).toBeInTheDocument();
-    expect(messageResults().queryByText(/^LOGIN LINK$/i)).not.toBeInTheDocument();
+    expect(messageResults().queryByText(/^登录链接$/i)).not.toBeInTheDocument();
 
     await user.click(screen.getByRole("tab", { name: /^全部$/i }));
     await waitFor(() => {
@@ -1327,13 +1334,13 @@ describe("mail list integration", () => {
     expect(await screen.findByRole("button", { name: /^复制验证码$/i })).toBeInTheDocument();
     const messageResults = () => within(screen.getByRole("group", { name: /^消息结果列表$/i }));
 
-    expect(messageResults().getByText(/^LOGIN LINK$/i)).toBeInTheDocument();
+    expect(messageResults().getByText(/^登录链接$/i)).toBeInTheDocument();
     expect(messageResults().getAllByText(/^未提取$/i).length).toBeGreaterThan(0);
 
     await user.click(screen.getByRole("tab", { name: /^验证码$/i }));
 
     expect(messageResults().getByText("482913")).toBeInTheDocument();
-    expect(messageResults().queryByText(/^LOGIN LINK$/i)).not.toBeInTheDocument();
+    expect(messageResults().queryByText(/^登录链接$/i)).not.toBeInTheDocument();
     expect(messageResults().queryByText(/^未提取$/i)).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: /^复制验证码$/i })).toBeInTheDocument();
   });

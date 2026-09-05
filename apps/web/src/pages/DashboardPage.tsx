@@ -178,6 +178,7 @@ export function DashboardPage({ canViewRoleCard = false }: DashboardPageProps) {
 
   return (
     <main className="workspace-grid dashboard-grid">
+      <h1 className="sr-only">仪表盘</h1>
       <section className="dashboard-kpi-grid" aria-label="仪表盘核心指标">
         {dashboard.kpis.map((kpi, index) => {
           const KpiIcon = KPI_ICONS[index] ?? Inbox;
