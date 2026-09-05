@@ -1,4 +1,7 @@
-function resolveApiUrl(path: string) {
+// Exported for raw <a href> entry points (OAuth start links) that must reach
+// the same API origin the JSON client uses; same-origin deployments resolve
+// to the relative path, split web/worker deployments get the absolute URL.
+export function resolveApiUrl(path: string) {
   if (/^https?:\/\//.test(path)) return path;
 
   const configuredBase = import.meta.env.VITE_API_BASE_URL;

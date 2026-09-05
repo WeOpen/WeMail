@@ -14,6 +14,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Gave the auth tab switcher a visible keyboard focus indicator (the selected tab previously showed no focus change at all) and raised the `--text-soft` token to an AA-compliant contrast in both themes (light 2.78→4.7:1, dark 4.1→5.1:1).
+- Registration now marks the invite code as required and validates it inline, adds `autocomplete` to all auth inputs, announces server auth errors with `role="alert"`, and resolves OAuth links against the API origin so they work in split web/worker deployments.
+
 ## [0.2.10] - 2026-09-05
 
 ### Fixed
