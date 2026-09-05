@@ -51,7 +51,9 @@ export function createAnnouncementsAggregate(db: D1Database): AnnouncementsAggre
       },
       async summary(options) {
         // Group the derived status in SQL with the same predicates the JS
-        // resolver uses, falling back to the stored status for 已归档.
+        // resolver uses, falling back to the stored status for 已归档. Branch
+        // order matches resolveAnnouncementStatus: upcoming is decided by
+        // start_at alone, before the ended check.
         const filter = buildAnnouncementFilter(options);
         const nowIsoValue = nowIso();
         const rows = await db
@@ -59,7 +61,7 @@ export function createAnnouncementsAggregate(db: D1Database): AnnouncementsAggre
             `SELECT
               CASE
                 WHEN status = '已归档' THEN '已归档'
-                WHEN start_at IS NOT NULL AND start_at > ? AND (end_at IS NULL OR end_at >= ?) THEN '即将开始'
+                WHEN start_at IS NOT NULL AND start_at > ? THEN '即将开始'
                 WHEN end_at IS NOT NULL AND end_at < ? THEN '已结束'
                 WHEN start_at IS NULL AND end_at IS NULL THEN '已发布'
                 ELSE '进行中'
@@ -68,7 +70,7 @@ export function createAnnouncementsAggregate(db: D1Database): AnnouncementsAggre
              FROM announcements ${filter.whereSql}
              GROUP BY derived_status`
           )
-          .bind(nowIsoValue, nowIsoValue, nowIsoValue, ...filter.params)
+          .bind(nowIsoValue, nowIsoValue, ...filter.params)
           .all();
         const counts = new Map<string, number>();
         for (const row of (rows.results ?? []) as Array<{ derived_status: string; count: number }>) {

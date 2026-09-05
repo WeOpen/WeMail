@@ -10,6 +10,21 @@ import type {
 import { toMailboxDetailRecord, toMailboxRecord, toMessageRecord, toOutboundMessageRecord } from "./row-mappers";
 import { DAY_MS, getActiveRangeDays, getInactiveDays, getSafePage, getSafePageSize, nowIso } from "./shared";
 
+// Cloudflare D1 caps bound parameters per query at 100. IN (...) clauses with
+// one placeholder per id must stay at or below that or the whole statement
+// errors — the cleanup cron passes up to CLEANUP_BATCH_SIZE ids at once, and
+// the batch-delete route passes user-selected ids.
+const D1_BIND_PARAMETER_LIMIT = 100;
+
+function chunkForD1BindLimit<T>(items: T[]): T[][] {
+  if (items.length <= D1_BIND_PARAMETER_LIMIT) return [items];
+  const chunks: T[][] = [];
+  for (let offset = 0; offset < items.length; offset += D1_BIND_PARAMETER_LIMIT) {
+    chunks.push(items.slice(offset, offset + D1_BIND_PARAMETER_LIMIT));
+  }
+  return chunks;
+}
+
 type MailAggregate = Pick<AppStore, "mailboxes" | "messages" | "attachments" | "outboundMessages">;
 
 export function createMailAggregate(db: D1Database): MailAggregate {
@@ -398,8 +413,10 @@ export function createMailAggregate(db: D1Database): MailAggregate {
       },
       async deleteMany(ids) {
         if (ids.length === 0) return;
-        const placeholders = ids.map(() => "?").join(", ");
-        await db.prepare(`DELETE FROM mail_messages WHERE id IN (${placeholders})`).bind(...ids).run();
+        for (const chunk of chunkForD1BindLimit(ids)) {
+          const placeholders = chunk.map(() => "?").join(", ");
+          await db.prepare(`DELETE FROM mail_messages WHERE id IN (${placeholders})`).bind(...chunk).run();
+        }
       }
     },
     attachments: {
@@ -436,23 +453,31 @@ export function createMailAggregate(db: D1Database): MailAggregate {
       },
       async listByMessageIds(messageIds) {
         if (messageIds.length === 0) return [];
-        const placeholders = messageIds.map(() => "?").join(", ");
-        const result = await db
-          .prepare(`SELECT id, filename, content_type, size, storage_key FROM mail_attachments WHERE message_id IN (${placeholders})`)
-          .bind(...messageIds)
-          .all();
-        return (result.results ?? []).map((row: any) => ({
-          id: row.id,
-          filename: row.filename,
-          contentType: row.content_type,
-          size: Number(row.size),
-          key: row.storage_key
-        })) as AttachmentRecord[];
+        const results: AttachmentRecord[] = [];
+        for (const chunk of chunkForD1BindLimit(messageIds)) {
+          const placeholders = chunk.map(() => "?").join(", ");
+          const result = await db
+            .prepare(`SELECT id, filename, content_type, size, storage_key FROM mail_attachments WHERE message_id IN (${placeholders})`)
+            .bind(...chunk)
+            .all();
+          results.push(
+            ...((result.results ?? []).map((row: any) => ({
+              id: row.id,
+              filename: row.filename,
+              contentType: row.content_type,
+              size: Number(row.size),
+              key: row.storage_key
+            })) as AttachmentRecord[])
+          );
+        }
+        return results;
       },
       async deleteByMessageIds(messageIds) {
         if (messageIds.length === 0) return;
-        const placeholders = messageIds.map(() => "?").join(", ");
-        await db.prepare(`DELETE FROM mail_attachments WHERE message_id IN (${placeholders})`).bind(...messageIds).run();
+        for (const chunk of chunkForD1BindLimit(messageIds)) {
+          const placeholders = chunk.map(() => "?").join(", ");
+          await db.prepare(`DELETE FROM mail_attachments WHERE message_id IN (${placeholders})`).bind(...chunk).run();
+        }
       }
     },
     outboundMessages: {

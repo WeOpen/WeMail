@@ -122,6 +122,14 @@ function isValidDateValue(value: string | null | undefined) {
   return !Number.isNaN(new Date(value).getTime());
 }
 
+// The JS visibility filters treat "" as "no date" (falsy), but a stored ""
+// makes the SQL pushdown predicates disagree (e.g. end_at = '' fails the
+// end_at >= now comparison and hides the row from the list). Normalize at the
+// write boundary so the stored invariant is NULL-or-valid-ISO.
+function normalizeDateValue(value: string | null | undefined) {
+  return value || null;
+}
+
 function hasValidDateWindow(startAt: string | null | undefined, endAt: string | null | undefined) {
   if (!startAt || !endAt) return true;
   const startTime = new Date(startAt).getTime();
@@ -241,8 +249,10 @@ export function registerAnnouncementsRoutes(app: Hono<AppContext>) {
       validateEnumValue(payload.audience, announcementAudiences, "audience") ??
       validateEnumValue(payload.priority, announcementPriorities, "priority");
     if (enumError) return jsonError(enumError, 400);
-    if (!isValidDateValue(payload.startAt) || !isValidDateValue(payload.endAt)) return jsonError("startAt or endAt is invalid", 400);
-    if (!hasValidDateWindow(payload.startAt, payload.endAt)) return jsonError("startAt must be before endAt", 400);
+    const startAt = normalizeDateValue(payload.startAt);
+    const endAt = normalizeDateValue(payload.endAt);
+    if (!isValidDateValue(startAt) || !isValidDateValue(endAt)) return jsonError("startAt or endAt is invalid", 400);
+    if (!hasValidDateWindow(startAt, endAt)) return jsonError("startAt must be before endAt", 400);
     const announcement = await c.get("store").announcements.create({
       title,
       summary,
@@ -254,8 +264,8 @@ export function registerAnnouncementsRoutes(app: Hono<AppContext>) {
       authorLabel: user.email,
       tagsJson: JSON.stringify(normalizeTags(payload.tags)),
       pinned: payload.pinned ?? false,
-      startAt: payload.startAt ?? null,
-      endAt: payload.endAt ?? null
+      startAt,
+      endAt
     });
     await recordAudit(c.get("store"), "user", user.id, "announcement-create", { announcementId: announcement.id });
     const [announcementPayload] = await buildAnnouncementJson(c, [announcement], user.id);
@@ -314,8 +324,8 @@ export function registerAnnouncementsRoutes(app: Hono<AppContext>) {
     if ("priority" in payload && payload.priority) update.priority = payload.priority;
     if ("tags" in payload) update.tagsJson = JSON.stringify(normalizeTags(payload.tags));
     if ("pinned" in payload) update.pinned = payload.pinned ?? false;
-    if ("startAt" in payload) update.startAt = payload.startAt ?? null;
-    if ("endAt" in payload) update.endAt = payload.endAt ?? null;
+    if ("startAt" in payload) update.startAt = normalizeDateValue(payload.startAt);
+    if ("endAt" in payload) update.endAt = normalizeDateValue(payload.endAt);
     const nextStartAt = "startAt" in update ? update.startAt : existing.startAt;
     const nextEndAt = "endAt" in update ? update.endAt : existing.endAt;
     if (!isValidDateValue(nextStartAt) || !isValidDateValue(nextEndAt)) return jsonError("startAt or endAt is invalid", 400);

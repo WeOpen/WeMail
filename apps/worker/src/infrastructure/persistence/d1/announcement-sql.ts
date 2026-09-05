@@ -6,19 +6,13 @@
 // ISO-8601 text compares lexicographically == chronologically in SQLite.
 // Manage scope + admin bypasses every check *including* the archived
 // exclusion, exactly like isAnnouncementVisible.
+//
+// Known accepted divergence: SQLite lower() folds ASCII only, while the JS
+// helpers use Unicode toLowerCase(). Announcement content is Chinese text
+// (caseless), so this only matters for accented Latin keywords.
 // ---------------------------------------------------------------------------
 
 import { DAY_MS, nowIso } from "./shared";
-
-// ---------------------------------------------------------------------------
-// Announcement SQL pushdown.
-//
-// The WHERE fragments below must stay semantically identical to
-// src/shared/announcements.ts (isAnnouncementVisible + matchesAnnouncementFilters).
-// ISO-8601 text compares lexicographically == chronologically in SQLite.
-// Manage scope + admin bypasses every check *including* the archived
-// exclusion, exactly like isAnnouncementVisible.
-// ---------------------------------------------------------------------------
 
 export type AnnouncementSqlFilter = {
   whereSql: string;
@@ -26,12 +20,13 @@ export type AnnouncementSqlFilter = {
 };
 
 function buildAnnouncementStatusPredicate(status: string) {
-  // Mirrors resolveAnnouncementStatus branch-for-branch for non-archived rows.
+  // Mirrors resolveAnnouncementStatus branch-for-branch for non-archived rows,
+  // in the same order: upcoming is decided by start alone, ended by end alone.
   if (status === "已发布") {
     return "(status <> '已归档' AND start_at IS NULL AND end_at IS NULL)";
   }
   if (status === "即将开始") {
-    return "(status <> '已归档' AND start_at IS NOT NULL AND start_at > ? AND (end_at IS NULL OR end_at >= ?))";
+    return "(status <> '已归档' AND start_at IS NOT NULL AND start_at > ?)";
   }
   if (status === "已结束") {
     return "(status <> '已归档' AND end_at IS NOT NULL AND end_at < ?)";
@@ -61,11 +56,28 @@ function buildAnnouncementVisibilityPredicate(
   // isAnnouncementAudienceVisible: 管理员→admin, 普通成员→member, else all.
   parts.push("(audience NOT IN ('管理员', '普通成员') OR audience = ?)");
   params.push(userRole === "admin" ? "管理员" : "普通成员");
-  // isWithinPublishWindow (non-null dates are always valid per JS parse).
+  // isWithinPublishWindow. Invariant: start_at/end_at are NULL or valid ISO
+  // strings (the API normalizes "" to NULL; migration 0021 cleaned old rows).
   parts.push("(start_at IS NULL OR start_at <= ?) AND (end_at IS NULL OR end_at >= ?)");
   params.push(nowIsoValue, nowIsoValue);
   return { sql: parts.join(" AND "), params };
 }
+
+// Reconstructs the exact string the JS helper searches:
+// `${title} ${summary} ${tags.join(" ")}`. json_each/guard conditions mirror
+// parseAnnouncementTags: non-array JSON yields no tags, non-string entries are
+// skipped. instr() is a plain substring search with no wildcard metacharacters,
+// so the keyword is bound as-is (escaping would wrongly hide literal %, _, \).
+const ANNOUNCEMENT_KEYWORD_PREDICATE =
+  "instr(lower(" +
+  "title || ' ' || summary || ' ' || " +
+  "COALESCE((" +
+  "SELECT group_concat(json_each.value, ' ') FROM json_each(" +
+  "CASE WHEN json_valid(announcements.tags_json) AND json_type(announcements.tags_json) = 'array' " +
+  "THEN announcements.tags_json ELSE '[]' END" +
+  ") WHERE json_each.type = 'text'" +
+  "), '')" +
+  "), ?) > 0";
 
 export function buildAnnouncementFilter(options: {
   q?: string;
@@ -85,13 +97,8 @@ export function buildAnnouncementFilter(options: {
 
   const keyword = options.q?.trim().toLowerCase();
   if (keyword) {
-    // instr() is a plain substring search with no wildcard metacharacters, so
-    // the keyword is bound as-is; escaping (as a LIKE pattern would need) would
-    // wrongly hide rows containing literal %, _, or \.
-    parts.push(
-      "(instr(lower(title), ?) > 0 OR instr(lower(summary), ?) > 0 OR instr(lower(tags_json), ?) > 0)"
-    );
-    params.push(keyword, keyword, keyword);
+    parts.push(ANNOUNCEMENT_KEYWORD_PREDICATE);
+    params.push(keyword);
   }
 
   if (options.type) {
@@ -105,7 +112,8 @@ export function buildAnnouncementFilter(options: {
     if (statusPredicate === "(status = ?)") {
       params.push(options.status);
     } else {
-      // 进行中 / 即将开始 / 已结束 reference `now` once or twice.
+      // 已发布 has no placeholders; the other derived statuses bind `now` once
+      // or twice, which the placeholder count already encodes.
       const nowCount = (statusPredicate.match(/\?/g) ?? []).length;
       for (let i = 0; i < nowCount; i += 1) params.push(nowIsoValue);
     }

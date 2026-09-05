@@ -280,8 +280,9 @@ export async function runCleanup(store: AppStore, env: AppBindings) {
     let hasMoreExpiredMessages = true;
 
     while (hasMoreExpiredMessages) {
-      // Bounded batches so a large backlog cannot produce unbounded queries,
-      // oversized IN (...) clauses, or a single over-long cron execution.
+      // Bounded batches so a large backlog cannot produce unbounded queries or
+      // a single over-long cron execution. IN (...) statement size is bounded
+      // separately by chunkForD1BindLimit inside the D1 store helpers.
       const expired = await store.messages.listExpired(new Date().toISOString(), {
         limit: CLEANUP_BATCH_SIZE
       });

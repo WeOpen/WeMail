@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { ListChecks } from "lucide-react";
 
 import { Button } from "../../shared/button";
@@ -15,13 +16,15 @@ export function WebhookEndpointDialog({
   onClose,
   onSubmit
 }: WebhookEndpointDialogProps) {
-  const createDraftEventSet = new Set(createDraft.events);
+  const createDraftEventSet = useMemo(() => new Set(createDraft.events), [createDraft.events]);
 
   function handleToggleEvent(value: string, checked: boolean) {
+    // Set semantics, like the pre-split toggleCreateEvent: checking is
+    // idempotent (no duplicate ids) and unchecking removes every occurrence.
     onDraftChange((current) => ({
       ...current,
       events: checked
-        ? [...current.events, value]
+        ? Array.from(new Set([...current.events, value]))
         : current.events.filter((eventValue) => eventValue !== value)
     }));
   }

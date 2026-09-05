@@ -62,4 +62,37 @@ describe("D1 large mailbox scopes", () => {
     expect(Math.max(...bindingCounts)).toBe(2);
     expect(preparedSql[0]).toContain("json_each(?)");
   });
+
+  it("chunks IN clauses to respect the D1 bound-parameter limit", async () => {
+    // D1 caps bound parameters per query at 100. The cleanup cron and the
+    // batch-delete route can pass hundreds of ids at once; every prepared
+    // statement must stay at or below the limit or the whole query errors.
+    const bindingCounts: number[] = [];
+    const inClauseLengths: number[] = [];
+    const statement = {
+      bind: vi.fn((...bindings: unknown[]) => {
+        bindingCounts.push(bindings.length);
+        return statement;
+      }),
+      first: vi.fn(async () => null),
+      all: vi.fn(async () => ({ results: [] })),
+      run: vi.fn(async () => ({ success: true }))
+    };
+    const db = {
+      prepare: vi.fn((sql: string) => {
+        inClauseLengths.push((sql.match(/\?/g) ?? []).length);
+        return statement;
+      })
+    } as unknown as D1Database;
+    const store = createD1Store(db);
+
+    const ids = Array.from({ length: 250 }, (_, index) => `message-${index}`);
+    await store.messages.deleteMany(ids);
+    await store.attachments.listByMessageIds(ids);
+    await store.attachments.deleteByMessageIds(ids);
+
+    expect(bindingCounts.length).toBeGreaterThan(3);
+    expect(Math.max(...bindingCounts)).toBeLessThanOrEqual(100);
+    expect(Math.max(...inClauseLengths)).toBeLessThanOrEqual(100);
+  });
 });
