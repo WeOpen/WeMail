@@ -26,279 +26,41 @@ import { useAppStore } from "../../app/appStore";
 import { Button } from "../../shared/button";
 import { apiFetch } from "../../shared/api/client";
 import { CheckboxField, FormField, SelectInput, TextInput } from "../../shared/form";
-import { OverlayDialog } from "../../shared/overlay";
 import { Pagination } from "../../shared/pagination";
 
-const WEBHOOK_ENDPOINT_PAGE_SIZE = 5;
-const WEBHOOK_ENDPOINT_PAGE_SIZE_OPTIONS = [5, 10, 20, 50] as const;
-const WEBHOOK_DELIVERY_PAGE_SIZE = 5;
-const WEBHOOK_DELIVERY_PAGE_SIZE_OPTIONS = [5, 10, 20, 50] as const;
-
-type WebhookDeliveryStatus = "all" | "success" | "failed";
-
-const webhookDeliveryStatusOptions: Array<{ label: string; value: WebhookDeliveryStatus }> = [
-  { label: "全部", value: "all" },
-  { label: "成功", value: "success" },
-  { label: "失败", value: "failed" }
-];
-
-const webhookEventGroups = [
-  {
-    title: "邮件事件",
-    description: "收件、提取和失败都应该第一时间进入你的自动化链路。",
-    events: [
-      { label: "新邮件到达", value: "message.received" },
-      { label: "提取结果完成", value: "message.extracted" },
-      { label: "邮件处理失败", value: "message.failed" }
-    ]
-  },
-  {
-    title: "通知事件",
-    description: "用来观察外部提醒链路是否成功送达。",
-    events: [
-      { label: "Telegram 发送成功", value: "telegram.sent" },
-      { label: "Telegram 发送失败", value: "telegram.failed" }
-    ]
-  },
-  {
-    title: "系统事件",
-    description: "安全和配置变化适合同步到审计系统。",
-    events: [
-      { label: "API 密钥创建", value: "api_key.created" },
-      { label: "API 密钥吊销", value: "api_key.revoked" },
-      { label: "配置变更", value: "settings.updated" }
-    ]
-  }
-] as const;
-
-const defaultWebhookEvents = webhookEventGroups[0].events.map((event) => event.value);
-const notificationRuleEventOptions = [
-  { label: "新邮件到达", value: "message.received" },
-  { label: "Webhook 提取结果", value: "message.extracted" },
-  { label: "Telegram 提取结果", value: "message.extraction.detected" },
-  { label: "邮件处理失败", value: "message.failed" },
-  { label: "Telegram 测试", value: "telegram.test" },
-  { label: "API 密钥创建", value: "api_key.created" },
-  { label: "API 密钥吊销", value: "api_key.revoked" },
-  { label: "配置变更", value: "settings.updated" }
-];
-const notificationTargetLabels: Record<NotificationRuleTarget, string> = {
-  webhook: "Webhook",
-  telegram: "Telegram",
-  slack: "Slack",
-  discord: "Discord",
-  feishu: "飞书",
-  wecom: "企业微信"
-};
-
-const sampleHeaders = [
-  "content-type: application/json",
-  "user-agent: WeMail-Webhook/1.0",
-  "x-wemail-event: message.received",
-  "x-wemail-delivery-id: whd_01H...",
-  "x-wemail-signature: sha256=..."
-].join("\n");
-
-const samplePayload = JSON.stringify(
-  {
-    createdAt: "2026-04-17T11:30:00.000Z",
-    data: {
-      message: "WeMail webhook event",
-      messageId: "msg_01H...",
-      subject: "Your verification code"
-    },
-    deliveryId: "whd_01H...",
-    endpoint: {
-      id: "whe_01H...",
-      name: "Production Sync"
-    },
-    eventType: "message.received"
-  },
-  null,
-  2
-);
-
-const signatureVerifyExample = JSON.stringify(
-  {
-    input: "raw request body + Signing Secret",
-    compareWith: "x-wemail-signature",
-    note: "Secret stays on your server; the header only contains the sha256 signature."
-  },
-  null,
-  2
-);
-
-const signatureHelpItems = [
-  "Signing Secret 只保存在 WeMail 和你的目标服务端，不会明文放进 Header。",
-  "WeMail 会用 Secret 对原始请求体计算 HMAC-SHA256，并把结果放到 x-wemail-signature。",
-  "目标服务收到请求后，用同一个 Secret 和原始 body 重新计算签名，再与 Header 比对。"
-];
-
-type WebhookEndpoint = {
-  id: string;
-  name: string;
-  url: string;
-  events: string[];
-  signingSecret?: string;
-  enabled: boolean;
-  createdAt?: string;
-  updatedAt?: string;
-};
-
-type WebhookDelivery = {
-  id: string;
-  endpointId?: string;
-  eventType: string;
-  status: string;
-  statusCode: number | null;
-  durationMs: number | null;
-  errorText: string | null;
-  payload?: unknown;
-  responseText?: string | null;
-  createdAt: string;
-};
-
-type NotificationRuleDraft = {
-  enabled: boolean;
-  eventTypes: string[];
-  keyword: string;
-  mailboxIds: string;
-  name: string;
-  quietHoursEnd: string;
-  quietHoursStart: string;
-  target: NotificationRuleTarget;
-  targetId: string;
-};
-
-type EndpointDraft = {
-  enabled: boolean;
-  events: string[];
-  name: string;
-  url: string;
-};
-
-type OverviewTone = "accent" | "info" | "success" | "warning";
-
-type WebhookCodeBlockProps = {
-  copied: boolean;
-  copyLabel: string;
-  label: string;
-  onCopy: () => void;
-  value: string;
-};
-
-type WebhookEndpointListPayload = {
-  endpoints?: WebhookEndpoint[];
-  page?: number;
-  pageSize?: number;
-  total?: number;
-};
-
-type WebhookDeliveryListPayload = {
-  deliveries?: WebhookDelivery[];
-  page?: number;
-  pageSize?: number;
-  total?: number;
-};
-
-type NotificationRuleListPayload = {
-  rules?: NotificationRuleSummary[];
-};
-
-const emptyDraft: EndpointDraft = {
-  enabled: true,
-  events: defaultWebhookEvents,
-  name: "",
-  url: ""
-};
-
-const emptyNotificationRuleDraft: NotificationRuleDraft = {
-  enabled: true,
-  eventTypes: ["message.received"],
-  keyword: "",
-  mailboxIds: "",
-  name: "",
-  quietHoursEnd: "",
-  quietHoursStart: "",
-  target: "webhook",
-  targetId: ""
-};
-
-function readErrorMessage(error: unknown) {
-  if (error instanceof Error) return error.message;
-  if (typeof error === "string") return error;
-  return "Webhook 配置同步失败，请稍后重试。";
-}
-
-function formatDate(value?: string) {
-  if (!value) return "尚未记录";
-  const timestamp = Date.parse(value);
-  if (!Number.isFinite(timestamp)) return value;
-  return new Intl.DateTimeFormat("zh-CN", {
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit"
-  }).format(new Date(timestamp));
-}
-
-function normalizeStatus(status: string) {
-  const value = status.toLowerCase();
-  if (value === "success" || value === "delivered" || value === "ok") return "成功";
-  if (value === "failed" || value === "error") return "失败";
-  if (value === "pending" || value === "retrying") return "重试中";
-  return status;
-}
-
-function isSuccessfulDelivery(delivery: WebhookDelivery) {
-  const value = delivery.status.toLowerCase();
-  return value === "success" || value === "delivered" || value === "ok";
-}
-
-function getEventLabel(value: string) {
-  for (const group of webhookEventGroups) {
-    const match = group.events.find((event) => event.value === value);
-    if (match) return match.label;
-  }
-  return value;
-}
-
-function formatJson(value: unknown) {
-  if (typeof value === "undefined") return "{}";
-  if (typeof value === "string") return value;
-  try {
-    return JSON.stringify(value, null, 2);
-  } catch {
-    return String(value);
-  }
-}
-
-async function copyText(text: string) {
-  if (typeof navigator === "undefined" || !navigator.clipboard) return;
-  await navigator.clipboard.writeText(text);
-}
-
-function WebhookCodeBlock({ copied, copyLabel, label, onCopy, value }: WebhookCodeBlockProps) {
-  return (
-    <article className="webhook-code-card">
-      <div className="webhook-code-header">
-        <span>{label}</span>
-        <Button
-          aria-label={copyLabel}
-          leadingIcon={<Copy size={14} strokeWidth={1.9} />}
-          onClick={onCopy}
-          size="sm"
-          variant="secondary"
-        >
-          {copied ? "已复制" : "复制"}
-        </Button>
-      </div>
-      <pre>
-        <code>{value}</code>
-      </pre>
-    </article>
-  );
-}
+import {
+  copyText,
+  emptyDraft,
+  emptyNotificationRuleDraft,
+  formatDate,
+  getEventLabel,
+  isSuccessfulDelivery,
+  normalizeStatus,
+  notificationRuleEventOptions,
+  notificationTargetLabels,
+  readErrorMessage,
+  sampleHeaders,
+  samplePayload,
+  signatureHelpItems,
+  signatureVerifyExample,
+  webhookDeliveryStatusOptions,
+  WEBHOOK_DELIVERY_PAGE_SIZE,
+  WEBHOOK_DELIVERY_PAGE_SIZE_OPTIONS,
+  WEBHOOK_ENDPOINT_PAGE_SIZE,
+  WEBHOOK_ENDPOINT_PAGE_SIZE_OPTIONS,
+  type EndpointDraft,
+  type NotificationRuleDraft,
+  type NotificationRuleListPayload,
+  type OverviewTone,
+  type WebhookDelivery,
+  type WebhookDeliveryListPayload,
+  type WebhookDeliveryStatus,
+  type WebhookEndpoint,
+  type WebhookEndpointListPayload
+} from "./webhook-content";
+import { WebhookCodeBlock } from "./WebhookCodeBlock";
+import { WebhookDeliveryDialog } from "./WebhookDeliveryDialog";
+import { WebhookEndpointDialog } from "./WebhookEndpointDialog";
 
 export function WebhookPage() {
   const pushToast = useAppStore((state) => state.pushToast);
@@ -425,7 +187,6 @@ export function WebhookPage() {
     [endpoints, selectedEndpointId]
   );
   const expandedEndpointSet = useMemo(() => new Set(expandedEndpointIds), [expandedEndpointIds]);
-  const createDraftEventSet = useMemo(() => new Set(createDraft.events), [createDraft.events]);
   const latestDelivery = deliveries[0] ?? null;
   const enabledEndpointCount = endpoints.filter((endpoint) => endpoint.enabled).length;
   const selectedEventCount = selectedEndpoint?.events.length ?? 0;
@@ -540,18 +301,6 @@ export function WebhookPage() {
     setEditingEndpointId(endpoint.id);
     setErrorMessage(null);
     setIsCreateDialogOpen(true);
-  }
-
-  function toggleCreateEvent(value: string, checked: boolean) {
-    setCreateDraft((current) => {
-      const events = new Set(current.events);
-      if (checked) {
-        events.add(value);
-      } else {
-        events.delete(value);
-      }
-      return { ...current, events: Array.from(events) };
-    });
   }
 
   function toggleNotificationRuleEvent(value: string, checked: boolean) {
@@ -1265,184 +1014,30 @@ export function WebhookPage() {
       </div>
 
       {isCreateDialogOpen ? (
-        <OverlayDialog
-          className="webhook-create-dialog"
-          closeOnBackdrop
-          description={isEditingEndpoint ? "调整端点名称、Callback URL、启用状态和事件订阅。" : "填写端点名称、Callback URL，并选择这个端点要接收的事件。"}
-          eyebrow="端点配置"
-          footer={
-            <div className="workspace-dialog-actions integration-inline-actions webhook-dialog-actions">
-              <Button
-                disabled={isSaving}
-                onClick={() => {
-                  setIsCreateDialogOpen(false);
-                  setEditingEndpointId(null);
-                }}
-                variant="secondary"
-              >
-                取消
-              </Button>
-              <Button
-                disabled={!isCreateDraftValid}
-                form="webhook-create-endpoint-form"
-                isLoading={isSaving}
-                loadingLabel={isEditingEndpoint ? "更新中" : "创建中"}
-                type="submit"
-                variant="primary"
-              >
-                {isEditingEndpoint ? "确认更新" : "创建端点"}
-              </Button>
-            </div>
-          }
+        <WebhookEndpointDialog
+          createDraft={createDraft}
+          errorMessage={errorMessage}
+          isCreateDraftValid={isCreateDraftValid}
+          isEditingEndpoint={isEditingEndpoint}
+          isSaving={isSaving}
           onClose={() => {
             setIsCreateDialogOpen(false);
             setEditingEndpointId(null);
           }}
-          size="lg"
-          title={isEditingEndpoint ? "编辑端点" : "新增端点"}
-        >
-          <form
-            className="webhook-create-form"
-            id="webhook-create-endpoint-form"
-            onSubmit={(event) => {
-              event.preventDefault();
-              void saveEndpoint();
-            }}
-          >
-            {errorMessage ? (
-              <p className="error-banner webhook-dialog-error" role="alert">
-                {errorMessage}
-              </p>
-            ) : null}
-
-            <div className="webhook-editor-grid">
-              <FormField htmlFor="webhook-create-name" label="端点名称">
-                <TextInput
-                  id="webhook-create-name"
-                  onChange={(event) => setCreateDraft((current) => ({ ...current, name: event.target.value }))}
-                  placeholder="输入端点名称"
-                  value={createDraft.name}
-                />
-              </FormField>
-              <FormField htmlFor="webhook-create-url" label="Callback URL">
-                <TextInput
-                  id="webhook-create-url"
-                  onChange={(event) => setCreateDraft((current) => ({ ...current, url: event.target.value }))}
-                  placeholder="输入接收 Webhook 的 HTTPS 地址"
-                  value={createDraft.url}
-                />
-              </FormField>
-            </div>
-
-            <CheckboxField
-              checked={createDraft.enabled}
-              className="webhook-enabled-card"
-              description="暂停后会保留配置和签名密钥，但不会继续投递事件。"
-              label={isEditingEndpoint ? "启用这个 Webhook 端点" : "创建后启用这个 Webhook 端点"}
-              onChange={(event) => setCreateDraft((current) => ({ ...current, enabled: event.target.checked }))}
-              variant="card"
-            />
-
-            <div className="webhook-create-events">
-              <div className="webhook-panel-title">
-                <ListChecks size={16} strokeWidth={1.9} />
-                <strong>事件订阅</strong>
-              </div>
-              <div className="webhook-event-matrix">
-                {webhookEventGroups.map((group) => (
-                  <article className="webhook-event-group" key={group.title}>
-                    <div>
-                      <strong>{group.title}</strong>
-                      <p>{group.description}</p>
-                    </div>
-                    <div className="webhook-event-list">
-                      {group.events.map((event) => (
-                        <CheckboxField
-                          checked={createDraftEventSet.has(event.value)}
-                          className="webhook-event-option"
-                          description={<code>{event.value}</code>}
-                          key={event.value}
-                          label={event.label}
-                          onChange={(changeEvent) => toggleCreateEvent(event.value, changeEvent.target.checked)}
-                          variant="card"
-                        />
-                      ))}
-                    </div>
-                  </article>
-                ))}
-              </div>
-            </div>
-          </form>
-        </OverlayDialog>
+          onDraftChange={(update) => setCreateDraft((current) => update(current))}
+          onSubmit={() => void saveEndpoint()}
+        />
       ) : null}
 
       {selectedDelivery ? (
-        <OverlayDialog
-          className="webhook-create-dialog webhook-delivery-dialog"
-          closeOnBackdrop
-          description="查看本次投递的事件、状态、Payload 和目标服务响应。"
-          eyebrow="投递详情"
-          footer={
-            <div className="workspace-dialog-actions integration-inline-actions webhook-dialog-actions">
-              {!isSuccessfulDelivery(selectedDelivery) ? (
-                <Button
-                  disabled={isDeliveryLoading}
-                  leadingIcon={<RotateCw size={15} strokeWidth={1.9} />}
-                  onClick={() => void handleRetryDelivery(selectedDelivery)}
-                  variant="secondary"
-                >
-                  重试投递
-                </Button>
-              ) : null}
-              <Button onClick={() => setSelectedDelivery(null)} variant="primary">
-                关闭
-              </Button>
-            </div>
-          }
+        <WebhookDeliveryDialog
+          copiedToken={copiedToken}
+          delivery={selectedDelivery}
+          isDeliveryLoading={isDeliveryLoading}
           onClose={() => setSelectedDelivery(null)}
-          size="lg"
-          title={getEventLabel(selectedDelivery.eventType)}
-        >
-          <div className="webhook-delivery-detail-grid">
-            <article className="integration-stat-row">
-              <strong>投递状态</strong>
-              <span>{normalizeStatus(selectedDelivery.status)}</span>
-            </article>
-            <article className="integration-stat-row">
-              <strong>状态码</strong>
-              <span>{selectedDelivery.statusCode ?? "无状态码"}</span>
-            </article>
-            <article className="integration-stat-row">
-              <strong>耗时</strong>
-              <span>{selectedDelivery.durationMs === null ? "未记录耗时" : `${selectedDelivery.durationMs} ms`}</span>
-            </article>
-            <article className="integration-stat-row">
-              <strong>创建时间</strong>
-              <span>{formatDate(selectedDelivery.createdAt)}</span>
-            </article>
-          </div>
-          {selectedDelivery.errorText ? (
-            <p className="error-banner webhook-error-banner" role="alert">
-              {selectedDelivery.errorText}
-            </p>
-          ) : null}
-          <div className="webhook-reference-grid">
-            <WebhookCodeBlock
-              copied={copiedToken === "delivery-payload"}
-              copyLabel="复制投递 Payload"
-              label="Payload"
-              onCopy={() => void handleCopy("delivery-payload", formatJson(selectedDelivery.payload))}
-              value={formatJson(selectedDelivery.payload)}
-            />
-            <WebhookCodeBlock
-              copied={copiedToken === "delivery-response"}
-              copyLabel="复制目标响应"
-              label="Response"
-              onCopy={() => void handleCopy("delivery-response", selectedDelivery.responseText ?? "")}
-              value={selectedDelivery.responseText || "目标服务没有返回响应体。"}
-            />
-          </div>
-        </OverlayDialog>
+          onCopy={(token, text) => void handleCopy(token, text)}
+          onRetry={(delivery) => void handleRetryDelivery(delivery)}
+        />
       ) : null}
     </main>
   );
