@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Inbound email idempotency now keys on the RFC 5322 Message-ID with a unique (mailbox, Message-ID) index as the race backstop (D1 migration 0022); headerless mail falls back to a time-bounded content match instead of scanning the whole mailbox, and identical-content emails with distinct Message-IDs are no longer wrongly suppressed.
 - Added a backup/restore runbook with a verified local drill (export → fresh-database restore → row and index verification), covering the R2 boundary and the repoint-and-redeploy restore path.
+- Added a deployment preflight check (`pnpm preflight`) that validates wrangler.toml bindings, cleanup cron triggers, and CORS per environment before self-hosters deploy — placeholder ids are informational in the GitHub-Actions flow and fail `--manual` wrangler deploys; wired into the zero-to-production tutorial.
 
 ## [0.2.11] - 2026-09-05
 
