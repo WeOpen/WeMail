@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import type { AppBindings } from "../../src/core/bindings";
 import { processInboundEmail } from "../../src/app/create-app";
 import { createWorkerTestHarness } from "../helpers/test-env";
 
@@ -112,7 +113,7 @@ describe("worker message integration", () => {
       to: mailbox.address,
       raw: new Response(rawEmail).body!
     });
-    const extraction = JSON.parse(message.extractionJson) as { type: string; value: string };
+    const extraction = JSON.parse(message.extractionJson) as { primary: { type: string; value: string } };
 
     expect(message.bodyText).toContain("NVIDIA email verification");
     expect(message.bodyText).toContain("Your verification code will expire shortly.");
@@ -120,11 +121,107 @@ describe("worker message integration", () => {
     expect(message.bodyText).not.toContain("<!DOCTYPE");
     expect(message.bodyText).not.toContain("<html");
     expect(message.bodyText).not.toContain("onerror");
-    expect(extraction.value).not.toBe("will");
-    expect(extraction).toMatchObject({
+    expect(extraction.primary.value).not.toBe("will");
+    expect(extraction.primary).toMatchObject({
       type: "auth_link",
       value: "https://www.nvidia.com/verify/email?token=abc123"
     });
+  });
+
+  it("stores a Chinese verification email with code, expiry hint, and header-derived findings", async () => {
+    const { env, store, mailbox } = await registerMemberAndCreateMailbox();
+    const rawEmail = [
+      "From: 某某服务 <noreply@example.cn>",
+      `To: ${mailbox.address}`,
+      "Subject: 【某某服务】登录验证",
+      "Message-ID: <cn-code-1@example.cn>",
+      "List-Unsubscribe: <https://example.cn/unsubscribe?u=42>",
+      "Authentication-Results: mx.example.com; spf=pass; dkim=pass; dmarc=pass",
+      "Content-Type: text/plain; charset=utf-8",
+      "",
+      "您的验证码为 583-914，10 分钟内有效。如非本人操作请忽略。"
+    ].join("\r\n");
+
+    const message = await processInboundEmail(env, store, { to: mailbox.address, raw: new Response(rawEmail).body! });
+    const envelope = JSON.parse(message.extractionJson) as {
+      primary: { type: string; value: string };
+      items: Array<{ type: string; source?: string }>;
+      expiresHint: string | null;
+      authSummary: { spf: string; dkim: string; dmarc: string } | null;
+    };
+
+    expect(envelope.primary).toMatchObject({ type: "auth_code", value: "583914" });
+    expect(envelope.expiresHint).toBe("10 分钟内有效");
+    expect(envelope.items.some((item) => item.type === "subscription_link" && item.source === "header")).toBe(true);
+    expect(envelope.authSummary).toMatchObject({ spf: "pass", dkim: "pass", dmarc: "pass" });
+  });
+
+  it("exposes the extraction envelope on the message detail API", async () => {
+    const { app, env, store, cookie, mailbox } = await registerMemberAndCreateMailbox();
+    const rawEmail = [
+      "From: Shop <orders@shop.example>",
+      `To: ${mailbox.address}`,
+      "Subject: Order confirmation",
+      "Message-ID: <order-1@shop.example>",
+      "Content-Type: text/plain; charset=utf-8",
+      "",
+      "Your verification code is 776655. Track your order at https://shop.example/track/99"
+    ].join("\r\n");
+    const message = await processInboundEmail(env, store, { to: mailbox.address, raw: new Response(rawEmail).body! });
+
+    const response = await app.request(
+      `/api/mail/messages/${message.id}`,
+      { headers: { cookie } },
+      env
+    );
+    const payload = (await response.json()) as {
+      message: {
+        extraction: { type: string };
+        extractions: Array<{ type: string }>;
+        expiresHint: string | null;
+      };
+    };
+
+    expect(response.status).toBe(200);
+    expect(payload.message.extraction.type).toBe("auth_code");
+    expect(payload.message.extractions.map((item) => item.type)).toEqual(
+      expect.arrayContaining(["auth_code", "other_link"])
+    );
+    expect(payload.message.expiresHint).toBeNull();
+  });
+
+  it("merges multi-value AI fallback findings when regex finds nothing", async () => {
+    const { env, store, mailbox } = await registerMemberAndCreateMailbox();
+    const rawEmail = [
+      "From: Blurb <hello@blurb.example>",
+      `To: ${mailbox.address}`,
+      "Subject: A note",
+      "Message-ID: <ai-1@blurb.example>",
+      "Content-Type: text/plain; charset=utf-8",
+      "",
+      "Nothing machine-readable here at all, just prose."
+    ].join("\r\n");
+
+    const fakeAi = {
+      run: async () => ({
+        response: JSON.stringify([
+          { type: "auth_code", value: "445566", label: "AI code" },
+          { type: "auth_link", value: "https://blurb.example/continue", label: "AI link" }
+        ])
+      })
+    };
+
+    const message = await processInboundEmail({ ...env, AI: fakeAi as unknown as AppBindings["AI"] }, store, {
+      to: mailbox.address,
+      raw: new Response(rawEmail).body!
+    });
+    const envelope = JSON.parse(message.extractionJson) as {
+      primary: { type: string; method: string; value: string };
+      items: Array<{ type: string; method: string }>;
+    };
+
+    expect(envelope.primary).toMatchObject({ type: "auth_code", method: "ai", value: "445566" });
+    expect(envelope.items.filter((item) => item.method === "ai")).toHaveLength(2);
   });
 
   it("does not send telegram notifications when the global telegram feature is disabled", async () => {

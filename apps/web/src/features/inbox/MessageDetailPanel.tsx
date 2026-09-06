@@ -132,6 +132,27 @@ function getRemoteImageBlocks(bodyText: string) {
   });
 }
 
+const authVerdictLabels: Record<string, string> = {
+  pass: "通过",
+  fail: "失败",
+  softfail: "软失败",
+  none: "无",
+  unknown: "未知"
+};
+
+type DetailViewModel = NonNullable<ReturnType<typeof toMessageDetailViewModel>>;
+
+function buildAuthSummaryBadges(authSummary: NonNullable<DetailViewModel["authSummary"]>) {
+  return [
+    { key: "SPF", verdict: authSummary.spf },
+    { key: "DKIM", verdict: authSummary.dkim },
+    { key: "DMARC", verdict: authSummary.dmarc }
+  ].map((entry) => ({
+    ...entry,
+    label: authVerdictLabels[entry.verdict] ?? entry.verdict
+  }));
+}
+
 function getExtractionInsight(viewModel: NonNullable<ReturnType<typeof toMessageDetailViewModel>>) {
   if (viewModel.extraction.type === "auth_code" && viewModel.extraction.value.trim()) {
     return {
@@ -248,6 +269,9 @@ export function MessageDetailPanel({ errorMessage = null, isLoading = false, onR
   const hasExtractionValue = viewModel.extraction.value.trim().length > 0;
   const copyLabel = viewModel.extraction.type === "auth_code" ? "复制验证码" : "复制提取值";
   const extractionInsight = getExtractionInsight(viewModel);
+  const secondaryFindings = (viewModel.extractions ?? []).filter(
+    (item) => item.type !== viewModel.extraction.type || item.value !== viewModel.extraction.value
+  );
   const ExtractionInsightIcon = extractionInsight.Icon as LucideIcon;
   const retentionLabel = formatRetentionLabel(viewModel.expiresAt);
   const linkRisk = extractionInsight.kind === "link" ? analyzeExtractionLink(viewModel.extraction.value) : null;
@@ -307,6 +331,16 @@ export function MessageDetailPanel({ errorMessage = null, isLoading = false, onR
           {retentionLabel}
         </span>
       </div>
+      {viewModel.authSummary ? (
+        <div className="auth-summary-row" aria-label="发件人验证">
+          <span className="auth-summary-title">发件人验证</span>
+          {buildAuthSummaryBadges(viewModel.authSummary).map((badge) => (
+            <span className={`auth-verdict auth-verdict-${badge.verdict}`} key={badge.key}>
+              {badge.key} {badge.label}
+            </span>
+          ))}
+        </div>
+      ) : null}
       <div className="extraction-card" aria-label="邮件识别结果">
         <div className="extraction-card-primary">
           <p>
@@ -326,6 +360,25 @@ export function MessageDetailPanel({ errorMessage = null, isLoading = false, onR
             <span className="extraction-confidence-fill" style={{ width: `${extractionInsight.confidence}%` }} />
           </span>
         </div>
+        {viewModel.expiresHint ? (
+          <p className="extraction-card-expiry">
+            <Clock3 size={14} strokeWidth={1.9} aria-hidden="true" />
+            <span>验证码 {viewModel.expiresHint}</span>
+          </p>
+        ) : null}
+        {secondaryFindings.length > 0 ? (
+          <div className="extraction-card-secondary" aria-label="其他提取结果">
+            <p>同时识别到</p>
+            <ul>
+              {secondaryFindings.map((item) => (
+                <li key={`${item.type}:${item.value}`} title={item.value}>
+                  <span>{item.label}</span>
+                  <strong>{item.value}</strong>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
       </div>
       {linkRisk ? (
         <div className={linkRisk.isRisky ? "link-risk-card warning" : "link-risk-card"} role={linkRisk.isRisky ? "alert" : undefined}>

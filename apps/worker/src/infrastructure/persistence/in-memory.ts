@@ -9,7 +9,8 @@ import {
   type MailDomainSummary,
   type MessageFilter,
   type MessageListSummary,
-  type OutboundListStatus
+  type OutboundListStatus,
+  parseMessageExtraction as parseSharedMessageExtraction
 } from "@wemail/shared";
 
 import type {
@@ -88,7 +89,8 @@ function getInactiveDays(value: number | undefined) {
 }
 
 function parseMessageExtraction(record: PersistedMessageRecord) {
-  return JSON.parse(record.extractionJson) as { type?: string; value?: string; label?: string };
+  // Shared normalizer handles both the envelope and legacy single results.
+  return parseSharedMessageExtraction(record.extractionJson);
 }
 
 const apiKeyScopeIds = new Set<string>(API_KEY_SCOPE_DEFINITIONS.map((scope) => scope.id));
@@ -99,7 +101,7 @@ function normalizeApiKeyScopes(scopes: unknown[] | undefined): ApiKeyScope[] {
 }
 
 function matchesMessageFilter(record: PersistedMessageRecord, filter: MessageFilter = "all") {
-  const extraction = parseMessageExtraction(record);
+  const extraction = parseMessageExtraction(record).primary;
   if (filter === "code") return extraction.type === "auth_code";
   if (filter === "link") return extraction.type !== "auth_code" && extraction.type !== "none";
   if (filter === "attachment") return record.attachmentCount > 0;
@@ -127,8 +129,8 @@ function matchesMessageSearch(record: PersistedMessageRecord, searchValue?: stri
     record.subject,
     record.previewText,
     record.bodyText,
-    extraction.value ?? "",
-    extraction.label ?? ""
+    // Search covers every finding, not just the primary one.
+    ...extraction.items.flatMap((item) => [item.value, item.label])
   ]
     .join(" ")
     .toLowerCase()
@@ -158,7 +160,8 @@ function matchesMessageAdvancedFilters(record: PersistedMessageRecord, query: {
   }
 
   if (query.extractionType) {
-    const extraction = parseMessageExtraction(record);
+    // Primary-only, matching the D1 json_extract filter semantics.
+    const extraction = parseMessageExtraction(record).primary;
     if (extraction.type !== query.extractionType) return false;
   }
 
@@ -169,7 +172,7 @@ function summarizeMessageRecords(records: PersistedMessageRecord[]): MessageList
   return {
     messageCount: records.length,
     extractionCount: records.filter((record) => {
-      const extraction = parseMessageExtraction(record);
+      const extraction = parseMessageExtraction(record).primary;
       return extraction.type !== "none" && Boolean(extraction.value?.trim());
     }).length,
     attachmentCount: records.reduce((sum, record) => sum + record.attachmentCount, 0)

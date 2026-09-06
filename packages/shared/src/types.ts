@@ -17,6 +17,31 @@ export type ExtractionResult = {
   type: ExtractionType;
   value: string;
   label: string;
+  // Where the finding came from: "header" for RFC-defined sources such as
+  // List-Unsubscribe, "body" for content matches.
+  source?: "body" | "header" | null;
+};
+
+// Verdicts distilled from the Authentication-Results header so readers can
+// judge sender trustworthiness without parsing the raw chain.
+export type AuthVerdict = "pass" | "fail" | "softfail" | "none" | "unknown";
+
+export type AuthenticationSummary = {
+  spf: AuthVerdict;
+  dkim: AuthVerdict;
+  dmarc: AuthVerdict;
+  raw: string | null;
+};
+
+// One email can carry several findings (a code plus several link kinds).
+// The envelope is what gets stored in mail_messages.extraction_json and
+// exposed on the API; "primary" keeps the single best result so every
+// legacy consumer (chips, webhook payloads) keeps working unchanged.
+export type MessageExtraction = {
+  primary: ExtractionResult;
+  items: ExtractionResult[];
+  expiresHint: string | null;
+  authSummary: AuthenticationSummary | null;
 };
 
 export type FeatureToggles = {
@@ -286,7 +311,11 @@ export type MessageSummary = {
   subject: string;
   previewText: string;
   bodyText: string;
+  // Single best finding (legacy-compatible); see extractions for the rest.
   extraction: ExtractionResult;
+  extractions?: ExtractionResult[];
+  expiresHint?: string | null;
+  authSummary?: AuthenticationSummary | null;
   oversizeStatus: string | null;
   attachmentCount: number;
   attachments: MessageAttachmentSummary[];

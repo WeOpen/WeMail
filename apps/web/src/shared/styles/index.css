@@ -3646,6 +3646,104 @@ button:disabled {
   grid-column: 1 / -1;
 }
 
+/* Extraction envelope additions: expiry hint, secondary findings, sender auth. */
+.extraction-card-expiry {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.86rem;
+}
+
+.extraction-card-secondary {
+  display: grid;
+  gap: 6px;
+  border-top: 1px solid var(--border);
+  padding-top: 10px;
+}
+
+.extraction-card-secondary > p {
+  margin: 0;
+  color: var(--text-soft);
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
+}
+
+.extraction-card-secondary ul {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.extraction-card-secondary li {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+  font-size: 0.86rem;
+}
+
+.extraction-card-secondary li span {
+  flex-shrink: 0;
+  color: var(--text-muted);
+}
+
+.extraction-card-secondary li strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  direction: rtl;
+  text-align: left;
+}
+
+.auth-summary-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 0.84rem;
+}
+
+.auth-summary-title {
+  color: var(--text-soft);
+}
+
+.auth-verdict {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: var(--radius-pill, 999px);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.auth-verdict-pass {
+  border-color: color-mix(in srgb, #20c997 42%, var(--border));
+  color: #158f6b;
+  background: var(--success-soft, transparent);
+}
+
+.auth-verdict-fail,
+.auth-verdict-softfail {
+  border-color: color-mix(in srgb, #e03131 42%, var(--border));
+  color: #c92a2a;
+  background: var(--warning-soft, transparent);
+}
+
+:root[data-theme="dark"] .auth-verdict-pass {
+  color: #4ddbb1;
+}
+
+:root[data-theme="dark"] .auth-verdict-fail,
+:root[data-theme="dark"] .auth-verdict-softfail {
+  color: #ff8787;
+}
+
 .inbox-detail-panel .extraction-card {
   grid-template-columns: minmax(0, 1fr) minmax(132px, 0.28fr);
   align-items: center;
