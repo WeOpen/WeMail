@@ -33,6 +33,7 @@ WeMail 后端 API 已按管理后台左侧菜单分组，旧 `/auth`、`/admin`�
 - 邮件数据迁移到 `mail_messages`、`mail_attachments`、`mail_outbound_messages`；Cloudflare Email Routing 收到未匹配系统账号的地址时，会保留为管理员可见的未匹配邮件。
 - 发件记录支持服务端分页、搜索和 `all/sent/failed` 状态筛选；详情接口会返回正文、实际发给 provider 的请求 payload、provider 响应和 message id，便于审计。
 - 设置和治理数据按菜单拆分到 `account_settings`、`mail_settings`、`webhook_*`、`announcements`、`system_settings`。
+- Webhook 端点支持 `channel` 字段：`webhook`（默认，投递完整 JSON 事件包并带签名头）、`slack` / `discord` / `feishu` / `wecom`（按对应平台的传入式 Webhook 消息格式投递）。通知规则可以按渠道定向（`target` 取渠道名）。
 
 ## 常用流程
 

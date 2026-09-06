@@ -7,6 +7,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ```bash
 # Development servers
 pnpm dev                  # Run both Worker and Web in parallel
+
+# Deployment preflight (validates wrangler.toml bindings/cron/CORS per env)
+pnpm preflight            # workflow mode: placeholders are informational; --manual fails on them
 pnpm dev:worker           # Worker only (Cloudflare Workers dev server)
 pnpm dev:web              # Web only (Vite dev server)
 

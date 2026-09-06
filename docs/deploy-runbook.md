@@ -255,8 +255,11 @@ pnpm typecheck
 pnpm test
 pnpm build
 pnpm api-catalog:check
+pnpm preflight
 git diff --check
 ```
+
+`pnpm preflight` 校验 wrangler.toml 各远端环境的绑定、清理 cron 与 CORS；经 GitHub Actions 部署时占位符属预期（工作流注入），手动 wrangler 部署用 `pnpm preflight --manual` 复查。
 
 若改动触达核心页面、路由、导航、登录态、账号、邮件、公告或部署流程，再执行：
 

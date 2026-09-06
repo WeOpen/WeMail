@@ -49,6 +49,7 @@ WeMail 是一个基于 Cloudflare Workers、D1、KV、Email Routing 和 React �
 | 缓存 | Worker binding `CACHE` | KV | 缓存字典、域名设置、功能开关等低频数据 |
 | 收件链路 | Worker `email()` handler | Email Routing | 接收外部邮件并写入 WeMail |
 | 附件存储 | Worker binding `ATTACHMENTS` | R2，可选 | 保存邮件附件真实文件内容 |
+| 通知渠道 | Webhook 控制台 | — | 通用 Webhook，或 Slack / Discord / 飞书 / 企业微信传入式 Webhook（按平台消息格式投递，规则可按渠道定向） |
 
 ## 部署路线图
 
