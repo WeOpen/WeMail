@@ -34,6 +34,7 @@ WeMail 后端 API 已按管理后台左侧菜单分组，旧 `/auth`、`/admin`�
 - 发件记录支持服务端分页、搜索和 `all/sent/failed` 状态筛选；详情接口会返回正文、实际发给 provider 的请求 payload、provider 响应和 message id，便于审计。
 - 设置和治理数据按菜单拆分到 `account_settings`、`mail_settings`、`webhook_*`、`announcements`、`system_settings`。
 - Webhook 端点支持 `channel` 字段：`webhook`（默认，投递完整 JSON 事件包并带签名头）、`slack` / `discord` / `feishu` / `wecom`（按对应平台的传入式 Webhook 消息格式投递）。通知规则可以按渠道定向（`target` 取渠道名）。
+- 邮件详情的 `extraction` 是最佳单项发现（兼容字段）；`extractions` 返回全部发现（验证码、各分类链接），`expiresHint` 为验证码有效期提示，`authSummary` 为 SPF/DKIM/DMARC 判定。提取支持中文验证码关键词与 List-Unsubscribe 头。
 
 ## 常用流程
 

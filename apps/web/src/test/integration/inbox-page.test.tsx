@@ -92,6 +92,12 @@ const mockInboxMessages: MessageSummary[] = [
     previewText: "Open the login link",
     bodyText: "Open the login link",
     extraction: { method: "regex", type: "auth_link", value: "https://contoso.test/magic", label: "登录链接" },
+    extractions: [
+      { method: "regex", type: "auth_link", value: "https://contoso.test/magic", label: "登录链接", source: "body" },
+      { method: "regex", type: "subscription_link", value: "https://contoso.test/unsubscribe", label: "Unsubscribe (header)", source: "header" }
+    ],
+    expiresHint: "10 分钟内有效",
+    authSummary: { spf: "pass", dkim: "pass", dmarc: "pass", raw: null },
     oversizeStatus: null,
     attachmentCount: 1,
     attachments: [
@@ -723,6 +729,11 @@ describe("mail list integration", () => {
     const extractedLink = within(extractionCard).getByText("https://contoso.test/magic");
 
     expect(within(extractionCard).getByText(/^识别到链接$/i)).toBeInTheDocument();
+    expect(within(extractionCard).getByText(/^同时识别到$/i)).toBeInTheDocument();
+    expect(within(extractionCard).getByText(/contoso.test\/unsubscribe/)).toBeInTheDocument();
+    expect(within(extractionCard).getByText(/验证码 10 分钟内有效/)).toBeInTheDocument();
+    expect(within(screen.getByRole("region", { name: /^阅读与提取详情$/i })).getByText("SPF 通过")).toBeInTheDocument();
+    expect(within(screen.getByRole("region", { name: /^阅读与提取详情$/i })).getByText("DMARC 通过")).toBeInTheDocument();
     expect(extractedLink).toHaveClass("extraction-card-value-link");
     expect(extractedLink).toHaveAttribute("title", "https://contoso.test/magic");
     expect(within(extractionCard).queryByText(/^登录链接$/i)).not.toBeInTheDocument();
