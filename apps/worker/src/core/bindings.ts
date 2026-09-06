@@ -60,6 +60,9 @@ export type PersistedMessageRecord = {
   id: string;
   mailboxId: string;
   toAddress?: string | null;
+  // RFC 5322 Message-ID, used as the inbound idempotency key; null for
+  // headerless mail which falls back to content-based dedupe.
+  messageId?: string | null;
   fromAddress: string;
   subject: string;
   previewText: string;
@@ -589,6 +592,10 @@ export interface AppStore {
     create: (input: Omit<PersistedMessageRecord, "id">) => Promise<PersistedMessageRecord>;
     listForMailboxes: (query: MessageRecordListQuery) => Promise<MessageRecordListResult>;
     listByMailbox: (mailboxId: string) => Promise<PersistedMessageRecord[]>;
+    // Indexed idempotency lookup for inbound redelivery.
+    findByMailboxAndMessageId: (mailboxId: string, messageId: string) => Promise<PersistedMessageRecord | null>;
+    // Time-bounded scan backing the content-based fallback for headerless mail.
+    listRecentByMailbox: (mailboxId: string, sinceIso: string) => Promise<PersistedMessageRecord[]>;
     findById: (id: string) => Promise<PersistedMessageRecord | null>;
     // options.limit bounds the query; omitting it keeps the historical
     // unbounded semantics used by diagnostics endpoints.

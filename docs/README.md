@@ -8,6 +8,7 @@
 2. `development-workflow.md`：开发流程、评审重点、文档联动规则
 3. `testing-strategy.md`：测试分层、CI 分工、验证门槛
 4. `deploy-runbook.md`：发布、部署、secrets、回滚与事故处理
+5. `backup-restore-runbook.md`：数据备份、恢复与恢复后验证
 5. `architecture/layered-architecture.md`：当前架构与依赖方向说明
 6. `adr-template.md` / `adr/`：正式架构决策记录模板与历史决策
 
@@ -27,6 +28,7 @@
 
 ### 发布与运维
 - `deploy-runbook.md`
+- `backup-restore-runbook.md`
 - `../CHANGELOG.md`：项目级版本与变更记录
 
 ## ✅ 放什么

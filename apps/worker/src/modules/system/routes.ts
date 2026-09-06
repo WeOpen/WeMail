@@ -287,7 +287,7 @@ async function buildDataReliability(c: Context<AppContext>): Promise<DataReliabi
       enabled: true,
       duplicateWindowMinutes: 5,
       duplicateNotificationPrevention: true,
-      message: "同一邮箱 5 分钟内的同发件人、主题、收件人和正文预览会复用已有记录，并抑制重复通知。"
+      message: "入站邮件按 RFC 5322 Message-ID 在同一邮箱内幂等存储，重投复用已有记录并抑制重复通知；无 Message-ID 的邮件回退为 5 分钟窗口内的同内容匹配。"
     },
     backupRunbook: [
       {

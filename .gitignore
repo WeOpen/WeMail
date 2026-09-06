@@ -24,4 +24,5 @@ optimus/
 .superpowers/
 .claude
 .playwright-mcp/
-.gstack/*
+.gstack/*# Local session notes (workflow file, not part of the product)
+MEMORY.md

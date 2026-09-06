@@ -71,6 +71,7 @@ export function toMessageRecord(row: any): PersistedMessageRecord {
     id: row.id,
     mailboxId: row.account_id,
     toAddress: row.to_address ?? null,
+    messageId: row.message_id ?? null,
     fromAddress: row.from_address,
     subject: row.subject,
     previewText: row.preview_text,

@@ -252,25 +252,40 @@ export function createMailAggregate(db: D1Database): MailAggregate {
     messages: {
       async create(input) {
         const id = crypto.randomUUID();
-        await db
-          .prepare(
-            "INSERT INTO mail_messages (id, account_id, to_address, from_address, subject, preview_text, body_text, extraction_json, oversize_status, attachment_count, received_at, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
-          )
-          .bind(
-            id,
-            input.mailboxId,
-            input.toAddress ?? null,
-            input.fromAddress,
-            input.subject,
-            input.previewText,
-            input.bodyText,
-            input.extractionJson,
-            input.oversizeStatus,
-            input.attachmentCount,
-            input.receivedAt,
-            input.expiresAt
-          )
-          .run();
+        try {
+          await db
+            .prepare(
+              "INSERT INTO mail_messages (id, account_id, to_address, message_id, from_address, subject, preview_text, body_text, extraction_json, oversize_status, attachment_count, received_at, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+            )
+            .bind(
+              id,
+              input.mailboxId,
+              input.toAddress ?? null,
+              input.messageId ?? null,
+              input.fromAddress,
+              input.subject,
+              input.previewText,
+              input.bodyText,
+              input.extractionJson,
+              input.oversizeStatus,
+              input.attachmentCount,
+              input.receivedAt,
+              input.expiresAt
+            )
+            .run();
+        } catch (error) {
+          // The (account_id, message_id) unique index is the race backstop:
+          // two concurrent redeliveries can both pass the pre-check, and the
+          // loser surfaces here. Re-read and hand back the winner.
+          if (error instanceof Error && error.message.includes("UNIQUE constraint failed")) {
+            const existing = await db
+              .prepare("SELECT * FROM mail_messages WHERE account_id = ? AND message_id = ?")
+              .bind(input.mailboxId, input.messageId ?? null)
+              .first<any>();
+            if (existing) return toMessageRecord(existing);
+          }
+          throw error;
+        }
         return { id, ...input };
       },
       async listForMailboxes(query) {
@@ -391,6 +406,21 @@ export function createMailAggregate(db: D1Database): MailAggregate {
         const result = await db
           .prepare("SELECT * FROM mail_messages WHERE account_id = ? ORDER BY received_at DESC")
           .bind(mailboxId)
+          .all();
+        return (result.results ?? []).map(toMessageRecord);
+      },
+      async findByMailboxAndMessageId(mailboxId, messageId) {
+        const row = await db
+          .prepare("SELECT * FROM mail_messages WHERE account_id = ? AND message_id = ?")
+          .bind(mailboxId, messageId)
+          .first<any>();
+        return row ? toMessageRecord(row) : null;
+      },
+      async listRecentByMailbox(mailboxId, sinceIso) {
+        // Backed by idx_mail_messages_account_received (account_id, received_at).
+        const result = await db
+          .prepare("SELECT * FROM mail_messages WHERE account_id = ? AND received_at >= ? ORDER BY received_at DESC")
+          .bind(mailboxId, sinceIso)
           .all();
         return (result.results ?? []).map(toMessageRecord);
       },

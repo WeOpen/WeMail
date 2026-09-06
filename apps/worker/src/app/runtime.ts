@@ -73,16 +73,27 @@ async function findRecentDuplicateMessage(
     mailboxId: string;
     toAddress: string;
     parsed: {
+      messageId?: string | null;
       fromAddress: string;
       subject: string;
       text: string;
     };
   }
 ) {
+  // Message-ID is the primary idempotency key: redeliveries carry it
+  // unchanged, and the lookup is a single indexed point query.
+  if (input.parsed.messageId) {
+    return store.messages.findByMailboxAndMessageId(input.mailboxId, input.parsed.messageId);
+  }
+
+  // Headerless mail falls back to content matching inside the duplicate
+  // window; the query is time-bounded and index-backed instead of scanning
+  // the whole mailbox on every inbound delivery.
+  const sinceIso = new Date(Date.now() - INBOUND_DUPLICATE_WINDOW_MS).toISOString();
+  const recentMessages = await store.messages.listRecentByMailbox(input.mailboxId, sinceIso);
   const previewText = createPreview(input.parsed.text);
   const bodyText = input.parsed.text.slice(0, 10_000);
-  const messages = await store.messages.listByMailbox(input.mailboxId);
-  return messages.find((message) =>
+  return recentMessages.find((message) =>
     isRecentDuplicateMessage(message, {
       toAddress: input.toAddress,
       fromAddress: input.parsed.fromAddress,
@@ -100,6 +111,7 @@ async function saveInboundMessage(
     mailboxId: string;
     toAddress: string;
     parsed: {
+      messageId?: string | null;
       fromAddress: string;
       subject: string;
       text: string;
@@ -117,6 +129,7 @@ async function saveInboundMessage(
   const message = await store.messages.create({
     mailboxId: input.mailboxId,
     toAddress: input.toAddress,
+    messageId: input.parsed.messageId ?? null,
     fromAddress: input.parsed.fromAddress,
     subject: input.parsed.subject,
     previewText: createPreview(input.parsed.text),
@@ -155,6 +168,7 @@ async function processInboundForMailbox(
   mailbox: MailboxRecord,
   toAddress: string,
   parsed: {
+    messageId?: string | null;
     fromAddress: string;
     subject: string;
     text: string;
