@@ -14,6 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-09-06
+
 ### Added
 
 - Upgraded email extraction to a multi-value envelope: one email now yields every finding (verification code, each classified link), an expiry hint (e.g. "10 分钟内有效"), and SPF/DKIM/DMARC sender verdicts from Authentication-Results. Chinese verification keywords (验证码/校验码/动态码…), hyphen-joined codes, code-before-keyword order, and RFC 8058 List-Unsubscribe headers are recognized; bare digit runs without a nearby code keyword are rejected, killing price/date false positives. The AI fallback returns a validated JSON array and merges all findings. The API keeps the legacy `extraction` field (best finding) and adds `extractions`, `expiresHint`, and `authSummary`; stored rows from before the upgrade render unchanged. The message detail panel shows secondary findings, the expiry hint, and sender-auth badges.
