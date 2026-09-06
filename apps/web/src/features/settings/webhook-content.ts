@@ -109,6 +109,7 @@ export type WebhookEndpoint = {
   id: string;
   name: string;
   url: string;
+  channel?: WebhookChannelValue | null;
   events: string[];
   signingSecret?: string;
   enabled: boolean;
@@ -141,7 +142,18 @@ export type NotificationRuleDraft = {
   targetId: string;
 };
 
+export type WebhookChannelValue = "webhook" | "slack" | "discord" | "feishu" | "wecom";
+
+export const webhookChannelLabels: Record<WebhookChannelValue, string> = {
+  webhook: "通用 Webhook",
+  slack: "Slack",
+  discord: "Discord",
+  feishu: "飞书",
+  wecom: "企业微信"
+};
+
 export type EndpointDraft = {
+  channel: WebhookChannelValue;
   enabled: boolean;
   events: string[];
   name: string;
@@ -169,6 +181,7 @@ export type NotificationRuleListPayload = {
 };
 
 export const emptyDraft: EndpointDraft = {
+  channel: "webhook",
   enabled: true,
   events: defaultWebhookEvents,
   name: "",

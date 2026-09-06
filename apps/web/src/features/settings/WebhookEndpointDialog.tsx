@@ -2,9 +2,9 @@ import { useMemo } from "react";
 import { ListChecks } from "lucide-react";
 
 import { Button } from "../../shared/button";
-import { CheckboxField, FormField, TextInput } from "../../shared/form";
+import { CheckboxField, FormField, SelectInput, TextInput } from "../../shared/form";
 import { OverlayDialog } from "../../shared/overlay";
-import { webhookEventGroups, type WebhookEndpointDialogProps } from "./webhook-content";
+import { webhookChannelLabels, webhookEventGroups, type WebhookChannelValue, type WebhookEndpointDialogProps } from "./webhook-content";
 
 export function WebhookEndpointDialog({
   createDraft,
@@ -90,6 +90,19 @@ export function WebhookEndpointDialog({
                   placeholder="输入接收 Webhook 的 HTTPS 地址"
                   value={createDraft.url}
                 />
+              </FormField>
+              <FormField description="聊天渠道按对应平台的消息格式投递；通用 Webhook 投递完整 JSON 事件包。" htmlFor="webhook-create-channel" label="通知渠道">
+                <SelectInput
+                  id="webhook-create-channel"
+                  onChange={(event) => onDraftChange((current) => ({ ...current, channel: event.target.value as WebhookChannelValue }))}
+                  value={createDraft.channel}
+                >
+                  {(Object.keys(webhookChannelLabels) as WebhookChannelValue[]).map((value) => (
+                    <option key={value} value={value}>
+                      {webhookChannelLabels[value]}
+                    </option>
+                  ))}
+                </SelectInput>
               </FormField>
             </div>
 

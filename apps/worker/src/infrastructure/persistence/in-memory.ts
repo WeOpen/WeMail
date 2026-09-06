@@ -1158,6 +1158,7 @@ export function createInMemoryStore(): AppStore {
           userId: input.userId,
           name: input.name,
           url: input.url,
+          channel: input.channel ?? null,
           eventsJson: input.eventsJson,
           signingSecret: crypto.randomUUID().replaceAll("-", ""),
           enabled: input.enabled,
@@ -1174,6 +1175,7 @@ export function createInMemoryStore(): AppStore {
           ...existing,
           name: input.name,
           url: input.url,
+          channel: input.channel ?? null,
           eventsJson: input.eventsJson,
           enabled: input.enabled,
           updatedAt: nowIso()

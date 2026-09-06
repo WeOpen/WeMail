@@ -396,11 +396,17 @@ export type RuntimeSettingsRecord = {
   updatedAt: string;
 };
 
+// Chat-channel webhooks reuse the webhook endpoint backbone; the channel
+// decides the request body shape (generic JSON vs Slack/Discord/Feishu/WeCom
+// text payloads) and gives notification rules a per-channel target.
+export type WebhookChannel = "webhook" | "slack" | "discord" | "feishu" | "wecom";
+
 export type WebhookEndpointRecord = {
   id: string;
   userId: string;
   name: string;
   url: string;
+  channel?: WebhookChannel | null;
   eventsJson: string;
   signingSecret: string;
   enabled: boolean;
@@ -694,8 +700,8 @@ export interface AppStore {
   webhookEndpoints: {
     listByUser: (userId: string) => Promise<WebhookEndpointRecord[]>;
     listByUserPage: (userId: string, options: PageListOptions) => Promise<WebhookEndpointListResult>;
-    create: (input: { userId: string; name: string; url: string; eventsJson: string; enabled: boolean }) => Promise<WebhookEndpointRecord>;
-    update: (id: string, userId: string, input: { name: string; url: string; eventsJson: string; enabled: boolean }) => Promise<WebhookEndpointRecord | null>;
+    create: (input: { userId: string; name: string; url: string; channel?: WebhookChannel | null; eventsJson: string; enabled: boolean }) => Promise<WebhookEndpointRecord>;
+    update: (id: string, userId: string, input: { name: string; url: string; channel?: WebhookChannel | null; eventsJson: string; enabled: boolean }) => Promise<WebhookEndpointRecord | null>;
     rotateSecret: (id: string, userId: string) => Promise<WebhookEndpointRecord | null>;
     delete: (id: string, userId: string) => Promise<void>;
   };

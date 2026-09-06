@@ -293,6 +293,7 @@ export function WebhookPage() {
 
   function openEditDialog(endpoint: WebhookEndpoint) {
     setCreateDraft({
+      channel: endpoint.channel ?? "webhook",
       enabled: endpoint.enabled,
       events: endpoint.events,
       name: endpoint.name,
@@ -364,6 +365,7 @@ export function WebhookPage() {
       const response = await apiFetch<{ endpoint: WebhookEndpoint }>(editingEndpointId ? `/api/webhook/endpoints/${editingEndpointId}` : "/api/webhook/endpoints", {
         method: editingEndpointId ? "PUT" : "POST",
         body: JSON.stringify({
+          channel: createDraft.channel,
           enabled: createDraft.enabled,
           events: createDraft.events,
           name: createDraft.name.trim(),
@@ -429,6 +431,7 @@ export function WebhookPage() {
     setIsEndpointActionBusy(true);
     try {
       const response = await updateEndpoint(endpoint, {
+        channel: endpoint.channel ?? "webhook",
         enabled: !endpoint.enabled,
         events: endpoint.events,
         name: endpoint.name,
