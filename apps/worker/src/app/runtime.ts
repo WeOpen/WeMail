@@ -1,7 +1,7 @@
 import { parseAccountPolicyRecord } from "@wemail/shared";
 
 import type { AppBindings, AppStore, MailboxRecord, PersistedMessageRecord } from "../core/bindings";
-import { buildExtraction, createPreview, maybeRunAiFallback, parseRawEmail } from "../shared/mail";
+import { buildMessageExtraction, createPreview, maybeRunAiFallback, parseRawEmail } from "../shared/mail";
 import { recordAudit } from "./services/audit-service";
 import { defaultFeatureToggles } from "./services/config-service";
 import { getRuntimeSettings } from "./services/runtime-settings-service";
@@ -117,7 +117,7 @@ async function saveInboundMessage(
       text: string;
       attachments: Array<{ filename: string; contentType: string; data: Uint8Array; size: number }>;
     };
-    extraction: ReturnType<typeof buildExtraction>;
+    extraction: ReturnType<typeof buildMessageExtraction>;
   }
 ) {
   const duplicate = await findRecentDuplicateMessage(store, input);
@@ -169,13 +169,20 @@ async function processInboundForMailbox(
   toAddress: string,
   parsed: {
     messageId?: string | null;
+    listUnsubscribe?: string | null;
+    authenticationResults?: string | null;
     fromAddress: string;
     subject: string;
     text: string;
     attachments: Array<{ filename: string; contentType: string; data: Uint8Array; size: number }>;
   }
 ) {
-  let extraction = buildExtraction(parsed.subject, parsed.text);
+  let extraction = buildMessageExtraction({
+    subject: parsed.subject,
+    bodyText: parsed.text,
+    listUnsubscribe: parsed.listUnsubscribe,
+    authenticationResults: parsed.authenticationResults
+  });
   const featureToggles = await getFeatureToggles(store, env);
   const settings = await getRuntimeSettings(store, env);
   const aiUsageToday = await store.audit.countByActorSince(
@@ -184,9 +191,9 @@ async function processInboundForMailbox(
     `${new Date().toISOString().slice(0, 10)}T00:00:00.000Z`
   );
 
-  if (featureToggles.aiEnabled && extraction.type === "none" && aiUsageToday < settings.ai.fallbackLimit) {
-    extraction = (await maybeRunAiFallback(env, extraction, parsed.text)) as typeof extraction;
-    if (extraction.method === "ai") {
+  if (featureToggles.aiEnabled && extraction.primary.type === "none" && aiUsageToday < settings.ai.fallbackLimit) {
+    extraction = await maybeRunAiFallback(env, extraction, parsed.text);
+    if (extraction.primary.method === "ai") {
       await recordAudit(store, "user", mailbox.userId, "ai-fallback", { mailboxId: mailbox.id });
     }
   }
@@ -223,21 +230,26 @@ async function processInboundForMailbox(
     subject: parsed.subject
   });
 
-  if (extraction.type !== "none") {
+  if (extraction.primary.type !== "none") {
     await sendTelegramNotification(
       { store, env, featureToggles },
       {
         userId: mailbox.userId,
         eventId: "message.extraction.detected",
-        text: `Extracted result for ${mailbox.address}\n${extraction.label}: ${extraction.value}\nSubject: ${parsed.subject}`,
-        metadata: { mailboxId: mailbox.id, messageId: message.id, extractionType: extraction.type }
+        text: `Extracted result for ${mailbox.address}\n${extraction.primary.label}: ${extraction.primary.value}\nSubject: ${parsed.subject}`,
+        metadata: { mailboxId: mailbox.id, messageId: message.id, extractionType: extraction.primary.type }
       }
     );
+    // extraction (primary) keeps the legacy single-result contract; the
+    // envelope fields carry every finding plus expiry and auth verdicts.
     await sendWebhookEventToUser(store, mailbox.userId, "message.extracted", {
       mailboxAddress: mailbox.address,
       mailboxId: mailbox.id,
       messageId: message.id,
-      extraction
+      extraction: extraction.primary,
+      extractions: extraction.items,
+      expiresHint: extraction.expiresHint,
+      authSummary: extraction.authSummary
     });
   }
 
@@ -264,7 +276,12 @@ export async function processInboundEmail(
       mailboxId: buildUnmatchedMailboxId(toAddress),
       toAddress,
       parsed,
-      extraction: buildExtraction(parsed.subject, parsed.text)
+      extraction: buildMessageExtraction({
+        subject: parsed.subject,
+        bodyText: parsed.text,
+        listUnsubscribe: parsed.listUnsubscribe,
+        authenticationResults: parsed.authenticationResults
+      })
     });
     return unmatchedMessage;
   }

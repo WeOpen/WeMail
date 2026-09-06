@@ -1,6 +1,12 @@
 import PostalMime from "postal-mime";
 
-import { extractImportantInfo, type ExtractionResult } from "@wemail/shared";
+import {
+  buildMessageExtraction as buildSharedMessageExtraction,
+  mergeAiItems,
+  parseMessageExtraction,
+  type ExtractionResult,
+  type MessageExtraction
+} from "@wemail/shared";
 import type { AppBindings, AttachmentRecord, PersistedMessageRecord, ResendClient, TelegramApiClient } from "../core/bindings";
 
 const htmlEntityMap: Record<string, string> = {
@@ -57,22 +63,39 @@ function htmlToReadableText(html: string) {
       return safeSrc ? `\nRemote image blocked: ${safeSrc}\n` : " ";
     }
   );
-  const withLinks = withRemoteImageBlocks.replace(
+  // Quote chains (reply history) carry no signal for a disposable inbox and
+  // push the actual content below the fold — drop them before flattening.
+  const withoutQuotes = withRemoteImageBlocks
+    .replace(/<blockquote\b[^>]*>[\s\S]*?<\/blockquote>/gi, " ")
+    .replace(/<div\b[^>]*class=(["']?)[^"']*gmail_quote[^"']*\1[^>]*>[\s\S]*?<\/div>/gi, " ");
+  const withLinks = withoutQuotes.replace(
     /<a\b[^>]*\bhref=(["']?)([^"'\s>]+)\1[^>]*>([\s\S]*?)<\/a>/gi,
     (_match, _quote: string, href: string, label: string) => `${label} ${href}`
   );
-  const text = withLinks
+  // Tables read as "col | col" rows so order confirmations and receipts keep
+  // their column relationships in the flattened text.
+  const withTables = withLinks
     .replace(/<\s*(script|style|head)\b[\s\S]*?<\/\s*\1\s*>/gi, " ")
     .replace(/<!--[\s\S]*?-->/g, " ")
-    .replace(/<\s*(br|\/p|\/div|\/h[1-6]|\/li|\/tr)\b[^>]*>/gi, "\n")
-    .replace(/<\s*(p|div|h[1-6]|li|tr|td|th)\b[^>]*>/gi, "\n")
-    .replace(/<[^>]+>/g, " ");
+    .replace(/<\s*t[dh]\b[^>]*>/gi, " ")
+    .replace(/<\s*\/t[dh]\b[^>]*>\s*(?!<\s*t[dh]\b|<\s*\/tr\b)/gi, " | ")
+    .replace(/<\s*\/tr\b[^>]*>/gi, "\n")
+    .replace(/<\s*(br|\/p|\/div|\/h[1-6]|\/li)\b[^>]*>/gi, "\n")
+    .replace(/<\s*(p|div|h[1-6]|li|tr)\b[^>]*>/gi, "\n");
+  const text = withTables.replace(/<[^>]+>/g, " ");
   return normalizeTextLines(decodeHtmlEntities(text));
 }
 
 function pickReadableBodyText(parsed: { text?: string; html?: string }) {
   const text = parsed.text?.trim();
-  if (text) return parsed.text ?? "";
+  if (text) {
+    // Drop reply-quoted lines so extraction reads the new content only.
+    const withoutQuotes = parsed.text
+      ?.split("\n")
+      .filter((line) => !/^\s*>/.test(line))
+      .join("\n");
+    return withoutQuotes ?? "";
+  }
   return parsed.html ? htmlToReadableText(parsed.html) : "";
 }
 
@@ -110,27 +133,53 @@ export async function parseRawEmail(raw: ReadableStream<Uint8Array>) {
     };
   });
 
+  const headers = parsed.headers ?? [];
+  const findHeader = (name: string) => headers.find((header) => header.key === name)?.value ?? null;
+
   return {
     fromAddress: parsed.from?.address ?? "unknown@sender.invalid",
     subject: parsed.subject ?? "(no subject)",
     // The RFC 5322 Message-ID survives redelivery unchanged, making it the
     // idempotency key for inbound processing.
     messageId: parsed.messageId?.trim() || null,
+    // RFC 8058 list-unsubscribe and the receiving mail server's auth verdicts
+    // feed the extraction envelope.
+    listUnsubscribe: findHeader("list-unsubscribe"),
+    authenticationResults: findHeader("authentication-results"),
     text: pickReadableBodyText(parsed),
     attachments: normalizedAttachments
   };
 }
 
-export function buildExtraction(subject: string, bodyText: string) {
-  return extractImportantInfo({ subject, text: bodyText });
+export function buildMessageExtraction(input: {
+  subject: string;
+  bodyText: string;
+  listUnsubscribe?: string | null;
+  authenticationResults?: string | null;
+}): MessageExtraction {
+  return buildSharedMessageExtraction({
+    subject: input.subject,
+    text: input.bodyText,
+    listUnsubscribe: input.listUnsubscribe ?? null,
+    authenticationResults: input.authenticationResults ?? null
+  });
+}
+
+const aiAllowedTypes = new Set(["auth_code", "auth_link", "service_link", "subscription_link", "other_link"]);
+
+// Llama 3.1 responds more reliably to JSON when fenced; strip fences before
+// parsing so one formatting quirk doesn't discard the whole fallback.
+function stripJsonFences(value: string) {
+  const fenced = value.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  return (fenced?.[1] ?? value).trim();
 }
 
 export async function maybeRunAiFallback(
   env: { AI?: AppBindings["AI"] },
-  current: ExtractionResult,
+  current: MessageExtraction,
   content: string
 ) {
-  if (current.type !== "none" || !env.AI) return current;
+  if (current.primary.type !== "none" || !env.AI) return current;
 
   try {
     const result = await env.AI.run("@cf/meta/llama-3.1-8b-instruct" as any, {
@@ -138,7 +187,7 @@ export async function maybeRunAiFallback(
         {
           role: "system",
           content:
-            "Extract exactly one useful auth code or auth link from the email. Return JSON with keys type, value, label."
+            "Extract every useful auth code and actionable link from the email. Respond with a JSON array; each element has keys type (one of auth_code, auth_link, service_link, subscription_link, other_link), value, label. No other text."
         },
         { role: "user", content }
       ]
@@ -148,15 +197,28 @@ export async function maybeRunAiFallback(
       typeof result === "object" && result && "response" in result ? (result.response as string) : null;
     if (!response) return current;
 
-    const parsed = JSON.parse(response) as { type?: string; value?: string; label?: string };
-    if (!parsed.type || !parsed.value) return current;
+    const parsed = JSON.parse(stripJsonFences(response)) as unknown;
+    if (!Array.isArray(parsed)) return current;
 
-    return {
-      method: "ai",
-      type: parsed.type as ExtractionResult["type"],
-      value: parsed.value,
-      label: parsed.label ?? "AI result"
-    };
+    const aiItems = parsed
+      .filter(
+        (item): item is { type: string; value: string; label?: string } =>
+          typeof item === "object" &&
+          item !== null &&
+          typeof (item as { type?: unknown }).type === "string" &&
+          typeof (item as { value?: unknown }).value === "string" &&
+          aiAllowedTypes.has((item as { type: string }).type)
+      )
+      .map((item) => ({
+        method: "regex" as const,
+        type: item.type as ExtractionResult["type"],
+        value: item.value,
+        label: item.label ?? "AI result",
+        source: "body" as const
+      }));
+    if (aiItems.length === 0) return current;
+
+    return mergeAiItems(current, aiItems);
   } catch {
     return current;
   }
@@ -288,6 +350,9 @@ export function buildResendClient(apiKey: string | undefined): ResendClient | nu
 }
 
 export function toMessageJson(message: PersistedMessageRecord, attachments: AttachmentRecord[]) {
+  // extractionJson holds either the new envelope or a pre-0.4.0 single
+  // result; the shared normalizer returns the envelope shape for both.
+  const envelope = parseMessageExtraction(message.extractionJson);
   return {
     id: message.id,
     mailboxId: message.mailboxId,
@@ -296,7 +361,10 @@ export function toMessageJson(message: PersistedMessageRecord, attachments: Atta
     subject: message.subject,
     previewText: message.previewText,
     bodyText: message.bodyText,
-    extraction: JSON.parse(message.extractionJson) as ExtractionResult,
+    extraction: envelope.primary,
+    extractions: envelope.items,
+    expiresHint: envelope.expiresHint,
+    authSummary: envelope.authSummary,
     oversizeStatus: message.oversizeStatus,
     attachmentCount: message.attachmentCount,
     attachments,

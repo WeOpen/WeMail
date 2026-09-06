@@ -326,11 +326,17 @@ export function createMailAggregate(db: D1Database): MailAggregate {
           bindings.push(searchLike, searchLike, searchLike, searchLike, searchLike, searchLike);
         }
 
+        // extraction_json holds the envelope ($.primary.type) or a legacy
+        // single result ($.type); COALESCE reads both shapes.
         if (query.filter === "code") {
-          whereConditions.push("json_extract(extraction_json, '$.type') = 'auth_code'");
+          whereConditions.push(
+            "COALESCE(json_extract(extraction_json, '$.primary.type'), json_extract(extraction_json, '$.type')) = 'auth_code'"
+          );
         }
         if (query.filter === "link") {
-          whereConditions.push("json_extract(extraction_json, '$.type') NOT IN ('auth_code', 'none')");
+          whereConditions.push(
+            "COALESCE(json_extract(extraction_json, '$.primary.type'), json_extract(extraction_json, '$.type')) NOT IN ('auth_code', 'none')"
+          );
         }
         if (query.filter === "attachment") {
           whereConditions.push("attachment_count > 0");
