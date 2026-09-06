@@ -363,9 +363,10 @@ git diff -- apps/worker/wrangler.toml
 
 确认 diff 中只有你自己的域名、非敏感变量、R2 名称和 Rate Limiting namespace，没有 D1/KV ID 或 token。
 
-运行本地发布前检查：
+运行本地发布前检查（`preflight` 会校验 wrangler.toml 的绑定、清理 cron 与 CORS 是否完整；占位符在本流程中是预期状态）：
 
 ```bash
+pnpm preflight
 pnpm version:check
 pnpm test
 pnpm typecheck

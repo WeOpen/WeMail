@@ -1,6 +1,6 @@
 {
   "name": "wemail",
-  "version": "0.2.11",
+  "version": "0.3.0",
   "private": true,
   "type": "module",
   "packageManager": "pnpm@10.18.2",
@@ -30,7 +30,8 @@
     "test:web:integration": "pnpm --dir apps/web exec vitest run src/test/integration",
     "openapi:generate": "node apps/worker/scripts/generate-openapi.mjs",
     "test:e2e": "pnpm exec playwright test -c apps/web/playwright.config.ts",
-    "test:e2e:install": "pnpm exec playwright install chromium"
+    "test:e2e:install": "pnpm exec playwright install chromium",
+    "preflight": "node scripts/preflight-check.mjs"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20260625.1",

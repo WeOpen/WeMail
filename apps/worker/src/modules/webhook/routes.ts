@@ -19,6 +19,7 @@ type ParsedEndpointPayload =
   | { error: string }
   | {
       input: {
+        channel: (typeof webhookChannelValues)[number];
         enabled: boolean;
         eventsJson: string;
         name: string;
@@ -51,7 +52,15 @@ function parseWebhookDeliveryStatus(value: string | undefined) {
   return "all";
 }
 
-function parseEndpointPayload(payload: { name?: string; url?: string; events?: string[]; enabled?: boolean }): ParsedEndpointPayload {
+const webhookChannelValues = ["webhook", "slack", "discord", "feishu", "wecom"] as const;
+
+function parseEndpointPayload(payload: {
+  name?: string;
+  url?: string;
+  channel?: string | null;
+  events?: string[];
+  enabled?: boolean;
+}): ParsedEndpointPayload {
   const name = payload.name?.trim();
   const url = payload.url?.trim();
   let events: string[] = [];
@@ -75,8 +84,14 @@ function parseEndpointPayload(payload: { name?: string; url?: string; events?: s
     return { error: error instanceof Error ? error.message : "Webhook URL is invalid" } as const;
   }
 
+  const channel = payload.channel?.trim() || "webhook";
+  if (!webhookChannelValues.includes(channel as (typeof webhookChannelValues)[number])) {
+    return { error: `Webhook channel must be one of: ${webhookChannelValues.join(", ")}` } as const;
+  }
+
   return {
     input: {
+      channel: channel as (typeof webhookChannelValues)[number],
       enabled: payload.enabled ?? true,
       eventsJson: JSON.stringify(events),
       name,
@@ -90,6 +105,7 @@ function endpointJson(endpoint: WebhookEndpointRecord) {
     id: endpoint.id,
     name: endpoint.name,
     url: endpoint.url,
+    channel: endpoint.channel ?? "webhook",
     events: JSON.parse(endpoint.eventsJson) as string[],
     signingSecret: endpoint.signingSecret,
     enabled: endpoint.enabled,
@@ -129,6 +145,7 @@ export function registerWebhookRoutes(app: Hono<AppContext>) {
     const payload = (await c.req.json().catch(() => ({}))) as {
       name?: string;
       url?: string;
+      channel?: string | null;
       events?: string[];
       enabled?: boolean;
     };
@@ -150,6 +167,7 @@ export function registerWebhookRoutes(app: Hono<AppContext>) {
     const payload = (await c.req.json()) as {
       name?: string;
       url?: string;
+      channel?: string | null;
       events?: string[];
       enabled?: boolean;
     };

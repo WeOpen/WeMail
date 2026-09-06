@@ -60,6 +60,9 @@ export type PersistedMessageRecord = {
   id: string;
   mailboxId: string;
   toAddress?: string | null;
+  // RFC 5322 Message-ID, used as the inbound idempotency key; null for
+  // headerless mail which falls back to content-based dedupe.
+  messageId?: string | null;
   fromAddress: string;
   subject: string;
   previewText: string;
@@ -393,11 +396,17 @@ export type RuntimeSettingsRecord = {
   updatedAt: string;
 };
 
+// Chat-channel webhooks reuse the webhook endpoint backbone; the channel
+// decides the request body shape (generic JSON vs Slack/Discord/Feishu/WeCom
+// text payloads) and gives notification rules a per-channel target.
+export type WebhookChannel = "webhook" | "slack" | "discord" | "feishu" | "wecom";
+
 export type WebhookEndpointRecord = {
   id: string;
   userId: string;
   name: string;
   url: string;
+  channel?: WebhookChannel | null;
   eventsJson: string;
   signingSecret: string;
   enabled: boolean;
@@ -589,6 +598,10 @@ export interface AppStore {
     create: (input: Omit<PersistedMessageRecord, "id">) => Promise<PersistedMessageRecord>;
     listForMailboxes: (query: MessageRecordListQuery) => Promise<MessageRecordListResult>;
     listByMailbox: (mailboxId: string) => Promise<PersistedMessageRecord[]>;
+    // Indexed idempotency lookup for inbound redelivery.
+    findByMailboxAndMessageId: (mailboxId: string, messageId: string) => Promise<PersistedMessageRecord | null>;
+    // Time-bounded scan backing the content-based fallback for headerless mail.
+    listRecentByMailbox: (mailboxId: string, sinceIso: string) => Promise<PersistedMessageRecord[]>;
     findById: (id: string) => Promise<PersistedMessageRecord | null>;
     // options.limit bounds the query; omitting it keeps the historical
     // unbounded semantics used by diagnostics endpoints.
@@ -687,8 +700,8 @@ export interface AppStore {
   webhookEndpoints: {
     listByUser: (userId: string) => Promise<WebhookEndpointRecord[]>;
     listByUserPage: (userId: string, options: PageListOptions) => Promise<WebhookEndpointListResult>;
-    create: (input: { userId: string; name: string; url: string; eventsJson: string; enabled: boolean }) => Promise<WebhookEndpointRecord>;
-    update: (id: string, userId: string, input: { name: string; url: string; eventsJson: string; enabled: boolean }) => Promise<WebhookEndpointRecord | null>;
+    create: (input: { userId: string; name: string; url: string; channel?: WebhookChannel | null; eventsJson: string; enabled: boolean }) => Promise<WebhookEndpointRecord>;
+    update: (id: string, userId: string, input: { name: string; url: string; channel?: WebhookChannel | null; eventsJson: string; enabled: boolean }) => Promise<WebhookEndpointRecord | null>;
     rotateSecret: (id: string, userId: string) => Promise<WebhookEndpointRecord | null>;
     delete: (id: string, userId: string) => Promise<void>;
   };

@@ -152,6 +152,41 @@ export function webhookDeliveryJson(delivery: WebhookDeliveryRecord) {
   };
 }
 
+const channelEventLabels: Record<string, string> = {
+  "message.received": "新邮件",
+  "message.extracted": "提取结果",
+  "message.extraction.detected": "提取结果",
+  "message.failed": "发件失败",
+  "api_key.created": "API 密钥已创建",
+  "api_key.revoked": "API 密钥已吊销"
+};
+
+function buildChannelText(eventType: string, data: Record<string, unknown>) {
+  const label = channelEventLabels[eventType] ?? eventType;
+  const parts = [data.mailboxAddress, data.subject, data.fromAddress, data.extraction]
+    .filter((value): value is string => typeof value === "string" && value.length > 0);
+  const detail = parts.length > 0 ? `\n${parts.join(" · ")}` : "";
+  return `【WeMail】${label}${detail}`;
+}
+
+// Chat platforms each expect their own body shape; the generic webhook keeps
+// the full WeMail JSON envelope. The canonical payload is always what gets
+// recorded for replay — the rendering happens at send time.
+function renderChannelBody(channel: string | null | undefined, eventType: string, data: Record<string, unknown>) {
+  switch (channel) {
+    case "slack":
+      return JSON.stringify({ text: buildChannelText(eventType, data) });
+    case "discord":
+      return JSON.stringify({ content: buildChannelText(eventType, data) });
+    case "feishu":
+      return JSON.stringify({ msg_type: "text", content: { text: buildChannelText(eventType, data) } });
+    case "wecom":
+      return JSON.stringify({ msgtype: "text", text: { content: buildChannelText(eventType, data) } });
+    default:
+      return null;
+  }
+}
+
 export async function sendWebhookEventToEndpoint(
   store: AppStore,
   endpoint: WebhookEndpointRecord,
@@ -170,7 +205,8 @@ export async function sendWebhookEventToEndpoint(
     },
     eventType
   };
-  const body = JSON.stringify(payload);
+  const channelBody = renderChannelBody(endpoint.channel, eventType, data);
+  const body = channelBody ?? JSON.stringify(payload);
   const startedAt = Date.now();
   let status = "failed";
   let statusCode: number | null = null;
@@ -226,7 +262,7 @@ export async function sendWebhookEventToUser(store: AppStore, userId: string, ev
           shouldSend: await shouldSendNotificationToTarget(store, userId, {
             data,
             eventType,
-            target: "webhook",
+            target: endpoint.channel ?? "webhook",
             targetId: endpoint.id
           })
         }))

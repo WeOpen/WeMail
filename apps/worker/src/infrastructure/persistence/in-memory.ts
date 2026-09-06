@@ -771,6 +771,16 @@ export function createInMemoryStore(): AppStore {
             .sort((a, b) => b.receivedAt.localeCompare(a.receivedAt))
         );
       },
+      async findByMailboxAndMessageId(mailboxId, messageId) {
+        return clone(Array.from(messages.values()).find((entry) => entry.mailboxId === mailboxId && entry.messageId === messageId) ?? null);
+      },
+      async listRecentByMailbox(mailboxId, sinceIso) {
+        return clone(
+          Array.from(messages.values())
+            .filter((entry) => entry.mailboxId === mailboxId && entry.receivedAt >= sinceIso)
+            .sort((a, b) => b.receivedAt.localeCompare(a.receivedAt))
+        );
+      },
       async findById(id) {
         return clone(messages.get(id) ?? null);
       },
@@ -1148,6 +1158,7 @@ export function createInMemoryStore(): AppStore {
           userId: input.userId,
           name: input.name,
           url: input.url,
+          channel: input.channel ?? null,
           eventsJson: input.eventsJson,
           signingSecret: crypto.randomUUID().replaceAll("-", ""),
           enabled: input.enabled,
@@ -1164,6 +1175,7 @@ export function createInMemoryStore(): AppStore {
           ...existing,
           name: input.name,
           url: input.url,
+          channel: input.channel ?? null,
           eventsJson: input.eventsJson,
           enabled: input.enabled,
           updatedAt: nowIso()

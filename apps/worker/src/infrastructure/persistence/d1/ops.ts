@@ -163,6 +163,7 @@ export function createOpsAggregate(db: D1Database): OpsAggregate {
           userId: row.user_id,
           name: row.name,
           url: row.url,
+          channel: row.channel ?? null,
           eventsJson: row.events_json,
           signingSecret: row.signing_secret,
           enabled: toBool(row.enabled),
@@ -203,6 +204,7 @@ export function createOpsAggregate(db: D1Database): OpsAggregate {
           userId: input.userId,
           name: input.name,
           url: input.url,
+          channel: input.channel ?? null,
           eventsJson: input.eventsJson,
           signingSecret: crypto.randomUUID().replaceAll("-", ""),
           enabled: input.enabled,
@@ -211,13 +213,14 @@ export function createOpsAggregate(db: D1Database): OpsAggregate {
         };
         await db
           .prepare(
-            "INSERT INTO webhook_endpoints (id, user_id, name, url, events_json, signing_secret, enabled, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
+            "INSERT INTO webhook_endpoints (id, user_id, name, url, channel, events_json, signing_secret, enabled, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
           )
           .bind(
             record.id,
             record.userId,
             record.name,
             record.url,
+            record.channel ?? null,
             record.eventsJson,
             record.signingSecret,
             record.enabled ? 1 : 0,
@@ -231,9 +234,9 @@ export function createOpsAggregate(db: D1Database): OpsAggregate {
         const updatedAt = nowIso();
         await db
           .prepare(
-            "UPDATE webhook_endpoints SET name = ?, url = ?, events_json = ?, enabled = ?, updated_at = ? WHERE id = ? AND user_id = ?"
+            "UPDATE webhook_endpoints SET name = ?, url = ?, channel = ?, events_json = ?, enabled = ?, updated_at = ? WHERE id = ? AND user_id = ?"
           )
-          .bind(input.name, input.url, input.eventsJson, input.enabled ? 1 : 0, updatedAt, id, userId)
+          .bind(input.name, input.url, input.channel ?? null, input.eventsJson, input.enabled ? 1 : 0, updatedAt, id, userId)
           .run();
         return (await this.listByUser(userId)).find((endpoint) => endpoint.id === id) ?? null;
       },

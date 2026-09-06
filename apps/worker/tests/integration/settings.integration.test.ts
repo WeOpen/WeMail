@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { defaultMailSettings } from "@wemail/shared";
 
 import { createWorkerTestHarness, registerUserAndGetCookie } from "../helpers/test-env";
+import { processInboundEmail } from "../../src/app/create-app";
 
 describe("worker settings integration", () => {
   afterEach(() => {
@@ -1060,6 +1061,122 @@ describe("worker settings integration", () => {
 
     expect(payload.error).toMatch(/paused/i);
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("delivers chat-channel webhook endpoints with the platform body shape", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response("ok", { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+    const { app, env, cookie } = await registerUserAndGetCookie();
+
+    const createResponse = await app.request(
+      "/api/webhook/endpoints",
+      {
+        method: "POST",
+        headers: { cookie, "content-type": "application/json" },
+        body: JSON.stringify({
+          name: "Slack channel",
+          url: "https://hooks.slack.test/services/T/B/X",
+          channel: "slack",
+          events: ["message.failed"],
+          enabled: true
+        })
+      },
+      env
+    );
+    expect(createResponse.status).toBe(201);
+    const created = (await createResponse.json()) as { endpoint: { id: string; channel: string } };
+    expect(created.endpoint.channel).toBe("slack");
+
+    await app.request(
+      `/api/webhook/endpoints/${created.endpoint.id}/test`,
+      { method: "POST", headers: { cookie } },
+      env
+    );
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [requestUrl, requestInit] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(requestUrl).toBe("https://hooks.slack.test/services/T/B/X");
+    expect(JSON.parse(String(requestInit.body))).toEqual({ text: expect.stringContaining("【WeMail】") });
+  });
+
+  it("rejects an unknown webhook channel", async () => {
+    const { app, env, cookie } = await registerUserAndGetCookie();
+
+    const response = await app.request(
+      "/api/webhook/endpoints",
+      {
+        method: "POST",
+        headers: { cookie, "content-type": "application/json" },
+        body: JSON.stringify({
+          name: "Bad channel",
+          url: "https://hooks.example.test/x",
+          channel: "carrier-pigeon",
+          events: ["message.failed"],
+          enabled: true
+        })
+      },
+      env
+    );
+    expect(response.status).toBe(400);
+    const payload = (await response.json()) as { error?: string };
+    expect(payload.error).toMatch(/channel/i);
+  });
+
+  it("gates chat-channel endpoints with channel-targeted notification rules", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response("ok", { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+    const { env, store } = await registerUserAndGetCookie();
+
+    const userList = await store.users.list({ page: 1, pageSize: 1 });
+    const owner = userList.users[0];
+    const mailbox = await store.mailboxes.create({
+      userId: owner.id,
+      label: "Channel gate",
+      address: "channel-gate@example.com"
+    });
+    await store.webhookEndpoints.create({
+      userId: owner.id,
+      name: "Slack gated",
+      url: "https://hooks.slack.test/services/T/B/Y",
+      channel: "slack",
+      eventsJson: JSON.stringify(["message.received"]),
+      enabled: true
+    });
+    await store.webhookEndpoints.create({
+      userId: owner.id,
+      name: "Generic untouched",
+      url: "https://hooks.example.test/generic",
+      eventsJson: JSON.stringify(["message.received"]),
+      enabled: true
+    });
+    // A rule targeting slack with a keyword that never matches suppresses the
+    // Slack endpoint only; the generic webhook still delivers.
+    await store.notificationRules.create({
+      userId: owner.id,
+      name: "Mute slack",
+      enabled: true,
+      target: "slack",
+      targetId: null,
+      eventTypesJson: JSON.stringify(["message.received"]),
+      mailboxIdsJson: "[]",
+      keyword: "impossible-keyword",
+      quietHoursStart: "",
+      quietHoursEnd: ""
+    });
+
+    const rawEmail = [
+      "From: Channel Bot <bot@example.com>",
+      `To: ${mailbox.address}`,
+      "Subject: Gate check",
+      "Content-Type: text/plain; charset=utf-8",
+      "",
+      "Body for the channel gate test."
+    ].join("\r\n");
+    await processInboundEmail(env, store, { to: mailbox.address, raw: new Response(rawEmail).body! });
+
+    const deliveredUrls = fetchMock.mock.calls.map((call) => String(call[0])).filter((url) => url.includes("hooks."));
+    expect(deliveredUrls).toContain("https://hooks.example.test/generic");
+    expect(deliveredUrls).not.toContain("https://hooks.slack.test/services/T/B/Y");
   });
 
   it("reads and persists mail settings through the mail settings endpoint", async () => {

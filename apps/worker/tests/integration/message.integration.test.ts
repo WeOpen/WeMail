@@ -263,6 +263,73 @@ describe("worker message integration", () => {
     expect(await store.audit.listByActorAndTypes(userId, ["message-duplicate-suppressed"], 5)).toHaveLength(1);
   });
 
+  it("suppresses a redelivered email by its Message-ID", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response("ok", { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+    const { env, store, mailbox, userId } = await registerMemberAndCreateMailbox();
+
+    await store.webhookEndpoints.create({
+      userId,
+      name: "Automation receiver",
+      url: "https://hooks.example.test/inbound",
+      eventsJson: JSON.stringify(["message.received"]),
+      enabled: true
+    });
+
+    const rawEmail = [
+      "From: Ops Bot <ops@example.com>",
+      `To: ${mailbox.address}`,
+      "Message-ID: <redelivery-check-1@example.com>",
+      "Subject: Nightly digest",
+      "Content-Type: text/plain; charset=utf-8",
+      "",
+      "Digest body that also differs on purpose to prove the Message-ID wins."
+    ].join("\r\n");
+
+    await processInboundEmail(env, store, { to: mailbox.address, raw: new Response(rawEmail).body! });
+    await processInboundEmail(env, store, { to: mailbox.address, raw: new Response(rawEmail).body! });
+
+    expect(await store.messages.listByMailbox(mailbox.id)).toHaveLength(1);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(await store.webhookDeliveries.listByUser(userId)).toHaveLength(1);
+    expect(await store.audit.listByActorAndTypes(userId, ["message-duplicate-suppressed"], 5)).toHaveLength(1);
+  });
+
+  it("stores identical-content emails that carry different Message-IDs", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response("ok", { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+    const { env, store, mailbox, userId } = await registerMemberAndCreateMailbox();
+
+    await store.webhookEndpoints.create({
+      userId,
+      name: "Automation receiver",
+      url: "https://hooks.example.test/inbound",
+      eventsJson: JSON.stringify(["message.received"]),
+      enabled: true
+    });
+
+    const buildRaw = (messageId: string) =>
+      [
+        "From: Cron Reporter <cron@example.com>",
+        `To: ${mailbox.address}`,
+        `Message-ID: ${messageId}`,
+        "Subject: Hourly report",
+        "Content-Type: text/plain; charset=utf-8",
+        "",
+        "Identical report body."
+      ].join("\r\n");
+
+    await processInboundEmail(env, store, { to: mailbox.address, raw: new Response(buildRaw("<report-1@example.com>")).body! });
+    await processInboundEmail(env, store, { to: mailbox.address, raw: new Response(buildRaw("<report-2@example.com>")).body! });
+
+    // Same content but distinct Message-IDs are distinct emails; the old
+    // content-only matcher wrongly suppressed the second one.
+    expect(await store.messages.listByMailbox(mailbox.id)).toHaveLength(2);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(await store.webhookDeliveries.listByUser(userId)).toHaveLength(2);
+    expect(await store.audit.listByActorAndTypes(userId, ["message-duplicate-suppressed"], 5)).toHaveLength(0);
+  });
+
   it("applies notification rules before webhook delivery", async () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response("ok", { status: 200 }));
     vi.stubGlobal("fetch", fetchMock);

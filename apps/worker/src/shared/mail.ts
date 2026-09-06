@@ -113,6 +113,9 @@ export async function parseRawEmail(raw: ReadableStream<Uint8Array>) {
   return {
     fromAddress: parsed.from?.address ?? "unknown@sender.invalid",
     subject: parsed.subject ?? "(no subject)",
+    // The RFC 5322 Message-ID survives redelivery unchanged, making it the
+    // idempotency key for inbound processing.
+    messageId: parsed.messageId?.trim() || null,
     text: pickReadableBodyText(parsed),
     attachments: normalizedAttachments
   };
