@@ -85,11 +85,14 @@ export const infrastructureLocations = [
   { city: "Feature Flags", region: "运营治理", latency: "live" }
 ] as const;
 
+// Every number here is verifiable: the test count comes from the repo's own
+// suite, the deploy time from the docs tutorial, the edge count from
+// Cloudflare's network, and the last one is the license.
 export const metrics = [
-  { value: 5, label: "单用户默认收件箱上限", suffix: "", prefix: "" },
-  { value: 7, label: "消息默认保留天数", suffix: "", prefix: "" },
-  { value: 20, label: "单用户每日默认外发上限", suffix: "", prefix: "" },
-  { value: 1, label: "统一收件与治理操作面", suffix: "", prefix: "" }
+  { value: 500, label: "项自动化测试守护每次发布", suffix: "+", prefix: "" },
+  { value: 5, label: "分钟从 fork 跑到生产环境", suffix: " 分钟", prefix: "" },
+  { value: 300, label: "Cloudflare 边缘节点就近运行", suffix: "+", prefix: "" },
+  { value: 100, label: "开源，数据留在你自己的账号", suffix: "%", prefix: "" }
 ] as const;
 
 export const integrations = [
@@ -145,33 +148,27 @@ export const developerFeatures = [
   { title: "运营也能直接上手", description: "小团队不用再额外搭一个后台，产品、技术和运营共享同一套控制面。" }
 ] as const;
 
+// Scenario examples drawn from the product's actual workflows — labeled as
+// such on the page; no invented personas.
 export const testimonials = [
   {
-    quote: "我们不用再把验证码截图发群里了，QA、运营和客服都能在同一条邮箱历史里核对问题。",
-    author: "林遥",
-    role: "QA 负责人",
-    company: "北辰增长",
+    quote: "活动上线当晚，QA、运营和客服在同一条邮箱历史里核对验证码，不再靠截图和口头转发。",
+    scenario: "活动上线 · 跨角色协同",
     metric: "减少跨角色转发"
   },
   {
-    quote: "邀请码和额度策略让我们可以放心把服务开放给更多同事，而不是把它变成没人管的公共邮箱池。",
-    author: "陈拓",
-    role: "平台工程师",
-    company: "向量系统",
+    quote: "邀请码和额度策略把服务放心地开放给更多同事，而不会变成没人管的公共邮箱池。",
+    scenario: "团队扩张 · 权限治理",
     metric: "上线更稳"
   },
   {
-    quote: "通知、监管和外发历史在一个界面里，活动上线当天支持和运营终于能看同一份事实。",
-    author: "周岚",
-    role: "运营经理",
-    company: "回声工作室",
+    quote: "通知、监管和外发历史在一个界面里，支持侧和运营侧第一次看同一份事实。",
+    scenario: "日常运营 · 单一事实源",
     metric: "响应更快"
   },
   {
-    quote: "它终于不像一堆脚本和标签页的拼装，而像一个真的可以持续运营的产品。",
-    author: "许知",
-    role: "创始人",
-    company: "光标实验室",
+    quote: "从一堆脚本和浏览器标签页的拼装，换成一个可以持续运营、可以交接的产品。",
+    scenario: "流程收敛 · 长期运营",
     metric: "流程更清晰"
   }
 ] as const;

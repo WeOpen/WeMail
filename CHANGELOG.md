@@ -14,6 +14,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Rebuilt the landing hero around demonstrating the product instead of describing it: an auto-playing inbox demo (mail arrives → verification code extracted → copied), an interactive extraction playground running the real Worker-side extraction engine client-side on pasted text, open-source/self-host/edge positioning pills, honest CTAs (申请邀请 + 自托管部署 instead of 立即开始 hitting the invite wall), and the rotating headline word now carries the brand accent.
+- Landing content honesty: key metrics are now verifiable facts (500+ automated tests, 5-minute self-host deploy, 300+ Cloudflare edge locations, 100% open source) instead of config defaults, and the testimonials section is labeled 场景示例 with workflow scenarios instead of fabricated personas.
+- Added a blanket prefers-reduced-motion guard covering all landing-page animations.
+
 ## [0.4.0] - 2026-09-06
 
 ### Added
