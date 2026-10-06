@@ -10,6 +10,7 @@ import type {
   MessageFilter,
   MessageListSummary,
   NotificationRuleTarget,
+  NotificationStatusSummary,
   OutboundListStatus,
   OutboundListSummary,
   UserRole,
@@ -23,7 +24,7 @@ export type RateLimiterBinding = {
 };
 
 export type TelegramApiClient = {
-  sendMessage: (params: { chatId: string; text: string }) => Promise<{ ok: boolean }>;
+  sendMessage: (params: { chatId: string; text: string }) => Promise<{ ok: boolean; statusCode?: number; retryAfterMs?: number }>;
   getChat: (params: { chatId: string }) => Promise<{ ok: boolean; description: string | null }>;
   setMyCommands: (params: { commands: Array<{ command: string; description: string }> }) => Promise<{
     ok: boolean;
@@ -431,6 +432,7 @@ export type WebhookDeliveryRecord = {
   errorText: string | null;
   payloadJson: string;
   responseText: string | null;
+  requestBodyText?: string | null;
   createdAt: string;
 };
 
@@ -460,6 +462,41 @@ export type NotificationRuleRecord = {
   keyword: string;
   quietHoursStart: string;
   quietHoursEnd: string;
+  quietHoursTimezone?: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type NotificationOutboxStatus = "pending" | "processing" | "retrying" | "succeeded" | "failed" | "suppressed";
+
+export type NotificationOutboxInput = {
+  messageId?: string | null;
+  eventId: string;
+  userId: string;
+  target: NotificationRuleTarget;
+  targetId: string;
+  eventType: string;
+  payloadJson: string;
+  expiresAt: string;
+  nextAttemptAt?: string;
+};
+
+export type NotificationOutboxRecord = {
+  messageId: string | null;
+  id: string;
+  eventId: string;
+  userId: string;
+  target: NotificationRuleTarget;
+  targetId: string;
+  eventType: string;
+  payloadJson: string;
+  status: NotificationOutboxStatus;
+  attempts: number;
+  nextAttemptAt: string;
+  lockedAt: string | null;
+  leaseToken: string | null;
+  lastError: string | null;
+  expiresAt: string;
   createdAt: string;
   updatedAt: string;
 };
@@ -595,7 +632,7 @@ export interface AppStore {
     delete: (id: string) => Promise<void>;
   };
   messages: {
-    create: (input: Omit<PersistedMessageRecord, "id">) => Promise<PersistedMessageRecord>;
+    create: (input: Omit<PersistedMessageRecord, "id">, options?: { id?: string; notificationTasks?: NotificationOutboxInput[] }) => Promise<PersistedMessageRecord>;
     listForMailboxes: (query: MessageRecordListQuery) => Promise<MessageRecordListResult>;
     listByMailbox: (mailboxId: string) => Promise<PersistedMessageRecord[]>;
     // Indexed idempotency lookup for inbound redelivery.
@@ -720,6 +757,17 @@ export interface AppStore {
       input: Omit<NotificationRuleRecord, "id" | "userId" | "createdAt" | "updatedAt">
     ) => Promise<NotificationRuleRecord | null>;
     delete: (id: string, userId: string) => Promise<void>;
+  };
+  notificationOutbox: {
+    enqueue: (input: NotificationOutboxInput) => Promise<NotificationOutboxRecord>;
+    claimDue: (input: { nowIso: string; lockBeforeIso: string; limit: number; taskId?: string; userId?: string }) => Promise<NotificationOutboxRecord[]>;
+    markSucceeded: (id: string, leaseToken: string, updatedAt?: string) => Promise<void>;
+    markFailed: (id: string, input: { leaseToken: string; error: string; retryAt?: string; updatedAt?: string; suppressed?: boolean }) => Promise<void>;
+    replay: (id: string, userId: string, nowIso: string) => Promise<NotificationOutboxRecord | null>;
+    deleteExpired: (nowIso: string, legacyBeforeIso?: string) => Promise<void>;
+    listByUser: (userId: string, limit?: number, target?: NotificationRuleTarget) => Promise<NotificationOutboxRecord[]>;
+    listRecent: (limit?: number) => Promise<NotificationOutboxRecord[]>;
+    summarize: (userId?: string, target?: NotificationRuleTarget) => Promise<NotificationStatusSummary>;
   };
   announcements: {
     list: () => Promise<AnnouncementRecord[]>;

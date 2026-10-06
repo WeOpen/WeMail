@@ -139,10 +139,18 @@ export function ApiKeysPage({ apiKeys, currentUserRole = "member", errorMessage,
   const [selectedScopes, setSelectedScopes] = useState<ApiKeyScope[]>(defaultCreateScopes);
   const [isCreating, setIsCreating] = useState(false);
   const [pendingRevokeId, setPendingRevokeId] = useState<string | null>(null);
-  const [copiedToken, setCopiedToken] = useState<string | null>(null);
+  const [copyFeedback, setCopyFeedback] = useState<{ token: string } | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(API_KEYS_PAGE_SIZE);
   const [revealState, setRevealState] = useState<RevealState | null>(null);
+  const copiedToken = copyFeedback?.token ?? null;
+
+  useEffect(() => {
+    if (!copyFeedback) return undefined;
+
+    const timeout = window.setTimeout(() => setCopyFeedback(null), 1500);
+    return () => window.clearTimeout(timeout);
+  }, [copyFeedback]);
 
   const summary = useMemo(() => {
     const activeKeys = apiKeys.filter((key) => !key.revokedAt);
@@ -212,8 +220,7 @@ export function ApiKeysPage({ apiKeys, currentUserRole = "member", errorMessage,
 
   const handleCopy = async (token: string, text: string) => {
     await copyText(text);
-    setCopiedToken(token);
-    window.setTimeout(() => setCopiedToken((current) => (current === token ? null : current)), 1500);
+    setCopyFeedback({ token });
   };
 
   const totalPages = Math.max(1, Math.ceil(apiKeys.length / pageSize));

@@ -52,3 +52,42 @@ jobs:
           path: apps/web/test-results
           if-no-files-found: ignore
           retention-days: 7
+
+  business-playwright:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa
+        with:
+          version: 10.18.2
+
+      - name: Setup Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install workspace dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright Chromium
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Run isolated Worker and D1 business E2E
+        run: pnpm test:e2e:business
+
+      - name: Upload business E2E evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: business-playwright-evidence
+          path: |
+            apps/web/playwright-report/business
+            apps/web/test-results/business
+          if-no-files-found: ignore
+          retention-days: 7

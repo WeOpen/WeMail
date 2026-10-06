@@ -34,6 +34,11 @@ WeMail 后端 API 已按管理后台左侧菜单分组，旧 `/auth`、`/admin`�
 - 发件记录支持服务端分页、搜索和 `all/sent/failed` 状态筛选；详情接口会返回正文、实际发给 provider 的请求 payload、provider 响应和 message id，便于审计。
 - 设置和治理数据按菜单拆分到 `account_settings`、`mail_settings`、`webhook_*`、`announcements`、`system_settings`。
 - Webhook 端点支持 `channel` 字段：`webhook`（默认，投递完整 JSON 事件包并带签名头）、`slack` / `discord` / `feishu` / `wecom`（按对应平台的传入式 Webhook 消息格式投递）。通知规则可以按渠道定向（`target` 取渠道名）。
+- 投递记录的 `payload` 保留原始事件，`requestBodyText` 保留发送给平台的请求体。重试从原始事件重新生成平台消息；旧通用 JSON 记录继续可重试，缺少原始事件的旧聊天记录会明确报错，需要重新发起事件。所有渠道都有 10 秒超时；Slack、飞书、企业微信还校验平台业务响应。签名仍对实际发送的请求体计算。
+- Discord 使用 `wait=true` 并核对创建的消息 ID，禁用邮件文本触发的自动 mentions。聊天文本按 UTF-8 字节截断并为主提取值与有效期保留空间；完整原始数据仍保存在事件记录中。
+- 入站通知任务与邮件元数据在同一 D1 事务提交，失败由每分钟 cron 恢复，最多自动尝试五次。`GET /api/notification/deliveries` 返回本人状态统计与最近任务元数据，可按 `target` 筛选；`POST /api/notification/deliveries/{id}/retry` 重放本人未过期的失败/等待重试/暂停任务。管理员通过 `GET /api/system/notification-status` 查看全站统计。
+- `POST /api/notification/rules/test` 对样本事件返回 `shouldSend` 与逐条匹配/抑制原因，不发送通知。规则 `quietHoursTimezone` 使用 IANA 时区；既有或旧客户端未指定时区的规则继续按 UTC 解释，支持跨午夜免打扰。
+- 调整旧规则时，用 `PUT /api/notification/rules/{id}` 提交原有完整规则并增加 `quietHoursTimezone`；仅新增时区字段不会改变原先的邮箱、关键词或目标条件。自动重试最多五次，用户手动重放会开启新一轮计数，事件 ID 保持不变。
 - 邮件详情的 `extraction` 是最佳单项发现（兼容字段）；`extractions` 返回全部发现（验证码、各分类链接），`expiresHint` 为验证码有效期提示，`authSummary` 为 SPF/DKIM/DMARC 判定。提取支持中文验证码关键词与 List-Unsubscribe 头。
 
 ## 常用流程

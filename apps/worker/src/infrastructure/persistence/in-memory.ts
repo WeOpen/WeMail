@@ -29,6 +29,7 @@ import type {
   MailboxDetailListQuery,
   MailboxRecord,
   NotificationRuleRecord,
+  NotificationOutboxRecord,
   OAuthIdentityRecord,
   OAuthPendingLoginRecord,
   OAuthStateRecord,
@@ -230,6 +231,7 @@ export function createInMemoryStore(): AppStore {
   const webhookEndpoints = new Map<string, WebhookEndpointRecord>();
   const webhookDeliveries: WebhookDeliveryRecord[] = [];
   const notificationRules = new Map<string, NotificationRuleRecord>();
+  const notificationOutbox = new Map<string, NotificationOutboxRecord>();
   const announcements: AnnouncementRecord[] = [];
   const announcementReceipts: AnnouncementReceiptRecord[] = [];
 
@@ -729,11 +731,26 @@ export function createInMemoryStore(): AppStore {
       }
     },
     messages: {
-      async create(input) {
+      async create(input, options) {
+        if (input.messageId) {
+          const existing = Array.from(messages.values()).find((entry) => entry.mailboxId === input.mailboxId && entry.messageId === input.messageId);
+          if (existing) return clone(existing);
+        }
         const record: PersistedMessageRecord = {
-          id: crypto.randomUUID(),
+          id: options?.id ?? crypto.randomUUID(),
           ...input
         };
+        // Mirror D1's transactional write without yielding between the message
+        // and its notification intents, including duplicate-event protection.
+        for (const task of options?.notificationTasks ?? []) {
+          if (Array.from(notificationOutbox.values()).some((entry) => entry.eventId === task.eventId && entry.target === task.target && entry.targetId === task.targetId)) continue;
+          const now = nowIso();
+          const queued: NotificationOutboxRecord = {
+            id: crypto.randomUUID(), ...task, messageId: task.messageId ?? null, status: "pending", attempts: 0,
+            nextAttemptAt: task.nextAttemptAt ?? now, lockedAt: null, leaseToken: null, lastError: null, createdAt: now, updatedAt: now
+          };
+          notificationOutbox.set(queued.id, queued);
+        }
         messages.set(record.id, record);
         return clone(record);
       },
@@ -795,6 +812,15 @@ export function createInMemoryStore(): AppStore {
         return clone(limit !== undefined ? expired.slice(0, limit) : expired);
       },
       async deleteMany(ids) {
+        const messageIds = new Set(ids);
+        const tasks = new Set(Array.from(notificationOutbox.values()).filter((entry) => entry.messageId && messageIds.has(entry.messageId)).map((entry) => entry.id));
+        for (let index = webhookDeliveries.length - 1; index >= 0; index -= 1) {
+          try {
+            const payload = JSON.parse(webhookDeliveries[index].payloadJson);
+            if (tasks.has(payload.notificationTaskId) || messageIds.has(payload.data?.messageId)) webhookDeliveries.splice(index, 1);
+          } catch { /* Legacy records have no associated task. */ }
+        }
+        for (const id of tasks) notificationOutbox.delete(id);
         for (const id of ids) messages.delete(id);
       }
     },
@@ -1274,6 +1300,120 @@ export function createInMemoryStore(): AppStore {
       async delete(id, userId) {
         const existing = notificationRules.get(id);
         if (existing?.userId === userId) notificationRules.delete(id);
+      }
+    },
+    notificationOutbox: {
+      async enqueue(input) {
+        const existing = Array.from(notificationOutbox.values()).find(
+          (entry) => entry.eventId === input.eventId && entry.target === input.target && entry.targetId === input.targetId
+        );
+        if (existing) return clone(existing);
+        const now = nowIso();
+        const record: NotificationOutboxRecord = {
+          id: crypto.randomUUID(),
+          eventId: input.eventId,
+          messageId: input.messageId ?? null,
+          userId: input.userId,
+          target: input.target,
+          targetId: input.targetId,
+          eventType: input.eventType,
+          payloadJson: input.payloadJson,
+          status: "pending",
+          attempts: 0,
+          nextAttemptAt: input.nextAttemptAt ?? now,
+          lockedAt: null,
+          leaseToken: null,
+          lastError: null,
+          expiresAt: input.expiresAt,
+          createdAt: now,
+          updatedAt: now
+        };
+        notificationOutbox.set(record.id, record);
+        return clone(record);
+      },
+      async claimDue(input) {
+        for (const [id, entry] of notificationOutbox) {
+          if (entry.status === "processing" && entry.attempts >= 5 && entry.lockedAt && entry.lockedAt <= input.lockBeforeIso) {
+            notificationOutbox.set(id, { ...entry, status: "failed", lockedAt: null, leaseToken: null, lastError: "Delivery attempt limit exceeded after interruption", updatedAt: input.nowIso });
+          }
+        }
+        const due = Array.from(notificationOutbox.values())
+          .filter((entry) =>
+            (entry.status === "pending" || entry.status === "retrying" || entry.status === "processing") &&
+            entry.nextAttemptAt <= input.nowIso &&
+            entry.expiresAt > input.nowIso && entry.attempts < 5 &&
+            (!input.taskId || (entry.id === input.taskId && entry.userId === input.userId)) &&
+            (!entry.lockedAt || entry.lockedAt <= input.lockBeforeIso)
+          )
+          .sort((left, right) => left.nextAttemptAt.localeCompare(right.nextAttemptAt) || left.createdAt.localeCompare(right.createdAt))
+          .slice(0, input.limit);
+        const now = input.nowIso;
+        return due.map((entry) => {
+          const next = { ...entry, status: "processing" as const, attempts: entry.attempts + 1, lockedAt: now, leaseToken: crypto.randomUUID(), updatedAt: now };
+          notificationOutbox.set(entry.id, next);
+          return clone(next);
+        });
+      },
+      async markSucceeded(id, leaseToken, updatedAt = nowIso()) {
+        const entry = notificationOutbox.get(id);
+        if (!entry || entry.status !== "processing" || entry.leaseToken !== leaseToken) return;
+        notificationOutbox.set(id, { ...entry, status: "succeeded", lockedAt: null, leaseToken: null, lastError: null, updatedAt });
+      },
+      async markFailed(id, input) {
+        const entry = notificationOutbox.get(id);
+        if (!entry || entry.status !== "processing" || entry.leaseToken !== input.leaseToken) return;
+        const updatedAt = input.updatedAt ?? nowIso();
+        const permanent = entry.attempts >= 5 || !input.retryAt;
+        notificationOutbox.set(id, {
+          ...entry,
+          status: input.suppressed ? "suppressed" : permanent ? "failed" : "retrying",
+          lockedAt: null,
+          leaseToken: null,
+          lastError: input.error,
+          nextAttemptAt: input.retryAt ?? entry.nextAttemptAt,
+          updatedAt
+        });
+      },
+      async replay(id, userId, now) {
+        const entry = notificationOutbox.get(id);
+        if (!entry || entry.userId !== userId || !["retrying", "failed", "suppressed"].includes(entry.status) || entry.expiresAt <= now) return null;
+        const next = { ...entry, status: "pending" as const, attempts: 0, nextAttemptAt: now, lockedAt: null, leaseToken: null, updatedAt: now };
+        notificationOutbox.set(id, next);
+        return clone(next);
+      },
+      async deleteExpired(now, legacyBeforeIso) {
+        const expired = new Set(Array.from(notificationOutbox.values()).filter((entry) => entry.expiresAt <= now).map((entry) => entry.id));
+        for (let index = webhookDeliveries.length - 1; index >= 0; index -= 1) {
+          try {
+            const payload = JSON.parse(webhookDeliveries[index].payloadJson);
+            const message = messages.get(payload.data?.messageId);
+            if (expired.has(payload.notificationTaskId) || (message && message.expiresAt <= now) || (!payload.notificationTaskId && legacyBeforeIso && webhookDeliveries[index].createdAt <= legacyBeforeIso)) webhookDeliveries.splice(index, 1);
+          } catch {
+            if (legacyBeforeIso && webhookDeliveries[index].createdAt <= legacyBeforeIso) webhookDeliveries.splice(index, 1);
+          }
+        }
+        for (const id of expired) notificationOutbox.delete(id);
+      },
+      async listByUser(userId, limit = 50, target) {
+        return clone(
+          Array.from(notificationOutbox.values())
+            .filter((entry) => entry.userId === userId && (!target || entry.target === target))
+            .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
+            .slice(0, Math.min(Math.max(limit, 1), 500))
+        );
+      },
+      async listRecent(limit = 30) {
+        return clone(Array.from(notificationOutbox.values()).sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, getSafePageSize(limit)));
+      },
+      async summarize(userId, target) {
+        const rows = Array.from(notificationOutbox.values()).filter((entry) => (!userId || entry.userId === userId) && (!target || entry.target === target) && entry.expiresAt > nowIso());
+        const counts = { pending: 0, processing: 0, retrying: 0, succeeded: 0, failed: 0, suppressed: 0 };
+        let lastSucceededAt: string | null = null;
+        for (const row of rows) {
+          counts[row.status] += 1;
+          if (row.status === "succeeded" && (!lastSucceededAt || row.updatedAt > lastSucceededAt)) lastSucceededAt = row.updatedAt;
+        }
+        return { counts, backlogCount: counts.pending + counts.processing + counts.retrying, lastSucceededAt };
       }
     },
     announcements: {

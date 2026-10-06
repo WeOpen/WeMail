@@ -28,7 +28,7 @@ export default defineConfig({
     }
   },
   test: {
-    exclude: ["e2e/**", "node_modules/**", "dist/**"],
+    exclude: ["e2e/**", "e2e-business/**", "node_modules/**", "dist/**"],
     environment: "jsdom",
     setupFiles: ["./src/test/setup.ts"]
   }

@@ -1,4 +1,4 @@
-import type { NotificationRuleInput, NotificationRuleSummary, NotificationRuleTarget } from "@wemail/shared";
+import type { NotificationRuleEvaluation, NotificationRuleInput, NotificationRuleSummary, NotificationRuleTarget } from "@wemail/shared";
 
 import type { AppStore, NotificationRuleRecord } from "../../core/bindings";
 
@@ -15,6 +15,10 @@ const notificationEvents = new Set([
   "api_key.revoked",
   "settings.updated"
 ]);
+
+export function isSupportedNotificationEvent(value: unknown): value is string {
+  return typeof value === "string" && notificationEvents.has(value);
+}
 
 function parseJsonStringArray(value: string) {
   try {
@@ -47,11 +51,18 @@ function normalizeQuietHour(value: unknown) {
   return trimmed;
 }
 
-function isInQuietHours(start: string, end: string, now = new Date()) {
+function isInQuietHours(start: string, end: string, now = new Date(), timeZone = "UTC") {
   if (!start || !end || start === end) return false;
-  const current = `${String(now.getUTCHours()).padStart(2, "0")}:${String(now.getUTCMinutes()).padStart(2, "0")}`;
+  const current = new Intl.DateTimeFormat("en-GB", { timeZone, hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(now);
   if (start < end) return current >= start && current < end;
   return current >= start || current < end;
+}
+
+function normalizeTimezone(value: unknown) {
+  if (value === undefined) return "UTC";
+  if (typeof value !== "string" || !value.trim() || value.length > 120) throw new Error("A valid IANA timezone is required");
+  try { return new Intl.DateTimeFormat("en-GB", { timeZone: value.trim() }).resolvedOptions().timeZone; }
+  catch { throw new Error("A valid IANA timezone is required"); }
 }
 
 export function toNotificationRuleSummary(record: NotificationRuleRecord): NotificationRuleSummary {
@@ -66,6 +77,7 @@ export function toNotificationRuleSummary(record: NotificationRuleRecord): Notif
     keyword: record.keyword,
     quietHoursStart: record.quietHoursStart,
     quietHoursEnd: record.quietHoursEnd,
+    quietHoursTimezone: record.quietHoursTimezone ?? "UTC",
     createdAt: record.createdAt,
     updatedAt: record.updatedAt
   };
@@ -90,7 +102,8 @@ export function parseNotificationRulePayload(payload: unknown): NotificationRule
     mailboxIds: normalizeStringList(input.mailboxIds, { maxItems: 100 }),
     keyword: typeof input.keyword === "string" ? input.keyword.trim().slice(0, 120) : "",
     quietHoursStart: normalizeQuietHour(input.quietHoursStart),
-    quietHoursEnd: normalizeQuietHour(input.quietHoursEnd)
+    quietHoursEnd: normalizeQuietHour(input.quietHoursEnd),
+    quietHoursTimezone: normalizeTimezone(input.quietHoursTimezone)
   };
 }
 
@@ -105,7 +118,8 @@ export function toNotificationRuleRecordInput(userId: string, input: Notificatio
     mailboxIdsJson: JSON.stringify(input.mailboxIds ?? []),
     keyword: input.keyword ?? "",
     quietHoursStart: input.quietHoursStart ?? "",
-    quietHoursEnd: input.quietHoursEnd ?? ""
+    quietHoursEnd: input.quietHoursEnd ?? "",
+    quietHoursTimezone: input.quietHoursTimezone ?? "UTC"
   };
 }
 
@@ -136,7 +150,7 @@ function matchesRuleEvent(rule: NotificationRuleRecord, eventType: string) {
   return parseJsonStringArray(rule.eventTypesJson).includes(eventType);
 }
 
-export async function shouldSendNotificationToTarget(
+export async function evaluateNotificationRules(
   store: AppStore,
   userId: string,
   input: {
@@ -144,17 +158,28 @@ export async function shouldSendNotificationToTarget(
     eventType: string;
     target: NotificationRuleTarget;
     targetId?: string | null;
+    now?: Date;
   }
-) {
-  const rules = (await store.notificationRules.listByUser(userId)).filter((rule) => rule.enabled && rule.target === input.target);
-  if (rules.length === 0) return true;
+): Promise<NotificationRuleEvaluation> {
+  const records = await store.notificationRules.listByUser(userId);
+  const now = input.now ?? new Date();
+  const rules = records.map((rule) => {
+    const reasons: string[] = [];
+    if (!rule.enabled) reasons.push("disabled");
+    if (!matchesRuleTarget(rule, input)) reasons.push("target_mismatch");
+    if (!matchesRuleEvent(rule, input.eventType)) reasons.push("event_mismatch");
+    if (!matchesRuleMailbox(rule, input.data)) reasons.push("mailbox_mismatch");
+    if (!matchesRuleKeyword(rule, input.data)) reasons.push("keyword_mismatch");
+    if (isInQuietHours(rule.quietHoursStart, rule.quietHoursEnd, now, rule.quietHoursTimezone ?? "UTC")) reasons.push("quiet_hours");
+    return { id: rule.id, name: rule.name, matched: reasons.length === 0, reasons, quietHoursTimezone: rule.quietHoursTimezone ?? "UTC" };
+  });
+  const noEnabledRules = !records.some((rule) => rule.enabled && rule.target === input.target);
+  const matched = rules.some((rule) => rule.matched);
+  return { shouldSend: noEnabledRules || matched, reason: noEnabledRules ? "no_enabled_rules" : matched ? "matched" : "no_matching_rules", evaluatedAt: now.toISOString(), rules };
+}
 
-  return rules.some(
-    (rule) =>
-      matchesRuleTarget(rule, input) &&
-      matchesRuleEvent(rule, input.eventType) &&
-      matchesRuleMailbox(rule, input.data) &&
-      matchesRuleKeyword(rule, input.data) &&
-      !isInQuietHours(rule.quietHoursStart, rule.quietHoursEnd)
-  );
+export async function shouldSendNotificationToTarget(store: AppStore, userId: string, input: {
+  data: Record<string, unknown>; eventType: string; target: NotificationRuleTarget; targetId?: string | null;
+}) {
+  return (await evaluateNotificationRules(store, userId, input)).shouldSend;
 }

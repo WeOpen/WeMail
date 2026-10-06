@@ -8,7 +8,7 @@ export const landingNavLinks = [
 export const heroWords = ["收信", "提取", "协同", "治理"] as const;
 
 export const heroStats = [
-  { value: "5 分钟", label: "搭起首个临时邮箱流程", company: "启用" },
+  { value: "自托管", label: "按部署指南配置独立环境", company: "启用" },
   { value: "20 / 天", label: "默认单用户外发额度", company: "配额" },
   { value: "7 天", label: "消息默认保留窗口", company: "留存" },
   { value: "1 个界面", label: "收件与管理统一操作面", company: "协同" }
@@ -85,12 +85,11 @@ export const infrastructureLocations = [
   { city: "Feature Flags", region: "运营治理", latency: "live" }
 ] as const;
 
-// Every number here is verifiable: the test count comes from the repo's own
-// suite, the deploy time from the docs tutorial, the edge count from
-// Cloudflare's network, and the last one is the license.
+// Environment count follows wrangler.toml; deployment time depends on account,
+// domain, routing, and secret setup and has no measured public guarantee.
 export const metrics = [
   { value: 500, label: "项自动化测试守护每次发布", suffix: "+", prefix: "" },
-  { value: 5, label: "分钟从 fork 跑到生产环境", suffix: " 分钟", prefix: "" },
+  { value: 2, label: "先验证 staging，再发布 production", suffix: " 个环境", prefix: "" },
   { value: 300, label: "Cloudflare 边缘节点就近运行", suffix: "+", prefix: "" },
   { value: 100, label: "开源，数据留在你自己的账号", suffix: "%", prefix: "" }
 ] as const;

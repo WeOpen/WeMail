@@ -11,6 +11,7 @@
 - 一个文件只解决一个稳定问题域，例如 `audit-service.ts`、`session-service.ts`
 - routes / use-cases 直接依赖具体 service，不再通过桶文件统一转发
 - service 可以依赖 `core/` 契约与 `shared/` 纯工具，但不要反向依赖 routes
+- `notification-outbox-service.ts` 准备通知意图并调度持久化投递；提交一致性、租约和外部投递边界见 `docs/adr/0003-durable-notification-outbox.md`。
 
 ## 🚫 不放什么
 - 路由注册

@@ -21,3 +21,4 @@
 - `description` 会自动接入 `aria-describedby`，用于补足弹层语义说明
 - 默认通过 shared layer portal 渲染到 `document.body`
 - 默认启用 focus trap、背景 inert、body scroll lock 和关闭后的焦点归还
+- 背景隔离与滚动锁在 DOM 提交阶段同步恢复；异步提交后关闭弹窗也不会留下已消失弹窗的不可交互背景

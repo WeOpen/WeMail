@@ -23,6 +23,7 @@
 | `d1/mail.ts` | mailboxes / messages / attachments / outboundMessages |
 | `d1/settings.ts` | settings / runtimeSettings / mailDomains / dictionaries / accountSettings / mailSettings / quotas |
 | `d1/ops.ts` | audit / cleanupRuns / telegram / webhook* / notificationRules |
+| `d1/notification-outbox.ts` | 持久化通知任务、原子领取、租约、重放与保留期清理；邮件聚合通过准备语句在同一 D1 batch 中提交任务 |
 | `d1/announcements.ts` | 公告聚合；SQL 过滤构造见 `announcement-sql.ts` |
 
 新增聚合时：在 `d1/` 建模块、导出 `create<Aggregate>Aggregate(db)`，并在 `d1.ts` 组装。行映射统一放 `row-mappers.ts`。`in-memory.ts` 与 D1 实现保持接口对等，由集成测试约束。

@@ -79,6 +79,7 @@ describe("D1 large mailbox scopes", () => {
       run: vi.fn(async () => ({ success: true }))
     };
     const db = {
+      batch: vi.fn(async (statements: Array<{ run: () => Promise<unknown> }>) => Promise.all(statements.map((entry) => entry.run()))),
       prepare: vi.fn((sql: string) => {
         inClauseLengths.push((sql.match(/\?/g) ?? []).length);
         return statement;

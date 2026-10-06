@@ -8,6 +8,7 @@ import {
   type MessageExtraction
 } from "@wemail/shared";
 import type { AppBindings, AttachmentRecord, PersistedMessageRecord, ResendClient, TelegramApiClient } from "../core/bindings";
+import { readProviderBody, readRetryAfter } from "./provider-response";
 
 const htmlEntityMap: Record<string, string> = {
   amp: "&",
@@ -247,16 +248,23 @@ export function buildTelegramClient(token: string | undefined): TelegramApiClien
       return { ok: response.ok, description };
     },
     async sendMessage({ chatId, text }: { chatId: string; text: string }) {
-      const response = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          chat_id: chatId,
-          text,
-          disable_web_page_preview: false
-        })
-      });
-      return { ok: response.ok };
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 10_000);
+      try {
+        const response = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+          method: "POST", headers: { "content-type": "application/json" }, signal: controller.signal,
+          body: JSON.stringify({ chat_id: chatId, text: text.slice(0, 4000).replace(/[\uD800-\uDBFF]$/, ""), disable_web_page_preview: false })
+        });
+        const raw = await readProviderBody(response);
+        let payload: { ok?: boolean; error_code?: number; parameters?: { retry_after?: number } } | null = null;
+        try { payload = JSON.parse(raw); } catch { /* Malformed acknowledgements cannot prove delivery. */ }
+        const retry = payload?.parameters?.retry_after;
+        return {
+          ok: response.ok && payload?.ok === true,
+          statusCode: typeof payload?.error_code === "number" ? payload.error_code : response.status,
+          retryAfterMs: typeof retry === "number" && retry >= 0 ? Math.min(retry * 1000, 3_600_000) : readRetryAfter(response.headers.get("retry-after"))
+        };
+      } finally { clearTimeout(timeout); }
     },
     async setMyCommands({ commands }: { commands: Array<{ command: string; description: string }> }) {
       const response = await fetch(`https://api.telegram.org/bot${token}/setMyCommands`, {

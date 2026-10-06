@@ -550,6 +550,7 @@ export type NotificationRuleSummary = {
   keyword: string;
   quietHoursStart: string;
   quietHoursEnd: string;
+  quietHoursTimezone?: string;
   createdAt: string;
   updatedAt: string;
 };
@@ -564,6 +565,38 @@ export type NotificationRuleInput = {
   keyword?: string;
   quietHoursStart?: string;
   quietHoursEnd?: string;
+  quietHoursTimezone?: string;
+};
+
+export type NotificationDeliveryStatus = "pending" | "processing" | "retrying" | "succeeded" | "failed" | "suppressed";
+
+export type NotificationDeliverySummary = {
+  id: string;
+  eventId: string;
+  eventType: string;
+  target: NotificationRuleTarget;
+  targetId: string;
+  targetName: string;
+  status: NotificationDeliveryStatus;
+  attempts: number;
+  nextAttemptAt: string;
+  errorText: string | null;
+  createdAt: string;
+  updatedAt: string;
+  expiresAt: string;
+};
+
+export type NotificationStatusSummary = {
+  counts: Record<NotificationDeliveryStatus, number>;
+  backlogCount: number;
+  lastSucceededAt: string | null;
+};
+
+export type NotificationRuleEvaluation = {
+  shouldSend: boolean;
+  reason: "matched" | "no_enabled_rules" | "no_matching_rules";
+  evaluatedAt: string;
+  rules: Array<{ id: string; name: string; matched: boolean; reasons: string[]; quietHoursTimezone: string }>;
 };
 
 export type MailSettingsSenderRules = {
