@@ -8,8 +8,37 @@ import {
   toNotificationRuleRecordInput,
   toNotificationRuleSummary
 } from "../../app/services/notification-rule-service";
+import { getNotificationStatus, parseNotificationTarget, retryNotification, testNotificationRules } from "../../app/use-cases/notification-use-cases";
 
 export function registerNotificationRuleRoutes(app: Hono<AppContext>) {
+  app.get("/api/notification/deliveries", async (c) => {
+    const user = requireUser(c);
+    if (!user) return jsonError("Authentication required", 401);
+    try { return c.json(await getNotificationStatus(c.get("store"), user.id, { target: parseNotificationTarget(c.req.query("target")) })); }
+    catch (error) { return jsonError(error instanceof Error ? error.message : "Unable to load notifications", 400); }
+  });
+
+  app.get("/api/system/notification-status", async (c) => {
+    const user = requireUser(c);
+    if (!user) return jsonError("Authentication required", 401);
+    if (user.role !== "admin") return jsonError("Admin role required", 403);
+    return c.json(await getNotificationStatus(c.get("store"), user.id, { admin: true }));
+  });
+
+  app.post("/api/notification/deliveries/:id/retry", async (c) => {
+    const user = requireUser(c);
+    if (!user) return jsonError("Authentication required", 401);
+    const result = await retryNotification(c.get("store"), c.env, user.id, c.req.param("id"));
+    return result ? c.json(result) : jsonError("Notification is unavailable, expired or currently delivering", 409);
+  });
+
+  app.post("/api/notification/rules/test", async (c) => {
+    const user = requireUser(c);
+    if (!user) return jsonError("Authentication required", 401);
+    try { return c.json(await testNotificationRules(c.get("store"), user.id, await c.req.json())); }
+    catch (error) { return jsonError(error instanceof Error ? error.message : "Invalid notification sample", 400); }
+  });
+
   app.get("/api/notification/rules", async (c) => {
     const user = requireUser(c);
     if (!user) return jsonError("Authentication required", 401);

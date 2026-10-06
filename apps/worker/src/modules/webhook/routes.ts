@@ -5,12 +5,12 @@ import { requireUser } from "../../app/context";
 import { jsonError, recordAudit } from "../../app/services/audit-service";
 import {
   normalizeWebhookEvents,
-  retryWebhookDelivery,
   sendWebhookTestEvent,
   validateWebhookTargetUrl,
   webhookDeliveryJson
 } from "../../app/services/webhook-service";
 import type { WebhookEndpointRecord } from "../../core/bindings";
+import { retryWebhookDeliveryWithOutbox } from "../../app/services/notification-outbox-service";
 
 const webhookEndpointPageSizes = new Set([5, 10, 20, 50]);
 const webhookDeliveryPageSizes = new Set([5, 10, 20, 50]);
@@ -244,7 +244,7 @@ export function registerWebhookRoutes(app: Hono<AppContext>) {
     const user = requireUser(c);
     if (!user) return jsonError("Authentication required", 401);
     try {
-      const delivery = await retryWebhookDelivery(c.get("store"), user.id, c.req.param("id"));
+      const delivery = await retryWebhookDeliveryWithOutbox(c.get("store"), c.env, user.id, c.req.param("id"));
       if (!delivery) return jsonError("Webhook delivery not found", 404);
       await recordAudit(c.get("store"), "user", user.id, "webhook-retry", { deliveryId: c.req.param("id"), retryDeliveryId: delivery.id });
       return c.json({ delivery: webhookDeliveryJson(delivery) });

@@ -337,7 +337,8 @@ describe("settings pages", () => {
     renderWithRouter(<WebhookPage />);
 
     expect(screen.queryByRole("heading", { name: /事件订阅/i })).not.toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: /通知规则/i })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /^通知规则$/, level: 2 })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "通知规则试运行", level: 3 })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /开发者参考/i })).toBeInTheDocument();
     expect(screen.getByText("Webhook", { selector: ".panel-kicker" })).toBeInTheDocument();
     expect(screen.getByText("端点列表", { selector: ".panel-kicker" })).toBeInTheDocument();

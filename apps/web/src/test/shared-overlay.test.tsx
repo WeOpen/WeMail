@@ -1,11 +1,39 @@
 import { readFileSync } from "node:fs";
 
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { useLayoutEffect, useRef, useState } from "react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { OverlayDialog, OverlayDrawer } from "../shared/overlay";
 
 const sharedStyles = readFileSync("src/shared/styles/index.css", "utf8");
+
+function AsyncClosingDialog({ onClosed }: { onClosed: (isBackgroundHidden: boolean, overflow: string) => void }) {
+  const [isOpen, setIsOpen] = useState(true);
+  const shellRef = useRef<HTMLDivElement>(null);
+
+  useLayoutEffect(() => {
+    if (!isOpen) {
+      onClosed(shellRef.current?.parentElement?.getAttribute("aria-hidden") === "true", document.body.style.overflow);
+    }
+  }, [isOpen, onClosed]);
+
+  return (
+    <div ref={shellRef}>
+      <button type="button">恢复后的操作</button>
+      {isOpen ? (
+        <OverlayDialog
+          onClose={() => {
+            void Promise.resolve().then(() => setIsOpen(false));
+          }}
+          title="异步关闭"
+        >
+          <p>提交完成后关闭弹窗。</p>
+        </OverlayDialog>
+      ) : null}
+    </div>
+  );
+}
 
 describe("shared overlay primitives", () => {
   afterEach(() => {
@@ -95,5 +123,28 @@ describe("shared overlay primitives", () => {
 
     fireEvent.keyDown(dialog, { key: "Tab" });
     expect(closeButton).toHaveFocus();
+  });
+
+  it("restores background accessibility and scrolling before painting an asynchronously closed dialog", async () => {
+    const onClosed = vi.fn();
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "auto";
+
+    try {
+      render(<AsyncClosingDialog onClosed={onClosed} />);
+      expect(screen.queryByRole("button", { name: "恢复后的操作" })).not.toBeInTheDocument();
+      expect(document.body.style.overflow).toBe("hidden");
+
+      fireEvent.click(screen.getByRole("button", { name: "关闭弹层" }));
+      await waitFor(() => {
+        expect(screen.queryByRole("dialog", { name: "异步关闭" })).not.toBeInTheDocument();
+      });
+
+      expect(onClosed).toHaveBeenCalledWith(false, "auto");
+      expect(screen.getByRole("button", { name: "恢复后的操作" })).toBeInTheDocument();
+    } finally {
+      cleanup();
+      document.body.style.overflow = previousOverflow;
+    }
   });
 });

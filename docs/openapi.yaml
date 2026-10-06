@@ -709,7 +709,8 @@
                 ],
                 "keyword": "code",
                 "quietHoursStart": "23:00",
-                "quietHoursEnd": "08:00"
+                "quietHoursEnd": "08:00",
+                "quietHoursTimezone": "Asia/Shanghai"
               }
             }
           }
@@ -777,6 +778,160 @@
             "$ref": "#/components/responses/Ok"
           },
           "404": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/notification/deliveries": {
+      "get": {
+        "tags": [
+          "Webhook"
+        ],
+        "summary": "获取本人通知任务与状态统计",
+        "operationId": "getNotificationDeliveries",
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "target",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "webhook",
+                "telegram",
+                "slack",
+                "discord",
+                "feishu",
+                "wecom"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "状态统计与最近投递元数据，不含原始邮件、验证码或租约"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/notification/deliveries/{id}/retry": {
+      "post": {
+        "tags": [
+          "Webhook"
+        ],
+        "summary": "重试本人通知任务",
+        "operationId": "retryNotificationDelivery",
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdPath"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "更新后的状态"
+          },
+          "409": {
+            "description": "任务不可用、已过期或正在投递"
+          }
+        }
+      }
+    },
+    "/api/notification/rules/test": {
+      "post": {
+        "tags": [
+          "Webhook"
+        ],
+        "summary": "试运行通知规则并解释结果",
+        "operationId": "testNotificationRules",
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "target",
+                  "eventType"
+                ],
+                "properties": {
+                  "target": {
+                    "type": "string"
+                  },
+                  "targetId": {
+                    "type": "string"
+                  },
+                  "eventType": {
+                    "type": "string"
+                  },
+                  "data": {
+                    "type": "object"
+                  },
+                  "evaluatedAt": {
+                    "type": "string",
+                    "format": "date-time"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "shouldSend、默认策略和逐条规则匹配/抑制原因"
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/system/notification-status": {
+      "get": {
+        "tags": [
+          "系统设置"
+        ],
+        "summary": "管理员查看全站通知积压与结果",
+        "operationId": "getSystemNotificationStatus",
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "全站状态统计与最近任务元数据"
+          },
+          "403": {
             "$ref": "#/components/responses/Error"
           }
         }

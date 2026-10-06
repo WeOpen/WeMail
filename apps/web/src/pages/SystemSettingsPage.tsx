@@ -9,6 +9,7 @@ import type { WorkspaceTheme, WorkspaceThemePreference } from "../app/useWorkspa
 import { FeatureTogglesPanel } from "../features/admin/FeatureTogglesPanel";
 import { SystemDomainSettingsPanel } from "../features/settings/SystemDomainSettingsPanel";
 import { SystemRuntimeSettingsPanel } from "../features/settings/SystemRuntimeSettingsPanel";
+import { NotificationDeliveryPanel } from "../features/settings/NotificationDeliveryPanel";
 import { Badge } from "../shared/badge";
 import { Button } from "../shared/button";
 import { Page } from "../shared/page-layout";
@@ -177,6 +178,7 @@ export function SystemSettingsPage({
           {canManageDomains ? <SystemDomainSettingsPanel /> : null}
         </div>
       </div>
+      {canManageRuntimeSettings ? <NotificationDeliveryPanel admin /> : null}
     </Page>
   );
 }

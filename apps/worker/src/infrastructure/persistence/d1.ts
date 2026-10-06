@@ -4,6 +4,7 @@ import type { AppStore } from "../../core/bindings";
 import { createAnnouncementsAggregate } from "./d1/announcements";
 import { createMailAggregate } from "./d1/mail";
 import { createOpsAggregate } from "./d1/ops";
+import { createNotificationOutboxAggregate } from "./d1/notification-outbox";
 import { createSettingsAggregate } from "./d1/settings";
 import { createUsersAggregate } from "./d1/users";
 
@@ -16,6 +17,7 @@ export function createD1Store(db: D1Database): AppStore {
     ...createMailAggregate(db),
     ...createSettingsAggregate(db),
     ...createOpsAggregate(db),
+    ...createNotificationOutboxAggregate(db),
     ...createAnnouncementsAggregate(db)
   };
 }

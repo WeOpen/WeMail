@@ -8,6 +8,7 @@ import type {
   OutboundMessageUsageSummary
 } from "../../../core/bindings";
 import { toMailboxDetailRecord, toMailboxRecord, toMessageRecord, toOutboundMessageRecord } from "./row-mappers";
+import { prepareNotificationInsert } from "./notification-outbox";
 import { DAY_MS, getActiveRangeDays, getInactiveDays, getSafePage, getSafePageSize, nowIso } from "./shared";
 
 // Cloudflare D1 caps bound parameters per query at 100. IN (...) clauses with
@@ -250,10 +251,10 @@ export function createMailAggregate(db: D1Database): MailAggregate {
       }
     },
     messages: {
-      async create(input) {
-        const id = crypto.randomUUID();
+      async create(input, options) {
+        const id = options?.id ?? crypto.randomUUID();
         try {
-          await db
+          const messageStatement = db
             .prepare(
               "INSERT INTO mail_messages (id, account_id, to_address, message_id, from_address, subject, preview_text, body_text, extraction_json, oversize_status, attachment_count, received_at, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
             )
@@ -271,8 +272,13 @@ export function createMailAggregate(db: D1Database): MailAggregate {
               input.attachmentCount,
               input.receivedAt,
               input.expiresAt
-            )
-            .run();
+            );
+          const tasks = options?.notificationTasks ?? [];
+          if (tasks.length > 0) {
+            await db.batch([messageStatement, ...tasks.map((task) => prepareNotificationInsert(db, task))]);
+          } else {
+            await messageStatement.run();
+          }
         } catch (error) {
           // The (account_id, message_id) unique index is the race backstop:
           // two concurrent redeliveries can both pass the pre-check, and the
@@ -451,7 +457,12 @@ export function createMailAggregate(db: D1Database): MailAggregate {
         if (ids.length === 0) return;
         for (const chunk of chunkForD1BindLimit(ids)) {
           const placeholders = chunk.map(() => "?").join(", ");
-          await db.prepare(`DELETE FROM mail_messages WHERE id IN (${placeholders})`).bind(...chunk).run();
+          const scope = JSON.stringify(chunk);
+          await db.batch([
+            db.prepare("DELETE FROM webhook_deliveries WHERE json_valid(payload_json) AND (json_extract(payload_json, '$.notificationTaskId') IN (SELECT id FROM notification_outbox WHERE message_id IN (SELECT value FROM json_each(?))) OR json_extract(payload_json, '$.data.messageId') IN (SELECT value FROM json_each(?)))").bind(scope, scope),
+            db.prepare("DELETE FROM notification_outbox WHERE message_id IN (SELECT value FROM json_each(?))").bind(scope),
+            db.prepare(`DELETE FROM mail_messages WHERE id IN (${placeholders})`).bind(...chunk)
+          ]);
         }
       }
     },

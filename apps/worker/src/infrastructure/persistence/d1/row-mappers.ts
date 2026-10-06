@@ -97,6 +97,7 @@ export function toNotificationRuleRecord(row: any): NotificationRuleRecord {
     keyword: row.keyword,
     quietHoursStart: row.quiet_hours_start,
     quietHoursEnd: row.quiet_hours_end,
+    quietHoursTimezone: row.quiet_hours_timezone ?? "UTC",
     createdAt: row.created_at,
     updatedAt: row.updated_at
   };

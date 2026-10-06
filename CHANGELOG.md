@@ -14,6 +14,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Preserved canonical notification events independently from chat-platform request bodies so failed Slack, Discord, Feishu, and WeCom deliveries replay with complete mail and extraction content; added bounded response reading, request timeouts, platform acknowledgement validation, and explicit errors for legacy chat records without replay data (D1 migration 0024).
+- Brought the local database schema snapshot up to date with inbound Message-ID, notification channels, and retention/idempotency indexes; added empty-database and existing-delivery migration regression coverage.
+- Restored background accessibility during the same render commit that closes a modal, and cleaned up API key clipboard feedback timers on unmount so route transitions do not leave the page inert or trigger delayed updates.
+
+### Added
+
+- Added owner-scoped notification status and replay controls in Webhook/Telegram, administrator notification aggregates, explainable rule dry-runs, and explicit IANA quiet-hours timezones while preserving UTC for existing rules (D1 migration 0026).
+- Added durable inbound notification tasks committed with mail metadata, conditional lease-based claiming, bounded exponential retries with Retry-After, stable event IDs, owner-scoped replay, and expiration/deletion cleanup (D1 migration 0025). Minute-level notification recovery runs independently from hourly mail retention cleanup.
+- Added isolated real Worker/D1/R2 business E2E with browser registration and mailbox creation, inbound extraction, API key lifecycle, permissions, quotas, Message-ID deduplication, HTML attachments, webhook replay, and controlled outbound retries; added a separate CI job and staging external-service validation checklist.
+- Added a next-development roadmap grounded in the current 0.4.0 implementation, prioritizing chat-channel replay fixes, real Worker/D1 business E2E, recoverable notification delivery, outbound status handling, extraction quality evaluation, and first-use guidance with explicit acceptance criteria.
+
+### Changed
+
+- Normalized roadmap and validation-report formatting so the committed documents pass whitespace validation.
+- Corrected implementation-versus-verification documentation, backup/restore binding instructions, test coverage descriptions, and unmeasured deployment-time claims on the landing page.
+- Rebuilt the landing hero around demonstrating the product instead of describing it: an auto-playing inbox demo (mail arrives → verification code extracted → copied), an interactive extraction playground running the real Worker-side extraction engine client-side on pasted text, open-source/self-host/edge positioning pills, honest CTAs (申请邀请 + 自托管部署 instead of 立即开始 hitting the invite wall), and the rotating headline word now carries the brand accent.
+- Landing content honesty: key metrics describe automated tests, separate staging/production environments, Cloudflare edge deployment, and the open-source license; the testimonials section is labeled 场景示例 with workflow scenarios instead of fabricated personas.
+- Added a blanket prefers-reduced-motion guard covering all landing-page animations.
+
 ## [0.4.0] - 2026-09-06
 
 ### Added

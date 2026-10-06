@@ -78,7 +78,7 @@ function isPlaceholder(value) {
   return typeof value === "string" && value.startsWith("replace-with");
 }
 
-function checkEnvironment(name, env, manualMode) {
+export function checkEnvironment(name, env, manualMode) {
   const errors = [];
   const warnings = [];
   const ok = (label) => console.log(`  ✓ ${label}`);
@@ -105,7 +105,10 @@ function checkEnvironment(name, env, manualMode) {
   if (!Array.isArray(crons) || crons.length === 0) {
     errors.push("缺少 [triggers] crons —— 清理任务不会被调度（0.2.10 的教训）");
   } else {
-    ok(`清理 cron 已调度（${crons.join(", ")}）`);
+    if (!crons.includes("0 * * * *")) errors.push("缺少每小时邮件清理 cron（0 * * * *）");
+    else ok("清理 cron 已调度（0 * * * *）");
+    if (!crons.includes("* * * * *")) errors.push("缺少每分钟通知恢复 cron（* * * * *）");
+    else ok("通知恢复 cron 已配置（* * * * *）");
   }
 
   const cors = env.vars?.CORS_ALLOWED_ORIGINS;
@@ -146,7 +149,7 @@ function main() {
 
   console.log(
     failures === 0
-      ? "自检通过：远端环境配置完整。别忘了 GitHub Environment secrets（CLOUDFLARE_* / VITE_API_BASE_URL）与 Email Routing。"
+      ? "配置文件自检通过。实际资源、GitHub Environment secrets（CLOUDFLARE_* / VITE_API_BASE_URL）与 Email Routing 仍需部署验收。"
       : `自检发现 ${failures} 处配置错误（占位符在内），手动部署前必须修复；通过 GitHub Actions 部署则由工作流注入校验。`
   );
   process.exit(failures === 0 ? 0 : 1);

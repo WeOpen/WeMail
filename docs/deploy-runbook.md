@@ -143,7 +143,7 @@ pnpm exec wrangler secret put TELEGRAM_WEBHOOK_SECRET --env production
 - `[[env.staging.d1_databases]]` / `[[env.production.d1_databases]]`
 - `[[env.staging.kv_namespaces]]` / `[[env.production.kv_namespaces]]`
 - `[[env.staging.r2_buckets]]` / `[[env.production.r2_buckets]]`（如启用附件存储）
-- `[env.staging.triggers]` / `[env.production.triggers]` 的 `crons = ["0 * * * *"]`：驱动 `scheduled` 处理器执行 `runCleanup`（过期邮件、软删除邮箱清理）。漏配此项时清理任务不会运行，数据将按保留期无限累积
+- `[env.staging.triggers]` / `[env.production.triggers]` 的 `crons = ["* * * * *", "0 * * * *"]`：每分钟恢复持久化通知任务，每小时执行 `runCleanup`（过期邮件、软删除邮箱清理）。两项均需保留；`pnpm preflight` 会分别检查。通知任务与投递语义见 `docs/adr/0003-durable-notification-outbox.md`。
 - AI、Rate Limiter、Queues 等其他启用的绑定
 
 ## 4. 上线流程总览

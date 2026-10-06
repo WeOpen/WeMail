@@ -1,12 +1,12 @@
 CREATE TABLE IF NOT EXISTS users (
   id TEXT PRIMARY KEY,
   email TEXT NOT NULL UNIQUE,
-  name TEXT NOT NULL,
+  name TEXT NOT NULL DEFAULT '',
   password_hash TEXT NOT NULL,
   role TEXT NOT NULL,
   status TEXT NOT NULL DEFAULT 'active',
   created_at TEXT NOT NULL,
-  updated_at TEXT NOT NULL
+  updated_at TEXT NOT NULL DEFAULT ''
 );
 
 CREATE TABLE IF NOT EXISTS auth_sessions (
@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS auth_sessions (
   user_agent TEXT,
   ip_address TEXT,
   expires_at TEXT NOT NULL,
-  last_seen_at TEXT NOT NULL,
+  last_seen_at TEXT,
   created_at TEXT NOT NULL
 );
 
@@ -104,6 +104,7 @@ CREATE TABLE IF NOT EXISTS mail_messages (
   id TEXT PRIMARY KEY,
   account_id TEXT NOT NULL,
   to_address TEXT,
+  message_id TEXT,
   from_address TEXT NOT NULL,
   subject TEXT NOT NULL,
   preview_text TEXT NOT NULL,
@@ -120,6 +121,12 @@ CREATE INDEX IF NOT EXISTS idx_mail_messages_account_received
 
 CREATE INDEX IF NOT EXISTS idx_mail_messages_account_attachment
   ON mail_messages (account_id, attachment_count, received_at DESC);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_mail_messages_account_message_id
+  ON mail_messages (account_id, message_id);
+
+CREATE INDEX IF NOT EXISTS idx_mail_messages_expires_at
+  ON mail_messages (expires_at, id);
 
 CREATE TABLE IF NOT EXISTS mail_attachments (
   id TEXT PRIMARY KEY,
@@ -229,6 +236,7 @@ CREATE TABLE IF NOT EXISTS webhook_endpoints (
   user_id TEXT NOT NULL,
   name TEXT NOT NULL,
   url TEXT NOT NULL,
+  channel TEXT,
   events_json TEXT NOT NULL,
   signing_secret TEXT NOT NULL,
   enabled INTEGER NOT NULL,
@@ -246,6 +254,7 @@ CREATE TABLE IF NOT EXISTS webhook_deliveries (
   error_text TEXT,
   payload_json TEXT NOT NULL,
   response_text TEXT,
+  request_body_text TEXT,
   created_at TEXT NOT NULL
 );
 
@@ -261,9 +270,43 @@ CREATE TABLE IF NOT EXISTS notification_rules (
   keyword TEXT NOT NULL,
   quiet_hours_start TEXT NOT NULL,
   quiet_hours_end TEXT NOT NULL,
+  quiet_hours_timezone TEXT NOT NULL DEFAULT 'UTC',
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS notification_outbox (
+  id TEXT PRIMARY KEY,
+  message_id TEXT,
+  event_id TEXT NOT NULL,
+  user_id TEXT NOT NULL,
+  target TEXT NOT NULL,
+  target_id TEXT NOT NULL,
+  event_type TEXT NOT NULL,
+  payload_json TEXT NOT NULL,
+  status TEXT NOT NULL,
+  attempts INTEGER NOT NULL DEFAULT 0,
+  next_attempt_at TEXT NOT NULL,
+  locked_at TEXT,
+  lease_token TEXT,
+  last_error TEXT,
+  expires_at TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  UNIQUE(event_id, target, target_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_notification_outbox_due
+  ON notification_outbox (status, next_attempt_at, locked_at);
+
+CREATE INDEX IF NOT EXISTS idx_notification_outbox_user_created
+  ON notification_outbox (user_id, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_notification_outbox_expiry
+  ON notification_outbox (expires_at);
+
+CREATE INDEX IF NOT EXISTS idx_notification_outbox_message
+  ON notification_outbox (message_id);
 CREATE INDEX IF NOT EXISTS idx_notification_rules_user ON notification_rules(user_id);
 
 CREATE TABLE IF NOT EXISTS announcements (

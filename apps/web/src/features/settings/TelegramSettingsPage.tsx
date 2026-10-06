@@ -26,6 +26,7 @@ import { CheckboxField, FormField, TextInput } from "../../shared/form";
 
 import type { TelegramWebhookConfigureResult } from "./api";
 import { SettingsSupportCard } from "./SettingsSupport";
+import { NotificationDeliveryPanel } from "./NotificationDeliveryPanel";
 
 type SaveTelegramPayload = {
   chatId: string;
@@ -621,6 +622,7 @@ export function TelegramSettingsPage({
           </SettingsSupportCard>
         </aside>
       </div>
+      <NotificationDeliveryPanel target="telegram" />
     </main>
   );
 }
