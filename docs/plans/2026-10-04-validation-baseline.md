@@ -1,6 +1,7 @@
 # WeMail 验证基线
 
-记录日期：2026-10-04（Asia/Shanghai）  
+记录日期：2026-10-04（Asia/Shanghai）
+
 关联计划：[下一步开发计划 DEV-02](2026-10-03-next-development-roadmap.md#dev-02-基线与文档一致性2–3-日)
 
 ## 首次完整基线

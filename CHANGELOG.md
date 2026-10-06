@@ -29,6 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Normalized roadmap and validation-report formatting so the committed documents pass whitespace validation.
 - Corrected implementation-versus-verification documentation, backup/restore binding instructions, test coverage descriptions, and unmeasured deployment-time claims on the landing page.
 - Rebuilt the landing hero around demonstrating the product instead of describing it: an auto-playing inbox demo (mail arrives → verification code extracted → copied), an interactive extraction playground running the real Worker-side extraction engine client-side on pasted text, open-source/self-host/edge positioning pills, honest CTAs (申请邀请 + 自托管部署 instead of 立即开始 hitting the invite wall), and the rotating headline word now carries the brand accent.
 - Landing content honesty: key metrics describe automated tests, separate staging/production environments, Cloudflare edge deployment, and the open-source license; the testimonials section is labeled 场景示例 with workflow scenarios instead of fabricated personas.
