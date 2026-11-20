@@ -66,7 +66,7 @@ simple = { limit = 60, period = 60 }
 [env.staging.triggers]
 # Drives the `scheduled` handler (runCleanup) that expires messages and
 # soft-deleted mailboxes. Hourly keeps retention granularity without stressing D1.
-crons = ["0 * * * *"]
+crons = ["* * * * *", "0 * * * *"]
 
 [env.production]
 workers_dev = true
@@ -108,4 +108,4 @@ simple = { limit = 60, period = 60 }
 [env.production.triggers]
 # Drives the `scheduled` handler (runCleanup) that expires messages and
 # soft-deleted mailboxes. Hourly keeps retention granularity without stressing D1.
-crons = ["0 * * * *"]
+crons = ["* * * * *", "0 * * * *"]

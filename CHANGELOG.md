@@ -14,6 +14,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Preserved unsaved personal settings during delayed profile refreshes, rejected stale reads after saves, and coordinated profile/preferences submissions so concurrent responses cannot silently restore older values.
+- Handled malformed documentation URL fragments without interrupting the guide reader.
+- Pinned browser CI jobs to Ubuntu 24.04 so the locked Playwright 1.59.1 can install Chromium after `ubuntu-latest` moved to an unsupported Ubuntu 26.04 image.
+- Kept uncertain outbound submissions recoverable with the original provider key after network, ambiguous HTTP, and local storage failures; prevented duplicate quota charges, incorrect success labels, edited-draft key reuse, and concurrent compose submissions.
+- Stopped treating sender-supplied Authentication-Results or fabricated confidence percentages as verified identity or measured extraction quality. Trusted verdicts now come only from Cloudflare's platform-provided first authentication header.
+- Corrected multiple-link extraction, quoted and hidden content, full-width codes, trailing URL punctuation/entities, and price/date/order/phone false positives against 60 labelled synthetic messages.
+- Preserved canonical notification events independently from chat-platform request bodies so failed Slack, Discord, Feishu, and WeCom deliveries replay with complete mail and extraction content; added bounded response reading, request timeouts, platform acknowledgement validation, and explicit errors for legacy chat records without replay data (D1 migration 0024).
+- Brought the local database schema snapshot up to date with inbound Message-ID, notification channels, and retention/idempotency indexes; added empty-database and existing-delivery migration regression coverage.
+- Restored background accessibility during the same render commit that closes a modal, and cleaned up API key clipboard feedback timers on unmount so route transitions do not leave the page inert or trigger delayed updates.
+
+### Added
+
+- Added durable outbound requests and signed Resend delivery events with atomic quotas, frozen provider requests, delayed recovery, idempotency expiry protection, owner-scoped timelines and status filters, and bounded opt-in supplier/DNS checks (D1 migration 0027).
+- Added first-mail guidance, configuration diagnostics with repair links, and three task guides for API code retrieval, chat notifications, and self-hosted domains. In-app guides render content from the same build without relying on unpublished main-branch files; Markdown and individual guides load separately.
+- Added extraction precision/recall evidence, trusted-header and AI grounding regressions, bounded extraction results, and real Worker/D1/browser checks for early delivery events and first-mail completion.
+- Added owner-scoped notification status and replay controls in Webhook/Telegram, administrator notification aggregates, explainable rule dry-runs, and explicit IANA quiet-hours timezones while preserving UTC for existing rules (D1 migration 0026).
+- Added durable inbound notification tasks committed with mail metadata, conditional lease-based claiming, bounded exponential retries with Retry-After, stable event IDs, owner-scoped replay, and expiration/deletion cleanup (D1 migration 0025). Minute-level notification recovery runs independently from hourly mail retention cleanup.
+- Added isolated real Worker/D1/R2 business E2E with browser registration and mailbox creation, inbound extraction, API key lifecycle, permissions, quotas, Message-ID deduplication, HTML attachments, webhook replay, and controlled outbound retries; added a separate CI job and staging external-service validation checklist.
+- Added a next-development roadmap grounded in the current 0.4.0 implementation, prioritizing chat-channel replay fixes, real Worker/D1 business E2E, recoverable notification delivery, outbound status handling, extraction quality evaluation, and first-use guidance with explicit acceptance criteria.
+
+### Changed
+
+- Normalized roadmap and validation-report formatting so the committed documents pass whitespace validation.
+- Corrected implementation-versus-verification documentation, backup/restore binding instructions, test coverage descriptions, and unmeasured deployment-time claims on the landing page.
+- Rebuilt the landing hero around demonstrating the product instead of describing it: an auto-playing inbox demo (mail arrives → verification code extracted → copied), an interactive extraction playground running the real Worker-side extraction engine client-side on pasted text, open-source/self-host/edge positioning pills, honest CTAs (申请邀请 + 自托管部署 instead of 立即开始 hitting the invite wall), and the rotating headline word now carries the brand accent.
+- Landing content honesty: key metrics describe automated tests, separate staging/production environments, Cloudflare edge deployment, and the open-source license; the testimonials section is labeled 场景示例 with workflow scenarios instead of fabricated personas.
+- Added a blanket prefers-reduced-motion guard covering all landing-page animations.
+
 ## [0.4.0] - 2026-09-06
 
 ### Added

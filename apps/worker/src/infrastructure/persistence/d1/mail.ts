@@ -1,4 +1,5 @@
 import type { D1Database } from "@cloudflare/workers-types";
+import { outboundSubmittedStatuses, outboundFailureStatuses } from "@wemail/shared";
 import type {
   AppStore,
   AttachmentRecord,
@@ -8,6 +9,7 @@ import type {
   OutboundMessageUsageSummary
 } from "../../../core/bindings";
 import { toMailboxDetailRecord, toMailboxRecord, toMessageRecord, toOutboundMessageRecord } from "./row-mappers";
+import { prepareNotificationInsert } from "./notification-outbox";
 import { DAY_MS, getActiveRangeDays, getInactiveDays, getSafePage, getSafePageSize, nowIso } from "./shared";
 
 // Cloudflare D1 caps bound parameters per query at 100. IN (...) clauses with
@@ -250,10 +252,10 @@ export function createMailAggregate(db: D1Database): MailAggregate {
       }
     },
     messages: {
-      async create(input) {
-        const id = crypto.randomUUID();
+      async create(input, options) {
+        const id = options?.id ?? crypto.randomUUID();
         try {
-          await db
+          const messageStatement = db
             .prepare(
               "INSERT INTO mail_messages (id, account_id, to_address, message_id, from_address, subject, preview_text, body_text, extraction_json, oversize_status, attachment_count, received_at, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
             )
@@ -271,8 +273,13 @@ export function createMailAggregate(db: D1Database): MailAggregate {
               input.attachmentCount,
               input.receivedAt,
               input.expiresAt
-            )
-            .run();
+            );
+          const tasks = options?.notificationTasks ?? [];
+          if (tasks.length > 0) {
+            await db.batch([messageStatement, ...tasks.map((task) => prepareNotificationInsert(db, task))]);
+          } else {
+            await messageStatement.run();
+          }
         } catch (error) {
           // The (account_id, message_id) unique index is the race backstop:
           // two concurrent redeliveries can both pass the pre-check, and the
@@ -451,7 +458,12 @@ export function createMailAggregate(db: D1Database): MailAggregate {
         if (ids.length === 0) return;
         for (const chunk of chunkForD1BindLimit(ids)) {
           const placeholders = chunk.map(() => "?").join(", ");
-          await db.prepare(`DELETE FROM mail_messages WHERE id IN (${placeholders})`).bind(...chunk).run();
+          const scope = JSON.stringify(chunk);
+          await db.batch([
+            db.prepare("DELETE FROM webhook_deliveries WHERE json_valid(payload_json) AND (json_extract(payload_json, '$.notificationTaskId') IN (SELECT id FROM notification_outbox WHERE message_id IN (SELECT value FROM json_each(?))) OR json_extract(payload_json, '$.data.messageId') IN (SELECT value FROM json_each(?)))").bind(scope, scope),
+            db.prepare("DELETE FROM notification_outbox WHERE message_id IN (SELECT value FROM json_each(?))").bind(scope),
+            db.prepare(`DELETE FROM mail_messages WHERE id IN (${placeholders})`).bind(...chunk)
+          ]);
         }
       }
     },
@@ -562,9 +574,10 @@ export function createMailAggregate(db: D1Database): MailAggregate {
 
         const filteredConditions = [...baseConditions];
         const filteredBindings = [...baseBindings];
-        if (query.status === "sent" || query.status === "failed") {
-          filteredConditions.push("status = ?");
-          filteredBindings.push(query.status);
+        if (query.status && query.status !== "all") {
+          const statuses = query.status === "sent" ? outboundSubmittedStatuses : query.status === "failed" ? outboundFailureStatuses : [query.status];
+          filteredConditions.push(`status IN (${statuses.map(() => "?").join(", ")})`);
+          filteredBindings.push(...statuses);
         }
 
         const baseWhereClause = `WHERE ${baseConditions.join(" AND ")}`;
@@ -577,8 +590,8 @@ export function createMailAggregate(db: D1Database): MailAggregate {
           .prepare(
             `SELECT
               COUNT(*) AS total_count,
-              COALESCE(SUM(CASE WHEN status = 'sent' THEN 1 ELSE 0 END), 0) AS sent_count,
-              COALESCE(SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END), 0) AS failed_count
+              COALESCE(SUM(CASE WHEN status IN ('sent','accepted','delivered') THEN 1 ELSE 0 END), 0) AS sent_count,
+              COALESCE(SUM(CASE WHEN status IN ('failed','bounced','complained','uncertain') THEN 1 ELSE 0 END), 0) AS failed_count
             FROM mail_outbound_messages ${baseWhereClause}`
           )
           .bind(...baseBindings)
@@ -612,8 +625,8 @@ export function createMailAggregate(db: D1Database): MailAggregate {
         }
 
         const sentSinceExpression = query.sinceIso
-          ? "COALESCE(SUM(CASE WHEN status = 'sent' AND created_at >= ? THEN 1 ELSE 0 END), 0)"
-          : "COALESCE(SUM(CASE WHEN status = 'sent' THEN 1 ELSE 0 END), 0)";
+          ? "COALESCE(SUM(CASE WHEN status IN ('sent','accepted','delivered') AND created_at >= ? THEN 1 ELSE 0 END), 0)"
+          : "COALESCE(SUM(CASE WHEN status IN ('sent','accepted','delivered') THEN 1 ELSE 0 END), 0)";
         const bindings: unknown[] = query.sinceIso
           ? [query.sinceIso, JSON.stringify(mailboxIds)]
           : [JSON.stringify(mailboxIds)];
@@ -622,8 +635,8 @@ export function createMailAggregate(db: D1Database): MailAggregate {
           .prepare(
             `SELECT
               COUNT(*) AS total_count,
-              COALESCE(SUM(CASE WHEN status = 'sent' THEN 1 ELSE 0 END), 0) AS sent_count,
-              COALESCE(SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END), 0) AS failed_count,
+              COALESCE(SUM(CASE WHEN status IN ('sent','accepted','delivered') THEN 1 ELSE 0 END), 0) AS sent_count,
+              COALESCE(SUM(CASE WHEN status IN ('failed','bounced','complained','uncertain') THEN 1 ELSE 0 END), 0) AS failed_count,
               ${sentSinceExpression} AS sent_since_count
             FROM mail_outbound_messages
             WHERE account_id IN (SELECT value FROM json_each(?))`

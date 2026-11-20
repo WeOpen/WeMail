@@ -1,5 +1,10 @@
 import type { AppStore, WebhookDeliveryRecord, WebhookEndpointRecord } from "../../core/bindings";
+import { readRetryAfter } from "../../shared/provider-response";
 import { shouldSendNotificationToTarget } from "./notification-rule-service";
+
+export const WEBHOOK_TIMEOUT_MS = 10_000;
+const WEBHOOK_RESPONSE_BYTES = 16_384;
+const CHAT_TEXT_BYTES = 1800;
 
 export const webhookEventIds = [
   "message.received",
@@ -16,6 +21,8 @@ type WebhookDispatchPayload = {
   createdAt: string;
   data: Record<string, unknown>;
   deliveryId: string;
+  eventId?: string;
+  notificationTaskId?: string;
   endpoint: {
     id: string;
     name: string;
@@ -74,6 +81,20 @@ function truncateText(value: string, maxLength = 2000) {
   return value.length > maxLength ? `${value.slice(0, maxLength)}...` : value;
 }
 
+function truncateUtf8(value: string, maxBytes: number) {
+  const encoder = new TextEncoder();
+  if (encoder.encode(value).byteLength <= maxBytes) return value;
+  let bytes = 0;
+  let result = "";
+  for (const character of value) {
+    const length = encoder.encode(character).byteLength;
+    if (bytes + length > maxBytes - 3) break;
+    result += character;
+    bytes += length;
+  }
+  return `${result}…`;
+}
+
 function readEndpointEvents(endpoint: WebhookEndpointRecord) {
   try {
     const events = JSON.parse(endpoint.eventsJson);
@@ -86,7 +107,7 @@ function readEndpointEvents(endpoint: WebhookEndpointRecord) {
 function parseDeliveryPayload(delivery: WebhookDeliveryRecord): WebhookDispatchPayload | null {
   try {
     const payload = JSON.parse(delivery.payloadJson) as WebhookDispatchPayload;
-    if (payload && typeof payload.eventType === "string" && typeof payload.data === "object" && payload.data !== null) return payload;
+    if (payload && typeof payload.eventType === "string" && typeof payload.data === "object" && payload.data !== null && !Array.isArray(payload.data)) return payload;
   } catch {
     return null;
   }
@@ -148,6 +169,7 @@ export function webhookDeliveryJson(delivery: WebhookDeliveryRecord) {
     errorText: delivery.errorText,
     responseText: delivery.responseText,
     payload: JSON.parse(delivery.payloadJson) as WebhookDispatchPayload,
+    requestBodyText: delivery.requestBodyText ?? null,
     createdAt: delivery.createdAt
   };
 }
@@ -163,10 +185,70 @@ const channelEventLabels: Record<string, string> = {
 
 function buildChannelText(eventType: string, data: Record<string, unknown>) {
   const label = channelEventLabels[eventType] ?? eventType;
-  const parts = [data.mailboxAddress, data.subject, data.fromAddress, data.extraction]
+  const metadata = [data.mailboxAddress, data.subject, data.fromAddress]
     .filter((value): value is string => typeof value === "string" && value.length > 0);
+  const extraction = data.extraction && typeof data.extraction === "object" ? data.extraction as Record<string, unknown> : null;
+  const findings = Array.isArray(data.extractions)
+    ? data.extractions
+    : Array.isArray(extraction?.items)
+      ? extraction.items
+      : [extraction?.primary ?? data.extraction];
+  const values = findings.flatMap((finding) => {
+    if (typeof finding === "string") return [finding];
+    if (!finding || typeof finding !== "object") return [];
+    const value = "value" in finding ? finding.value : null;
+    return typeof value === "string" && value ? [value] : [];
+  });
+  const uniqueValues = [...new Set(values)];
+  // Reserve room for the primary finding and expiry before metadata; an
+  // arbitrary subject must not hide the verification code from a notification.
+  const parts = uniqueValues.slice(0, 1).map((value) => truncateUtf8(value, 500));
+  const expiresHint = data.expiresHint ?? extraction?.expiresHint;
+  if (typeof expiresHint === "string" && expiresHint) parts.push(truncateUtf8(expiresHint, 160));
+  parts.push(...metadata.map((value) => truncateUtf8(value, 250)));
+  parts.push(...uniqueValues.slice(1).map((value) => truncateUtf8(value, 500)));
   const detail = parts.length > 0 ? `\n${parts.join(" · ")}` : "";
-  return `【WeMail】${label}${detail}`;
+  // A conservative UTF-8 budget fits every supported chat channel, including
+  // byte-limited channels and multibyte Chinese text. Do not split code points.
+  return truncateUtf8(`【WeMail】${label}${detail}`, CHAT_TEXT_BYTES);
+}
+
+async function readBoundedResponse(response: Response) {
+  if (!response.body) return "";
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let bytesRead = 0;
+  let text = "";
+  try {
+    while (bytesRead < WEBHOOK_RESPONSE_BYTES) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      const remaining = WEBHOOK_RESPONSE_BYTES - bytesRead;
+      text += decoder.decode(value.subarray(0, remaining), { stream: true });
+      bytesRead += Math.min(value.byteLength, remaining);
+      if (value.byteLength >= remaining) {
+        await reader.cancel();
+        break;
+      }
+    }
+    return text + decoder.decode();
+  } finally {
+    reader.releaseLock();
+  }
+}
+
+function readChannelError(channel: string | null | undefined, responseText: string) {
+  if (channel === "slack") return responseText.trim() === "ok" ? null : `Slack rejected delivery: ${responseText || "empty response"}`;
+  if (channel !== "feishu" && channel !== "wecom" && channel !== "discord") return null;
+  try {
+    const payload = JSON.parse(responseText) as Record<string, unknown>;
+    if (channel === "discord") return typeof payload.id === "string" && payload.id ? null : "Discord did not confirm a created message";
+    // Feishu's current response uses code; older bots return StatusCode.
+    const code = channel === "wecom" ? payload.errcode : (payload.code ?? payload.StatusCode);
+    return code === 0 ? null : `${channel} rejected delivery: ${responseText}`;
+  } catch {
+    return `${channel} returned an invalid acknowledgement`;
+  }
 }
 
 // Chat platforms each expect their own body shape; the generic webhook keeps
@@ -177,7 +259,7 @@ function renderChannelBody(channel: string | null | undefined, eventType: string
     case "slack":
       return JSON.stringify({ text: buildChannelText(eventType, data) });
     case "discord":
-      return JSON.stringify({ content: buildChannelText(eventType, data) });
+      return JSON.stringify({ content: buildChannelText(eventType, data), allowed_mentions: { parse: [] } });
     case "feishu":
       return JSON.stringify({ msg_type: "text", content: { text: buildChannelText(eventType, data) } });
     case "wecom":
@@ -191,7 +273,8 @@ export async function sendWebhookEventToEndpoint(
   store: AppStore,
   endpoint: WebhookEndpointRecord,
   eventType: string,
-  data: Record<string, unknown>
+  data: Record<string, unknown>,
+  options?: { eventId?: string; notificationTaskId?: string }
 ) {
   const deliveryId = crypto.randomUUID();
   const createdAt = new Date().toISOString();
@@ -199,6 +282,8 @@ export async function sendWebhookEventToEndpoint(
     createdAt,
     data,
     deliveryId,
+    eventId: options?.eventId,
+    notificationTaskId: options?.notificationTaskId,
     endpoint: {
       id: endpoint.id,
       name: endpoint.name
@@ -212,32 +297,47 @@ export async function sendWebhookEventToEndpoint(
   let statusCode: number | null = null;
   let errorText: string | null = null;
   let responseText: string | null = null;
+  let retryAfterMs: number | undefined;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), WEBHOOK_TIMEOUT_MS);
 
   try {
     const signature = await signWebhookPayload(endpoint.signingSecret, body);
-    const response = await fetch(endpoint.url, {
+    const targetUrl = new URL(endpoint.url);
+    // Discord's default wait=false can acknowledge an unsaved message. Ask
+    // for the created message so success means a confirmed platform receipt.
+    if (endpoint.channel === "discord") targetUrl.searchParams.set("wait", "true");
+    const response = await fetch(targetUrl.toString(), {
       method: "POST",
       headers: {
         "content-type": "application/json",
         "user-agent": "WeMail-Webhook/1.0",
         "x-wemail-delivery-id": deliveryId,
         "x-wemail-event": eventType,
+        ...(options?.eventId ? { "x-wemail-event-id": options.eventId } : {}),
         "x-wemail-signature": signature
       },
-      body
+      body,
+      signal: controller.signal,
+      redirect: "error"
     });
     statusCode = response.status;
-    responseText = truncateText(await response.text().catch(() => ""));
+    retryAfterMs = readRetryAfter(response.headers.get("retry-after"));
+    const acknowledgement = await readBoundedResponse(response);
+    responseText = truncateText(acknowledgement);
     if (response.ok) {
-      status = "success";
+      errorText = readChannelError(endpoint.channel, acknowledgement);
+      if (!errorText) status = "success";
     } else {
       errorText = `HTTP ${response.status}${responseText ? `: ${responseText}` : ""}`;
     }
   } catch (error) {
-    errorText = error instanceof Error ? error.message : "Webhook request failed";
+    errorText = controller.signal.aborted ? "Webhook delivery timed out" : error instanceof Error ? error.message : "Webhook request failed";
+  } finally {
+    clearTimeout(timeout);
   }
 
-  return store.webhookDeliveries.record({
+  const delivery = await store.webhookDeliveries.record({
     id: deliveryId,
     endpointId: endpoint.id,
     eventType,
@@ -245,10 +345,12 @@ export async function sendWebhookEventToEndpoint(
     statusCode,
     durationMs: Date.now() - startedAt,
     errorText,
-    payloadJson: body,
+    payloadJson: JSON.stringify(payload),
+    requestBodyText: body,
     responseText: responseText || null,
     createdAt
   });
+  return { ...delivery, retryAfterMs };
 }
 
 export async function sendWebhookEventToUser(store: AppStore, userId: string, eventType: string, data: Record<string, unknown>) {
@@ -293,8 +395,9 @@ export async function retryWebhookDelivery(store: AppStore, userId: string, deli
   if (!endpoint.enabled) throw new Error("Webhook endpoint must be enabled before retrying a delivery");
 
   const payload = parseDeliveryPayload(delivery);
-  return sendWebhookEventToEndpoint(store, endpoint, payload?.eventType ?? delivery.eventType, {
-    ...(payload?.data ?? {}),
+  if (!payload) throw new Error("Original webhook event is unavailable; this legacy chat delivery cannot be replayed");
+  return sendWebhookEventToEndpoint(store, endpoint, payload.eventType, {
+    ...payload.data,
     retryOfDeliveryId: delivery.id
-  });
+  }, { eventId: payload.eventId });
 }

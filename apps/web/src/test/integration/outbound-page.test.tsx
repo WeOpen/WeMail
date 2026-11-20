@@ -379,8 +379,8 @@ describe("outbound page integration", () => {
     expect(within(toolbar as HTMLElement).queryByText(/^发件身份$/i)).not.toBeInTheDocument();
     expect(screen.getByPlaceholderText(/搜索收件人 \/ 主题 \/ 发件结果/i)).toBeInTheDocument();
     expect(screen.getByText(/^发送总量$/i)).toBeInTheDocument();
-    expect(screen.getByText(/^发送成功$/i)).toBeInTheDocument();
-    expect(screen.getByText(/^发送失败$/i)).toBeInTheDocument();
+    expect(screen.getByText(/^已提交供应商$/i)).toBeInTheDocument();
+    expect(within(screen.getByLabelText("发件箱概览")).getByText(/^发送失败$/i)).toBeInTheDocument();
     const readinessPanel = screen.getByRole("region", { name: /^发信准备状态$/i });
     expect(await within(readinessPanel).findByRole("heading", { name: /^发信准备状态$/i })).toBeInTheDocument();
     expect(within(readinessPanel).getByText(/^投递航线$/i)).toBeInTheDocument();
@@ -393,15 +393,15 @@ describe("outbound page integration", () => {
     expect(screen.queryByText(/^异常记录$/i)).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: /切换发件身份.*Ops.*ops@example.com/i })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: /^全部$/i })).toHaveAttribute("aria-selected", "true");
-    expect(screen.getByRole("tab", { name: /^已发送$/i })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: /^已提交$/i })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: /^失败$/i })).toBeInTheDocument();
     expect(screen.queryByRole("tab", { name: /^异常 \/ 无匹配$/i })).not.toBeInTheDocument();
     expect(await within(screen.getByRole("region", { name: /发件记录列表/i })).findByText(/user@example.com/i)).toBeInTheDocument();
     expect(within(screen.getByRole("region", { name: /发件记录详情/i })).getByRole("heading", { name: /Welcome/i })).toBeInTheDocument();
-    expect(within(screen.getByRole("region", { name: /发件记录详情/i })).getByText(/已发送到收件人。/i)).toBeInTheDocument();
+    expect(within(screen.getByRole("region", { name: /发件记录详情/i })).getByText(/历史记录只证明曾提交发送，最终投递结果未知。/i)).toBeInTheDocument();
     expect(screen.getByRole("navigation", { name: /^发件记录分页$/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /^新建发送$/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /^重发$/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^补发新请求$/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /^复制 payload$/i })).toBeInTheDocument();
     expect(screen.queryByText(/发件箱入口已占位/i)).not.toBeInTheDocument();
   });
@@ -461,7 +461,8 @@ describe("outbound page integration", () => {
         mailboxId: "box-1",
         toAddress: "fresh@example.com",
         subject: "Fresh send",
-        bodyText: "hello from the compose drawer"
+        bodyText: "hello from the compose drawer",
+        requestId: expect.any(String)
       }
     ]);
     expect(await within(screen.getByRole("region", { name: /发件记录列表/i })).findByText(/fresh@example.com/i)).toBeInTheDocument();

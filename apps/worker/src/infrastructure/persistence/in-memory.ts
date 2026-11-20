@@ -3,6 +3,9 @@ import {
   applyDictionaryItemUpdate,
   buildDictionaryCatalog,
   DEFAULT_API_KEY_SCOPES,
+  outboundSubmittedStatuses,
+  outboundFailureStatuses,
+  matchesOutboundStatus as matchesSharedOutboundStatus,
   findDefaultDictionaryItem,
   type ApiKeyScope,
   type DictionaryItemSummary,
@@ -29,10 +32,12 @@ import type {
   MailboxDetailListQuery,
   MailboxRecord,
   NotificationRuleRecord,
+  NotificationOutboxRecord,
   OAuthIdentityRecord,
   OAuthPendingLoginRecord,
   OAuthStateRecord,
   OutboundMessageRecord,
+  OutboundSendRecord,
   OutboundMessageUsageQuery,
   OutboundMessageUsageSummary,
   PersistedMessageRecord,
@@ -199,9 +204,7 @@ function matchesOutboundSearch(record: OutboundMessageRecord, searchValue?: stri
 }
 
 function matchesOutboundStatus(record: OutboundMessageRecord, status: OutboundListStatus = "all") {
-  if (status === "sent") return record.status === "sent";
-  if (status === "failed") return record.status === "failed";
-  return true;
+  return matchesSharedOutboundStatus(record.status, status);
 }
 
 export function createInMemoryStore(): AppStore {
@@ -216,6 +219,8 @@ export function createInMemoryStore(): AppStore {
   const messages = new Map<string, PersistedMessageRecord>();
   const attachments = new Map<string, AttachmentRecord[]>();
   const outboundMessages: OutboundMessageRecord[] = [];
+  const outboundSends = new Map<string, OutboundSendRecord>();
+  const outboundEvents = new Map<string, { id: string; type: string; status: OutboundMessageRecord["status"]; occurredAt: string; detail: string | null; messageId?: string; providerMessageId?: string }>();
   const apiKeys = new Map<string, ApiKeyRecord>();
   const telegramSubscriptions = new Map<string, TelegramSubscriptionRecord>();
   const quotas = new Map<string, QuotaRecord>();
@@ -230,6 +235,7 @@ export function createInMemoryStore(): AppStore {
   const webhookEndpoints = new Map<string, WebhookEndpointRecord>();
   const webhookDeliveries: WebhookDeliveryRecord[] = [];
   const notificationRules = new Map<string, NotificationRuleRecord>();
+  const notificationOutbox = new Map<string, NotificationOutboxRecord>();
   const announcements: AnnouncementRecord[] = [];
   const announcementReceipts: AnnouncementReceiptRecord[] = [];
 
@@ -729,11 +735,26 @@ export function createInMemoryStore(): AppStore {
       }
     },
     messages: {
-      async create(input) {
+      async create(input, options) {
+        if (input.messageId) {
+          const existing = Array.from(messages.values()).find((entry) => entry.mailboxId === input.mailboxId && entry.messageId === input.messageId);
+          if (existing) return clone(existing);
+        }
         const record: PersistedMessageRecord = {
-          id: crypto.randomUUID(),
+          id: options?.id ?? crypto.randomUUID(),
           ...input
         };
+        // Mirror D1's transactional write without yielding between the message
+        // and its notification intents, including duplicate-event protection.
+        for (const task of options?.notificationTasks ?? []) {
+          if (Array.from(notificationOutbox.values()).some((entry) => entry.eventId === task.eventId && entry.target === task.target && entry.targetId === task.targetId)) continue;
+          const now = nowIso();
+          const queued: NotificationOutboxRecord = {
+            id: crypto.randomUUID(), ...task, messageId: task.messageId ?? null, status: "pending", attempts: 0,
+            nextAttemptAt: task.nextAttemptAt ?? now, lockedAt: null, leaseToken: null, lastError: null, createdAt: now, updatedAt: now
+          };
+          notificationOutbox.set(queued.id, queued);
+        }
         messages.set(record.id, record);
         return clone(record);
       },
@@ -795,6 +816,15 @@ export function createInMemoryStore(): AppStore {
         return clone(limit !== undefined ? expired.slice(0, limit) : expired);
       },
       async deleteMany(ids) {
+        const messageIds = new Set(ids);
+        const tasks = new Set(Array.from(notificationOutbox.values()).filter((entry) => entry.messageId && messageIds.has(entry.messageId)).map((entry) => entry.id));
+        for (let index = webhookDeliveries.length - 1; index >= 0; index -= 1) {
+          try {
+            const payload = JSON.parse(webhookDeliveries[index].payloadJson);
+            if (tasks.has(payload.notificationTaskId) || messageIds.has(payload.data?.messageId)) webhookDeliveries.splice(index, 1);
+          } catch { /* Legacy records have no associated task. */ }
+        }
+        for (const id of tasks) notificationOutbox.delete(id);
         for (const id of ids) messages.delete(id);
       }
     },
@@ -838,8 +868,8 @@ export function createInMemoryStore(): AppStore {
           pageSize,
           summary: {
             totalCount: searchedMessages.length,
-            sentCount: searchedMessages.filter((entry) => entry.status === "sent").length,
-            failedCount: searchedMessages.filter((entry) => entry.status === "failed").length
+            sentCount: searchedMessages.filter((entry) => outboundSubmittedStatuses.includes(entry.status)).length,
+            failedCount: searchedMessages.filter((entry) => outboundFailureStatuses.includes(entry.status)).length
           },
           total: filteredMessages.length
         });
@@ -848,18 +878,91 @@ export function createInMemoryStore(): AppStore {
         const mailboxIds = new Set(query.mailboxIds);
         const scopedMessages = outboundMessages.filter((entry) => mailboxIds.has(entry.mailboxId));
         const sentSinceCount = scopedMessages.filter(
-          (entry) => entry.status === "sent" && (!query.sinceIso || entry.createdAt >= query.sinceIso)
+          (entry) => outboundSubmittedStatuses.includes(entry.status) && (!query.sinceIso || entry.createdAt >= query.sinceIso)
         ).length;
 
         return {
           totalCount: scopedMessages.length,
-          sentCount: scopedMessages.filter((entry) => entry.status === "sent").length,
-          failedCount: scopedMessages.filter((entry) => entry.status === "failed").length,
+          sentCount: scopedMessages.filter((entry) => outboundSubmittedStatuses.includes(entry.status)).length,
+          failedCount: scopedMessages.filter((entry) => outboundFailureStatuses.includes(entry.status)).length,
           sentSinceCount
         };
       },
       async findById(id) {
         return clone(outboundMessages.find((entry) => entry.id === id) ?? null);
+      }
+    },
+    outboundSends: {
+      async accept(input, limits) {
+        const existing = Array.from(outboundSends.values()).find((entry) => entry.userId === input.userId && entry.requestId === input.requestId);
+        if (existing) return clone(existing);
+        const now = nowIso();
+        const quota = quotas.get(input.userId) ?? { userId: input.userId, dailyLimit: limits.dailyLimit, apiDailyLimit: limits.apiDailyLimit, sendsToday: 0, apiCallsToday: 0, disabled: false, updatedAt: now };
+        const isNewDay = quota.updatedAt.slice(0, 10) !== now.slice(0, 10);
+        const used = isNewDay ? 0 : quota.sendsToday;
+        if (quota.disabled || used >= quota.dailyLimit) return null;
+        const record: OutboundSendRecord = {
+          ...input, id: crypto.randomUUID(), status: "queued", errorText: null, providerMessageId: null, responsePayloadJson: null,
+          attempts: 0, nextAttemptAt: now, leaseToken: null, firstAttemptAt: null, submissionUncertain: false, createdAt: now, payloadRetained: true
+        };
+        quotas.set(input.userId, { ...quota, sendsToday: used + 1, apiCallsToday: isNewDay ? 0 : quota.apiCallsToday, updatedAt: now });
+        outboundMessages.push(record);
+        outboundSends.set(record.id, record);
+        return clone(record);
+      },
+      async findByUserAndKey(userId, requestId) {
+        return clone(Array.from(outboundSends.values()).find((entry) => entry.userId === userId && entry.requestId === requestId) ?? null);
+      },
+      async claimDue(input) {
+        const claimed: OutboundSendRecord[] = [];
+        for (const row of outboundSends.values()) {
+          const lockedAt = (row as OutboundSendRecord & { lockedAt?: string | null }).lockedAt;
+          if ((row.status === "queued" || row.status === "sending") && ((row.firstAttemptAt && new Date(input.nowIso).getTime() - new Date(row.firstAttemptAt).getTime() >= 23 * 3_600_000) || (row.status === "sending" && row.attempts >= row.maxAttempts && lockedAt && lockedAt <= input.lockBeforeIso))) {
+            row.status = "uncertain"; row.errorText = "供应商幂等窗口已过期或最后一次尝试中断，请核对供应商记录"; row.leaseToken = null;
+          }
+          const isDue = (row.status === "queued" && row.nextAttemptAt <= input.nowIso) || (row.status === "sending" && lockedAt && lockedAt <= input.lockBeforeIso);
+          if (!isDue || row.attempts >= row.maxAttempts || (input.id && (row.id !== input.id || row.userId !== input.userId))) continue;
+          row.submissionUncertain ||= row.status === "sending";
+          row.status = "sending"; row.attempts += 1; row.leaseToken = crypto.randomUUID(); row.firstAttemptAt ??= input.nowIso;
+          Object.assign(row, { lockedAt: input.nowIso });
+          claimed.push(clone(row));
+          if (claimed.length >= Math.min(input.limit, 10)) break;
+        }
+        return claimed;
+      },
+      async complete(id, input) {
+        const row = outboundSends.get(id);
+        if (!row || row.status !== "sending" || row.leaseToken !== input.leaseToken) return;
+        const eventId = `attempt:${crypto.randomUUID()}`;
+        outboundEvents.set(eventId, { id: eventId, messageId: id, providerMessageId: input.providerMessageId, type: "attempt", status: input.status, occurredAt: input.nowIso, detail: input.errorText ?? null });
+        Object.assign(row, { status: input.status, submissionUncertain: row.submissionUncertain || input.submissionUncertain === true, errorText: input.errorText ?? null, providerMessageId: input.providerMessageId ?? row.providerMessageId, responsePayloadJson: input.responsePayloadJson ?? null, nextAttemptAt: input.nextAttemptAt ?? row.nextAttemptAt, leaseToken: null, lockedAt: null });
+        const rank: Record<string, number> = { complained: 6, bounced: 5, delivered: 4, failed: 3, accepted: 2 };
+        const events = Array.from(outboundEvents.values()).filter((event) => row.providerMessageId && event.providerMessageId === row.providerMessageId).sort((a, b) => (rank[b.status] ?? 0) - (rank[a.status] ?? 0) || b.occurredAt.localeCompare(a.occurredAt));
+        if (events[0]) { row.status = events[0].status; row.errorText = events[0].detail; }
+      },
+      async recordProviderEvent(event) {
+        const id = `provider:${event.id}`;
+        if (!outboundEvents.has(id)) outboundEvents.set(id, { ...event, id });
+        const rank: Record<string, number> = { complained: 6, bounced: 5, delivered: 4, failed: 3, accepted: 2 };
+        for (const row of outboundMessages) {
+          if (row.providerMessageId !== event.providerMessageId) continue;
+          const events = Array.from(outboundEvents.values()).filter((item) => item.providerMessageId === row.providerMessageId).sort((a, b) => (rank[b.status] ?? 0) - (rank[a.status] ?? 0) || b.occurredAt.localeCompare(a.occurredAt));
+          if (events[0]) { row.status = events[0].status; row.errorText = events[0].detail; }
+        }
+      },
+      async timeline(id) {
+        const row = outboundMessages.find((message) => message.id === id);
+        return clone(Array.from(outboundEvents.values()).filter((event) => event.messageId === id || (row?.providerMessageId && event.providerMessageId === row.providerMessageId)).sort((a, b) => a.occurredAt.localeCompare(b.occurredAt)).map(({ id: eventId, type, status, occurredAt, detail }) => ({ id: eventId, type, status, occurredAt, detail })));
+      },
+      async cleanup(before) {
+        for (const [id, event] of outboundEvents) {
+          if (!event.messageId && event.occurredAt <= before && !outboundMessages.some((message) => message.providerMessageId === event.providerMessageId)) outboundEvents.delete(id);
+        }
+        for (const row of outboundSends.values()) {
+          if (!outboundFailureStatuses.includes(row.status) || row.createdAt > before) continue;
+          row.bodyText = ""; row.requestPayloadJson = "{}"; row.responsePayloadJson = null; row.errorText = null; row.payloadRetained = false;
+          for (const event of outboundEvents.values()) if (event.messageId === row.id || (row.providerMessageId && event.providerMessageId === row.providerMessageId)) event.detail = null;
+        }
       }
     },
     apiKeys: {
@@ -1274,6 +1377,120 @@ export function createInMemoryStore(): AppStore {
       async delete(id, userId) {
         const existing = notificationRules.get(id);
         if (existing?.userId === userId) notificationRules.delete(id);
+      }
+    },
+    notificationOutbox: {
+      async enqueue(input) {
+        const existing = Array.from(notificationOutbox.values()).find(
+          (entry) => entry.eventId === input.eventId && entry.target === input.target && entry.targetId === input.targetId
+        );
+        if (existing) return clone(existing);
+        const now = nowIso();
+        const record: NotificationOutboxRecord = {
+          id: crypto.randomUUID(),
+          eventId: input.eventId,
+          messageId: input.messageId ?? null,
+          userId: input.userId,
+          target: input.target,
+          targetId: input.targetId,
+          eventType: input.eventType,
+          payloadJson: input.payloadJson,
+          status: "pending",
+          attempts: 0,
+          nextAttemptAt: input.nextAttemptAt ?? now,
+          lockedAt: null,
+          leaseToken: null,
+          lastError: null,
+          expiresAt: input.expiresAt,
+          createdAt: now,
+          updatedAt: now
+        };
+        notificationOutbox.set(record.id, record);
+        return clone(record);
+      },
+      async claimDue(input) {
+        for (const [id, entry] of notificationOutbox) {
+          if (entry.status === "processing" && entry.attempts >= 5 && entry.lockedAt && entry.lockedAt <= input.lockBeforeIso) {
+            notificationOutbox.set(id, { ...entry, status: "failed", lockedAt: null, leaseToken: null, lastError: "Delivery attempt limit exceeded after interruption", updatedAt: input.nowIso });
+          }
+        }
+        const due = Array.from(notificationOutbox.values())
+          .filter((entry) =>
+            (entry.status === "pending" || entry.status === "retrying" || entry.status === "processing") &&
+            entry.nextAttemptAt <= input.nowIso &&
+            entry.expiresAt > input.nowIso && entry.attempts < 5 &&
+            (!input.taskId || (entry.id === input.taskId && entry.userId === input.userId)) &&
+            (!entry.lockedAt || entry.lockedAt <= input.lockBeforeIso)
+          )
+          .sort((left, right) => left.nextAttemptAt.localeCompare(right.nextAttemptAt) || left.createdAt.localeCompare(right.createdAt))
+          .slice(0, input.limit);
+        const now = input.nowIso;
+        return due.map((entry) => {
+          const next = { ...entry, status: "processing" as const, attempts: entry.attempts + 1, lockedAt: now, leaseToken: crypto.randomUUID(), updatedAt: now };
+          notificationOutbox.set(entry.id, next);
+          return clone(next);
+        });
+      },
+      async markSucceeded(id, leaseToken, updatedAt = nowIso()) {
+        const entry = notificationOutbox.get(id);
+        if (!entry || entry.status !== "processing" || entry.leaseToken !== leaseToken) return;
+        notificationOutbox.set(id, { ...entry, status: "succeeded", lockedAt: null, leaseToken: null, lastError: null, updatedAt });
+      },
+      async markFailed(id, input) {
+        const entry = notificationOutbox.get(id);
+        if (!entry || entry.status !== "processing" || entry.leaseToken !== input.leaseToken) return;
+        const updatedAt = input.updatedAt ?? nowIso();
+        const permanent = entry.attempts >= 5 || !input.retryAt;
+        notificationOutbox.set(id, {
+          ...entry,
+          status: input.suppressed ? "suppressed" : permanent ? "failed" : "retrying",
+          lockedAt: null,
+          leaseToken: null,
+          lastError: input.error,
+          nextAttemptAt: input.retryAt ?? entry.nextAttemptAt,
+          updatedAt
+        });
+      },
+      async replay(id, userId, now) {
+        const entry = notificationOutbox.get(id);
+        if (!entry || entry.userId !== userId || !["retrying", "failed", "suppressed"].includes(entry.status) || entry.expiresAt <= now) return null;
+        const next = { ...entry, status: "pending" as const, attempts: 0, nextAttemptAt: now, lockedAt: null, leaseToken: null, updatedAt: now };
+        notificationOutbox.set(id, next);
+        return clone(next);
+      },
+      async deleteExpired(now, legacyBeforeIso) {
+        const expired = new Set(Array.from(notificationOutbox.values()).filter((entry) => entry.expiresAt <= now).map((entry) => entry.id));
+        for (let index = webhookDeliveries.length - 1; index >= 0; index -= 1) {
+          try {
+            const payload = JSON.parse(webhookDeliveries[index].payloadJson);
+            const message = messages.get(payload.data?.messageId);
+            if (expired.has(payload.notificationTaskId) || (message && message.expiresAt <= now) || (!payload.notificationTaskId && legacyBeforeIso && webhookDeliveries[index].createdAt <= legacyBeforeIso)) webhookDeliveries.splice(index, 1);
+          } catch {
+            if (legacyBeforeIso && webhookDeliveries[index].createdAt <= legacyBeforeIso) webhookDeliveries.splice(index, 1);
+          }
+        }
+        for (const id of expired) notificationOutbox.delete(id);
+      },
+      async listByUser(userId, limit = 50, target) {
+        return clone(
+          Array.from(notificationOutbox.values())
+            .filter((entry) => entry.userId === userId && (!target || entry.target === target))
+            .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
+            .slice(0, Math.min(Math.max(limit, 1), 500))
+        );
+      },
+      async listRecent(limit = 30) {
+        return clone(Array.from(notificationOutbox.values()).sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, getSafePageSize(limit)));
+      },
+      async summarize(userId, target) {
+        const rows = Array.from(notificationOutbox.values()).filter((entry) => (!userId || entry.userId === userId) && (!target || entry.target === target) && entry.expiresAt > nowIso());
+        const counts = { pending: 0, processing: 0, retrying: 0, succeeded: 0, failed: 0, suppressed: 0 };
+        let lastSucceededAt: string | null = null;
+        for (const row of rows) {
+          counts[row.status] += 1;
+          if (row.status === "succeeded" && (!lastSucceededAt || row.updatedAt > lastSucceededAt)) lastSucceededAt = row.updatedAt;
+        }
+        return { counts, backlogCount: counts.pending + counts.processing + counts.retrying, lastSucceededAt };
       }
     },
     announcements: {

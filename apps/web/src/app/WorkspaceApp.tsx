@@ -142,9 +142,9 @@ function getSettingsDataQuery(pathname: string, isAdmin: boolean): SettingsDataQ
       includeApiKeys: false,
       includeDictionaries: false,
       includeRuntimeSettings: true,
-      includeSystemDiagnostics: false,
+      includeSystemDiagnostics: true,
       includeSystemMaturity: false,
-      includeSystemReliability: false,
+      includeSystemReliability: true,
       includeTelegram: false
     };
   }

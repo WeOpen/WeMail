@@ -1,0 +1,48 @@
+---
+title: 用自己的域名接收邮件
+description: 串起独立资源、域名、Email Routing、秘密配置和调度验证
+---
+
+目标：使用自己的域名部署 WeMail，并通过一封真实邮件确认收件、提取与清理链路。完整资源创建步骤见[从零部署](/docs/deploy-from-zero)，以下按验证顺序执行。
+
+## 1. 隔离环境与资源
+
+为 staging 和 production 分别创建 D1、KV 与 R2，配置对应 environment 的绑定。不要用 production 数据库试跑收件、故障注入或恢复演练。先在隔离环境执行迁移和备份/恢复检查，确认旧数据兼容后按发布手册安排生产发布。
+
+Web 与 API 可以使用不同域名，例如 `mail.example.com` 和 `mail-api.example.com`。构建 Web 时将 `VITE_API_BASE_URL` 指向自己的 HTTPS API origin；Worker 的 `CORS_ALLOWED_ORIGINS` 应包含实际 Web origin，生产启用 `COOKIE_SECURE=true`。跨子域 Cookie 的域设置必须与实际部署相符。
+
+## 2. 设置收件域名与 Email Routing
+
+1. 域名 DNS 由 Cloudflare 托管，并已 active。
+2. 在 Cloudflare Email Routing 按控制台给出的准确值添加 MX/TXT，确认 Email Routing 已启用。
+3. 将一个明确的测试地址路由到当前 WeMail Worker。先用单地址验证，再决定是否需要 Catch-all。
+4. 登录 WeMail 管理员账号，进入「系统设置 → 域名设置」，把 `example.com` 换成真实收件域名。这个列表只决定允许创建哪些地址，不能自动配置 Cloudflare 路由。
+5. 用该域名创建邮箱，复制完整生成地址。从外部邮箱发送 `Your verification code is 482913`，在邮件列表刷新并复制结果。
+
+没有收到时，检查规则指向的 Worker/environment、测试地址和 MX 生效状态。管理员可查看未匹配邮件，判断是路由没到还是地址没对应。不要把「默认域名已保存」当作真实收件验证。
+
+## 3. 只启用已配置的能力
+
+| 能力 | 必要配置与验收 |
+| --- | --- |
+| 收件和附件 | D1/R2 bindings；真实带附件邮件可读取 |
+| 发件 | `RESEND_API_KEY`、已验证发件域名、需要时的回调密钥；核对供应商事件，受理不代表送达 |
+| Telegram | Bot Token、生产 Webhook Secret、用户绑定；真实测试消息可见 |
+| AI fallback | 实际提供商配置和每日预算；未配置时关闭可选能力 |
+| API | 在工作台创建最小权限 API Key，并用自己的邮箱测试 |
+
+秘密值使用 Cloudflare Worker Secrets 或 environment 的部署秘密配置，不放进仓库和网页构建变量。功能开关位于系统设置；配置已保存只证明配置存在，需分别执行真实测试。
+
+## 清理调度与成本
+
+在相应 Worker environment 的 Cron Triggers 保留两条：`* * * * *` 恢复持久化通知/发件重试，`0 * * * *` 执行过期清理。它们的用途不同，不能只保留每小时任务。触发时间按 UTC 解释。
+
+系统设置的「自托管检查」展示最近清理运行时间、失败原因和待清理邮件。部署后等待一次清理，并核对删除统计；一条历史成功记录不能证明当前 Cron 仍在执行。若持续没有新记录，在 Cloudflare 检查 triggers 与 Worker 日志，并确认实际部署的 environment。
+
+每分钟恢复会产生固定的 D1 调度查询。先观察任务积压、请求/CPU、D1 读写和 R2 存储成本，再扩大邮箱数量；浏览器不应持续轮询完整管理员诊断。Web 复用已有诊断快照，不为引导增加高频轮询；配置检查不发外部探测请求。
+
+## 完成与维护
+
+完成标志：真实首封邮件和附件可读、验证码可复制，启用的通知/发件有实际供应商证据，Cron 出现新的成功记录。每次迁移前备份 D1，演练恢复与旧代码兼容；代码回滚不会自动撤回 schema 或恢复已删除的数据。
+
+运行更完整的验收与恢复流程时，遵循仓库中的 `docs/deploy-runbook.md`、`docs/staging-validation.md` 和 `docs/backup-restore-runbook.md`。

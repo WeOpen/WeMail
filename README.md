@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <img alt="Version" src="https://img.shields.io/badge/version-0.1.2-111111?style=flat-square" />
+  <img alt="Version" src="https://img.shields.io/badge/version-0.4.0-111111?style=flat-square" />
   <img alt="License" src="https://img.shields.io/badge/license-MIT-ff7a00?style=flat-square" />
   <img alt="Node" src="https://img.shields.io/badge/node-22-43853d?style=flat-square" />
   <img alt="pnpm" src="https://img.shields.io/badge/pnpm-10.18.2-f69220?style=flat-square" />
@@ -20,6 +20,18 @@
 </p>
 
 `WeMail` 是一个基于 pnpm monorepo 的 disposable email 服务，提供临时邮箱、邮件收取、发件控制、API Key、公告、Webhook、Telegram 通知与管理员后台能力。
+
+项目版本以根 [`package.json`](package.json) 为准；切版时使用 `pnpm version:sync` 同步 workspace、共享版本常量与 OpenAPI，并更新本页徽章。
+
+## 能力与验证范围
+
+| 状态 | 说明 | 当前范围 |
+| --- | --- | --- |
+| 已实现 | 源码中存在接口、业务逻辑或界面 | 收件、提取、通知规则、聊天渠道、发件、权限与管理员设置 |
+| 已联调 | 指定环境中的组件协同有可复现测试结果 | `pnpm test:e2e:business` 连接真实本地 Worker/D1/R2 与浏览器，外部供应商为受控适配器；快速 smoke 保留模拟 API，范围见[测试策略](docs/testing-strategy.md) |
+| 已上线验收 | 指定 commit、环境与真实服务有验收记录 | 需要按[发布手册](docs/deploy-runbook.md)保存真实 Email Routing、通知平台、Resend 与权限验证证据；本页不代表所有外部链路均已验收 |
+
+`GET /api/users/commercial` 当前返回部署级用量、套餐展示和一个 `default` 组织汇总；独立团队、成员关系与共享邮箱授权仍需后续开发。系统设置中的历史「运维中心」「成熟度总览」「可靠性后台」面板已移除，`/system/operations` 转到系统设置；相关管理员 API 保留。后续交付顺序见[开发计划](docs/plans/2026-10-03-next-development-roadmap.md)。
 
 ## 仓库结构
 
@@ -100,6 +112,7 @@ pnpm test:shared
 pnpm test:worker:integration
 pnpm test:web:integration
 pnpm test:e2e
+pnpm test:e2e:business
 ```
 
 首次运行 E2E 前安装浏览器：
@@ -331,6 +344,8 @@ curl -i "$PRODUCTION_API_BASE_URL/api/system/health"
 
 只在 GitHub Actions 不可用或明确需要手动操作时使用。
 
+Actions 的绑定注入不会在本地自动发生。手动部署前按[备份恢复手册的私有配置步骤](docs/backup-restore-runbook.md#22-准备私有-wrangler-配置)准备 `.wrangler/wrangler.recovery.toml`，填入目标环境的真实 D1/KV ID，并核对路由、R2 bucket、Cookie 与 CORS。公开 `wrangler.toml` 继续保留占位值。构建前按目标环境设置 `VITE_API_BASE_URL`；只有已配置同域 `/api/*` Worker 路由时才可省略。
+
 staging：
 
 ```bash
@@ -340,8 +355,8 @@ pnpm typecheck
 pnpm lint
 pnpm build
 cd apps/worker
-pnpm exec wrangler d1 migrations apply wemail-staging --env staging --remote
-pnpm exec wrangler deploy --env staging
+pnpm exec wrangler d1 migrations apply DB --env staging --remote --config .wrangler/wrangler.recovery.toml
+pnpm exec wrangler deploy --env staging --config .wrangler/wrangler.recovery.toml
 cd ../..
 pnpm exec wrangler pages deploy apps/web/dist --project-name=<pages-project-name> --branch=staging
 ```
@@ -355,8 +370,8 @@ pnpm typecheck
 pnpm lint
 pnpm build
 cd apps/worker
-pnpm exec wrangler d1 migrations apply wemail-production --env production --remote
-pnpm exec wrangler deploy --env production
+pnpm exec wrangler d1 migrations apply DB --env production --remote --config .wrangler/wrangler.recovery.toml
+pnpm exec wrangler deploy --env production --config .wrangler/wrangler.recovery.toml
 cd ../..
 pnpm exec wrangler pages deploy apps/web/dist --project-name=<pages-project-name>
 ```

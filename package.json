@@ -30,6 +30,7 @@
     "test:web:integration": "pnpm --dir apps/web exec vitest run src/test/integration",
     "openapi:generate": "node apps/worker/scripts/generate-openapi.mjs",
     "test:e2e": "pnpm exec playwright test -c apps/web/playwright.config.ts",
+    "test:e2e:business": "node scripts/run-business-e2e.mjs",
     "test:e2e:install": "pnpm exec playwright install chromium",
     "preflight": "node scripts/preflight-check.mjs"
   },

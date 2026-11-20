@@ -709,7 +709,8 @@
                 ],
                 "keyword": "code",
                 "quietHoursStart": "23:00",
-                "quietHoursEnd": "08:00"
+                "quietHoursEnd": "08:00",
+                "quietHoursTimezone": "Asia/Shanghai"
               }
             }
           }
@@ -777,6 +778,160 @@
             "$ref": "#/components/responses/Ok"
           },
           "404": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/notification/deliveries": {
+      "get": {
+        "tags": [
+          "Webhook"
+        ],
+        "summary": "获取本人通知任务与状态统计",
+        "operationId": "getNotificationDeliveries",
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "target",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "webhook",
+                "telegram",
+                "slack",
+                "discord",
+                "feishu",
+                "wecom"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "状态统计与最近投递元数据，不含原始邮件、验证码或租约"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/notification/deliveries/{id}/retry": {
+      "post": {
+        "tags": [
+          "Webhook"
+        ],
+        "summary": "重试本人通知任务",
+        "operationId": "retryNotificationDelivery",
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdPath"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "更新后的状态"
+          },
+          "409": {
+            "description": "任务不可用、已过期或正在投递"
+          }
+        }
+      }
+    },
+    "/api/notification/rules/test": {
+      "post": {
+        "tags": [
+          "Webhook"
+        ],
+        "summary": "试运行通知规则并解释结果",
+        "operationId": "testNotificationRules",
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "target",
+                  "eventType"
+                ],
+                "properties": {
+                  "target": {
+                    "type": "string"
+                  },
+                  "targetId": {
+                    "type": "string"
+                  },
+                  "eventType": {
+                    "type": "string"
+                  },
+                  "data": {
+                    "type": "object"
+                  },
+                  "evaluatedAt": {
+                    "type": "string",
+                    "format": "date-time"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "shouldSend、默认策略和逐条规则匹配/抑制原因"
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/system/notification-status": {
+      "get": {
+        "tags": [
+          "系统设置"
+        ],
+        "summary": "管理员查看全站通知积压与结果",
+        "operationId": "getSystemNotificationStatus",
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "全站状态统计与最近任务元数据"
+          },
+          "403": {
             "$ref": "#/components/responses/Error"
           }
         }
@@ -1935,10 +2090,18 @@
               "enum": [
                 "all",
                 "sent",
-                "failed"
+                "failed",
+                "queued",
+                "sending",
+                "accepted",
+                "delivered",
+                "bounced",
+                "complained",
+                "uncertain"
               ],
               "default": "all"
-            }
+            },
+            "description": "sent 汇总历史提交/供应商受理/送达；failed 汇总失败/退信/投诉/结果未知。其他值精确筛选。"
           }
         ],
         "responses": {
@@ -1968,9 +2131,120 @@
         ],
         "responses": {
           "200": {
-            "description": "当前用户发信额度、身份检查、DNS checklist、重试策略、Return-Path 说明和模板入口。"
+            "description": "当前用户发信额度、静态身份检查、配置来源 DNS checklist、重试策略、Return-Path 说明和模板入口；不发起供应商或 DNS 查询。"
           },
           "401": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/mail/outbound/domain-status": {
+      "get": {
+        "tags": [
+          "邮件"
+        ],
+        "summary": "检查实际发件域名",
+        "operationId": "checkMailOutboundDomain",
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "独立查询 Resend 域名验证与公共 DNS，逐项返回 source、status、message 和 checkedAt。"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/mail/providers/resend/events": {
+      "post": {
+        "tags": [
+          "邮件"
+        ],
+        "summary": "接收 Resend 投递事件",
+        "operationId": "receiveResendEvent",
+        "description": "校验原始请求体的 Svix 签名及五分钟时间窗口；按 svix-id 去重，缓冲早到事件，终态不会被较晚的受理事件降级。",
+        "security": [],
+        "parameters": [
+          {
+            "name": "svix-id",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "svix-timestamp",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "svix-signature",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "type",
+                  "created_at",
+                  "data"
+                ],
+                "properties": {
+                  "type": {
+                    "type": "string"
+                  },
+                  "created_at": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "data": {
+                    "type": "object",
+                    "properties": {
+                      "email_id": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "已保存、重复或忽略的供应商事件。"
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "413": {
+            "$ref": "#/components/responses/Error"
+          },
+          "503": {
             "$ref": "#/components/responses/Error"
           }
         }
@@ -1998,7 +2272,7 @@
         ],
         "responses": {
           "200": {
-            "description": "发件记录详情，包含正文、请求 payload、provider 响应和 provider message id。"
+            "description": "发件记录详情，包含正文、请求 payload、provider 响应、provider message id、attempts、nextAttemptAt 与持久化 timeline；旧 sent 只证明历史提交。"
           },
           "404": {
             "$ref": "#/components/responses/Error"
@@ -2021,11 +2295,71 @@
             "bearerAuth": []
           }
         ],
+        "description": "每个用户的 requestId 唯一；同键相同内容返回已有逻辑请求，不重复扣额。同键不同内容返回 409。配额按已接受的逻辑请求计数，自动重试不再次扣额。HTTP 200 仅证明供应商受理，送达需事件确认。",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 256
+            },
+            "description": "优先于 JSON requestId；网络重试必须复用，修改正文或主动补发须换新键。"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "mailboxId",
+                  "toAddress",
+                  "subject",
+                  "bodyText"
+                ],
+                "properties": {
+                  "mailboxId": {
+                    "type": "string"
+                  },
+                  "toAddress": {
+                    "type": "string",
+                    "format": "email"
+                  },
+                  "subject": {
+                    "type": "string"
+                  },
+                  "bodyText": {
+                    "type": "string"
+                  },
+                  "requestId": {
+                    "type": "string",
+                    "maxLength": 256
+                  }
+                }
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
-            "description": "发送成功并返回配额"
+            "description": "供应商已受理，或重放已完成的逻辑请求；返回 message 与 quota。"
+          },
+          "202": {
+            "description": "请求已持久化，等待重试或结果待确认；查看 message.status。"
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
           },
           "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "502": {
             "$ref": "#/components/responses/Error"
           }
         }

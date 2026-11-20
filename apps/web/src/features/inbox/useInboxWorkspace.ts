@@ -1,5 +1,5 @@
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { MailDomainSummary, MessageBatchAction, MessageFilter, MessageListSummary } from "@wemail/shared";
+import type { MailDomainSummary, MessageBatchAction, MessageFilter, MessageListSummary, OutboundMessageStatus } from "@wemail/shared";
 
 import { useAppStore } from "../../app/appStore";
 import type { WemailToastInput } from "../../shared/toast";
@@ -39,6 +39,18 @@ const defaultOutboundSummary = {
   totalCount: 0,
   sentCount: 0,
   failedCount: 0
+};
+
+const outboundSubmissionNotices: Record<OutboundMessageStatus, WemailToastInput> = {
+  queued: { message: "发件请求已入队，将按配置自动重试。", tone: "info" },
+  sending: { message: "发件请求正在提交，受理结果请查看发件记录。", tone: "info" },
+  accepted: { message: "供应商已受理邮件，等待投递确认。", tone: "success" },
+  delivered: { message: "供应商已确认邮件送达收件服务器。", tone: "success" },
+  bounced: { message: "邮件已被收件服务器退回，请查看发件记录。", tone: "error" },
+  complained: { message: "邮件已被标记为垃圾邮件，请查看发件记录。", tone: "error" },
+  failed: { message: "邮件发送失败，请查看发件记录。", tone: "error" },
+  uncertain: { message: "提交结果待确认，请核对发件记录。", tone: "info" },
+  sent: { message: "历史记录只证明曾提交发送，最终投递结果未知。", tone: "info" }
 };
 
 function normalizeMessageQuery(
@@ -290,20 +302,28 @@ export function useInboxWorkspace({
     [onToast, refreshMailboxes]
   );
 
+  const sendRequest = useRef<{ fingerprint: string; id: string } | null>(null);
   const sendMail = useCallback(
     async (event: FormEvent<HTMLFormElement>) => {
       event.preventDefault();
       const outboundMailboxId = selectedMailboxId ?? mailboxes[0]?.id ?? null;
-      if (!outboundMailboxId) return;
-      const form = new FormData(event.currentTarget);
-      await sendOutboundAction({
+      if (!outboundMailboxId) throw new Error("当前没有可用邮箱，请先创建或选择邮箱。");
+      const element = event.currentTarget;
+      const form = new FormData(element);
+      const input = {
         mailboxId: outboundMailboxId,
         toAddress: form.get("toAddress"),
         subject: form.get("subject"),
         bodyText: form.get("bodyText")
-      });
-      event.currentTarget.reset();
-      onToast({ message: "邮件已发送。", tone: "success" });
+      };
+      const fingerprint = JSON.stringify(input);
+      const draftKey = form.get("requestId");
+      if (sendRequest.current?.fingerprint !== fingerprint) sendRequest.current = { fingerprint, id: crypto.randomUUID() };
+      const result = await sendOutboundAction({ ...input, requestId: typeof draftKey === "string" && draftKey ? draftKey : sendRequest.current!.id });
+      element.reset();
+      sendRequest.current = null;
+      const status = result?.message?.status;
+      onToast(status ? outboundSubmissionNotices[status] : { message: "发件请求已提交，结果请查看发件记录。", tone: "info" });
       await refreshOutbound({ mailboxId: outboundMailboxId, page: 1, pageSize: outboundPageSize, status: "all" });
     },
     [mailboxes, onToast, outboundPageSize, refreshOutbound, selectedMailboxId]

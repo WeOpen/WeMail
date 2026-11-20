@@ -1,10 +1,10 @@
-# Product Maturity Implementation Plan
+# Product Maturity Implementation Plan (Historical)
 
-> **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
+> 历史计划与分批实现记录，编制于 2026-06-28；当前范围于 2026-10-04 按源码重新核对。文中的 `Completed` / `Added` 记录当时的交付，不代表当前界面仍保留，也不代表真实外部联调或生产验收。后续顺序以 [2026-10-03 开发计划](2026-10-03-next-development-roadmap.md)为准。
 
 **Goal:** Implement the full product-maturity target across the eight directions discussed with the user, while shipping the work in verified batches that keep the product usable at every step.
 
-**Architecture:** Treat maturity work as a staged roadmap with an admin-visible maturity overview as the control surface. Each direction must eventually have backend evidence, operator UI, documentation, and tests. The first implementation added an admin-only system diagnostics contract; the second batch adds a product maturity overview so the eight directions remain visible while deeper features are built.
+**Architecture (historical):** The original batches used an admin-visible maturity overview as a control surface. Current system settings focus on appearance, domains, runtime settings, and feature toggles; the operations center, maturity overview, and reliability panels have since been removed. Their admin-only API contracts remain available. Each roadmap direction still requires backend evidence, an appropriate operator surface, documentation, and verified tests before acceptance.
 
 **Tech Stack:** pnpm monorepo, Cloudflare Workers, Hono, D1-backed settings, React 19, Vite, TypeScript, Vitest, Testing Library.
 
@@ -60,23 +60,29 @@ The goal is complete only when all of these directions have working product surf
 7. **Docs and self-service troubleshooting:** scenario docs for independent domains, Telegram Bot, Email Routing, Resend, OAuth, common failures, plus in-product diagnostic guidance.
 8. **Data reliability:** D1 migration management, backup/restore runbook, R2 cleanup observability, idempotent mail processing, duplicate notification prevention, and scheduled cleanup run records.
 
-## Batch Status
+## Batch Status And Current Verification Boundary
 
-| Batch | Scope | Status |
-| --- | --- | --- |
-| 1 | Admin system diagnostics for deployment readiness | Implemented |
-| 2 | Admin product maturity overview for all eight directions | Implemented |
-| 3 | Delivery/error operations center with recent failures and replay controls | Implemented |
-| 4 | Security governance: scoped API keys | Implemented |
-| 5 | Security governance: session devices, invite policy, audit view | Implemented |
-| 6 | Mail workflow: advanced filters, retention countdown, batch operations | Implemented |
-| 7 | Notification rules engine and integration expansion hooks | Implemented |
-| 8 | Outbound maturity: identity checks, templates, DNS checks, retry UX | Implemented |
-| 9 | Plans, teams, quotas, reliability logs, and backup/restore docs | Implemented |
+| Batch | Scope | Current implementation | Remaining acceptance boundary |
+| --- | --- | --- | --- |
+| 1 | Admin deployment diagnostics | 已实现：管理员诊断 API 保留；历史系统设置诊断面板已移除 | 绑定和密钥存在性检查不能证明真实服务可用 |
+| 2 | Overview of eight maturity directions | 已实现：成熟度摘要 API 保留；历史总览面板已移除 | 汇总状态或进度百分比不能证明八个方向已完成 |
+| 3 | Delivery/error operations center | 已实现：operations API 保留；运维中心已移除，旧路由重定向到系统设置 | 投递记录与手动重放有实现；通知持久化、自动恢复和积压状态仍需后续闭环 |
+| 4 | Scoped API keys | 已实现：scope 存储、UI 与路由权限校验 | 真实 Worker/D1 业务 E2E 与 staging 权限验收需保存证据 |
+| 5 | Sessions, invites, audit | 已实现：会话、登录历史、邀请码策略与审计 | 路由/组件测试主要使用内存 store 或模拟 API；真实环境验收另记 |
+| 6 | Mail workflow depth | 已实现：高级过滤、保留期、批量操作与详情 | 真实收件、附件、多结果提取与旧数据兼容仍需验收 |
+| 7 | Notification rules and chat channels | 已实现：规则、Webhook、Telegram、Slack、Discord、飞书、企业微信 | 聊天重放与对象型提取值为 DEV-01 修复项；持久化重试与真实平台验收另行推进 |
+| 8 | Outbound maturity | 已实现：额度、模板、发件身份、DNS 检查摘要与重试入口 | 立即循环尚未落实配置的重试间隔；供应商受理与最终投递未区分；真实 DNS/供应商验收另记 |
+| 9 | Commercial summaries and reliability | 已实现：套餐展示、部署用量、`default` 组织汇总、清理记录、入站幂等、reliability API 与备份手册 | 独立团队/成员/共享邮箱授权未实现；可靠性面板已移除；当前版本远端备份恢复未获验收证据 |
+
+状态口径：**已实现**以当前源码和测试入口为依据；**已联调**需要指明 commit、测试环境、真实组件与替身、通过记录；**已上线验收**需要真实部署和外部链路证据。本表只确认实现范围，不授予后两种状态。验证命令和当前测试边界见[测试策略](../testing-strategy.md)。
+
+`GET /api/users/commercial` 将全部署用户、邮箱、额度与近期审计聚合到一个 `default` 组织；用户数大于 1 会被推断为 `team` 展示。这不构成组织成员关系、共享邮箱授权、团队资源隔离或已上线收费套餐。完整商业与团队模型另列后续方案。
 
 ---
 
 ## Implementation Batch: Delivery/Error Operations Center
+
+**Current-state note:** The historical 「运维中心」rail is removed. `/system/operations` redirects to `/system/settings`; `GET /api/system/operations` remains admin-only. The following list records its original implementation, not a current navigation entry.
 
 ### Completed In This Batch
 
@@ -137,6 +143,8 @@ The goal is complete only when all of these directions have working product surf
 
 ## Implementation Batch: Outbound Maturity
 
+**Current-state note:** The maturity summary and compose shortcuts remain implemented. Retry policy display does not establish that its delay is executed, and the existing `sent` status means provider acceptance rather than verified delivery. DEV-06 supplies the execution and final-status closure; no live Resend/DNS acceptance evidence is recorded here.
+
 ### Completed In This Batch
 
 - Added `GET /api/mail/outbound/maturity` returning outbound quota, retry policy, failure stats, Return-Path status, sender identity checks, SPF/DKIM/DMARC checklist, and built-in send templates.
@@ -149,18 +157,22 @@ The goal is complete only when all of these directions have working product surf
 
 ## Implementation Batch: Plans, Teams, Quotas, And Reliability
 
+**Current-state note:** Commercial data is a deployment summary with one `default` organization, not independent teams or shared-mailbox authorization. The current users settings panel is 「商业与团队模型」. The historical 「可靠性后台」system panel is removed while its admin API remains. Message-ID now uses a persistent unique constraint; the five-minute window below describes the earlier fallback behavior. Backup/restore acceptance follows the current [runbook](../backup-restore-runbook.md), not this historical implementation label.
+
 ### Completed In This Batch
 
-- Added `GET /api/users/commercial` for plan tiers, default organization workspace, member roles, shared mailbox usage, quota usage, and organization audit summaries.
-- Added a users settings「套餐、团队与配额」panel for commercial model and team workspace visibility.
+- Added `GET /api/users/commercial` for displayed plan tiers, deployment quota usage, one default organization summary, and recent deployment audit events. User roles and mailbox totals are summarized; this did not add organization membership or shared-mailbox grants.
+- Added the historical users settings「套餐、团队与配额」panel for commercial summaries; its current successor is 「商业与团队模型」.
 - Added cleanup run persistence with D1 migration `0017-cleanup-runs.sql`, in-memory/D1 store support, and scheduled cleanup success/failure recording.
 - Added inbound idempotency for duplicate messages within a 5-minute window and suppressed duplicate Webhook/Telegram notifications.
 - Added `GET /api/system/reliability` for D1/R2 status, migration evidence, cleanup runs, idempotency policy, and backup/restore runbook commands.
-- Added a system settings「可靠性后台」panel and tests covering commercial summaries, cleanup records, reliability summaries, and duplicate inbound suppression.
+- Added the historical system settings「可靠性后台」panel (since removed) and tests covering commercial summaries, cleanup records, reliability summaries, and duplicate inbound suppression.
 
 ---
 
-## Implementation Batch: Phase 1 System Diagnostics
+## Historical Implementation Steps: Phase 1 System Diagnostics
+
+The steps and paths below describe the original implementation. They are retained for history; current Worker modules live under `app/`, `core/`, `infrastructure/`, and `shared/`, and removed system panels are not new work items. Use current package scripts from the testing strategy for verification.
 
 ### Task 1: Add The Shared Diagnostics Contract And Worker Endpoint
 
@@ -315,7 +327,7 @@ Do not commit automatically in this session unless the user asks for a commit.
 
 **Step 1: Update documentation**
 
-- Keep this plan as the source of truth for maturity roadmap sequencing.
+- Retain this plan as historical context; use the current next-development roadmap for sequencing and acceptance gates.
 - Add a `CHANGELOG.md` entry under `[Unreleased]` describing the new admin diagnostics surface.
 
 **Step 2: Run focused verification**
@@ -341,6 +353,8 @@ Expected: all commands pass.
 ---
 
 ## Implementation Batch: Product Maturity Overview
+
+**Current-state note:** The overview API remains available; the historical UI described in Task 5 is removed. It does not currently serve as a product acceptance dashboard.
 
 ### Task 4: Add The Shared Maturity Contract And Worker Endpoint
 

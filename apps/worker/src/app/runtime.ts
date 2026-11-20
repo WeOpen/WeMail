@@ -1,12 +1,13 @@
 import { parseAccountPolicyRecord } from "@wemail/shared";
 
 import type { AppBindings, AppStore, MailboxRecord, PersistedMessageRecord } from "../core/bindings";
-import { buildMessageExtraction, createPreview, maybeRunAiFallback, parseRawEmail } from "../shared/mail";
+import { buildMessageExtraction, createPreview, maybeRunAiFallback, parseRawEmail, readTrustedRoutingAuthentication } from "../shared/mail";
 import { recordAudit } from "./services/audit-service";
 import { defaultFeatureToggles } from "./services/config-service";
 import { getRuntimeSettings } from "./services/runtime-settings-service";
-import { sendTelegramNotification } from "./services/telegram-service";
-import { sendWebhookEventToUser } from "./services/webhook-service";
+import { planNotificationEvent, processNotificationOutbox } from "./services/notification-outbox-service";
+
+type InboundProcessingOptions = { deferNotifications?: (work: Promise<unknown>) => void };
 
 function normalizeRecipientAddress(address: string) {
   return address.trim().toLowerCase();
@@ -118,6 +119,7 @@ async function saveInboundMessage(
       attachments: Array<{ filename: string; contentType: string; data: Uint8Array; size: number }>;
     };
     extraction: ReturnType<typeof buildMessageExtraction>;
+    notificationContext?: { userId: string; address: string; featureToggles: Awaited<ReturnType<typeof getFeatureToggles>> };
   }
 ) {
   const duplicate = await findRecentDuplicateMessage(store, input);
@@ -126,6 +128,28 @@ async function saveInboundMessage(
   const settings = await getRuntimeSettings(store, env);
   const { acceptedAttachments, oversizeStatus } = collectAcceptedAttachments(settings, input.parsed.attachments);
   const expiresAt = new Date(Date.now() + settings.message.retentionDays * 24 * 60 * 60 * 1000).toISOString();
+  const id = crypto.randomUUID();
+  const context = input.notificationContext;
+  const data = {
+    mailboxId: input.mailboxId, mailboxAddress: context?.address ?? input.toAddress,
+    messageId: id, fromAddress: input.parsed.fromAddress, subject: input.parsed.subject
+  };
+  const common = context ? { store, featureToggles: context.featureToggles, userId: context.userId, expiresAt } : null;
+  const tasks = common ? await planNotificationEvent({
+    ...common, eventId: `message:${id}:received`, eventType: "message.received", data,
+    telegramText: `New mail for ${data.mailboxAddress}\nFrom: ${data.fromAddress}\nSubject: ${data.subject}`
+  }) : [];
+  if (common && input.extraction.primary.type !== "none") {
+    tasks.push(...await planNotificationEvent({
+      ...common, eventId: `message:${id}:extracted`, eventType: "message.extracted",
+      data: { ...data, extraction: input.extraction.primary, extractions: input.extraction.items, expiresHint: input.extraction.expiresHint, authSummary: input.extraction.authSummary },
+      telegramText: [
+        `Extracted results for ${data.mailboxAddress}`,
+        ...input.extraction.items.map((item) => `${item.label}: ${item.value}`),
+        input.extraction.expiresHint, `Subject: ${data.subject}`
+      ].filter(Boolean).join("\n")
+    }));
+  }
   const message = await store.messages.create({
     mailboxId: input.mailboxId,
     toAddress: input.toAddress,
@@ -139,7 +163,8 @@ async function saveInboundMessage(
     attachmentCount: acceptedAttachments.length,
     receivedAt: new Date().toISOString(),
     expiresAt
-  });
+  }, { id, notificationTasks: tasks });
+  if (message.id !== id) return { message, oversizeStatus: message.oversizeStatus, duplicateSuppressed: true };
 
   const attachmentRecords = acceptedAttachments.map((attachment) => ({
     id: crypto.randomUUID(),
@@ -171,11 +196,13 @@ async function processInboundForMailbox(
     messageId?: string | null;
     listUnsubscribe?: string | null;
     authenticationResults?: string | null;
+    trustedAuthentication?: ReturnType<typeof readTrustedRoutingAuthentication>;
     fromAddress: string;
     subject: string;
     text: string;
     attachments: Array<{ filename: string; contentType: string; data: Uint8Array; size: number }>;
-  }
+  },
+  options: InboundProcessingOptions
 ) {
   let extraction = buildMessageExtraction({
     subject: parsed.subject,
@@ -183,6 +210,7 @@ async function processInboundForMailbox(
     listUnsubscribe: parsed.listUnsubscribe,
     authenticationResults: parsed.authenticationResults
   });
+  if (parsed.trustedAuthentication) extraction.authSummary = parsed.trustedAuthentication;
   const featureToggles = await getFeatureToggles(store, env);
   const settings = await getRuntimeSettings(store, env);
   const aiUsageToday = await store.audit.countByActorSince(
@@ -202,7 +230,8 @@ async function processInboundForMailbox(
     mailboxId: mailbox.id,
     toAddress,
     parsed,
-    extraction
+    extraction,
+    notificationContext: { userId: mailbox.userId, address: mailbox.address, featureToggles }
   });
 
   if (duplicateSuppressed) {
@@ -213,45 +242,13 @@ async function processInboundForMailbox(
     return message;
   }
 
-  await sendTelegramNotification(
-    { store, env, featureToggles },
-    {
-      userId: mailbox.userId,
-      eventId: "message.received",
-      text: `New mail for ${mailbox.address}\nFrom: ${parsed.fromAddress}\nSubject: ${parsed.subject}`,
-      metadata: { mailboxId: mailbox.id, messageId: message.id }
-    }
-  );
-  await sendWebhookEventToUser(store, mailbox.userId, "message.received", {
-    mailboxAddress: mailbox.address,
-    mailboxId: mailbox.id,
-    messageId: message.id,
-    fromAddress: parsed.fromAddress,
-    subject: parsed.subject
+  // Metadata and notification intents committed together. Dispatch failures
+  // leave a recoverable task, while the Email handler acknowledges stored mail.
+  const dispatch = processNotificationOutbox(store, env, { limit: 4 }).catch((error) => {
+    globalThis.console.error(JSON.stringify({ event: "notification.dispatch.error", messageId: message.id, error: error instanceof Error ? error.message : "Dispatch failed" }));
   });
-
-  if (extraction.primary.type !== "none") {
-    await sendTelegramNotification(
-      { store, env, featureToggles },
-      {
-        userId: mailbox.userId,
-        eventId: "message.extraction.detected",
-        text: `Extracted result for ${mailbox.address}\n${extraction.primary.label}: ${extraction.primary.value}\nSubject: ${parsed.subject}`,
-        metadata: { mailboxId: mailbox.id, messageId: message.id, extractionType: extraction.primary.type }
-      }
-    );
-    // extraction (primary) keeps the legacy single-result contract; the
-    // envelope fields carry every finding plus expiry and auth verdicts.
-    await sendWebhookEventToUser(store, mailbox.userId, "message.extracted", {
-      mailboxAddress: mailbox.address,
-      mailboxId: mailbox.id,
-      messageId: message.id,
-      extraction: extraction.primary,
-      extractions: extraction.items,
-      expiresHint: extraction.expiresHint,
-      authSummary: extraction.authSummary
-    });
-  }
+  if (options.deferNotifications) options.deferNotifications(dispatch);
+  else await dispatch;
 
   await recordAudit(store, "user", mailbox.userId, "message-received", {
     mailboxId: mailbox.id,
@@ -266,26 +263,27 @@ async function processInboundForMailbox(
 export async function processInboundEmail(
   env: AppBindings,
   store: AppStore,
-  message: { to: string; raw: ReadableStream<Uint8Array> }
+  message: { to: string; raw: ReadableStream<Uint8Array>; headers?: Headers },
+  options: InboundProcessingOptions = {}
 ) {
   const toAddress = normalizeRecipientAddress(message.to);
-  const parsed = await parseRawEmail(message.raw);
+  const parsed = { ...await parseRawEmail(message.raw), trustedAuthentication: readTrustedRoutingAuthentication(message.headers) };
   const mailbox = await store.mailboxes.findByAddress(toAddress);
   if (!mailbox) {
     const { message: unmatchedMessage } = await saveInboundMessage(store, env, {
       mailboxId: buildUnmatchedMailboxId(toAddress),
       toAddress,
       parsed,
-      extraction: buildMessageExtraction({
+      extraction: { ...buildMessageExtraction({
         subject: parsed.subject,
         bodyText: parsed.text,
         listUnsubscribe: parsed.listUnsubscribe,
         authenticationResults: parsed.authenticationResults
-      })
+      }), ...(parsed.trustedAuthentication ? { authSummary: parsed.trustedAuthentication } : {}) }
     });
     return unmatchedMessage;
   }
-  return processInboundForMailbox(store, env, mailbox, toAddress, parsed);
+  return processInboundForMailbox(store, env, mailbox, toAddress, parsed, options);
 }
 
 // Cleanup must finish within one cron invocation; bounding each phase keeps the

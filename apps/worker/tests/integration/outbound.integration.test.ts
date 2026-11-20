@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { defaultMailSettings } from "@wemail/shared";
 
 import { registerUserAndGetCookie } from "../helpers/test-env";
+import { processOutboundSends } from "../../src/app/services/outbound-delivery-service";
 
 describe("worker outbound integration", () => {
   afterEach(() => {
@@ -75,7 +76,7 @@ describe("worker outbound integration", () => {
     expect(response.status).toBe(403);
   });
 
-  it("uses persisted mail sender settings and retries failed outbound delivery", async () => {
+  it("uses frozen mail sender settings and retries only after the configured delay", async () => {
     const { app, env, cookie, store } = await registerUserAndGetCookie({
       email: "sender@example.com",
       inviteCode: "INVITE-OUTBOUND-MAIL-SETTINGS"
@@ -138,8 +139,15 @@ describe("worker outbound integration", () => {
       }
     );
 
-    expect(response.status).toBe(200);
+    expect(response.status).toBe(202);
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    const history = await store.outboundMessages.listByMailbox({ mailboxId: mailboxPayload.mailbox.id, page: 1, pageSize: 1 });
+    const task = history.messages[0];
+    expect(task.status).toBe("queued");
+    expect(new Date(task.nextAttemptAt!).getTime() - new Date(task.createdAt).getTime()).toBeGreaterThanOrEqual(300_000);
+    await processOutboundSends(store, { ...env, RESEND_API_KEY: "test-token" }, { now: new Date(task.nextAttemptAt!) });
     expect(fetchSpy).toHaveBeenCalledTimes(2);
+    expect((await store.outboundMessages.findById(task.id))?.status).toBe("accepted");
     const resendPayload = JSON.parse(String(fetchSpy.mock.calls[1][1]?.body)) as { from: string; text: string };
     expect(resendPayload.from).toBe("Ops Mail <ops@wemail.test>");
     expect(resendPayload.text).toBe("World\n\nSent through managed WeMail policy.");
@@ -278,7 +286,7 @@ describe("worker outbound integration", () => {
         RESEND_API_KEY: "test-token"
       }
     );
-    expect(failedResponse.status).toBe(502);
+    expect(failedResponse.status).toBe(202);
 
     const listResponse = await app.request(
       `/api/mail/outbound?accountId=${mailboxPayload.mailbox.id}&page=1&pageSize=1&status=failed&search=retry`,
@@ -321,7 +329,7 @@ describe("worker outbound integration", () => {
       fromAddress: "WeMail <no-reply@example.com>",
       toAddress: "retry@example.com",
       subject: "Retry delivery",
-      status: "failed",
+      status: "uncertain",
       errorText: "smtp timeout",
       providerMessageId: null
     });
@@ -348,7 +356,7 @@ describe("worker outbound integration", () => {
       subject: "Retry delivery",
       text: "Retry body"
     });
-    expect(JSON.parse(detailPayload.message.responsePayloadJson ?? "{}")).toEqual({ error: "smtp timeout" });
+    expect(JSON.parse(detailPayload.message.responsePayloadJson ?? "{}")).toBe("smtp timeout");
   });
 
   it("returns outbound maturity checks for quota, identities, DNS records, retries, and templates", async () => {
@@ -417,7 +425,7 @@ describe("worker outbound integration", () => {
       ])
     );
     expect(payload.maturity.retryPolicy.failureRetention).toBe(defaultMailSettings.senderRules.failureRetention);
-    expect(payload.maturity.returnPath).toMatchObject({ status: "ok" });
+    expect(payload.maturity.returnPath).toMatchObject({ status: "warning" });
   });
 
   it("rejects invalid outbound recipient addresses before calling the provider", async () => {

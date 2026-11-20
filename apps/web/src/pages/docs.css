@@ -1,0 +1,9 @@
+.docs-article { display: block; max-width: 960px; min-width: 0; padding: clamp(20px, 4vw, 48px); line-height: 1.7; overflow-wrap: anywhere; }
+.docs-article h1 { font-size: clamp(1.5rem, 3vw, 2rem); }
+.docs-article h2 { margin-top: 2rem; scroll-margin-top: 24px; }
+.docs-article a { color: var(--accent); }
+.docs-article pre { padding: 16px; overflow-x: auto; white-space: pre; background: var(--surface-muted); border: 1px solid var(--border); border-radius: 12px; }
+.docs-article :not(pre) > code { background: var(--surface-muted); padding: 2px 4px; border-radius: 4px; }
+.docs-article table { display: block; overflow-x: auto; border-collapse: collapse; }
+.docs-article th, .docs-article td { border: 1px solid var(--border); padding: 8px 12px; }
+.docs-article img { max-width: 100%; height: auto; border-radius: 12px; }

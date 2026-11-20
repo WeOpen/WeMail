@@ -10,6 +10,7 @@ export async function sendOutboundAction(payload: {
   toAddress: FormDataEntryValue | null;
   subject: FormDataEntryValue | null;
   bodyText: FormDataEntryValue | null;
+  requestId?: string;
 }) {
   return sendOutboundMessage(payload);
 }

@@ -345,6 +345,34 @@ export const apiInterfaceGroups: ApiInterfaceGroup[] = [
       },
       {
         "method": "GET",
+        "path": "/api/mail/outbound/domain-status",
+        "title": "实际发件域名检查",
+        "description": "查询供应商验证和公共 DNS，返回来源、检查时间及结果。",
+        "access": "登录用户"
+      },
+      {
+        "method": "POST",
+        "path": "/api/mail/providers/resend/events",
+        "title": "Resend 投递事件",
+        "description": "校验原始请求体签名并去重保存投递事件。",
+        "access": "Svix 签名",
+        "example": {
+          "headers": [
+            "svix-id: msg_example",
+            "svix-timestamp: <unix-seconds>",
+            "svix-signature: v1,<signature>"
+          ],
+          "requestBody": {
+            "type": "email.delivered",
+            "created_at": "2026-11-20T00:00:00Z",
+            "data": {
+              "email_id": "provider-message-id"
+            }
+          }
+        }
+      },
+      {
+        "method": "GET",
         "path": "/api/mail/outbound/:id",
         "title": "发件详情",
         "description": "读取外发邮件详情与异常信息。",
@@ -354,16 +382,15 @@ export const apiInterfaceGroups: ApiInterfaceGroup[] = [
         "method": "POST",
         "path": "/api/mail/send",
         "title": "发送邮件",
-        "description": "通过选定邮箱账号发送邮件。",
+        "description": "持久化逻辑请求与额度，网络重试复用 requestId；供应商受理与最终投递分别记录。",
         "access": "登录用户",
         "example": {
           "requestBody": {
-            "accountId": "mailbox_123",
+            "mailboxId": "mailbox_123",
             "subject": "测试邮件",
-            "text": "Hello from WeMail",
-            "to": [
-              "recipient@example.com"
-            ]
+            "bodyText": "Hello from WeMail",
+            "toAddress": "recipient@example.com",
+            "requestId": "request-example-1"
           }
         }
       },
@@ -710,6 +737,39 @@ export const apiInterfaceGroups: ApiInterfaceGroup[] = [
         "access": "登录用户"
       },
       {
+        "method": "GET",
+        "path": "/api/notification/deliveries",
+        "title": "通知状态",
+        "description": "读取本人通知任务、精确状态计数和最近成功，可按 target 筛选。",
+        "access": "登录用户"
+      },
+      {
+        "method": "POST",
+        "path": "/api/notification/deliveries/:id/retry",
+        "title": "重放通知任务",
+        "description": "重试本人未过期、尚未在投递的失败或暂停任务。",
+        "access": "登录用户",
+        "example": {
+          "requestBody": null
+        }
+      },
+      {
+        "method": "POST",
+        "path": "/api/notification/rules/test",
+        "title": "试运行通知规则",
+        "description": "对样本事件返回匹配与抑制原因，不发送外部通知。",
+        "access": "登录用户",
+        "example": {
+          "requestBody": {
+            "target": "webhook",
+            "eventType": "message.received",
+            "data": {
+              "subject": "Verification code"
+            }
+          }
+        }
+      },
+      {
         "method": "POST",
         "path": "/api/notification/rules",
         "title": "创建通知规则",
@@ -740,7 +800,8 @@ export const apiInterfaceGroups: ApiInterfaceGroup[] = [
               "message.extraction.detected"
             ],
             "quietHoursStart": "23:00",
-            "quietHoursEnd": "08:00"
+            "quietHoursEnd": "08:00",
+            "quietHoursTimezone": "Asia/Shanghai"
           }
         }
       },
@@ -898,6 +959,13 @@ export const apiInterfaceGroups: ApiInterfaceGroup[] = [
         "path": "/api/system/reliability",
         "title": "数据可靠性",
         "description": "读取 D1/R2、migration、清理运行记录、幂等策略和备份恢复 runbook。",
+        "access": "管理员"
+      },
+      {
+        "method": "GET",
+        "path": "/api/system/notification-status",
+        "title": "全站通知状态",
+        "description": "读取管理员可见的全站通知状态计数与最近任务元数据。",
         "access": "管理员"
       },
       {

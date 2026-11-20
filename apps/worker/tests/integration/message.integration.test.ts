@@ -190,7 +190,7 @@ describe("worker message integration", () => {
     expect(payload.message.expiresHint).toBeNull();
   });
 
-  it("merges multi-value AI fallback findings when regex finds nothing", async () => {
+  it("keeps grounded AI fallback findings and rejects invented destinations when rules find nothing", async () => {
     const { env, store, mailbox } = await registerMemberAndCreateMailbox();
     const rawEmail = [
       "From: Blurb <hello@blurb.example>",
@@ -199,14 +199,14 @@ describe("worker message integration", () => {
       "Message-ID: <ai-1@blurb.example>",
       "Content-Type: text/plain; charset=utf-8",
       "",
-      "Nothing machine-readable here at all, just prose."
+      "Recovery digits are 445566. The account destination is shown without a scheme: blurb.example/continue"
     ].join("\r\n");
 
     const fakeAi = {
       run: async () => ({
         response: JSON.stringify([
           { type: "auth_code", value: "445566", label: "AI code" },
-          { type: "auth_link", value: "https://blurb.example/continue", label: "AI link" }
+          { type: "auth_link", value: "https://invented.example/continue", label: "Invented AI link" }
         ])
       })
     };
@@ -221,7 +221,7 @@ describe("worker message integration", () => {
     };
 
     expect(envelope.primary).toMatchObject({ type: "auth_code", method: "ai", value: "445566" });
-    expect(envelope.items.filter((item) => item.method === "ai")).toHaveLength(2);
+    expect(envelope.items.filter((item) => item.method === "ai")).toHaveLength(1);
   });
 
   it("does not send telegram notifications when the global telegram feature is disabled", async () => {

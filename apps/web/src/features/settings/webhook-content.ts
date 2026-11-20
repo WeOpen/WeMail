@@ -127,6 +127,7 @@ export type WebhookDelivery = {
   errorText: string | null;
   payload?: unknown;
   responseText?: string | null;
+  requestBodyText?: string | null;
   createdAt: string;
 };
 
@@ -138,6 +139,7 @@ export type NotificationRuleDraft = {
   name: string;
   quietHoursEnd: string;
   quietHoursStart: string;
+  quietHoursTimezone: string;
   target: NotificationRuleTarget;
   targetId: string;
 };
@@ -196,6 +198,7 @@ export const emptyNotificationRuleDraft: NotificationRuleDraft = {
   name: "",
   quietHoursEnd: "",
   quietHoursStart: "",
+  quietHoursTimezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
   target: "webhook",
   targetId: ""
 };

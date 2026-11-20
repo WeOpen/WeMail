@@ -23,8 +23,11 @@
 ### 开发与质量
 - `development-workflow.md`
 - `testing-strategy.md`
+- `staging-validation.md`：真实邮件与通知外部链路验收步骤、记录与放行证据
 - `api-guide.md`
+- 任务指南正文：`../apps/docs/content/docs/api-verification-code.mdx`、`chat-notifications.mdx`、`self-hosted-domain.mdx`
 - `openapi.yaml`
+- `plans/2026-10-03-next-development-roadmap.md`：基于 0.4.0 代码现状的下一步开发计划、优先级与验收标准
 
 ### 发布与运维
 - `deploy-runbook.md`

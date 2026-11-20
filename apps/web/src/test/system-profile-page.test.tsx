@@ -1,5 +1,6 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { SystemProfilePage } from "../pages/SystemProfilePage";
@@ -259,6 +260,62 @@ describe("SystemProfilePage", () => {
     fireEvent.click(screen.getByRole("button", { name: "退出当前设备" }));
 
     expect(onLogoutCurrentDevice).toHaveBeenCalledTimes(1);
+  });
+
+  it("preserves edited fields when a delayed profile refresh arrives and still syncs untouched fields", async () => {
+    let finishRefresh!: (value: typeof profile) => void;
+    const pendingRefresh = new Promise<typeof profile>((resolve) => { finishRefresh = resolve; });
+    const onSaveProfile = vi.fn().mockResolvedValue(undefined);
+    function RefreshHarness() {
+      const [currentProfile, setCurrentProfile] = useState(profile);
+      return <>
+        <button onClick={() => void pendingRefresh.then(setCurrentProfile)}>Refresh profile</button>
+        <SystemProfilePage profile={currentProfile} isSavingProfile={false} isSavingPreferences={false}
+          onLogoutCurrentDevice={vi.fn()} onSavePreferences={vi.fn()} onSaveProfile={onSaveProfile} />
+      </>;
+    }
+    render(<RefreshHarness />);
+    fireEvent.click(screen.getByRole("button", { name: "Refresh profile" }));
+    fireEvent.change(screen.getByLabelText("显示名"), { target: { value: "Route Renamed" } });
+    await act(async () => {
+      finishRefresh({ ...profile, preferences: { ...profile.preferences, bio: "Refreshed biography" } });
+      await pendingRefresh;
+    });
+    expect(screen.getByLabelText("显示名")).toHaveValue("Route Renamed");
+    expect(screen.getByLabelText("个人简介")).toHaveValue("Refreshed biography");
+    fireEvent.change(screen.getByLabelText("个人简介"), { target: { value: "Saved to backend" } });
+    fireEvent.click(screen.getByRole("button", { name: "保存资料" }));
+    expect(onSaveProfile).toHaveBeenCalledWith({ name: "Route Renamed", preferences: { bio: "Saved to backend" } });
+  });
+
+  it("preserves unsaved preferences when a separate profile save updates the server snapshot", () => {
+    const onSavePreferences = vi.fn().mockResolvedValue(undefined);
+    const renderPage = (currentProfile: typeof profile) => <SystemProfilePage
+      profile={currentProfile} isSavingProfile={false} isSavingPreferences={false}
+      onLogoutCurrentDevice={vi.fn()} onSaveProfile={vi.fn()} onSavePreferences={onSavePreferences} />;
+    const { rerender } = render(renderPage(profile));
+    fireEvent.click(screen.getByRole("radio", { name: "舒展" }));
+    rerender(renderPage({ ...profile, user: { ...profile.user, name: "Saved name" } }));
+    expect(screen.getByLabelText("显示名")).toHaveValue("Saved name");
+    expect(screen.getByRole("radio", { name: "舒展" })).toBeChecked();
+    fireEvent.click(screen.getByRole("button", { name: "保存偏好" }));
+    expect(onSavePreferences).toHaveBeenCalledWith({ preferences: { locale: "en-US", timezone: "Asia/Tokyo", dateFormat: "dd-mm-yyyy", landingPage: "/mail/list", density: "comfortable" } });
+  });
+
+  it.each(["profile", "preferences"] as const)("disables both save buttons while %s is saving", (saving) => {
+    const onSaveProfile = vi.fn();
+    const onSavePreferences = vi.fn();
+    render(<SystemProfilePage profile={profile} isSavingProfile={saving === "profile"} isSavingPreferences={saving === "preferences"}
+      onLogoutCurrentDevice={vi.fn()} onSaveProfile={onSaveProfile} onSavePreferences={onSavePreferences} />);
+    fireEvent.change(screen.getByLabelText("显示名"), { target: { value: "Pending rename" } });
+    fireEvent.click(screen.getByRole("radio", { name: "舒展" }));
+    const saveButtons = screen.getAllByRole("button", { name: /保存资料|保存偏好|保存中/ });
+    expect(saveButtons).toHaveLength(2);
+    for (const button of saveButtons) expect(button).toBeDisabled();
+    fireEvent.submit(screen.getByLabelText("显示名").closest("form")!);
+    fireEvent.submit(screen.getByRole("radio", { name: "舒展" }).closest("form")!);
+    expect(onSaveProfile).not.toHaveBeenCalled();
+    expect(onSavePreferences).not.toHaveBeenCalled();
   });
 
   it("renders active sessions and wires revoke actions", () => {

@@ -155,8 +155,11 @@ describe("App", () => {
         "landing-nav-theme-toggle",
         "landing-nav-edge-control"
       );
-      expect(screen.getAllByRole("link", { name: /立即开始/i }).length).toBeGreaterThan(0);
+      expect(screen.getAllByRole("link", { name: /申请邀请/i }).length).toBeGreaterThan(0);
       expect(screen.getAllByRole("link", { name: /进入登录/i }).length).toBeGreaterThan(0);
+      expect(screen.getByRole("link", { name: /自托管部署/i })).toHaveAttribute("href", "https://doc.wemail.willxue.com");
+      expect(screen.getByRole("heading", { level: 2, name: /粘贴任意邮件文本/i })).toBeInTheDocument();
+      expect(screen.getByRole("region", { name: "产品演示：收信与验证码提取" })).toBeInTheDocument();
     },
     10000
   );
@@ -214,7 +217,7 @@ describe("App", () => {
         const cta = within(ctaRow as HTMLElement).getByRole("link", { name: /^进入控制台$/i });
         expect(cta).toHaveClass("ui-button", "ui-button-primary");
         expect(cta).toHaveAttribute("href", "/mail/list");
-        expect(within(ctaRow as HTMLElement).queryByRole("link", { name: /立即开始|受邀注册|进入登录/i })).not.toBeInTheDocument();
+        expect(within(ctaRow as HTMLElement).queryByRole("link", { name: /立即开始|申请邀请|自托管部署|受邀注册|进入登录/i })).not.toBeInTheDocument();
       }
       expect(window.location.pathname).toBe("/");
     },

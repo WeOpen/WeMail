@@ -73,15 +73,16 @@ function AppContent() {
     onToast: pushToast
   });
   const { refreshProfileData } = profile;
+  const profileUserId = session?.user.id ?? null;
 
   useEffect(() => {
     void refreshSession();
   }, [refreshSession]);
 
   useEffect(() => {
-    if (!session) return;
+    if (!profileUserId) return;
     void refreshProfileData();
-  }, [refreshProfileData, session]);
+  }, [refreshProfileData, profileUserId]);
 
   const toastViewport = <WemailToastViewport onDismissToast={dismissToast} toasts={toasts} />;
   const isPublicDesignSystemPage = location.pathname === "/design-system";

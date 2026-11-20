@@ -1,12 +1,14 @@
 import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useCallback, useState } from "react";
+import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { MessageSummary } from "@wemail/shared";
 
 import { App } from "../../app/App";
 import { formatReceivedAt } from "../../features/inbox/formatters";
+import { MessageDetailPanel } from "../../features/inbox/MessageDetailPanel";
 import { InboxPage } from "../../pages/InboxPage";
 import { jsonResponse } from "../helpers/mock-api";
 
@@ -676,7 +678,8 @@ describe("mail list integration", () => {
     const extractionCard = screen.getByLabelText("邮件识别结果");
     expect(within(extractionCard).getByText(/^识别到验证码$/i)).toBeInTheDocument();
     expect(within(extractionCard).getByText(/^482913$/i)).toBeInTheDocument();
-    expect(within(extractionCard).getByLabelText(/^置信度 96%$/i)).toBeInTheDocument();
+    expect(within(extractionCard).getByLabelText("提取方式")).toHaveTextContent("规则提取");
+    expect(within(extractionCard).getByText("邮件未注明验证码有效期")).toBeInTheDocument();
     expect(within(extractionCard).queryByText(/^提取结果$/i)).not.toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: /^发送邮件$/i })).not.toBeInTheDocument();
     expect(screen.queryByText(/^邮箱导航$/i)).not.toBeInTheDocument();
@@ -731,13 +734,14 @@ describe("mail list integration", () => {
     expect(within(extractionCard).getByText(/^识别到链接$/i)).toBeInTheDocument();
     expect(within(extractionCard).getByText(/^同时识别到$/i)).toBeInTheDocument();
     expect(within(extractionCard).getByText(/contoso.test\/unsubscribe/)).toBeInTheDocument();
-    expect(within(extractionCard).getByText(/验证码 10 分钟内有效/)).toBeInTheDocument();
-    expect(within(screen.getByRole("region", { name: /^阅读与提取详情$/i })).getByText("SPF 通过")).toBeInTheDocument();
-    expect(within(screen.getByRole("region", { name: /^阅读与提取详情$/i })).getByText("DMARC 通过")).toBeInTheDocument();
+    expect(within(extractionCard).getByText(/有效期：10 分钟内有效/)).toBeInTheDocument();
+    expect(within(screen.getByRole("region", { name: /^阅读与提取详情$/i })).getByText("SPF 未验证")).toBeInTheDocument();
+    expect(within(screen.getByRole("region", { name: /^阅读与提取详情$/i })).getByText("DMARC 未验证")).toBeInTheDocument();
+    expect(within(extractionCard).getByRole("button", { name: "复制https://contoso.test/unsubscribe" })).toBeInTheDocument();
     expect(extractedLink).toHaveClass("extraction-card-value-link");
     expect(extractedLink).toHaveAttribute("title", "https://contoso.test/magic");
     expect(within(extractionCard).queryByText(/^登录链接$/i)).not.toBeInTheDocument();
-    expect(within(extractionCard).getByLabelText(/^置信度 92%$/i)).toBeInTheDocument();
+    expect(within(extractionCard).getByLabelText("提取方式")).toHaveTextContent("规则提取");
   });
 
   it("renders safe http links inside the message body as clickable links", async () => {
@@ -1224,6 +1228,66 @@ describe("mail list integration", () => {
     }, { timeout: 200 });
   });
 
+  it("checks first mail in its mailbox on page one after clearing search, dates, and result filters", async () => {
+    const user = userEvent.setup();
+    const onRefreshMessages = vi.fn().mockResolvedValue(undefined);
+    function FirstMailHarness() {
+      const [mailboxId, setMailboxId] = useState<string | null>(null);
+      return (
+        <MemoryRouter>
+          <InboxPage
+            availableDomains={[]}
+            isLoadingMessages={false}
+            isLoadingDomains={false}
+            mailboxes={[mockMailboxes[0]]}
+            selectedMailboxId={mailboxId}
+            messages={[]}
+            messageListError={null}
+            messageListPage={2}
+            messageListPageSize={10}
+            messageListSummary={{ messageCount: 0, extractionCount: 0, attachmentCount: 0 }}
+            messageListTotal={30}
+            selectedMessage={null}
+            selectedMessageId={null}
+            isLoadingSelectedMessage={false}
+            selectedMessageError={null}
+            outboundHistory={[]}
+            mailboxComposerOpen={false}
+            messageRefreshIntervalMs={0}
+            onCloseMailboxComposer={vi.fn()}
+            onCreateMailbox={vi.fn()}
+            onOpenMailboxComposer={vi.fn()}
+            onQueryMailboxes={vi.fn()}
+            onRefreshMessages={onRefreshMessages}
+            onRetrySelectedMessage={vi.fn()}
+            onRunMessageBatchAction={vi.fn()}
+            onSelectMailbox={setMailboxId}
+            onSelectMessage={vi.fn()}
+            onSendMail={vi.fn()}
+          />
+        </MemoryRouter>
+      );
+    }
+    render(<FirstMailHarness />);
+    await user.type(screen.getByLabelText("消息搜索"), "absent");
+    await user.type(screen.getByLabelText("按开始日期筛选"), "2027-01-01");
+    await user.type(screen.getByLabelText("按结束日期筛选"), "2027-02-01");
+    await user.click(screen.getByRole("tab", { name: /^附件$/i }));
+    await user.click(within(screen.getByRole("navigation", { name: /^消息列表分页$/i })).getByRole("button", { name: /^下一页$/i }));
+    await waitFor(() => expect(onRefreshMessages).toHaveBeenLastCalledWith(expect.objectContaining({ filter: "attachment", page: 3, search: "absent" })));
+    const previousCalls = onRefreshMessages.mock.calls.length;
+    await user.click(screen.getByRole("button", { name: "检查收件" }));
+    await waitFor(() => expect(onRefreshMessages).toHaveBeenLastCalledWith({ mailboxId: "box-1", page: 1, pageSize: 10, filter: "all" }));
+    expect(onRefreshMessages.mock.calls.length).toBe(previousCalls + 1);
+    expect(screen.getByLabelText("消息搜索")).toHaveValue("");
+    expect(screen.getByLabelText("按开始日期筛选")).toHaveValue("");
+    expect(screen.getByLabelText("按结束日期筛选")).toHaveValue("");
+    expect(screen.getByRole("tab", { name: /^全部$/i })).toHaveAttribute("aria-selected", "true");
+    await user.click(screen.getByRole("button", { name: "检查收件" }));
+    expect(onRefreshMessages).toHaveBeenLastCalledWith({ mailboxId: "box-1", page: 1, pageSize: 10, filter: "all" });
+    expect(onRefreshMessages.mock.calls.length).toBe(previousCalls + 2);
+  });
+
   it("shows the refresh button as loading while messages are refreshing", () => {
     render(
       <InboxPage
@@ -1407,5 +1471,26 @@ describe("mail list integration", () => {
     expect(writeText).toHaveBeenCalledWith("482913");
     expect(openWindow).toHaveBeenNthCalledWith(1, "/api/mail/messages/msg-1", "_blank", "noopener,noreferrer");
     expect(openWindow).toHaveBeenNthCalledWith(2, "/api/mail/messages/msg-1", "_blank", "noopener,noreferrer");
+  });
+
+  it("copies a secondary result and never presents an unverified header as a pass", async () => {
+    const user = userEvent.setup();
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
+    render(<MessageDetailPanel selectedMessage={mockInboxMessages[1]} />);
+    expect(screen.getByText("发件人身份未验证")).toBeInTheDocument();
+    expect(screen.getByText("SPF 未验证")).toHaveClass("auth-verdict-unknown");
+    expect(screen.queryByText("SPF 通过")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "复制https://contoso.test/unsubscribe" }));
+    expect(writeText).toHaveBeenCalledWith("https://contoso.test/unsubscribe");
+  });
+
+  it("shows platform authentication only for a trusted source and keeps AI suggestions explicit", () => {
+    render(<MessageDetailPanel selectedMessage={{ ...mockInboxMessages[0], extraction: { ...mockInboxMessages[0].extraction, method: "ai" }, authSummary: { spf: "pass", dkim: "unknown", dmarc: "fail", raw: null, source: "trusted_upstream" } }} />);
+    expect(screen.getByText("Cloudflare 入站验证")).toBeInTheDocument();
+    expect(screen.getByText("SPF 通过")).toHaveClass("auth-verdict-pass");
+    expect(screen.getByText("DKIM 未知")).toHaveClass("auth-verdict-unknown");
+    expect(screen.getByLabelText("提取方式")).toHaveTextContent("AI 提取 · 请核对原文");
+    expect(screen.queryByText("置信度")).not.toBeInTheDocument();
   });
 });

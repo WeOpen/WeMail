@@ -10,7 +10,10 @@ import type {
   MessageFilter,
   MessageListSummary,
   NotificationRuleTarget,
+  NotificationStatusSummary,
   OutboundListStatus,
+  OutboundMessageStatus,
+  OutboundTimelineEvent,
   OutboundListSummary,
   UserRole,
   UserStatus
@@ -23,7 +26,7 @@ export type RateLimiterBinding = {
 };
 
 export type TelegramApiClient = {
-  sendMessage: (params: { chatId: string; text: string }) => Promise<{ ok: boolean }>;
+  sendMessage: (params: { chatId: string; text: string }) => Promise<{ ok: boolean; statusCode?: number; retryAfterMs?: number; errorCode?: string }>;
   getChat: (params: { chatId: string }) => Promise<{ ok: boolean; description: string | null }>;
   setMyCommands: (params: { commands: Array<{ command: string; description: string }> }) => Promise<{
     ok: boolean;
@@ -45,7 +48,8 @@ export type ResendClient = {
     subject: string;
     text: string;
     html?: string;
-  }) => Promise<{ success: boolean; error?: string; messageId?: string; responsePayload?: unknown }>;
+    idempotencyKey?: string;
+  }) => Promise<{ success: boolean; error?: string; messageId?: string; responsePayload?: unknown; statusCode?: number; retryAfterMs?: number; errorCode?: string }>;
 };
 
 export type AttachmentRecord = {
@@ -156,12 +160,26 @@ export type OutboundMessageRecord = {
   toAddress: string;
   subject: string;
   bodyText: string;
-  status: "sent" | "failed";
+  status: OutboundMessageStatus;
   errorText: string | null;
   providerMessageId: string | null;
   requestPayloadJson: string;
   responsePayloadJson: string | null;
   createdAt: string;
+  attempts?: number;
+  nextAttemptAt?: string | null;
+  timeline?: OutboundTimelineEvent[];
+  payloadRetained?: boolean;
+};
+
+export type OutboundSendRecord = OutboundMessageRecord & {
+  userId: string; requestId: string; requestHash: string; maxAttempts: number; retryDelayMs: number;
+  attempts: number; nextAttemptAt: string; leaseToken: string | null; firstAttemptAt: string | null; submissionUncertain: boolean;
+};
+
+export type OutboundSendInput = {
+  userId: string; requestId: string; requestHash: string; mailboxId: string; fromAddress: string; toAddress: string;
+  subject: string; bodyText: string; requestPayloadJson: string; maxAttempts: number; retryDelayMs: number;
 };
 
 export type OutboundMessageListQuery = {
@@ -431,6 +449,7 @@ export type WebhookDeliveryRecord = {
   errorText: string | null;
   payloadJson: string;
   responseText: string | null;
+  requestBodyText?: string | null;
   createdAt: string;
 };
 
@@ -460,6 +479,41 @@ export type NotificationRuleRecord = {
   keyword: string;
   quietHoursStart: string;
   quietHoursEnd: string;
+  quietHoursTimezone?: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type NotificationOutboxStatus = "pending" | "processing" | "retrying" | "succeeded" | "failed" | "suppressed";
+
+export type NotificationOutboxInput = {
+  messageId?: string | null;
+  eventId: string;
+  userId: string;
+  target: NotificationRuleTarget;
+  targetId: string;
+  eventType: string;
+  payloadJson: string;
+  expiresAt: string;
+  nextAttemptAt?: string;
+};
+
+export type NotificationOutboxRecord = {
+  messageId: string | null;
+  id: string;
+  eventId: string;
+  userId: string;
+  target: NotificationRuleTarget;
+  targetId: string;
+  eventType: string;
+  payloadJson: string;
+  status: NotificationOutboxStatus;
+  attempts: number;
+  nextAttemptAt: string;
+  lockedAt: string | null;
+  leaseToken: string | null;
+  lastError: string | null;
+  expiresAt: string;
   createdAt: string;
   updatedAt: string;
 };
@@ -595,7 +649,7 @@ export interface AppStore {
     delete: (id: string) => Promise<void>;
   };
   messages: {
-    create: (input: Omit<PersistedMessageRecord, "id">) => Promise<PersistedMessageRecord>;
+    create: (input: Omit<PersistedMessageRecord, "id">, options?: { id?: string; notificationTasks?: NotificationOutboxInput[] }) => Promise<PersistedMessageRecord>;
     listForMailboxes: (query: MessageRecordListQuery) => Promise<MessageRecordListResult>;
     listByMailbox: (mailboxId: string) => Promise<PersistedMessageRecord[]>;
     // Indexed idempotency lookup for inbound redelivery.
@@ -621,7 +675,7 @@ export interface AppStore {
       toAddress: string;
       subject: string;
       bodyText: string;
-      status: "sent" | "failed";
+      status: OutboundMessageStatus;
       errorText: string | null;
       providerMessageId: string | null;
       requestPayloadJson: string;
@@ -721,6 +775,26 @@ export interface AppStore {
     ) => Promise<NotificationRuleRecord | null>;
     delete: (id: string, userId: string) => Promise<void>;
   };
+  notificationOutbox: {
+    enqueue: (input: NotificationOutboxInput) => Promise<NotificationOutboxRecord>;
+    claimDue: (input: { nowIso: string; lockBeforeIso: string; limit: number; taskId?: string; userId?: string }) => Promise<NotificationOutboxRecord[]>;
+    markSucceeded: (id: string, leaseToken: string, updatedAt?: string) => Promise<void>;
+    markFailed: (id: string, input: { leaseToken: string; error: string; retryAt?: string; updatedAt?: string; suppressed?: boolean }) => Promise<void>;
+    replay: (id: string, userId: string, nowIso: string) => Promise<NotificationOutboxRecord | null>;
+    deleteExpired: (nowIso: string, legacyBeforeIso?: string) => Promise<void>;
+    listByUser: (userId: string, limit?: number, target?: NotificationRuleTarget) => Promise<NotificationOutboxRecord[]>;
+    listRecent: (limit?: number) => Promise<NotificationOutboxRecord[]>;
+    summarize: (userId?: string, target?: NotificationRuleTarget) => Promise<NotificationStatusSummary>;
+  };
+  outboundSends: {
+    accept: (input: OutboundSendInput, limits: { dailyLimit: number; apiDailyLimit: number }) => Promise<OutboundSendRecord | null>;
+    findByUserAndKey: (userId: string, requestId: string) => Promise<OutboundSendRecord | null>;
+    claimDue: (input: { nowIso: string; lockBeforeIso: string; limit: number; id?: string; userId?: string }) => Promise<OutboundSendRecord[]>;
+    complete: (id: string, input: { leaseToken: string; status: OutboundMessageStatus; providerMessageId?: string; errorText?: string; responsePayloadJson?: string; nextAttemptAt?: string; submissionUncertain?: boolean; nowIso: string }) => Promise<void>;
+    recordProviderEvent: (event: { id: string; providerMessageId: string; type: string; status: OutboundMessageStatus; occurredAt: string; detail: string | null }) => Promise<void>;
+    timeline: (id: string) => Promise<OutboundTimelineEvent[]>;
+    cleanup: (beforeIso: string) => Promise<void>;
+  };
   announcements: {
     list: () => Promise<AnnouncementRecord[]>;
     listPage: (options: AnnouncementListOptions) => Promise<AnnouncementListResult>;
@@ -761,6 +835,7 @@ export type AppBindings = {
   ADMIN_EMAILS?: string;
   SESSION_TTL_HOURS?: string;
   RESEND_API_KEY?: string;
+  RESEND_WEBHOOK_SECRET?: string;
   RESEND_FROM?: string;
   GITHUB_OAUTH_CLIENT_ID?: string;
   GITHUB_OAUTH_CLIENT_SECRET?: string;

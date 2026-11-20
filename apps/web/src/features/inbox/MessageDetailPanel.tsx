@@ -149,7 +149,8 @@ function buildAuthSummaryBadges(authSummary: NonNullable<DetailViewModel["authSu
     { key: "DMARC", verdict: authSummary.dmarc }
   ].map((entry) => ({
     ...entry,
-    label: authVerdictLabels[entry.verdict] ?? entry.verdict
+    label: authSummary.source === "trusted_upstream" ? (authVerdictLabels[entry.verdict] ?? entry.verdict) : "未验证",
+    tone: authSummary.source === "trusted_upstream" ? entry.verdict : "unknown"
   }));
 }
 
@@ -157,7 +158,6 @@ function getExtractionInsight(viewModel: NonNullable<ReturnType<typeof toMessage
   if (viewModel.extraction.type === "auth_code" && viewModel.extraction.value.trim()) {
     return {
       Icon: KeyRound,
-      confidence: viewModel.extraction.method === "ai" ? 88 : 96,
       kind: "code",
       label: "识别到验证码",
       value: viewModel.extraction.value
@@ -167,7 +167,6 @@ function getExtractionInsight(viewModel: NonNullable<ReturnType<typeof toMessage
   if (viewModel.extraction.type !== "none" && viewModel.extraction.value.trim()) {
     return {
       Icon: Link2,
-      confidence: viewModel.extraction.method === "ai" ? 86 : 92,
       kind: "link",
       label: "识别到链接",
       value: viewModel.extraction.value
@@ -176,7 +175,6 @@ function getExtractionInsight(viewModel: NonNullable<ReturnType<typeof toMessage
 
   return {
     Icon: SearchX,
-    confidence: 0,
     kind: "empty",
     label: "未识别到验证码或链接",
     value: "未提取"
@@ -331,16 +329,14 @@ export function MessageDetailPanel({ errorMessage = null, isLoading = false, onR
           {retentionLabel}
         </span>
       </div>
-      {viewModel.authSummary ? (
-        <div className="auth-summary-row" aria-label="发件人验证">
-          <span className="auth-summary-title">发件人验证</span>
-          {buildAuthSummaryBadges(viewModel.authSummary).map((badge) => (
-            <span className={`auth-verdict auth-verdict-${badge.verdict}`} key={badge.key}>
+      <div className="auth-summary-row" aria-label="发件人验证">
+          <span className="auth-summary-title">{viewModel.authSummary?.source === "trusted_upstream" ? "Cloudflare 入站验证" : "发件人身份未验证"}</span>
+          {viewModel.authSummary ? buildAuthSummaryBadges(viewModel.authSummary).map((badge) => (
+            <span className={`auth-verdict auth-verdict-${badge.tone}`} key={badge.key} title={viewModel.authSummary?.source === "trusted_upstream" ? undefined : `原始邮件头声称：${authVerdictLabels[badge.verdict] ?? badge.verdict}`}>
               {badge.key} {badge.label}
             </span>
-          ))}
+          )) : null}
         </div>
-      ) : null}
       <div className="extraction-card" aria-label="邮件识别结果">
         <div className="extraction-card-primary">
           <p>
@@ -351,19 +347,11 @@ export function MessageDetailPanel({ errorMessage = null, isLoading = false, onR
             {extractionInsight.value}
           </strong>
         </div>
-        <div className="extraction-confidence" aria-label={`置信度 ${extractionInsight.confidence}%`}>
-          <div className="extraction-confidence-copy">
-            <span>置信度</span>
-            <strong>{extractionInsight.confidence}%</strong>
-          </div>
-          <span className="extraction-confidence-track" aria-hidden="true">
-            <span className="extraction-confidence-fill" style={{ width: `${extractionInsight.confidence}%` }} />
-          </span>
-        </div>
-        {viewModel.expiresHint ? (
+        {hasExtractionValue ? <span className="extraction-method" aria-label="提取方式">{viewModel.extraction.method === "ai" ? "AI 提取 · 请核对原文" : "规则提取"}</span> : null}
+        {viewModel.expiresHint || extractionInsight.kind === "code" ? (
           <p className="extraction-card-expiry">
             <Clock3 size={14} strokeWidth={1.9} aria-hidden="true" />
-            <span>验证码 {viewModel.expiresHint}</span>
+            <span>{viewModel.expiresHint ? `有效期：${viewModel.expiresHint}` : "邮件未注明验证码有效期"}</span>
           </p>
         ) : null}
         {secondaryFindings.length > 0 ? (
@@ -374,6 +362,7 @@ export function MessageDetailPanel({ errorMessage = null, isLoading = false, onR
                 <li key={`${item.type}:${item.value}`} title={item.value}>
                   <span>{item.label}</span>
                   <strong>{item.value}</strong>
+                  <Button aria-label={`复制${item.value}`} onClick={() => void navigator.clipboard?.writeText(item.value)} size="sm" variant="ghost">复制</Button>
                 </li>
               ))}
             </ul>

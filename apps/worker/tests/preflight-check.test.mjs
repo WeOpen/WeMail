@@ -2,9 +2,9 @@ import { execFileSync } from "node:child_process";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
-import { parseTomlSubset } from "../../../scripts/preflight-check.mjs";
+import { checkEnvironment, parseTomlSubset } from "../../../scripts/preflight-check.mjs";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
 
@@ -73,5 +73,16 @@ describe("preflight check script", () => {
       manualFailed = true;
     }
     expect(manualFailed).toBe(true);
+  });
+
+  it("rejects a configuration that omits notification recovery even if hourly cleanup exists", () => {
+    const log = vi.spyOn(globalThis.console, "log").mockImplementation(() => undefined);
+    try {
+      const config = parseTomlSubset(fixtureToml);
+      expect(checkEnvironment("production", config.env.production, false)).toBe(1);
+      expect(log).toHaveBeenCalledWith(expect.stringContaining("缺少每分钟通知恢复"));
+      config.env.production.triggers.crons.push("* * * * *");
+      expect(checkEnvironment("production", config.env.production, false)).toBe(0);
+    } finally { log.mockRestore(); }
   });
 });

@@ -97,6 +97,7 @@ export function toNotificationRuleRecord(row: any): NotificationRuleRecord {
     keyword: row.keyword,
     quietHoursStart: row.quiet_hours_start,
     quietHoursEnd: row.quiet_hours_end,
+    quietHoursTimezone: row.quiet_hours_timezone ?? "UTC",
     createdAt: row.created_at,
     updatedAt: row.updated_at
   };
@@ -138,12 +139,15 @@ export function toOutboundMessageRecord(row: any): OutboundMessageRecord {
     toAddress: row.to_address,
     subject: row.subject,
     bodyText: row.body_text ?? "",
-    status: row.status === "failed" ? "failed" : "sent",
+    status: row.status,
     errorText: row.error_text,
     providerMessageId: row.provider_message_id ?? null,
     requestPayloadJson: row.request_payload_json ?? "{}",
     responsePayloadJson: row.response_payload_json ?? null,
-    createdAt: row.created_at
+    createdAt: row.created_at,
+    attempts: Number(row.attempts ?? 0),
+    nextAttemptAt: row.next_attempt_at ?? null,
+    payloadRetained: row.payload_retained == null || Number(row.payload_retained) === 1
   };
 }
 

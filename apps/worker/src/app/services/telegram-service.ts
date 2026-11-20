@@ -273,7 +273,7 @@ export async function validateTelegramChat(context: TelegramContext, chatId: str
   }
 }
 
-export async function sendTelegramNotification(context: TelegramContext, payload: TelegramNotificationPayload) {
+export async function sendTelegramNotification(context: TelegramContext, payload: TelegramNotificationPayload, options?: { skipRuleCheck?: boolean }): Promise<{ delivered: boolean; attemptedAt: string; reason: string | null; retryAfterMs?: number; statusCode?: number }> {
   const attemptedAt = new Date().toISOString();
 
   if (!context.featureToggles.telegramEnabled) {
@@ -283,7 +283,7 @@ export async function sendTelegramNotification(context: TelegramContext, payload
   const subscription = await context.store.telegram.findByUserId(payload.userId);
   if (!subscription) return { delivered: false, attemptedAt, reason: "subscription_missing" };
   if (!subscription.enabled) return { delivered: false, attemptedAt, reason: "subscription_paused" };
-  const shouldSend = await shouldSendNotificationToTarget(context.store, payload.userId, {
+  const shouldSend = options?.skipRuleCheck || await shouldSendNotificationToTarget(context.store, payload.userId, {
     data: { ...(payload.metadata ?? {}), text: payload.text },
     eventType: payload.eventId,
     target: "telegram",
@@ -296,6 +296,8 @@ export async function sendTelegramNotification(context: TelegramContext, payload
 
   let delivered = false;
   let reason: string | null = null;
+  let retryAfterMs: number | undefined;
+  let statusCode: number | undefined;
 
   try {
     const result = await client.sendMessage({
@@ -303,6 +305,8 @@ export async function sendTelegramNotification(context: TelegramContext, payload
       text: payload.text
     });
     delivered = result.ok;
+    retryAfterMs = result.retryAfterMs;
+    statusCode = result.statusCode;
     reason = result.ok ? null : "telegram_api_failed";
   } catch {
     reason = "telegram_request_failed";
@@ -318,7 +322,7 @@ export async function sendTelegramNotification(context: TelegramContext, payload
     reason
   });
 
-  return { delivered, attemptedAt, reason };
+  return { delivered, attemptedAt, reason, retryAfterMs, statusCode };
 }
 
 export async function handleTelegramWebhookUpdate(context: TelegramContext, update: unknown): Promise<TelegramWebhookResult> {

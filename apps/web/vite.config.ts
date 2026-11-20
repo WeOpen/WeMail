@@ -3,6 +3,7 @@ import { defineConfig } from "vite";
 
 function manualChunks(id: string) {
   if (!id.includes("node_modules")) return undefined;
+  if (/react-markdown|remark-|rehype-|micromark|mdast-|hast-|unist-|unified|vfile|property-information/.test(id)) return "markdown";
   if (id.includes("@nivo/line")) return "nivo-line";
   if (id.includes("@nivo/bar")) return "nivo-bar";
   if (id.includes("@nivo/pie")) return "nivo-pie";
@@ -28,7 +29,7 @@ export default defineConfig({
     }
   },
   test: {
-    exclude: ["e2e/**", "node_modules/**", "dist/**"],
+    exclude: ["e2e/**", "e2e-business/**", "node_modules/**", "dist/**"],
     environment: "jsdom",
     setupFiles: ["./src/test/setup.ts"]
   }

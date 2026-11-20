@@ -3,11 +3,13 @@ import PostalMime from "postal-mime";
 import {
   buildMessageExtraction as buildSharedMessageExtraction,
   mergeAiItems,
+  parseAuthenticationResults,
   parseMessageExtraction,
   type ExtractionResult,
   type MessageExtraction
 } from "@wemail/shared";
 import type { AppBindings, AttachmentRecord, PersistedMessageRecord, ResendClient, TelegramApiClient } from "../core/bindings";
+import { readProviderBody, readRetryAfter } from "./provider-response";
 
 const htmlEntityMap: Record<string, string> = {
   amp: "&",
@@ -142,13 +144,24 @@ export async function parseRawEmail(raw: ReadableStream<Uint8Array>) {
     // The RFC 5322 Message-ID survives redelivery unchanged, making it the
     // idempotency key for inbound processing.
     messageId: parsed.messageId?.trim() || null,
-    // RFC 8058 list-unsubscribe and the receiving mail server's auth verdicts
-    // feed the extraction envelope.
+    // Raw Authentication-Results is only an assertion: a sender can supply it.
+    // The Email handler promotes the platform's first header separately.
     listUnsubscribe: findHeader("list-unsubscribe"),
     authenticationResults: findHeader("authentication-results"),
     text: pickReadableBodyText(parsed),
     attachments: normalizedAttachments
   };
+}
+
+export function readTrustedRoutingAuthentication(headers: Headers | undefined) {
+  const raw = headers?.get("authentication-results");
+  // Cloudflare prepends its own result before invoking Email Workers. Only
+  // the first header with this exact authserv-id crosses that trust boundary.
+  // Never search later entries: they may be attacker-controlled (RFC 8601).
+  const first = raw?.split(/,(?=\s*[^;,]+;)/, 1)[0];
+  if (!first || !/^\s*mx\.cloudflare\.net\s*;/i.test(first)) return null;
+  const summary = parseAuthenticationResults(first);
+  return summary ? { ...summary, source: "trusted_upstream" as const } : null;
 }
 
 export function buildMessageExtraction(input: {
@@ -182,6 +195,7 @@ export async function maybeRunAiFallback(
   if (current.primary.type !== "none" || !env.AI) return current;
 
   try {
+    const promptContent = content.slice(0, 16_000);
     const result = await env.AI.run("@cf/meta/llama-3.1-8b-instruct" as any, {
       messages: [
         {
@@ -189,7 +203,7 @@ export async function maybeRunAiFallback(
           content:
             "Extract every useful auth code and actionable link from the email. Respond with a JSON array; each element has keys type (one of auth_code, auth_link, service_link, subscription_link, other_link), value, label. No other text."
         },
-        { role: "user", content }
+        { role: "user", content: promptContent }
       ]
     });
 
@@ -207,13 +221,22 @@ export async function maybeRunAiFallback(
           item !== null &&
           typeof (item as { type?: unknown }).type === "string" &&
           typeof (item as { value?: unknown }).value === "string" &&
-          aiAllowedTypes.has((item as { type: string }).type)
+          aiAllowedTypes.has((item as { type: string }).type) &&
+          (item as { value: string }).value.length > 0 &&
+          (item as { value: string }).value.length <= 2_048 &&
+          // AI output is a suggestion, not evidence. Never invent a code or
+          // destination that does not occur in the text sent to the model.
+          promptContent.includes((item as { value: string }).value) &&
+          ((item as { type: string }).type === "auth_code"
+            ? /^[A-Z0-9]{4,10}$/i.test((item as { value: string }).value) && /\d/.test((item as { value: string }).value)
+            : /^https?:\/\//i.test((item as { value: string }).value))
       )
+      .slice(0, 8)
       .map((item) => ({
         method: "regex" as const,
         type: item.type as ExtractionResult["type"],
         value: item.value,
-        label: item.label ?? "AI result",
+        label: item.label?.slice(0, 80) ?? "AI result",
         source: "body" as const
       }));
     if (aiItems.length === 0) return current;
@@ -247,16 +270,23 @@ export function buildTelegramClient(token: string | undefined): TelegramApiClien
       return { ok: response.ok, description };
     },
     async sendMessage({ chatId, text }: { chatId: string; text: string }) {
-      const response = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          chat_id: chatId,
-          text,
-          disable_web_page_preview: false
-        })
-      });
-      return { ok: response.ok };
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 10_000);
+      try {
+        const response = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+          method: "POST", headers: { "content-type": "application/json" }, signal: controller.signal,
+          body: JSON.stringify({ chat_id: chatId, text: text.slice(0, 4000).replace(/[\uD800-\uDBFF]$/, ""), disable_web_page_preview: false })
+        });
+        const raw = await readProviderBody(response);
+        let payload: { ok?: boolean; error_code?: number; parameters?: { retry_after?: number } } | null = null;
+        try { payload = JSON.parse(raw); } catch { /* Malformed acknowledgements cannot prove delivery. */ }
+        const retry = payload?.parameters?.retry_after;
+        return {
+          ok: response.ok && payload?.ok === true,
+          statusCode: typeof payload?.error_code === "number" ? payload.error_code : response.status,
+          retryAfterMs: typeof retry === "number" && retry >= 0 ? Math.min(retry * 1000, 3_600_000) : readRetryAfter(response.headers.get("retry-after"))
+        };
+      } finally { clearTimeout(timeout); }
     },
     async setMyCommands({ commands }: { commands: Array<{ command: string; description: string }> }) {
       const response = await fetch(`https://api.telegram.org/bot${token}/setMyCommands`, {
@@ -312,12 +342,17 @@ export function buildResendClient(apiKey: string | undefined): ResendClient | nu
       subject: string;
       text: string;
       html?: string;
+      idempotencyKey?: string;
     }) {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 10_000);
+      try {
       const response = await fetch("https://api.resend.com/emails", {
         method: "POST",
         headers: {
           Authorization: `Bearer ${apiKey}`,
-          "content-type": "application/json"
+          "content-type": "application/json",
+          ...(payload.idempotencyKey ? { "Idempotency-Key": payload.idempotencyKey } : {})
         },
         body: JSON.stringify({
           from: payload.from,
@@ -325,10 +360,10 @@ export function buildResendClient(apiKey: string | undefined): ResendClient | nu
           subject: payload.subject,
           text: payload.text,
           html: payload.html
-        })
+        }), signal: controller.signal
       });
 
-      const responseText = await response.text();
+      const responseText = await readProviderBody(response);
       let responsePayload: unknown = responseText;
       try {
         responsePayload = responseText ? JSON.parse(responseText) : null;
@@ -337,14 +372,18 @@ export function buildResendClient(apiKey: string | undefined): ResendClient | nu
       }
 
       if (!response.ok) {
-        return { success: false, error: responseText, responsePayload };
+        const errorCode = typeof responsePayload === "object" && responsePayload && "name" in responsePayload && typeof responsePayload.name === "string" ? responsePayload.name : undefined;
+        return { success: false, error: responseText.slice(0, 2000), errorCode, responsePayload, statusCode: response.status, retryAfterMs: readRetryAfter(response.headers.get("retry-after")) };
       }
 
       const messageId =
         typeof responsePayload === "object" && responsePayload && "id" in responsePayload
-          ? String((responsePayload as { id: unknown }).id)
+          ? (typeof (responsePayload as { id: unknown }).id === "string" && (responsePayload as { id: string }).id.length > 0 && (responsePayload as { id: string }).id.length <= 256 ? (responsePayload as { id: string }).id : undefined)
           : undefined;
-      return { success: true, messageId, responsePayload };
+      return messageId ? { success: true, messageId, responsePayload, statusCode: response.status } : { success: false, error: "供应商未返回有效邮件 ID，提交结果尚未确认", statusCode: response.status, responsePayload };
+      } catch (error) {
+        return { success: false, error: controller.signal.aborted ? "供应商发送请求超时，提交结果尚未确认" : error instanceof Error ? error.message : "供应商网络请求失败" };
+      } finally { clearTimeout(timeout); }
     }
   };
 }

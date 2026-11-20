@@ -61,6 +61,8 @@ import {
 import { WebhookCodeBlock } from "./WebhookCodeBlock";
 import { WebhookDeliveryDialog } from "./WebhookDeliveryDialog";
 import { WebhookEndpointDialog } from "./WebhookEndpointDialog";
+import { NotificationDeliveryPanel } from "./NotificationDeliveryPanel";
+import { NotificationRuleTester } from "./NotificationRuleTester";
 
 export function WebhookPage() {
   const pushToast = useAppStore((state) => state.pushToast);
@@ -331,6 +333,7 @@ export function WebhookPage() {
           name: notificationRuleDraft.name.trim(),
           quietHoursEnd: notificationRuleDraft.quietHoursEnd,
           quietHoursStart: notificationRuleDraft.quietHoursStart,
+          quietHoursTimezone: notificationRuleDraft.quietHoursTimezone,
           target: notificationRuleDraft.target,
           targetId: notificationRuleDraft.targetId.trim() || null
         })
@@ -858,6 +861,8 @@ export function WebhookPage() {
                 />
               </div>
             </FormField>
+            <FormField label="免打扰时区"><TextInput aria-label="通知规则时区" value={notificationRuleDraft.quietHoursTimezone} onChange={(event) => setNotificationRuleDraft((current) => ({ ...current, quietHoursTimezone: event.target.value }))} placeholder="例如：Asia/Shanghai" /></FormField>
+            <p className="section-copy">免打扰按所选时区判断，可跨午夜；相同的起止时间表示关闭静默。</p>
           </div>
 
           <div className="webhook-rule-event-list" aria-label="通知规则事件">
@@ -885,7 +890,7 @@ export function WebhookPage() {
                   <span>
                     {rule.mailboxIds.length > 0 ? `邮箱 ${rule.mailboxIds.length} 个` : "全部邮箱"}
                     {rule.keyword ? ` · 关键词 ${rule.keyword}` : ""}
-                    {rule.quietHoursStart && rule.quietHoursEnd ? ` · 静默 ${rule.quietHoursStart}-${rule.quietHoursEnd}` : ""}
+                    {rule.quietHoursStart && rule.quietHoursEnd ? ` · 静默 ${rule.quietHoursStart}-${rule.quietHoursEnd} (${rule.quietHoursTimezone ?? "UTC"})` : ""}
                   </span>
                 </div>
                 <Button
@@ -908,6 +913,8 @@ export function WebhookPage() {
           </div>
         </section>
 
+        <NotificationRuleTester />
+        <NotificationDeliveryPanel />
         <section className="panel workspace-card page-panel integration-surface-card webhook-delivery-card">
           <div className="webhook-section-header">
             <div className="webhook-section-title webhook-section-title-kicker">

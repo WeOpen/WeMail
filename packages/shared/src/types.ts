@@ -22,8 +22,8 @@ export type ExtractionResult = {
   source?: "body" | "header" | null;
 };
 
-// Verdicts distilled from the Authentication-Results header so readers can
-// judge sender trustworthiness without parsing the raw chain.
+// Header assertions are not sender authentication unless the receiving
+// platform supplied them across a verified trust boundary.
 export type AuthVerdict = "pass" | "fail" | "softfail" | "none" | "unknown";
 
 export type AuthenticationSummary = {
@@ -31,6 +31,7 @@ export type AuthenticationSummary = {
   dkim: AuthVerdict;
   dmarc: AuthVerdict;
   raw: string | null;
+  source?: "unverified_header" | "trusted_upstream";
 };
 
 // One email can carry several findings (a code plus several link kinds).
@@ -369,12 +370,16 @@ export type OutboundMessageSummary = {
   toAddress: string;
   subject: string;
   bodyText?: string;
-  status: "sent" | "failed";
+  status: OutboundMessageStatus;
   errorText: string | null;
   providerMessageId?: string | null;
   requestPayloadJson?: string | null;
   responsePayloadJson?: string | null;
   createdAt: string;
+  attempts?: number;
+  nextAttemptAt?: string | null;
+  timeline?: OutboundTimelineEvent[];
+  payloadRetained?: boolean;
 };
 
 export type OutboundMessageDetail = OutboundMessageSummary & {
@@ -384,7 +389,9 @@ export type OutboundMessageDetail = OutboundMessageSummary & {
   responsePayloadJson: string | null;
 };
 
-export type OutboundListStatus = "all" | "sent" | "failed";
+export type OutboundMessageStatus = "sent" | "queued" | "sending" | "accepted" | "delivered" | "bounced" | "complained" | "failed" | "uncertain";
+export type OutboundListStatus = "all" | OutboundMessageStatus;
+export type OutboundTimelineEvent = { id: string; type: string; status: OutboundMessageStatus; occurredAt: string; detail: string | null };
 
 export type OutboundListQuery = {
   mailboxId: string;
@@ -419,6 +426,8 @@ export type OutboundSenderIdentitySummary = {
 };
 
 export type OutboundDnsCheckSummary = {
+  source?: "configuration" | "dns" | "resend";
+  checkedAt?: string | null;
   id: "spf" | "dkim" | "dmarc";
   label: string;
   domain: string;
@@ -550,6 +559,7 @@ export type NotificationRuleSummary = {
   keyword: string;
   quietHoursStart: string;
   quietHoursEnd: string;
+  quietHoursTimezone?: string;
   createdAt: string;
   updatedAt: string;
 };
@@ -564,6 +574,38 @@ export type NotificationRuleInput = {
   keyword?: string;
   quietHoursStart?: string;
   quietHoursEnd?: string;
+  quietHoursTimezone?: string;
+};
+
+export type NotificationDeliveryStatus = "pending" | "processing" | "retrying" | "succeeded" | "failed" | "suppressed";
+
+export type NotificationDeliverySummary = {
+  id: string;
+  eventId: string;
+  eventType: string;
+  target: NotificationRuleTarget;
+  targetId: string;
+  targetName: string;
+  status: NotificationDeliveryStatus;
+  attempts: number;
+  nextAttemptAt: string;
+  errorText: string | null;
+  createdAt: string;
+  updatedAt: string;
+  expiresAt: string;
+};
+
+export type NotificationStatusSummary = {
+  counts: Record<NotificationDeliveryStatus, number>;
+  backlogCount: number;
+  lastSucceededAt: string | null;
+};
+
+export type NotificationRuleEvaluation = {
+  shouldSend: boolean;
+  reason: "matched" | "no_enabled_rules" | "no_matching_rules";
+  evaluatedAt: string;
+  rules: Array<{ id: string; name: string; matched: boolean; reasons: string[]; quietHoursTimezone: string }>;
 };
 
 export type MailSettingsSenderRules = {

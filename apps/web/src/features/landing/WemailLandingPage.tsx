@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import {
   Activity,
   ArrowRight,
+  ArrowUpRight,
   BookOpen,
   Check,
   Copy,
@@ -13,13 +14,13 @@ import {
   Shield
 } from "lucide-react";
 
-import { Button, ButtonLink } from "../../shared/button";
+import { Button, ButtonAnchor, ButtonLink } from "../../shared/button";
 import { FloatingBackToTopButton } from "../../shared/FloatingBackToTopButton";
 import { Switch } from "../../shared/switch";
 import { Tabs, TabsList, TabsPanel, TabsTrigger } from "../../shared/tabs";
 import { WemailBrandLockup } from "../../shared/WemailBrandLockup";
 import { fetchPublicSystemHealth } from "./api";
-import { AnimatedSphere } from "./AnimatedSphere";
+import { HeroDemoCard, HeroPlayground } from "./HeroShowcase";
 import { AnimatedTetrahedron } from "./AnimatedTetrahedron";
 import { AnimatedWave } from "./AnimatedWave";
 import { PublicSiteNavigation } from "./PublicSiteNavigation";
@@ -29,7 +30,6 @@ import {
   developerTabs,
   featureCards,
   footerQuickLinks,
-  heroStats,
   heroWords,
   infrastructureLocations,
   integrations,
@@ -400,9 +400,6 @@ function HeroSection({ consoleHref, isAuthenticated }: LandingAuthCtaProps) {
 
   return (
     <section className="landing-hero-section" data-visible={isVisible}>
-      <div className="landing-hero-orb" aria-hidden="true">
-        <AnimatedSphere />
-      </div>
       <div className="landing-hero-grid" aria-hidden="true">
         {Array.from({ length: 8 }).map((_, index) => (
           <span key={`h-${index}`} className="landing-hero-grid-line horizontal" style={{ top: `${12.5 * (index + 1)}%` }} />
@@ -412,30 +409,39 @@ function HeroSection({ consoleHref, isAuthenticated }: LandingAuthCtaProps) {
         ))}
       </div>
 
-      <div className="landing-hero-copy-shell">
-        <div className="landing-hero-eyebrow-row">
-          <SectionEyebrow>给现代团队的临时邮箱工作台</SectionEyebrow>
-        </div>
-        <h1 className="landing-hero-title">
-          <span>把临时邮箱</span>
-          <span>
-            做成能
-            <span className="landing-hero-word-wrap">
-              <span className="landing-hero-word" key={currentWord}>
-                {currentWord.split("").map((character, index) => (
-                  <span key={`${currentWord}-${index}`} className="landing-hero-char" style={{ animationDelay: `${index * 55}ms` }}>
-                    {character}
-                  </span>
-                ))}
+      <div className="landing-hero-layout">
+        <div className="landing-hero-copy-shell">
+          <div className="landing-hero-oss-row">
+            <span className="landing-oss-pill">开源</span>
+            <span className="landing-oss-pill">自托管</span>
+            <span className="landing-oss-pill">Cloudflare 边缘</span>
+          </div>
+          <div className="landing-hero-eyebrow-row">
+            <SectionEyebrow>给现代团队的临时邮箱工作台</SectionEyebrow>
+          </div>
+          <h1 className="landing-hero-title">
+            <span>把临时邮箱</span>
+            <span>
+              做成能
+              <span className="landing-hero-word-wrap">
+                <span className="landing-hero-word" key={currentWord}>
+                  {currentWord.split("").map((character, index) => (
+                    <span key={`${currentWord}-${index}`} className="landing-hero-char" style={{ animationDelay: `${index * 55}ms` }}>
+                      {character}
+                    </span>
+                  ))}
+                </span>
+                <span className="landing-hero-word-underline" aria-hidden="true" />
               </span>
-              <span className="landing-hero-word-underline" aria-hidden="true" />
+              的系统
             </span>
-            的系统
-          </span>
-        </h1>
+          </h1>
 
-        <div className="landing-hero-bottom">
-          <p className="landing-hero-description">为 QA、运营、客服和内部自动化提供统一工作台，在同一界面完成收件、解析、外发与权限治理。</p>
+          <p className="landing-hero-description">
+            为 QA、运营、客服和内部自动化提供统一工作台：收件、提取、外发与权限治理，同一界面完成。
+            开源可自托管，部署在 Cloudflare 边缘，数据在你自己的账号里。
+          </p>
+
           <div className="landing-cta-row">
             {isAuthenticated ? (
               <ButtonLink size="lg" to={consoleHref} trailingIcon={<ArrowRight aria-hidden="true" />} variant="primary">
@@ -444,32 +450,27 @@ function HeroSection({ consoleHref, isAuthenticated }: LandingAuthCtaProps) {
             ) : (
               <>
                 <ButtonLink size="lg" to="/register" trailingIcon={<ArrowRight aria-hidden="true" />} variant="primary">
-                  立即开始
+                  申请邀请
                 </ButtonLink>
-                <ButtonLink size="lg" to="/login" variant="secondary">
-                  进入登录
-                </ButtonLink>
+                <ButtonAnchor
+                  href="https://doc.wemail.willxue.com"
+                  rel="noreferrer"
+                  size="lg"
+                  target="_blank"
+                  trailingIcon={<ArrowUpRight aria-hidden="true" />}
+                  variant="secondary"
+                >
+                  自托管部署
+                </ButtonAnchor>
               </>
             )}
           </div>
         </div>
+
+        <HeroDemoCard reducedMotion={reducedMotion} />
       </div>
 
-      <div className="landing-stats-marquee" aria-label="平台能力摘要">
-        <div className="landing-marquee-track">
-          {Array.from({ length: 2 }).flatMap((_, loopIndex) =>
-            heroStats.map((stat) => (
-              <article className="landing-stat-chip" key={`${stat.company}-${loopIndex}`}>
-                <strong>{stat.value}</strong>
-                <span>
-                  {stat.label}
-                  <em>{stat.company}</em>
-                </span>
-              </article>
-            ))
-          )}
-        </div>
-      </div>
+      <HeroPlayground />
 
       <div className="landing-scroll-cue" aria-hidden="true">
         <span className="landing-scroll-line" />
@@ -794,7 +795,7 @@ function TestimonialsSection() {
   return (
     <RevealSection id="testimonials" className="landing-section landing-section-border-top landing-testimonials-section">
       <div className="landing-testimonial-header">
-        <SectionEyebrow>团队反馈</SectionEyebrow>
+        <SectionEyebrow>场景示例</SectionEyebrow>
         <span>
           {String(activeIndex + 1).padStart(2, "0")} / {String(testimonials.length).padStart(2, "0")}
         </span>
@@ -803,12 +804,9 @@ function TestimonialsSection() {
         <blockquote>
           <p>“{activeTestimonial.quote}”</p>
           <div className="landing-testimonial-author">
-            <div className="landing-testimonial-avatar">{activeTestimonial.author.charAt(0)}</div>
             <div>
-              <strong>{activeTestimonial.author}</strong>
-              <span>
-                {activeTestimonial.role}，{activeTestimonial.company}
-              </span>
+              <strong>{activeTestimonial.scenario}</strong>
+              <span>典型工作流场景</span>
             </div>
           </div>
         </blockquote>
@@ -820,7 +818,7 @@ function TestimonialsSection() {
           <div className="landing-testimonial-pills">
             {testimonials.map((testimonial, index) => (
               <Button
-                key={testimonial.author}
+                key={testimonial.scenario}
                 aria-label={`切换到第 ${index + 1} 条评价`}
                 className={index === activeIndex ? "active" : ""}
                 iconOnly

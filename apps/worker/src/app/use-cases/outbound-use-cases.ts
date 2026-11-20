@@ -10,9 +10,8 @@ import {
   type UserRole
 } from "@wemail/shared";
 
-import type { AppBindings, AppStore, ResendClient } from "../../core/bindings";
+import type { AppBindings, AppStore } from "../../core/bindings";
 import { resolveAppConfig } from "../../core/config";
-import { buildResendClient } from "../../shared/mail";
 import { jsonError, recordAudit } from "../services/audit-service";
 import {
   getMailDomains,
@@ -20,6 +19,8 @@ import {
   getResolvedOutboundLimit
 } from "../services/config-service";
 import { getOwnedMailbox } from "../services/mailbox-access-service";
+import { hashString } from "../../shared/auth";
+import { processOutboundSends } from "../services/outbound-delivery-service";
 
 type OutboundUseCaseContext = {
   store: AppStore;
@@ -27,7 +28,6 @@ type OutboundUseCaseContext = {
   env: AppBindings;
 };
 
-type ResendEmailPayload = Parameters<ResendClient["sendEmail"]>[0];
 
 function parseRetryAttemptCount(value: string) {
   const match = value.match(/\d+/);
@@ -44,16 +44,6 @@ function appendSignature(bodyText: string, signature: string) {
   return `${normalizedBodyText}\n\n${normalizedSignature}`;
 }
 
-async function sendEmailWithRetries(resend: ResendClient, payload: ResendEmailPayload, retryCount: number) {
-  let lastResult: Awaited<ReturnType<ResendClient["sendEmail"]>> | null = null;
-
-  for (let attempt = 0; attempt <= retryCount; attempt += 1) {
-    lastResult = await resend.sendEmail(payload);
-    if (lastResult.success) return lastResult;
-  }
-
-  return lastResult ?? { success: false, error: "Failed to send" };
-}
 
 async function getVisibleMailbox(
   context: OutboundUseCaseContext,
@@ -63,10 +53,6 @@ async function getVisibleMailbox(
   return getOwnedMailbox(context.store, payload.userId, payload.mailboxId);
 }
 
-function stringifyProviderResponse(result: Awaited<ReturnType<ResendClient["sendEmail"]>>) {
-  if (!result.success) return JSON.stringify({ error: result.error ?? "Failed to send" });
-  return JSON.stringify(result.responsePayload ?? { id: result.messageId ?? null });
-}
 
 function parseIdentityAddress(identity: string) {
   const bracketMatch = identity.match(/<([^<>@\s]+@[^<>@\s]+\.[^<>@\s]+)>/);
@@ -153,24 +139,27 @@ function buildDnsChecks(input: {
   return [
     {
       id: "spf",
+      source: "configuration", checkedAt: null,
       label: "SPF",
       domain: input.domain,
       recordType: "TXT",
-      expectedValue: "v=spf1 include:amazonses.com ~all",
+      expectedValue: "以供应商给出的具体子域与 SPF 记录为准",
       status: baseStatus,
       message: baseMessage
     },
     {
       id: "dkim",
+      source: "configuration", checkedAt: null,
       label: "DKIM",
       domain: input.domain,
-      recordType: "CNAME",
-      expectedValue: "使用 Resend 为该域名生成的 DKIM CNAME 记录",
+      recordType: "TXT",
+      expectedValue: "使用供应商为该域名生成的实际 DKIM 记录",
       status: baseStatus,
       message: baseMessage
     },
     {
       id: "dmarc",
+      source: "configuration", checkedAt: null,
       label: "DMARC",
       domain: `_dmarc.${input.domain}`,
       recordType: "TXT",
@@ -296,9 +285,9 @@ export async function getOutboundMaturityUseCase(
     },
     failureStats,
     returnPath: {
-      status: config.integrations.resendApiKey ? "ok" : "warning",
+      status: "warning",
       message: config.integrations.resendApiKey
-        ? "Return-Path 和退信处理由 Resend 管理，WeMail 会保留 provider 响应和失败原因。"
+        ? "已配置发送凭据；Return-Path 与最终退信状态需由真实供应商事件确认。"
         : "配置 RESEND_API_KEY 后才能确认 Return-Path 和退信链路。"
     },
     identities: [
@@ -365,12 +354,12 @@ export async function getOutboundMessageDetail(
   });
   if (!mailbox) return jsonError("Outbound message not found", 404);
 
-  return message;
+  return { ...message, timeline: await context.store.outboundSends.timeline(message.id) };
 }
 
 export async function sendOutboundMessageUseCase(
   context: OutboundUseCaseContext,
-  payload: { userId: string; mailboxId: string; toAddress: string; subject: string; bodyText: string }
+  payload: { userId: string; mailboxId: string; toAddress: string; subject: string; bodyText: string; requestId?: string }
 ) {
   if (!context.featureToggles.outboundEnabled) {
     return jsonError("Outbound sending disabled", 403);
@@ -381,18 +370,14 @@ export async function sendOutboundMessageUseCase(
 
   const config = resolveAppConfig(context.env);
   const [primaryDomain] = await getMailDomains(context.store, context.env);
-  const resend = buildResendClient(config.integrations.resendApiKey);
-  if (!resend) return jsonError("Resend not configured", 503);
+  const requestId = payload.requestId ?? crypto.randomUUID();
+  const requestHash = await hashString(JSON.stringify({ mailboxId: payload.mailboxId, toAddress: payload.toAddress, subject: payload.subject, bodyText: payload.bodyText }));
+  const existing = await context.store.outboundSends.findByUserAndKey(payload.userId, requestId);
+  if (!existing && !config.integrations.resendApiKey) return jsonError("Resend not configured", 503);
   const [outboundLimit, apiDailyLimit] = await Promise.all([
     getResolvedOutboundLimit(context.store, context.env),
     getResolvedApiDailyLimit(context.store, context.env)
   ]);
-  const quota = await context.store.quotas.consumeOutboundSend(
-    payload.userId,
-    outboundLimit,
-    apiDailyLimit
-  );
-  if (!quota) return jsonError("Outbound quota exhausted", 403);
   const mailSettings = parseMailSettingsRecord(await context.store.mailSettings.get());
   const fallbackSenderIdentity = config.outbound.resendFrom ?? `${config.appName} <no-reply@${primaryDomain.domain}>`;
   const senderIdentity = mailSettings.senderRules.defaultIdentity.trim() || fallbackSenderIdentity;
@@ -405,29 +390,28 @@ export async function sendOutboundMessageUseCase(
     subject: payload.subject,
     text
   };
-  const result = await sendEmailWithRetries(resend, resendPayload, retryCount);
-
-  await context.store.outboundMessages.create({
+  const record = existing ?? await context.store.outboundSends.accept({
+    userId: payload.userId, requestId, requestHash,
     mailboxId: payload.mailboxId,
     fromAddress: senderIdentity,
     toAddress: payload.toAddress,
     subject: payload.subject,
     bodyText: payload.bodyText,
-    status: result.success ? "sent" : "failed",
-    errorText: result.error ?? null,
-    providerMessageId: result.messageId ?? null,
     requestPayloadJson: JSON.stringify(resendPayload),
-    responsePayloadJson: stringifyProviderResponse(result)
-  });
-  await recordAudit(context.store, "user", payload.userId, "outbound-send", {
-    mailboxId: payload.mailboxId,
-    ok: result.success
-  });
-
-  if (!result.success) return jsonError(result.error ?? "Failed to send", 502);
+    maxAttempts: Math.min(retryCount + 1, 4),
+    retryDelayMs: mailSettings.senderRules.retryDelay === "立即重试" ? 0 : (Number.parseInt(mailSettings.senderRules.retryDelay, 10) || 5) * 60_000
+  }, { dailyLimit: outboundLimit, apiDailyLimit });
+  if (!record) return jsonError("Outbound quota exhausted", 403);
+  if (record.requestHash !== requestHash) return jsonError("Idempotency key was already used with different content", 409);
+  if (record.status === "queued") await processOutboundSends(context.store, context.env, { id: record.id, userId: payload.userId, limit: 1 });
+  const latest = (await context.store.outboundSends.findByUserAndKey(payload.userId, requestId))!;
+  const quota = await context.store.quotas.getByUserId(payload.userId, outboundLimit, apiDailyLimit);
+  if (!existing) await recordAudit(context.store, "user", payload.userId, "outbound-send", { mailboxId: payload.mailboxId, messageId: record.id, status: latest.status });
+  if (latest.status === "failed") return jsonError(latest.errorText ?? "Failed to send", 502);
   return {
     dailyLimit: quota.dailyLimit,
     sendsToday: quota.sendsToday,
-    disabled: quota.disabled
+    disabled: quota.disabled,
+    message: { id: latest.id, status: latest.status, nextAttemptAt: latest.status === "queued" ? latest.nextAttemptAt : null }
   };
 }

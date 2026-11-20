@@ -227,6 +227,7 @@ describe("system settings route integration", () => {
     expect(screen.getByText("主题模式")).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "域名设置" })).not.toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: /^业务默认值$/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "自托管检查" })).not.toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: /^外观设置$/i })).not.toBeInTheDocument();
   });
 
@@ -245,6 +246,9 @@ describe("system settings route integration", () => {
     expect(screen.queryByRole("heading", { name: /^可靠性后台$/i })).not.toBeInTheDocument();
     expect(await screen.findAllByText("20 / 天")).toHaveLength(2);
     expect(screen.getByLabelText("运行策略概览")).toBeInTheDocument();
+    expect(await screen.findByRole("region", { name: "自托管检查" })).toBeInTheDocument();
+    expect(await screen.findByText("发件功能已开启但 RESEND_API_KEY 未配置")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "打开发信设置" })).toHaveAttribute("href", "/mail/settings");
   });
 
   it("redirects the removed operations route to system settings", async () => {

@@ -3657,6 +3657,7 @@ button:disabled {
 }
 
 .extraction-card-secondary {
+  grid-column: 1 / -1;
   display: grid;
   gap: 6px;
   border-top: 1px solid var(--border);
@@ -3692,12 +3693,19 @@ button:disabled {
 }
 
 .extraction-card-secondary li strong {
+  flex: 1;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   direction: rtl;
   text-align: left;
+}
+
+.extraction-method {
+  justify-self: end;
+  color: var(--text-muted);
+  font-size: 0.78rem;
 }
 
 .auth-summary-row {
@@ -11771,10 +11779,12 @@ button:disabled {
 
   .message-filter-tabs .message-filter-tabs-list.ui-tabs-list[data-variant="segmented"] {
     width: 100%;
+    overflow-x: auto;
   }
 
   .message-filter-tabs .message-filter-tab.ui-tabs-trigger[data-variant="segmented"] {
-    flex: 1 0 54px;
+    flex: 0 0 auto;
+    white-space: nowrap;
   }
 
   .message-toolbar {
@@ -12879,6 +12889,8 @@ button:disabled {
 
 .outbound-filter-row .ui-tabs-trigger {
   display: inline-flex;
+  flex-shrink: 0;
+  white-space: nowrap;
   min-height: 38px;
   height: 38px;
   align-items: center;
@@ -13023,17 +13035,17 @@ button:disabled {
   white-space: nowrap;
 }
 
-.outbound-status-chip[data-status="已发送"] {
+.outbound-status-chip[data-status="delivered"] {
   border-color: color-mix(in srgb, #1fa971 42%, var(--border-subtle));
   color: #1fa971;
 }
 
-.outbound-status-chip[data-status="失败"] {
+.outbound-status-chip:is([data-status="failed"], [data-status="bounced"], [data-status="complained"]) {
   border-color: color-mix(in srgb, #e16259 42%, var(--border-subtle));
   color: #e16259;
 }
 
-.outbound-status-chip[data-status="异常 / 无匹配"] {
+.outbound-status-chip:is([data-status="uncertain"], [data-status="queued"], [data-status="sending"]) {
   border-color: color-mix(in srgb, #f2a93b 50%, var(--border-subtle));
   color: #c27b00;
 }
@@ -13099,6 +13111,13 @@ button:disabled {
   color: var(--text-secondary);
   font-size: 0.88rem;
 }
+
+.outbound-timeline { min-width: 0; }
+.outbound-timeline h3 { margin: 0 0 10px; font-size: 0.95rem; }
+.outbound-timeline p { color: var(--text-secondary); font-size: 0.85rem; }
+.outbound-timeline ol { display: grid; gap: 12px; margin: 0; padding: 0 0 0 14px; border-left: 1px solid var(--border-subtle); list-style: none; }
+.outbound-timeline li { display: grid; gap: 4px; overflow-wrap: anywhere; font-size: 0.85rem; }
+.outbound-timeline time, .outbound-timeline li span { color: var(--text-secondary); }
 
 .outbound-detail-payload {
   display: grid;
@@ -13326,6 +13345,10 @@ button:disabled {
   .outbound-stat-grid {
     grid-template-columns: 1fr;
   }
+
+  .outbound-filter-row { width: 100%; }
+  .outbound-filter-row .ui-tabs-trigger { flex: 1 1 0; min-width: 0; gap: 4px; padding-inline: 6px; font-size: 0.8rem; }
+  .outbound-filter-row .ui-tabs-trigger small { min-width: 16px; height: 16px; }
 
   .outbound-toolbar-actions,
   .outbound-detail-actions {

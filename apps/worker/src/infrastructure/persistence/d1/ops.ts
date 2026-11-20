@@ -186,6 +186,7 @@ export function createOpsAggregate(db: D1Database): OpsAggregate {
             userId: row.user_id,
             name: row.name,
             url: row.url,
+            channel: row.channel ?? null,
             eventsJson: row.events_json,
             signingSecret: row.signing_secret,
             enabled: toBool(row.enabled),
@@ -274,6 +275,7 @@ export function createOpsAggregate(db: D1Database): OpsAggregate {
           errorText: row.error_text,
           payloadJson: row.payload_json,
           responseText: row.response_text ?? null,
+          requestBodyText: row.request_body_text ?? null,
           createdAt: row.created_at
         }));
       },
@@ -310,6 +312,7 @@ export function createOpsAggregate(db: D1Database): OpsAggregate {
             errorText: row.error_text,
             payloadJson: row.payload_json,
             responseText: row.response_text ?? null,
+            requestBodyText: row.request_body_text ?? null,
             createdAt: row.created_at
           })),
           total: Number(totalRow?.count ?? 0),
@@ -335,6 +338,7 @@ export function createOpsAggregate(db: D1Database): OpsAggregate {
           errorText: row.error_text,
           payloadJson: row.payload_json,
           responseText: row.response_text ?? null,
+          requestBodyText: row.request_body_text ?? null,
           createdAt: row.created_at
         };
       },
@@ -343,7 +347,7 @@ export function createOpsAggregate(db: D1Database): OpsAggregate {
         const record = { id: id ?? crypto.randomUUID(), createdAt: createdAt ?? nowIso(), ...recordInput };
         await db
           .prepare(
-            "INSERT INTO webhook_deliveries (id, endpoint_id, event_type, status, status_code, duration_ms, error_text, payload_json, response_text, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+            "INSERT INTO webhook_deliveries (id, endpoint_id, event_type, status, status_code, duration_ms, error_text, payload_json, response_text, request_body_text, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
           )
           .bind(
             record.id,
@@ -355,6 +359,7 @@ export function createOpsAggregate(db: D1Database): OpsAggregate {
             record.errorText,
             record.payloadJson,
             record.responseText,
+            record.requestBodyText ?? null,
             record.createdAt
           )
           .run();
@@ -378,7 +383,7 @@ export function createOpsAggregate(db: D1Database): OpsAggregate {
         };
         await db
           .prepare(
-            "INSERT INTO notification_rules (id, user_id, name, enabled, target, target_id, event_types_json, mailbox_ids_json, keyword, quiet_hours_start, quiet_hours_end, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+            "INSERT INTO notification_rules (id, user_id, name, enabled, target, target_id, event_types_json, mailbox_ids_json, keyword, quiet_hours_start, quiet_hours_end, quiet_hours_timezone, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
           )
           .bind(
             record.id,
@@ -392,6 +397,7 @@ export function createOpsAggregate(db: D1Database): OpsAggregate {
             record.keyword,
             record.quietHoursStart,
             record.quietHoursEnd,
+            record.quietHoursTimezone ?? "UTC",
             record.createdAt,
             record.updatedAt
           )
@@ -402,7 +408,7 @@ export function createOpsAggregate(db: D1Database): OpsAggregate {
         const updatedAt = nowIso();
         await db
           .prepare(
-            "UPDATE notification_rules SET name = ?, enabled = ?, target = ?, target_id = ?, event_types_json = ?, mailbox_ids_json = ?, keyword = ?, quiet_hours_start = ?, quiet_hours_end = ?, updated_at = ? WHERE id = ? AND user_id = ?"
+            "UPDATE notification_rules SET name = ?, enabled = ?, target = ?, target_id = ?, event_types_json = ?, mailbox_ids_json = ?, keyword = ?, quiet_hours_start = ?, quiet_hours_end = ?, quiet_hours_timezone = ?, updated_at = ? WHERE id = ? AND user_id = ?"
           )
           .bind(
             input.name,
@@ -414,6 +420,7 @@ export function createOpsAggregate(db: D1Database): OpsAggregate {
             input.keyword,
             input.quietHoursStart,
             input.quietHoursEnd,
+            input.quietHoursTimezone ?? "UTC",
             updatedAt,
             id,
             userId

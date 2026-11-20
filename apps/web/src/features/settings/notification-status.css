@@ -1,0 +1,15 @@
+.notification-status-panel, .notification-rule-tester { min-width: 0; }
+.notification-status-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.notification-status-metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-top: 16px; }
+.notification-status-list { margin-top: 16px; }
+.notification-status-row { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 14px 0; border-bottom: 1px solid var(--border); }
+.notification-status-row > div { min-width: 0; }
+.notification-status-row p, .notification-status-row small { overflow-wrap: anywhere; }
+.notification-status-error { color: var(--text-muted); }
+.notification-rule-tester { margin-top: 20px; }
+.notification-rule-test-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin: 12px 0; }
+@media (max-width: 700px) {
+  .notification-status-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .notification-status-header, .notification-status-row { flex-wrap: wrap; }
+  .notification-rule-test-fields { grid-template-columns: minmax(0, 1fr); }
+}

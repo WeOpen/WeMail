@@ -199,12 +199,13 @@ export function buildWorkspaceShellState({ pathname, session }: WorkspaceShellIn
   const normalizedPath = normalizeWorkspacePath(pathname);
   const activePrimary = resolveActivePrimary(normalizedPath);
   const currentSecondary = activePrimary.children?.find((child) => child.to === normalizedPath) ?? null;
+  const isDocs = normalizedPath === "/docs" || normalizedPath.startsWith("/docs/");
 
   return {
     routeKey: activePrimary.id,
-    routeLabel: currentSecondary?.label ?? activePrimary.label,
+    routeLabel: isDocs ? "使用指南" : currentSecondary?.label ?? activePrimary.label,
     activePrimaryId: activePrimary.id,
-    activePrimaryLabel: activePrimary.label,
+    activePrimaryLabel: isDocs ? "使用指南" : activePrimary.label,
     secondaryNav: activePrimary.adminOnly && session.user.role !== "admin" ? [] : activePrimary.children ?? [],
     railSections: buildRailSections(session)
   };

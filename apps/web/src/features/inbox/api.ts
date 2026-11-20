@@ -150,8 +150,9 @@ export function sendOutboundMessage(payload: {
   toAddress: FormDataEntryValue | null;
   subject: FormDataEntryValue | null;
   bodyText: FormDataEntryValue | null;
+  requestId?: string;
 }) {
-  return apiFetch("/api/mail/send", {
+  return apiFetch<{ message?: { id: string; status: import("@wemail/shared").OutboundMessageStatus } }>("/api/mail/send", {
     method: "POST",
     body: JSON.stringify(payload)
   });

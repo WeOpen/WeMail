@@ -85,7 +85,8 @@ export function useOverlayAccessibility({
   panelRef: MutableRefObject<HTMLElement | null>;
   portalRoot: HTMLElement | null;
 }) {
-  useEffect(() => {
+  // Restore background access in the same commit that removes the dialog, before the next paint.
+  useLayoutEffect(() => {
     if (!active || !panelRef.current || !portalRoot) {
       return undefined;
     }

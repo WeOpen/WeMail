@@ -5,6 +5,7 @@
 ## ✅ 放什么
 - `AuthPage`
 - `InboxPage`
+- `DocsPage`：组合任务指南并按需渲染文档站的同一份正文；Markdown 不执行原始 HTML，站内任务链接保持在应用内
 - `SystemSettingsPage`、`UsersGlobalSettingsPage` 等路由级页面
 - `AdminPage`
 

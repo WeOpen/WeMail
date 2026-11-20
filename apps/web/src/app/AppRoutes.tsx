@@ -71,8 +71,7 @@ const loadUsersGlobalSettingsPage = () =>
   import("../pages/UsersGlobalSettingsPage").then((module) => ({ default: module.UsersGlobalSettingsPage }));
 const loadUsersListRoutePage = () => import("../pages/UsersListRoutePage").then((module) => ({ default: module.UsersListRoutePage }));
 const loadWebhookPage = () => import("../features/settings/WebhookPage").then((module) => ({ default: module.WebhookPage }));
-const loadWorkspacePlaceholderPage = () =>
-  import("../pages/WorkspacePlaceholderPage").then((module) => ({ default: module.WorkspacePlaceholderPage }));
+const loadDocsPage = () => import("../pages/DocsPage").then((module) => ({ default: module.DocsPage }));
 
 const AboutPage = lazy(loadAboutPage);
 const AccountsListRoutePage = lazy(loadAccountsListRoutePage);
@@ -90,7 +89,7 @@ const TelegramSettingsPage = lazy(loadTelegramSettingsPage);
 const UsersGlobalSettingsPage = lazy(loadUsersGlobalSettingsPage);
 const UsersListRoutePage = lazy(loadUsersListRoutePage);
 const WebhookPage = lazy(loadWebhookPage);
-const WorkspacePlaceholderPage = lazy(loadWorkspacePlaceholderPage);
+const DocsPage = lazy(loadDocsPage);
 
 type AppRoutesProps = {
   session: SessionSummary;
@@ -451,27 +450,7 @@ export function AppRoutes({
 
   const webhookPage = <WebhookPage />;
 
-  const docsPage = (
-    <WorkspacePlaceholderPage
-      kicker="设置"
-      title="文档页面已预留"
-      description="文档入口已独立到左侧设置分组，后续可承接产品说明、API 文档与上手指南。"
-      cards={[
-        {
-          title: "仪表盘",
-          description: "回到仪表盘查看新导航结构总览。",
-          actionLabel: "返回仪表盘",
-          to: "/dashboard"
-        },
-        {
-          title: "公告",
-          description: "公告入口也已预留，后续可同步系统变更。",
-          actionLabel: "打开公告",
-          to: "/announcements"
-        }
-      ]}
-    />
-  );
+  const docsPage = <DocsPage />;
 
   const announcementsPage = <AnnouncementsPage canPublish={session.user.role === "admin"} />;
 
@@ -481,6 +460,8 @@ export function AppRoutes({
       canManageDomains={session.user.role === "admin"}
       canManageRuntimeSettings={session.user.role === "admin"}
       runtimeSettings={settings.runtimeSettings}
+      systemDiagnostics={settings.systemDiagnostics}
+      systemReliability={settings.systemReliability}
       resolvedTheme={appearance.theme}
       themePreference={appearance.themePreference}
       onSelectThemePreference={appearance.setThemePreference}
@@ -554,6 +535,7 @@ export function AppRoutes({
       <Route path="/webhook" element={lazyRoute(webhookPage)} />
       <Route path="/telegram" element={lazyRoute(telegramPage)} />
       <Route path="/docs" element={lazyRoute(docsPage)} />
+      <Route path="/docs/:slug" element={lazyRoute(docsPage)} />
       <Route path="/announcements" element={lazyRoute(announcementsPage)} />
       <Route path="/system" element={<Navigate replace to="/system/settings" />} />
       <Route path="/system/settings" element={lazyRoute(systemSettingsPage)} />

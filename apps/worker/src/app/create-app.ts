@@ -20,7 +20,8 @@ const RATE_LIMITED_PATHS = new Set<string>([
   "/api/auth/register",
   "/api/auth/login",
   "/api/accounts",
-  "/api/mail/send"
+  "/api/mail/send",
+  "/api/mail/outbound/domain-status"
 ]);
 
 function isRateLimitedRequest(method: string, path: string) {
