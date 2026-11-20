@@ -17,4 +17,6 @@
 
 实际验证与发布门槛见 `docs/plans/2026-10-04-development-execution.md`。真实供应商、真实 Workers AI、staging 和生产性能必须独立验证，不把本地受控供应商当线上证据。
 
+- 2026-11-20 GitHub ubuntu-latest 已切到26.04，项目Playwright1.59.1的安装器不支持该OS。E2E两个job已固定ubuntu-24.04；浏览器安装失败不能算产品用例失败，也不能通过重复重跑解决。
+
 - 早到供应商事件合并与发送完成必须同一个 D1 batch。先 accepted 清 lease 后单独合并，第二写失败会永久漏掉已保存 delivered。已用触发器故障注入验证回滚、lease 接管与单次额度。

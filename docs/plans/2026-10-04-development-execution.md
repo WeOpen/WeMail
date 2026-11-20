@@ -73,4 +73,4 @@
 - 2026-11-20通过GitHub API确认 staging Environment 的 repository secrets和variables均为0；现配置中的staging D1/KV ID仍是部署时注入占位符。当前没有可用的隔离环境证据，真实Email Routing、Resend、聊天平台及Workers AI验收保持待完成。
 - 最后审查发现并修复D1早到事件关联的P1：发送完成与已缓存回调的状态合并必须同一batch，否则第二次写失败后可能永久停在accepted。触发器注入证明整个事务回滚保留lease，并能恢复到delivered且只扣一次额度。
 
-本批 commit 和远端 CI 结果在推送后补充。
+本批实现 commit 为 `2d71c89fc0a27d776bd317ca65e0f9c038f640fc`，已推送草稿 PR #41。首次 E2E run `44691208256` 两个 job 均在安装 Chromium 时失败，因为 ubuntu-latest 已切到 Playwright 1.59.1 不支持的 Ubuntu 26.04。已将浏览器两个 job 固定到 Ubuntu 24.04，待修复提交的 CI 复验。

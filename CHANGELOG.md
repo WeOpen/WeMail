@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Pinned browser CI jobs to Ubuntu 24.04 so the locked Playwright 1.59.1 can install Chromium after `ubuntu-latest` moved to an unsupported Ubuntu 26.04 image.
 - Kept uncertain outbound submissions recoverable with the original provider key after network, ambiguous HTTP, and local storage failures; prevented duplicate quota charges, incorrect success labels, edited-draft key reuse, and concurrent compose submissions.
 - Stopped treating sender-supplied Authentication-Results or fabricated confidence percentages as verified identity or measured extraction quality. Trusted verdicts now come only from Cloudflare's platform-provided first authentication header.
 - Corrected multiple-link extraction, quoted and hidden content, full-width codes, trailing URL punctuation/entities, and price/date/order/phone false positives against 60 labelled synthetic messages.
