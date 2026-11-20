@@ -27,6 +27,16 @@ import { apiFetch, invalidateApiCache } from "../../shared/api/client";
 
 const SETTINGS_CACHE_TTL_MS = 30_000;
 
+export type OutboundDomainResult = {
+  domain: string;
+  checkedAt: string;
+  checks: Array<{ name: string; type: string; source: string; status: string; message: string }>;
+};
+
+export function checkOutboundDomain() {
+  return apiFetch<OutboundDomainResult>("/api/mail/outbound/domain-status", { dedupe: false });
+}
+
 export type TelegramBotMenuResult = {
   ok: boolean;
   reason: string | null;

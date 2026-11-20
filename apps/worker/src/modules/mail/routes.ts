@@ -1,4 +1,6 @@
 import type { Hono } from "hono";
+import { receiveOutboundProviderEvent } from "../../app/use-cases/outbound-event-use-cases";
+import { checkOutboundDomain } from "../../app/use-cases/outbound-domain-use-cases";
 import {
   parseMailSettingsRecord,
   parseMailSettingsUpdatePayload,
@@ -39,7 +41,7 @@ const extractionTypes = new Set<ExtractionType>([
   "other_link",
   "none"
 ]);
-const outboundStatuses = new Set<OutboundListStatus>(["all", "sent", "failed"]);
+const outboundStatuses = new Set<OutboundListStatus>(["all", "sent", "queued", "sending", "accepted", "delivered", "bounced", "complained", "failed", "uncertain"]);
 const messageBatchActions = new Set<MessageBatchAction>(["delete", "export"]);
 const previewableImageContentTypes = new Set(["image/avif", "image/gif", "image/jpeg", "image/png", "image/webp"]);
 const remoteImageMaxBytes = 2 * 1024 * 1024;
@@ -97,6 +99,7 @@ function parseMessageListQuery(c: QueryRequestContext) {
 }
 
 function parseOutboundStatus(value: string | undefined): OutboundListStatus {
+  if (["queued", "sending", "accepted", "delivered", "bounced", "complained", "uncertain"].includes(value ?? "")) return value as OutboundListStatus;
   if (!value) return "all";
   return outboundStatuses.has(value as OutboundListStatus) ? (value as OutboundListStatus) : "all";
 }
@@ -231,6 +234,15 @@ async function proxyRemoteImage(rawUrl: string | undefined) {
 }
 
 export function registerMailRoutes(app: Hono<AppContext>) {
+  app.get("/api/mail/outbound/domain-status", async (c) => {
+    const user = requireUser(c);
+    if (!user) return jsonError("Authentication required", 401);
+    return c.json(await checkOutboundDomain(c.get("store"), c.env));
+  });
+  app.post("/api/mail/providers/resend/events", async (c) => {
+    const result = await receiveOutboundProviderEvent(c.get("store"), c.env, c.req.raw);
+    return result instanceof Response ? result : c.json(result);
+  });
   app.get("/api/mail/messages", async (c) => {
     const user = requireUser(c);
     if (!user) return jsonError("Authentication required", 401);
@@ -376,10 +388,11 @@ export function registerMailRoutes(app: Hono<AppContext>) {
       mailboxId: outboundPayload.mailboxId,
       toAddress: outboundPayload.toAddress,
       subject: outboundPayload.subject,
-      bodyText: outboundPayload.bodyText
+      bodyText: outboundPayload.bodyText,
+      requestId: outboundPayload.requestId
     });
     if (quota instanceof Response) return quota;
-    return c.json(toQuotaResponse(quota satisfies Pick<QuotaSummary, "dailyLimit" | "sendsToday" | "disabled">));
+    return c.json({ ...toQuotaResponse(quota satisfies Pick<QuotaSummary, "dailyLimit" | "sendsToday" | "disabled">), message: quota.message }, ["queued", "sending", "uncertain"].includes(quota.message.status) ? 202 : 200);
   });
 
   app.get("/api/mail/settings", async (c) => {

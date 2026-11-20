@@ -26,6 +26,7 @@ import {
 } from "@wemail/shared";
 
 import { Button, ButtonLink } from "../../shared/button";
+import { OutboundDomainCheckPanel } from "./OutboundDomainCheckPanel";
 import { CheckboxField, FormField, SelectInput, TextInput, TextareaInput } from "../../shared/form";
 import {
   fetchMailSettings,
@@ -548,7 +549,7 @@ export function MailSettingsPage({ canManageMailSettings = false }: MailSettings
                     <div className="mail-settings-asset-row" data-status={check.status} key={check.id}>
                       <div>
                         <strong>{check.label}</strong>
-                        <span>{check.recordType} · {check.domain}</span>
+                        <span>配置参考 · {check.recordType} · {check.domain}</span>
                       </div>
                       <small>{check.message}</small>
                     </div>
@@ -870,6 +871,7 @@ export function MailSettingsPage({ canManageMailSettings = false }: MailSettings
           </div>
         </section>
       </div>
+      <OutboundDomainCheckPanel />
     </main>
   );
 }

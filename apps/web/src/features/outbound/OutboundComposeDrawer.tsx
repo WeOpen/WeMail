@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { Button } from "../../shared/button";
 import { FormField, TextInput, TextareaInput } from "../../shared/form";
 import { OverlayDrawer } from "../../shared/overlay";
@@ -13,6 +13,9 @@ type OutboundComposeDrawerProps = {
   open: boolean;
   hasActiveMailbox: boolean;
   draft?: OutboundComposeDraft;
+  title?: string;
+  closeLabel?: string;
+  children?: ReactNode;
   onClose: () => void;
   onSendMail: (event: FormEvent<HTMLFormElement>) => Promise<void>;
 };
@@ -21,13 +24,19 @@ export function OutboundComposeDrawer({
   open,
   hasActiveMailbox,
   draft,
+  title = "新建发送",
+  closeLabel = "关闭新建发送抽屉",
+  children,
   onClose,
   onSendMail
 }: OutboundComposeDrawerProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [requestId, setRequestId] = useState("");
+  const submitting = useRef(false);
 
   useEffect(() => {
+    if (open) setRequestId(crypto.randomUUID());
     if (!open) {
       setIsSubmitting(false);
       setSubmitError(null);
@@ -37,6 +46,9 @@ export function OutboundComposeDrawer({
   if (!open) return null;
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (submitting.current) return;
+    submitting.current = true;
     const form = event.currentTarget;
     setSubmitError(null);
     setIsSubmitting(true);
@@ -47,9 +59,10 @@ export function OutboundComposeDrawer({
         preventDefault: () => event.preventDefault()
       } as FormEvent<HTMLFormElement>);
       onClose();
-    } catch {
-      setSubmitError("发送失败，请稍后重试。");
+    } catch (error) {
+      setSubmitError(error instanceof Error ? error.message : "提交失败，请重试。");
     } finally {
+      submitting.current = false;
       setIsSubmitting(false);
     }
   }
@@ -57,33 +70,36 @@ export function OutboundComposeDrawer({
   return (
     <OverlayDrawer
       className="composer-panel outbound-compose-drawer"
-      closeLabel="关闭新建发送抽屉"
-      description="通过抽屉快速补发或发送测试邮件，不打断当前的发件记录排查流程。"
-      eyebrow="发件动作"
-      onClose={onClose}
-      title="新建发送"
+      closeLabel={closeLabel}
+      onClose={() => { if (!submitting.current) onClose(); }}
+      title={title}
       width="md"
     >
       <form
         key={`${draft?.toAddress ?? ""}:${draft?.subject ?? ""}:${draft?.bodyText ?? ""}`}
         className="composer-form outbound-form outbound-compose-form"
+        onChange={() => {
+          setRequestId(crypto.randomUUID());
+          setSubmitError(null);
+        }}
         onSubmit={(event) => void handleSubmit(event)}
       >
+        <input type="hidden" name="requestId" value={requestId} />
         <FormField label="收件人" required>
-          <TextInput defaultValue={draft?.toAddress ?? ""} name="toAddress" required type="email" />
+          <TextInput defaultValue={draft?.toAddress ?? ""} disabled={isSubmitting} name="toAddress" required type="email" />
         </FormField>
         <FormField label="主题" required>
-          <TextInput defaultValue={draft?.subject ?? ""} name="subject" required />
+          <TextInput defaultValue={draft?.subject ?? ""} disabled={isSubmitting} name="subject" required />
         </FormField>
         <FormField label="正文" required>
-          <TextareaInput defaultValue={draft?.bodyText ?? ""} name="bodyText" required rows={8} />
+          <TextareaInput defaultValue={draft?.bodyText ?? ""} disabled={isSubmitting} name="bodyText" required rows={8} />
         </FormField>
 
         {!hasActiveMailbox ? <p className="outbound-compose-note">当前没有可用邮箱，先回到邮件列表选择一个邮箱后再发送。</p> : null}
-        {submitError ? <p className="outbound-compose-error">{submitError}</p> : null}
+        {submitError ? <p className="outbound-compose-error" role="alert">{submitError}</p> : null}
 
         <div className="outbound-compose-actions">
-          <Button onClick={onClose} variant="secondary">
+          <Button disabled={isSubmitting} onClick={onClose} variant="secondary">
             取消
           </Button>
           <Button disabled={!hasActiveMailbox || isSubmitting} type="submit" variant="primary">
@@ -91,6 +107,7 @@ export function OutboundComposeDrawer({
           </Button>
         </div>
       </form>
+      {children}
     </OverlayDrawer>
   );
 }

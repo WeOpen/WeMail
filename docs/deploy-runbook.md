@@ -106,6 +106,7 @@
 运行时 secrets 不应作为 GitHub Actions secrets 注入，而应通过 Wrangler 写入 Cloudflare Worker 环境，例如：
 
 - `RESEND_API_KEY`
+- `RESEND_WEBHOOK_SECRET`（启用发件投递事件时，在 Resend 创建 `/api/mail/providers/resend/events` 接收端后保存其 `whsec_` 签名密钥）
 - `RESEND_FROM`（如需覆盖默认发件地址）
 - `TELEGRAM_BOT_TOKEN`
 - `TELEGRAM_WEBHOOK_SECRET`（用于校验 Telegram webhook 请求头）
@@ -438,10 +439,16 @@ curl -i "$STAGING_API_BASE_URL/api/system/health"
 
 1. 选择发件邮箱。
 2. 发送测试邮件。
-3. 成功记录进入 outbound 列表。
+3. 受理记录进入 outbound 列表，状态为 `accepted`；这不代表已送达。
 4. 失败记录能显示 provider 错误。
 5. 发件配额会递增。
 6. 达到配额后继续发送会被拒绝。
+7. 同一 `requestId` 重试只保留一个逻辑请求并只扣一次额度，同键修改内容返回 409；主动补发使用新键。
+8. 临时失败等待配置的间隔后由分钟级 cron 重试；记录供应商 `Idempotency-Key`，验证重试复用冻结的请求体。23 小时安全窗口后保持 `uncertain` 并人工核对，避免超过供应商幂等保留期后重复发信。
+9. 核对签名事件驱动 `delivered` / `bounced` / `complained`，记录最终状态时间线。篡改签名拒绝、事件重放不重复、晚到 `email.sent` 不降级最终状态。
+10. 邮件设置中的实际域名检查需显式点击，结果标注来源与检查时间；静态配置摘要不能代替真实验证。
+
+迁移 `0027` 为发件请求和投递事件添加持久化账本。上线前在隔离副本验证空库、旧库、额度事务与事件恢复；旧 `sent` 兼容读取但没有最终投递证明。旧代码只识别 `sent/failed`，因此数据迁移后不可直接回滚到旧发件执行器；先停用发件和调度，按备份恢复手册选择兼容修复或一致性恢复。新调度每批最多 10 个任务、并发 4，真实域名检查有 15 秒总预算，发布观察需记录发件延迟、D1 行读写、外部请求、任务积压和重复率。
 
 ### 10.5 集成能力
 

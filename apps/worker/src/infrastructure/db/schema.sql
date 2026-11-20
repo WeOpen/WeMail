@@ -150,8 +150,31 @@ CREATE TABLE IF NOT EXISTS mail_outbound_messages (
   provider_message_id TEXT,
   request_payload_json TEXT NOT NULL DEFAULT '{}',
   response_payload_json TEXT,
-  created_at TEXT NOT NULL
+  created_at TEXT NOT NULL,
+  user_id TEXT,
+  request_key TEXT,
+  request_hash TEXT,
+  max_attempts INTEGER NOT NULL DEFAULT 1,
+  retry_delay_ms INTEGER NOT NULL DEFAULT 0,
+  attempts INTEGER NOT NULL DEFAULT 0,
+  next_attempt_at TEXT,
+  locked_at TEXT,
+  lease_token TEXT,
+  first_attempt_at TEXT,
+  updated_at TEXT,
+  submission_uncertain INTEGER NOT NULL DEFAULT 0,
+  payload_retained INTEGER NOT NULL DEFAULT 1
 );
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_outbound_user_request ON mail_outbound_messages (user_id, request_key);
+CREATE INDEX IF NOT EXISTS idx_outbound_due ON mail_outbound_messages (status, next_attempt_at, locked_at);
+CREATE INDEX IF NOT EXISTS idx_outbound_provider ON mail_outbound_messages (provider_message_id);
+CREATE TABLE IF NOT EXISTS mail_outbound_events (
+  id TEXT PRIMARY KEY, message_id TEXT, provider_message_id TEXT, event_type TEXT NOT NULL,
+  status TEXT NOT NULL, occurred_at TEXT NOT NULL, detail TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_outbound_event_message ON mail_outbound_events (message_id, occurred_at);
+CREATE INDEX IF NOT EXISTS idx_outbound_event_provider ON mail_outbound_events (provider_message_id, occurred_at);
 
 CREATE INDEX IF NOT EXISTS idx_mail_outbound_messages_account_status_created
   ON mail_outbound_messages (account_id, status, created_at DESC);

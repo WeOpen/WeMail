@@ -1,3 +1,5 @@
+import { createHmac } from "node:crypto";
+
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 
 const apiUrl = process.env.BUSINESS_API_URL ?? "http://127.0.0.1:8789";
@@ -227,12 +229,93 @@ test("sends with the real outbound route and enforces D1 quota after provider re
   const email = await register(request, 6);
   const mailbox = await createMailbox(request, "Outbound inbox");
   await driver(request, "providers", { resendFailures: 1 });
-  const payload = { mailboxId: mailbox.id, toAddress: "recipient@example.net", subject: "Business outbound", bodyText: "A controlled outbound test" };
+  const payload = { mailboxId: mailbox.id, toAddress: "recipient@example.net", subject: "Business outbound", bodyText: "A controlled outbound test", requestId: "business-outbound" };
   const response = await request.post(`${apiUrl}/api/mail/send`, { data: payload });
-  expect(response.status(), await response.text()).toBe(200);
+  expect(response.status(), await response.text()).toBe(202);
   const outbound = await (await request.get(`${apiUrl}/api/mail/outbound?accountId=${mailbox.id}`)).json();
   expect(outbound.messages[0].subject).toBe(payload.subject);
-  expect(outbound.messages[0].status).toBe("sent");
+  expect(outbound.messages[0].status).toBe("queued");
+  await driver(request, "dispatch", { now: outbound.messages[0].nextAttemptAt });
+  const submitted = await (await request.get(`${apiUrl}/api/mail/outbound?accountId=${mailbox.id}`)).json();
+  expect(submitted.messages[0].status).toBe("accepted");
+  const providerCalls = await (await request.get(`${apiUrl}/__test/providers`, { headers: testHeaders })).json();
+  expect(providerCalls.requests).toHaveLength(2);
+  expect(providerCalls.requests[0].idempotencyKey).toBe(providerCalls.requests[1].idempotencyKey);
+  expect(providerCalls.requests[0].body).toBe(providerCalls.requests[1].body);
+  expect((await request.post(`${apiUrl}/api/mail/send`, { data: payload })).status()).toBe(200);
   await driver(request, "quota", { email, dailyLimit: 0 });
-  expect((await request.post(`${apiUrl}/api/mail/send`, { data: payload })).status()).toBe(403);
+  expect((await request.post(`${apiUrl}/api/mail/send`, { data: { ...payload, requestId: "new-request" } })).status()).toBe(403);
+});
+
+test("buffers signed delivery events before the D1 send is linked and renders the final timeline", async ({ page }, testInfo) => {
+  await register(page.request, 8);
+  const mailbox = await createMailbox(page.request, "Delivery timeline");
+  const providerId = "business-early-delivery";
+  await driver(page.request, "providers", { resendProviderId: providerId });
+  async function event(id: string, type: string, tamper = false) {
+    const timestamp = String(Math.floor(Date.now() / 1000));
+    const raw = JSON.stringify({ type, created_at: new Date().toISOString(), data: { email_id: providerId } });
+    const signature = createHmac("sha256", "business-test-signing-key").update(`${id}.${timestamp}.${raw}`).digest("base64");
+    return page.request.post(`${apiUrl}/api/mail/providers/resend/events`, {
+      headers: { "content-type": "application/json", "svix-id": id, "svix-timestamp": timestamp, "svix-signature": `v1,${signature}` },
+      data: tamper ? `${raw} ` : raw
+    });
+  }
+  expect((await event("early-delivered", "email.delivered", true)).status()).toBe(401);
+  expect((await event("early-delivered", "email.delivered")).status()).toBe(200);
+  const send = await page.request.post(`${apiUrl}/api/mail/send`, { data: { mailboxId: mailbox.id, toAddress: "recipient@example.net", subject: "Confirmed delivery", bodyText: "Provider callback test", requestId: "early-callback-send" } });
+  expect(send.status(), await send.text()).toBe(200);
+  expect((await event("early-delivered", "email.delivered")).status()).toBe(200);
+  expect((await event("late-sent", "email.sent")).status()).toBe(200);
+  const listing = await (await page.request.get(`${apiUrl}/api/mail/outbound?accountId=${mailbox.id}&status=delivered`)).json();
+  expect(listing.messages).toHaveLength(1);
+  expect(listing.messages[0].status).toBe("delivered");
+  const detail = await (await page.request.get(`${apiUrl}/api/mail/outbound/${listing.messages[0].id}`)).json();
+  expect(detail.message.timeline.filter((item: { type: string }) => item.type === "email.delivered")).toHaveLength(1);
+
+  await page.goto("/mail/outbound");
+  const timeline = page.getByRole("region", { name: "投递时间线" });
+  await expect(timeline).toContainText("已送达");
+  await expect(page.getByRole("region", { name: "发件记录详情" })).toContainText("供应商已确认送达收件服务器");
+  await page.screenshot({ path: testInfo.outputPath("outbound-delivered-desktop.png"), fullPage: true });
+  await page.setViewportSize({ width: 375, height: 812 });
+  await expect(timeline).toContainText("已送达");
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await page.screenshot({ path: testInfo.outputPath("outbound-delivered-mobile.png"), fullPage: true });
+});
+
+test("guides a first inbox through receipt and copying and opens task documentation in the app", async ({ page }, testInfo) => {
+  await register(page.request, 9);
+  const mailbox = await createMailbox(page.request, "First mail guide");
+  await page.goto("/mail/list");
+  const guide = page.getByRole("region", { name: "首封邮件引导" });
+  await expect(guide).toContainText(mailbox.address);
+  await expect(guide.getByRole("link", { name: "打开邮件客户端" })).toHaveAttribute("href", /^mailto:/);
+  await page.setViewportSize({ width: 375, height: 812 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await page.screenshot({ path: testInfo.outputPath("first-mail-mobile.png"), fullPage: true });
+  await receive(page.request, mailbox, "first-guide", "Your verification code is 482913. https://example.net/verify/first https://example.net/reset/second");
+  await guide.getByRole("button", { name: "检查收件" }).click();
+  await expect(guide).toContainText("482913");
+  await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
+  await guide.getByRole("button", { name: "复制收到的提取结果" }).click();
+  await expect(guide.getByRole("link", { name: "配置 Telegram 通知" })).toBeVisible();
+  await expect(page.locator('[aria-label="阅读与提取详情"]')).toContainText("规则提取");
+  await expect(page.locator('[aria-label="阅读与提取详情"]')).toContainText("邮件未注明验证码有效期");
+  await expect(page.locator('[aria-label="其他提取结果"]')).toContainText("https://example.net/reset/second");
+  await page.goto("/docs");
+  await page.getByRole("article").filter({ hasText: "用 API 取得验证码" }).getByRole("link", { name: "阅读步骤" }).click();
+  await expect(page.getByRole("heading", { name: "用 API 取得验证码", exact: true })).toBeVisible();
+  await expect(page.locator("pre").filter({ hasText: 'export WEMAIL_API_URL=' })).toBeVisible();
+  await page.getByRole("link", { name: "推送聊天平台", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "推送聊天平台", exact: true })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await page.screenshot({ path: testInfo.outputPath("task-docs-mobile.png"), fullPage: true });
+  await page.request.post(`${apiUrl}/api/auth/login`, { data: { email: "business-admin@example.com", password } });
+  await page.goto("/system/settings#setup-checks");
+  const diagnostics = page.getByRole("region", { name: "自托管检查" });
+  await expect(diagnostics).toContainText("配置快照");
+  await expect(diagnostics).toContainText("配置存在不代表服务已连通");
+  await diagnostics.getByRole("link", { name: "查看收件路由步骤" }).click();
+  await expect(page.getByRole("heading", { name: "Email Routing", exact: true })).toBeVisible();
 });

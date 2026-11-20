@@ -1,6 +1,7 @@
 import productionWorker from "../../src/index";
 import { processInboundEmail } from "../../src/app/runtime";
 import { processNotificationOutbox } from "../../src/app/services/notification-outbox-service";
+import { processOutboundSends } from "../../src/app/services/outbound-delivery-service";
 import type { AppBindings } from "../../src/core/bindings";
 import { createD1Store } from "../../src/infrastructure/persistence/d1";
 
@@ -8,18 +9,19 @@ type BusinessBindings = AppBindings & { BUSINESS_TEST_TOKEN: string };
 
 // This entry is bundled only by the local test runner. No actual external
 // request may escape the harness; production uses its unchanged fetch API.
-const providerRequests: Array<{ url: string; body: string }> = [];
+const providerRequests: Array<{ url: string; body: string; idempotencyKey: string | null }> = [];
 let resendFailures = 0;
+let resendProviderId: string | null = null;
 let webhookFailures = 0;
 globalThis.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
   const url = new URL(input instanceof Request ? input.url : String(input));
-  providerRequests.push({ url: url.toString(), body: String(init?.body ?? "") });
+  providerRequests.push({ url: url.toString(), body: String(init?.body ?? ""), idempotencyKey: new Headers(init?.headers).get("Idempotency-Key") });
   if (url.hostname === "api.resend.com") {
     if (resendFailures > 0) {
       resendFailures -= 1;
       return Response.json({ message: "Controlled provider outage" }, { status: 503 });
     }
-    return Response.json({ id: crypto.randomUUID() });
+    return Response.json({ id: resendProviderId ?? crypto.randomUUID() });
   }
   if (url.hostname === "hooks.business.test") {
     if (webhookFailures > 0) {
@@ -66,8 +68,9 @@ export default {
       return Response.json({ message });
     }
     if (path === "/__test/providers" && request.method === "POST") {
-      const payload = await request.json() as { resendFailures?: number; webhookFailures?: number };
+      const payload = await request.json() as { resendFailures?: number; webhookFailures?: number; resendProviderId?: string };
       resendFailures = Math.max(0, Math.min(payload.resendFailures ?? 0, 10));
+      resendProviderId = payload.resendProviderId ?? null;
       webhookFailures = Math.max(0, Math.min(payload.webhookFailures ?? 0, 10));
       providerRequests.length = 0;
       return Response.json({ ok: true });
@@ -77,7 +80,9 @@ export default {
       const payload = await request.json() as { now?: string };
       const now = payload.now ? new Date(payload.now) : new Date();
       if (!Number.isFinite(now.getTime())) return Response.json({ error: "Invalid test clock" }, { status: 400 });
-      return Response.json(await processNotificationOutbox(store, env, { now }));
+      const notifications = await processNotificationOutbox(store, env, { now });
+      const outbound = await processOutboundSends(store, env, { now });
+      return Response.json({ notifications, outbound });
     }
     if (path === "/__test/quota" && request.method === "POST") {
       const payload = await request.json() as { email: string; apiDailyLimit?: number; dailyLimit?: number };

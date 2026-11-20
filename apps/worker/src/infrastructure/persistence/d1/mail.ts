@@ -1,4 +1,5 @@
 import type { D1Database } from "@cloudflare/workers-types";
+import { outboundSubmittedStatuses, outboundFailureStatuses } from "@wemail/shared";
 import type {
   AppStore,
   AttachmentRecord,
@@ -573,9 +574,10 @@ export function createMailAggregate(db: D1Database): MailAggregate {
 
         const filteredConditions = [...baseConditions];
         const filteredBindings = [...baseBindings];
-        if (query.status === "sent" || query.status === "failed") {
-          filteredConditions.push("status = ?");
-          filteredBindings.push(query.status);
+        if (query.status && query.status !== "all") {
+          const statuses = query.status === "sent" ? outboundSubmittedStatuses : query.status === "failed" ? outboundFailureStatuses : [query.status];
+          filteredConditions.push(`status IN (${statuses.map(() => "?").join(", ")})`);
+          filteredBindings.push(...statuses);
         }
 
         const baseWhereClause = `WHERE ${baseConditions.join(" AND ")}`;
@@ -588,8 +590,8 @@ export function createMailAggregate(db: D1Database): MailAggregate {
           .prepare(
             `SELECT
               COUNT(*) AS total_count,
-              COALESCE(SUM(CASE WHEN status = 'sent' THEN 1 ELSE 0 END), 0) AS sent_count,
-              COALESCE(SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END), 0) AS failed_count
+              COALESCE(SUM(CASE WHEN status IN ('sent','accepted','delivered') THEN 1 ELSE 0 END), 0) AS sent_count,
+              COALESCE(SUM(CASE WHEN status IN ('failed','bounced','complained','uncertain') THEN 1 ELSE 0 END), 0) AS failed_count
             FROM mail_outbound_messages ${baseWhereClause}`
           )
           .bind(...baseBindings)
@@ -623,8 +625,8 @@ export function createMailAggregate(db: D1Database): MailAggregate {
         }
 
         const sentSinceExpression = query.sinceIso
-          ? "COALESCE(SUM(CASE WHEN status = 'sent' AND created_at >= ? THEN 1 ELSE 0 END), 0)"
-          : "COALESCE(SUM(CASE WHEN status = 'sent' THEN 1 ELSE 0 END), 0)";
+          ? "COALESCE(SUM(CASE WHEN status IN ('sent','accepted','delivered') AND created_at >= ? THEN 1 ELSE 0 END), 0)"
+          : "COALESCE(SUM(CASE WHEN status IN ('sent','accepted','delivered') THEN 1 ELSE 0 END), 0)";
         const bindings: unknown[] = query.sinceIso
           ? [query.sinceIso, JSON.stringify(mailboxIds)]
           : [JSON.stringify(mailboxIds)];
@@ -633,8 +635,8 @@ export function createMailAggregate(db: D1Database): MailAggregate {
           .prepare(
             `SELECT
               COUNT(*) AS total_count,
-              COALESCE(SUM(CASE WHEN status = 'sent' THEN 1 ELSE 0 END), 0) AS sent_count,
-              COALESCE(SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END), 0) AS failed_count,
+              COALESCE(SUM(CASE WHEN status IN ('sent','accepted','delivered') THEN 1 ELSE 0 END), 0) AS sent_count,
+              COALESCE(SUM(CASE WHEN status IN ('failed','bounced','complained','uncertain') THEN 1 ELSE 0 END), 0) AS failed_count,
               ${sentSinceExpression} AS sent_since_count
             FROM mail_outbound_messages
             WHERE account_id IN (SELECT value FROM json_each(?))`

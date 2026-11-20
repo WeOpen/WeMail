@@ -3,6 +3,9 @@ import {
   applyDictionaryItemUpdate,
   buildDictionaryCatalog,
   DEFAULT_API_KEY_SCOPES,
+  outboundSubmittedStatuses,
+  outboundFailureStatuses,
+  matchesOutboundStatus as matchesSharedOutboundStatus,
   findDefaultDictionaryItem,
   type ApiKeyScope,
   type DictionaryItemSummary,
@@ -34,6 +37,7 @@ import type {
   OAuthPendingLoginRecord,
   OAuthStateRecord,
   OutboundMessageRecord,
+  OutboundSendRecord,
   OutboundMessageUsageQuery,
   OutboundMessageUsageSummary,
   PersistedMessageRecord,
@@ -200,9 +204,7 @@ function matchesOutboundSearch(record: OutboundMessageRecord, searchValue?: stri
 }
 
 function matchesOutboundStatus(record: OutboundMessageRecord, status: OutboundListStatus = "all") {
-  if (status === "sent") return record.status === "sent";
-  if (status === "failed") return record.status === "failed";
-  return true;
+  return matchesSharedOutboundStatus(record.status, status);
 }
 
 export function createInMemoryStore(): AppStore {
@@ -217,6 +219,8 @@ export function createInMemoryStore(): AppStore {
   const messages = new Map<string, PersistedMessageRecord>();
   const attachments = new Map<string, AttachmentRecord[]>();
   const outboundMessages: OutboundMessageRecord[] = [];
+  const outboundSends = new Map<string, OutboundSendRecord>();
+  const outboundEvents = new Map<string, { id: string; type: string; status: OutboundMessageRecord["status"]; occurredAt: string; detail: string | null; messageId?: string; providerMessageId?: string }>();
   const apiKeys = new Map<string, ApiKeyRecord>();
   const telegramSubscriptions = new Map<string, TelegramSubscriptionRecord>();
   const quotas = new Map<string, QuotaRecord>();
@@ -864,8 +868,8 @@ export function createInMemoryStore(): AppStore {
           pageSize,
           summary: {
             totalCount: searchedMessages.length,
-            sentCount: searchedMessages.filter((entry) => entry.status === "sent").length,
-            failedCount: searchedMessages.filter((entry) => entry.status === "failed").length
+            sentCount: searchedMessages.filter((entry) => outboundSubmittedStatuses.includes(entry.status)).length,
+            failedCount: searchedMessages.filter((entry) => outboundFailureStatuses.includes(entry.status)).length
           },
           total: filteredMessages.length
         });
@@ -874,18 +878,91 @@ export function createInMemoryStore(): AppStore {
         const mailboxIds = new Set(query.mailboxIds);
         const scopedMessages = outboundMessages.filter((entry) => mailboxIds.has(entry.mailboxId));
         const sentSinceCount = scopedMessages.filter(
-          (entry) => entry.status === "sent" && (!query.sinceIso || entry.createdAt >= query.sinceIso)
+          (entry) => outboundSubmittedStatuses.includes(entry.status) && (!query.sinceIso || entry.createdAt >= query.sinceIso)
         ).length;
 
         return {
           totalCount: scopedMessages.length,
-          sentCount: scopedMessages.filter((entry) => entry.status === "sent").length,
-          failedCount: scopedMessages.filter((entry) => entry.status === "failed").length,
+          sentCount: scopedMessages.filter((entry) => outboundSubmittedStatuses.includes(entry.status)).length,
+          failedCount: scopedMessages.filter((entry) => outboundFailureStatuses.includes(entry.status)).length,
           sentSinceCount
         };
       },
       async findById(id) {
         return clone(outboundMessages.find((entry) => entry.id === id) ?? null);
+      }
+    },
+    outboundSends: {
+      async accept(input, limits) {
+        const existing = Array.from(outboundSends.values()).find((entry) => entry.userId === input.userId && entry.requestId === input.requestId);
+        if (existing) return clone(existing);
+        const now = nowIso();
+        const quota = quotas.get(input.userId) ?? { userId: input.userId, dailyLimit: limits.dailyLimit, apiDailyLimit: limits.apiDailyLimit, sendsToday: 0, apiCallsToday: 0, disabled: false, updatedAt: now };
+        const isNewDay = quota.updatedAt.slice(0, 10) !== now.slice(0, 10);
+        const used = isNewDay ? 0 : quota.sendsToday;
+        if (quota.disabled || used >= quota.dailyLimit) return null;
+        const record: OutboundSendRecord = {
+          ...input, id: crypto.randomUUID(), status: "queued", errorText: null, providerMessageId: null, responsePayloadJson: null,
+          attempts: 0, nextAttemptAt: now, leaseToken: null, firstAttemptAt: null, submissionUncertain: false, createdAt: now, payloadRetained: true
+        };
+        quotas.set(input.userId, { ...quota, sendsToday: used + 1, apiCallsToday: isNewDay ? 0 : quota.apiCallsToday, updatedAt: now });
+        outboundMessages.push(record);
+        outboundSends.set(record.id, record);
+        return clone(record);
+      },
+      async findByUserAndKey(userId, requestId) {
+        return clone(Array.from(outboundSends.values()).find((entry) => entry.userId === userId && entry.requestId === requestId) ?? null);
+      },
+      async claimDue(input) {
+        const claimed: OutboundSendRecord[] = [];
+        for (const row of outboundSends.values()) {
+          const lockedAt = (row as OutboundSendRecord & { lockedAt?: string | null }).lockedAt;
+          if ((row.status === "queued" || row.status === "sending") && ((row.firstAttemptAt && new Date(input.nowIso).getTime() - new Date(row.firstAttemptAt).getTime() >= 23 * 3_600_000) || (row.status === "sending" && row.attempts >= row.maxAttempts && lockedAt && lockedAt <= input.lockBeforeIso))) {
+            row.status = "uncertain"; row.errorText = "供应商幂等窗口已过期或最后一次尝试中断，请核对供应商记录"; row.leaseToken = null;
+          }
+          const isDue = (row.status === "queued" && row.nextAttemptAt <= input.nowIso) || (row.status === "sending" && lockedAt && lockedAt <= input.lockBeforeIso);
+          if (!isDue || row.attempts >= row.maxAttempts || (input.id && (row.id !== input.id || row.userId !== input.userId))) continue;
+          row.submissionUncertain ||= row.status === "sending";
+          row.status = "sending"; row.attempts += 1; row.leaseToken = crypto.randomUUID(); row.firstAttemptAt ??= input.nowIso;
+          Object.assign(row, { lockedAt: input.nowIso });
+          claimed.push(clone(row));
+          if (claimed.length >= Math.min(input.limit, 10)) break;
+        }
+        return claimed;
+      },
+      async complete(id, input) {
+        const row = outboundSends.get(id);
+        if (!row || row.status !== "sending" || row.leaseToken !== input.leaseToken) return;
+        const eventId = `attempt:${crypto.randomUUID()}`;
+        outboundEvents.set(eventId, { id: eventId, messageId: id, providerMessageId: input.providerMessageId, type: "attempt", status: input.status, occurredAt: input.nowIso, detail: input.errorText ?? null });
+        Object.assign(row, { status: input.status, submissionUncertain: row.submissionUncertain || input.submissionUncertain === true, errorText: input.errorText ?? null, providerMessageId: input.providerMessageId ?? row.providerMessageId, responsePayloadJson: input.responsePayloadJson ?? null, nextAttemptAt: input.nextAttemptAt ?? row.nextAttemptAt, leaseToken: null, lockedAt: null });
+        const rank: Record<string, number> = { complained: 6, bounced: 5, delivered: 4, failed: 3, accepted: 2 };
+        const events = Array.from(outboundEvents.values()).filter((event) => row.providerMessageId && event.providerMessageId === row.providerMessageId).sort((a, b) => (rank[b.status] ?? 0) - (rank[a.status] ?? 0) || b.occurredAt.localeCompare(a.occurredAt));
+        if (events[0]) { row.status = events[0].status; row.errorText = events[0].detail; }
+      },
+      async recordProviderEvent(event) {
+        const id = `provider:${event.id}`;
+        if (!outboundEvents.has(id)) outboundEvents.set(id, { ...event, id });
+        const rank: Record<string, number> = { complained: 6, bounced: 5, delivered: 4, failed: 3, accepted: 2 };
+        for (const row of outboundMessages) {
+          if (row.providerMessageId !== event.providerMessageId) continue;
+          const events = Array.from(outboundEvents.values()).filter((item) => item.providerMessageId === row.providerMessageId).sort((a, b) => (rank[b.status] ?? 0) - (rank[a.status] ?? 0) || b.occurredAt.localeCompare(a.occurredAt));
+          if (events[0]) { row.status = events[0].status; row.errorText = events[0].detail; }
+        }
+      },
+      async timeline(id) {
+        const row = outboundMessages.find((message) => message.id === id);
+        return clone(Array.from(outboundEvents.values()).filter((event) => event.messageId === id || (row?.providerMessageId && event.providerMessageId === row.providerMessageId)).sort((a, b) => a.occurredAt.localeCompare(b.occurredAt)).map(({ id: eventId, type, status, occurredAt, detail }) => ({ id: eventId, type, status, occurredAt, detail })));
+      },
+      async cleanup(before) {
+        for (const [id, event] of outboundEvents) {
+          if (!event.messageId && event.occurredAt <= before && !outboundMessages.some((message) => message.providerMessageId === event.providerMessageId)) outboundEvents.delete(id);
+        }
+        for (const row of outboundSends.values()) {
+          if (!outboundFailureStatuses.includes(row.status) || row.createdAt > before) continue;
+          row.bodyText = ""; row.requestPayloadJson = "{}"; row.responsePayloadJson = null; row.errorText = null; row.payloadRetained = false;
+          for (const event of outboundEvents.values()) if (event.messageId === row.id || (row.providerMessageId && event.providerMessageId === row.providerMessageId)) event.detail = null;
+        }
       }
     },
     apiKeys: {

@@ -116,6 +116,20 @@ describe("buildMessageExtraction (multi-value envelope)", () => {
     expect(envelope.primary.value).toBe("582014");
   });
 
+  it("rejects amounts and dates even when they immediately follow code wording", () => {
+    expect(buildMessageExtraction({ text: "Code: 2026-12-31" }).items).toEqual([]);
+    expect(buildMessageExtraction({ text: "Code: 4932.00" }).items).toEqual([]);
+    expect(buildMessageExtraction({ text: "Code: 4932 USD" }).items).toEqual([]);
+  });
+
+  it("bounds findings without losing header unsubscribe precedence", () => {
+    const text = Array.from({ length: 200 }, (_, i) => `https://example.test/news/${i}`).join("\n");
+    const extraction = buildMessageExtraction({ text, listUnsubscribe: "<https://example.test/u>" });
+    expect(extraction.items).toHaveLength(32);
+    expect(extraction.primary).toMatchObject({ type: "subscription_link", source: "header", value: "https://example.test/u" });
+    expect(extraction.items).toContain(extraction.primary);
+  });
+
   it("captures a code written before the keyword", () => {
     const envelope = buildMessageExtraction({
       subject: "Acme login",
@@ -149,11 +163,16 @@ describe("buildMessageExtraction (multi-value envelope)", () => {
     });
 
     expect(envelope.authSummary).toMatchObject({ spf: "pass", dkim: "pass", dmarc: "pass" });
+    expect(envelope.authSummary?.source).toBe("unverified_header");
   });
 
   it("marks failed verdicts and maps DMARC quarantine to fail", () => {
     const summary = parseAuthenticationResults("spf=fail; dkim=none; dmarc=quarantine");
     expect(summary).toMatchObject({ spf: "fail", dkim: "none", dmarc: "fail" });
+  });
+
+  it("does not parse a verdict mentioned inside a comment or another property", () => {
+    expect(parseAuthenticationResults("mx.cloudflare.net; dkim=none (spf=pass) header.d=\"dmarc=pass\"")).toMatchObject({ spf: "unknown", dmarc: "unknown", dkim: "none" });
   });
 });
 
@@ -178,6 +197,11 @@ describe("parseMessageExtraction (stored JSON compatibility)", () => {
 
     expect(parseMessageExtraction("not json").primary.type).toBe("none");
     expect(parseMessageExtraction(null).primary.type).toBe("none");
+  });
+
+  it("keeps historical header claims unverified when their source was not saved", () => {
+    const stored = JSON.stringify({ items: [], authSummary: { spf: "pass", dkim: "pass", dmarc: "pass", raw: "spf=pass" } });
+    expect(parseMessageExtraction(stored).authSummary?.source).toBe("unverified_header");
   });
 });
 

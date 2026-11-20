@@ -181,19 +181,22 @@ export const apiInterfaceGroups = [
         description: "读取当前用户的发信额度、身份检查、DNS checklist、重试策略、Return-Path 说明和模板入口。",
         access: "登录用户"
       },
+      { method: "GET", path: "/api/mail/outbound/domain-status", title: "实际发件域名检查", description: "查询供应商验证和公共 DNS，返回来源、检查时间及结果。", access: "登录用户" },
+      { method: "POST", path: "/api/mail/providers/resend/events", title: "Resend 投递事件", description: "校验原始请求体签名并去重保存投递事件。", access: "Svix 签名", example: { headers: ["svix-id: msg_example", "svix-timestamp: <unix-seconds>", "svix-signature: v1,<signature>"], requestBody: { type: "email.delivered", created_at: "2026-11-20T00:00:00Z", data: { email_id: "provider-message-id" } } } },
       { method: "GET", path: "/api/mail/outbound/:id", title: "发件详情", description: "读取外发邮件详情与异常信息。", access: "登录用户" },
       {
         method: "POST",
         path: "/api/mail/send",
         title: "发送邮件",
-        description: "通过选定邮箱账号发送邮件。",
+        description: "持久化逻辑请求与额度，网络重试复用 requestId；供应商受理与最终投递分别记录。",
         access: "登录用户",
         example: {
           requestBody: {
-            accountId: "mailbox_123",
+            mailboxId: "mailbox_123",
             subject: "测试邮件",
-            text: "Hello from WeMail",
-            to: ["recipient@example.com"]
+            bodyText: "Hello from WeMail",
+            toAddress: "recipient@example.com",
+            requestId: "request-example-1"
           }
         }
       },

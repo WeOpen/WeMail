@@ -17,10 +17,12 @@ import {
   type LucideIcon
 } from "lucide-react";
 
+import { matchesOutboundStatus, outboundFailureStatuses, outboundStatusLabels } from "@wemail/shared";
 import type {
   MailboxSummary,
   MailSettingsWorkspaceDefaults,
   OutboundListStatus,
+  OutboundMessageStatus,
   OutboundMaturitySummary,
   SystemDiagnosticStatus
 } from "@wemail/shared";
@@ -39,7 +41,7 @@ import { fetchMailSettings, fetchOutboundMaturity } from "../settings/api";
 import { OutboundComposeDrawer } from "./OutboundComposeDrawer";
 
 type OutboundFilter = "all" | "sent" | "failed";
-type OutboundRecordStatus = "已发送" | "失败";
+type OutboundRecordStatus = string;
 
 type OutboundRecord = {
   id: string;
@@ -74,7 +76,7 @@ const outboundPageSizeOptions = [6, 12] as const;
 const initialOutboundPageSize = 6;
 const outboundFilters: Array<{ icon: LucideIcon; label: string; value: OutboundFilter }> = [
   { icon: Inbox, label: "全部", value: "all" },
-  { icon: CheckCircle2, label: "已发送", value: "sent" },
+  { icon: CheckCircle2, label: "已提交", value: "sent" },
   { icon: XCircle, label: "失败", value: "failed" }
 ];
 
@@ -92,9 +94,7 @@ function getFilterFromSettings(value: string | undefined): OutboundFilter {
 }
 
 function matchFilter(record: OutboundRecord, filter: OutboundFilter) {
-  if (filter === "sent") return record.status === "已发送";
-  if (filter === "failed") return record.status === "失败";
-  return true;
+  return matchesOutboundStatus(record.raw.status, filter);
 }
 
 function toOutboundApiStatus(filter: OutboundFilter): OutboundListStatus {
@@ -110,7 +110,7 @@ function pickSelectedRecord(records: OutboundRecord[], selectedRecordId: string 
   }
 
   if (preferFailedRecord) {
-    const failedRecord = records.find((record) => record.status === "失败");
+    const failedRecord = records.find((record) => outboundFailureStatuses.includes(record.raw.status));
     if (failedRecord) return failedRecord;
   }
 
@@ -136,13 +136,28 @@ function buildOutboundRecords(history: OutboundHistoryItem[]) {
     id: item.id,
     toAddress: item.toAddress,
     subject: item.subject,
-    status: item.status === "failed" ? "失败" : "已发送",
-    summary: item.errorText ?? "已发送到收件人。",
+    status: outboundStatusLabels[item.status],
+    summary: item.errorText ?? getOutboundStatusDescription(item.status),
     createdAtLabel: formatOutboundDate(item.createdAt),
     payloadPreview: item.requestPayloadJson ?? JSON.stringify({ toAddress: item.toAddress, subject: item.subject }, null, 2),
     failureReason: item.errorText,
     raw: item
   })) satisfies OutboundRecord[];
+}
+
+function getOutboundStatusDescription(status: OutboundMessageStatus) {
+  const descriptions: Record<OutboundMessageStatus, string> = {
+    sent: "历史记录只证明曾提交发送，最终投递结果未知。",
+    queued: "等待发送或按配置自动重试。",
+    sending: "正在向供应商提交。",
+    accepted: "供应商已受理，等待投递确认。",
+    delivered: "供应商已确认送达收件服务器。",
+    bounced: "收件服务器退回了邮件。",
+    complained: "收件人将邮件标记为垃圾邮件。",
+    failed: "发送失败，请查看失败原因。",
+    uncertain: "提交结果待确认，补发前请先核对供应商记录。"
+  };
+  return descriptions[status];
 }
 
 function getFilterCount(records: OutboundRecord[], filter: OutboundFilter) {
@@ -265,6 +280,8 @@ export function OutboundPage({
   const [rawDetailError, setRawDetailError] = useState<string | null>(null);
   const [isRawDetailOpen, setIsRawDetailOpen] = useState(false);
   const [isLoadingRawDetail, setIsLoadingRawDetail] = useState(false);
+  const [deliveryDetail, setDeliveryDetail] = useState<OutboundHistoryDetail | null>(null);
+  const [deliveryDetailError, setDeliveryDetailError] = useState<string | null>(null);
   const [workspaceDefaults, setWorkspaceDefaults] = useState<MailSettingsWorkspaceDefaults | null>(null);
   const [outboundMaturity, setOutboundMaturity] = useState<OutboundMaturitySummary | null>(null);
   const [outboundMaturityError, setOutboundMaturityError] = useState<string | null>(null);
@@ -362,6 +379,21 @@ export function OutboundPage({
     () => pickSelectedRecord(paged.records, selectedRecordId, Boolean(workspaceDefaults?.openLatestFailureFirst)),
     [paged.records, selectedRecordId, workspaceDefaults?.openLatestFailureFirst]
   );
+
+  const selectedHistory = selectedRecord?.raw;
+  useEffect(() => {
+    let isStale = false;
+    setDeliveryDetail(null);
+    setDeliveryDetailError(null);
+    if (selectedHistory) {
+      void onLoadOutboundDetail(selectedHistory.id).then((detail) => {
+        if (!isStale) setDeliveryDetail(detail);
+      }).catch((error: unknown) => {
+        if (!isStale) setDeliveryDetailError(error instanceof Error ? error.message : "投递时间线加载失败");
+      });
+    }
+    return () => { isStale = true; };
+  }, [onLoadOutboundDetail, selectedHistory]);
 
   const sentCount = outboundSummary.sentCount ?? getFilterCount(records, "sent");
   const failedCount = outboundSummary.failedCount ?? getFilterCount(records, "failed");
@@ -521,7 +553,7 @@ export function OutboundPage({
 
             <div className="outbound-stat-grid" aria-label="发件箱概览">
               <StatCard detail="全部记录" icon={Inbox} label="发送总量" tone="neutral" value={totalCount} />
-              <StatCard detail={`成功率 ${successRate}`} icon={CheckCircle2} label="发送成功" tone="success" value={sentCount} />
+              <StatCard detail={`提交占比 ${successRate}`} icon={CheckCircle2} label="已提交供应商" tone="success" value={sentCount} />
               <StatCard detail="失败记录" icon={XCircle} label="发送失败" tone="danger" value={failedCount} />
             </div>
           </div>
@@ -654,7 +686,7 @@ export function OutboundPage({
                 >
                   <div className="outbound-record-item-top">
                     <strong title={record.subject}>{record.subject}</strong>
-                    <span className="outbound-status-chip" data-status={record.status}>
+                    <span className="outbound-status-chip" data-status={record.raw.status}>
                       {record.status}
                     </span>
                   </div>
@@ -695,7 +727,7 @@ export function OutboundPage({
                     <p className="panel-kicker">记录详情</p>
                     <h2>{selectedRecord.subject}</h2>
                   </div>
-                  <span className="outbound-status-chip" data-status={selectedRecord.status}>
+                  <span className="outbound-status-chip" data-status={selectedRecord.raw.status}>
                     {selectedRecord.status}
                   </span>
                 </div>
@@ -707,11 +739,11 @@ export function OutboundPage({
                   </div>
                   <div>
                     <dt>发件身份</dt>
-                    <dd>{activeMailbox?.address ?? "-"}</dd>
+                    <dd>{deliveryDetail?.fromAddress ?? selectedRecord.raw.fromAddress ?? activeMailbox?.address ?? "-"}</dd>
                   </div>
                   <div>
                     <dt>结果</dt>
-                    <dd>{selectedRecord.failureReason ?? "已发送"}</dd>
+                    <dd>{selectedRecord.status}</dd>
                   </div>
                   <div>
                     <dt>时间</dt>
@@ -722,7 +754,23 @@ export function OutboundPage({
                 <section className="outbound-result-card" aria-label="发送结果摘要">
                   <p className="panel-kicker">发送结果</p>
                   <strong>{selectedRecord.summary}</strong>
-                  <span>{selectedRecord.failureReason ? "可从当前详情补发并保留原始 payload。" : "邮件已进入发送记录，可复制 payload 做审计留存。"}</span>
+                  {selectedRecord.raw.status === "uncertain" ? <span>补发会创建新的请求，可能重复投递，请先核对供应商记录。</span> : null}
+                </section>
+
+                <section className="outbound-timeline" aria-label="投递时间线" aria-live="polite">
+                  <h3>投递时间线</h3>
+                  {deliveryDetailError ? <p role="alert">{deliveryDetailError}</p> : !deliveryDetail ? <p>正在加载…</p> : (
+                    <>
+                      <p>提交尝试 {deliveryDetail.attempts ?? 0} 次{deliveryDetail.status === "queued" && deliveryDetail.nextAttemptAt ? ` · 下次尝试 ${formatOutboundDate(deliveryDetail.nextAttemptAt)}` : ""}</p>
+                      {deliveryDetail.timeline?.length ? <ol>{deliveryDetail.timeline.map((entry) => (
+                        <li key={entry.id}>
+                          <strong>{outboundStatusLabels[entry.status]}</strong>
+                          <time dateTime={entry.occurredAt}>{formatOutboundDate(entry.occurredAt)}</time>
+                          {entry.detail ? <span>{entry.detail}</span> : null}
+                        </li>
+                      ))}</ol> : <p>暂无投递事件{selectedRecord.raw.status === "sent" ? "，历史提交没有最终投递证明" : ""}。</p>}
+                    </>
+                  )}
                 </section>
 
                 <div className="outbound-detail-payload">
@@ -732,7 +780,7 @@ export function OutboundPage({
 
                 <div className="outbound-detail-actions">
                   <Button leadingIcon={<Repeat2 size={16} strokeWidth={1.9} aria-hidden="true" />} onClick={() => openRecordComposeDrawer(selectedRecord)} variant="primary">
-                    重发
+                    补发新请求
                   </Button>
                   <Button leadingIcon={<ClipboardCopy size={16} strokeWidth={1.9} aria-hidden="true" />} onClick={() => void handleCopyPayload(selectedRecord.payloadPreview)} variant="secondary">
                     复制 payload
@@ -868,9 +916,17 @@ export function OutboundPage({
                 </div>
                 <div>
                   <dt>状态</dt>
-                  <dd>{rawDetail.status === "failed" ? "失败" : "已发送"}</dd>
+                  <dd>{outboundStatusLabels[rawDetail.status]}</dd>
                 </div>
               </dl>
+              <section aria-label="发件状态时间线" className="outbound-detail-payload">
+                <h3>投递进度</h3>
+                {rawDetail.status === "queued" && rawDetail.nextAttemptAt ? <p>下次尝试：{formatOutboundDate(rawDetail.nextAttemptAt)}</p> : null}
+                {(rawDetail.timeline ?? []).length === 0 ? <p>暂无供应商投递事件；历史提交结果不能确认最终送达。</p> : (
+                  <ol>{rawDetail.timeline!.map((item) => <li key={item.id}><strong>{outboundStatusLabels[item.status]}</strong> · {formatOutboundDate(item.occurredAt)}{item.detail ? <p>{item.detail}</p> : null}</li>)}</ol>
+                )}
+                {rawDetail.payloadRetained === false ? <p>失败记录的正文和供应商响应已按保留策略清理。</p> : null}
+              </section>
               <div className="outbound-detail-payload">
                 <p className="panel-kicker">正文</p>
                 <pre>{rawDetail.bodyText}</pre>

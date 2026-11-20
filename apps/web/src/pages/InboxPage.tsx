@@ -13,6 +13,7 @@ import type {
 } from "@wemail/shared";
 
 import { InboxSummaryBar } from "../features/inbox/InboxSummaryBar";
+import { FirstMailGuide } from "../features/inbox/FirstMailGuide";
 import { MessageDetailPanel } from "../features/inbox/MessageDetailPanel";
 import {
   MessageStreamPanel,
@@ -349,6 +350,26 @@ export function InboxPage({
     setMessagePage(1);
   };
 
+  const handleCheckFirstMail = async () => {
+    const mailboxId = mailboxes[0]?.id;
+    if (!mailboxId) return;
+    const isAlreadyCheckingInbox = messageQuery.mailboxId === mailboxId && messageQuery.page === 1 &&
+      messageQuery.filter === "all" && !messageQuery.search && !messageQuery.from && !messageQuery.subject &&
+      !messageQuery.startDate && !messageQuery.endDate && messageQuery.hasAttachment === undefined && !messageQuery.extractionType;
+
+    setMessageSearchValue("");
+    setDebouncedMessageSearchValue("");
+    setMessageAdvancedFilters(defaultMessageAdvancedFilters);
+    setMessageFilter("all");
+    setMessagePage(1);
+    if (selectedMailboxId !== mailboxId) onSelectMailbox(mailboxId);
+
+    // Changing the query triggers the existing refresh effect once. Reusing
+    // the current filters could hide a real test message; fetching here as
+    // well would issue a duplicate request that the hook immediately aborts.
+    if (isAlreadyCheckingInbox) await onRefreshMessages({ mailboxId, page: 1, pageSize: messagePageSize, filter: "all" });
+  };
+
   const handleAdvancedFilterChange = (field: keyof MessageAdvancedFilters, value: string) => {
     setMessageAdvancedFilters((current) => ({
       ...current,
@@ -416,6 +437,16 @@ export function InboxPage({
     <>
       <main className="workspace-grid inbox-page-grid">
         <h1 className="sr-only">邮件列表</h1>
+        {mailboxes.length <= 1 ? (
+          <FirstMailGuide
+            key={mailboxes[0]?.id ?? "first-mailbox"}
+            mailbox={mailboxes[0] ?? null}
+            message={messages.find((message) => message.mailboxId === mailboxes[0]?.id) ?? null}
+            onCreateMailbox={onOpenMailboxComposer}
+            onRefresh={handleCheckFirstMail}
+            role={currentUserRole}
+          />
+        ) : null}
         <InboxSummaryBar
           attachmentCount={messageListSummary.attachmentCount}
           extractionCount={messageListSummary.extractionCount}

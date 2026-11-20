@@ -1,0 +1,31 @@
+.first-mail-guide {
+  display: grid;
+  gap: 16px;
+  padding: 20px 24px;
+}
+
+.first-mail-guide-heading,
+.first-mail-guide-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.first-mail-guide-heading { justify-content: space-between; }
+.first-mail-guide-heading h2 { margin: 0; font-size: 1.05rem; }
+.first-mail-guide-content { display: grid; gap: 12px; min-width: 0; }
+.first-mail-guide-content p { margin: 0; overflow-wrap: anywhere; line-height: 1.6; }
+.first-mail-guide-hint { color: var(--text-muted); font-size: 0.85rem; }
+.first-mail-guide-actions code { overflow-wrap: anywhere; min-width: 0; }
+.first-mail-guide-steps { display: flex; flex-wrap: wrap; gap: 12px 24px; padding: 0; margin: 0; list-style: none; }
+.first-mail-guide-steps li { display: flex; align-items: center; gap: 8px; font-size: 0.85rem; color: var(--text-muted); }
+.first-mail-guide-steps li span { display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; border: 1px solid var(--border); }
+.first-mail-guide-steps li[aria-current="step"] { color: var(--text); font-weight: 650; }
+.first-mail-guide-steps li[aria-current="step"] span { background: var(--accent-soft); border-color: var(--accent); }
+.first-mail-guide-steps li[data-complete="true"] span { background: var(--success-soft); }
+
+@media (max-width: 600px) {
+  .first-mail-guide { padding: 16px; }
+  .first-mail-guide-steps { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+}

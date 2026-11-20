@@ -1,0 +1,64 @@
+---
+title: 用 API 取得验证码
+description: 创建只读 API 密钥，读取自己邮箱里的验证码，并处理等待和未提取状态
+---
+
+目标：从已经属于你的邮箱取得一封新邮件的验证码。先在「邮件列表」完成首封邮件收件验证；本地开发不能直接接收互联网邮件。
+
+## 1. 创建最小权限密钥
+
+进入「API 密钥」，创建只包含 `mail:read` 的密钥。密钥只显示一次，保存到调用环境的秘密配置中。不要放进网页代码、仓库或日志。
+
+以下示例需要 `curl` 和 `jq`。用自己的 API origin 替换地址，`WEMAIL_API_KEY` 从秘密配置注入，不在命令中直接填写真实密钥。
+
+```bash
+export WEMAIL_API_URL="https://wemail-api.example.com"
+```
+
+```bash
+curl --fail-with-body --silent --show-error \
+  -H "Authorization: Bearer $WEMAIL_API_KEY" \
+  "$WEMAIL_API_URL/api/accounts" | jq '.mailboxes[] | {id, address}'
+```
+
+只读密钥可以读取邮箱，不能创建邮箱。需要新地址时先在工作台创建，或另行授权 `mailbox:manage`。
+
+## 2. 从外部邮箱发送测试邮件
+
+向上一步的 `address` 发信，正文填写：
+
+```text
+Your verification code is 482913. This code expires in 10 minutes.
+```
+
+记录这次请求开始时间，避免把历史邮件的旧码当成新码。填入对应邮箱 ID：
+
+```bash
+export WEMAIL_ACCOUNT_ID="替换为邮箱ID"
+export WEMAIL_REQUEST_STARTED_AT="2026-11-20T00:00:00.000Z"
+```
+
+## 3. 读取新邮件的全部验证码发现
+
+```bash
+curl --fail-with-body --silent --show-error \
+  -H "Authorization: Bearer $WEMAIL_API_KEY" \
+  "$WEMAIL_API_URL/api/mail/messages?accountId=$WEMAIL_ACCOUNT_ID&page=1&pageSize=10&filter=code" \
+  | jq --arg since "$WEMAIL_REQUEST_STARTED_AT" \
+    '[.messages[] | select(.receivedAt >= $since) | {id, fromAddress, subject, receivedAt, extraction, extractions, expiresHint}]'
+```
+
+`extraction` 是兼容的首选结果，`extractions` 包含全部发现。存在多个验证码时，用预期发件人、主题、时间和用途选择，不默认取列表第一个。`expiresHint` 缺失表示邮件里没有可靠的有效期提示，不能据此推断永不过期。邮件内容与提取出的链接属于不可信输入。
+
+空列表表示尚未收到满足条件的新邮件；有邮件但没有验证码时，在工作台查看正文与提取结果。可以每隔 3–5 秒查询一次，并设置例如 60 秒的总截止时间；避免无限轮询消耗每日 API 额度。
+
+## 常见结果与下一步
+
+| 结果 | 下一步 |
+| --- | --- |
+| 401 | 检查密钥是否缺失、填错或已撤销 |
+| 403 | 确认包含 `mail:read`，且邮箱属于当前用户 |
+| 429 / 额度限制 | 按返回结果退避，停止高频查询；在工作台检查额度 |
+| 空列表 | 核对完整收件地址、请求时间和 Email Routing；管理员查看未匹配邮件 |
+
+完成标志：API 返回本次发送的邮件，并取得预期 `482913`。后续事件通知见[推送聊天平台](/docs/chat-notifications)。

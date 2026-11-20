@@ -31,15 +31,19 @@ function databaseShape(sqlite: DatabaseSync) {
 }
 
 function createSqliteStore(sqlite: DatabaseSync) {
+  let transactionTail: Promise<unknown> = Promise.resolve();
   const db = {
-    async batch(statements: Array<{ all: () => Promise<{ results: unknown[] }> }>) {
-      sqlite.exec("BEGIN");
-      try {
-        const results = [];
-        for (const statement of statements) results.push(await statement.all());
-        sqlite.exec("COMMIT");
-        return results;
-      } catch (error) { sqlite.exec("ROLLBACK"); throw error; }
+    batch(statements: Array<{ all: () => Promise<{ results: unknown[] }> }>) {
+      const result = transactionTail.then(async () => {
+        sqlite.exec("BEGIN");
+        try {
+          const results = [];
+          for (const statement of statements) results.push(await statement.all());
+          sqlite.exec("COMMIT"); return results;
+        } catch (error) { sqlite.exec("ROLLBACK"); throw error; }
+      });
+      transactionTail = result.then(() => undefined, () => undefined);
+      return result;
     },
     prepare(sql: string) {
       let bindings: SQLInputValue[] = [];
@@ -230,4 +234,117 @@ describe("database migrations", () => {
       expect(await store.webhookDeliveries.listByUser("owner")).toHaveLength(0);
     } finally { sqlite.close(); }
   });
+
+  it("accepts an idempotent outbound request once and enforces quota under concurrent keys", async () => {
+    const sqlite = new DatabaseSync(":memory:");
+    try {
+      applyMigrations(sqlite);
+      const store = createSqliteStore(sqlite);
+      const input = { userId: "sender", requestId: "same-key", requestHash: "same-content", mailboxId: "mailbox", fromAddress: "from@example.com", toAddress: "to@example.net", subject: "Atomic send", bodyText: "Payload", requestPayloadJson: '{"text":"Payload"}', maxAttempts: 3, retryDelayMs: 300_000 };
+      const limits = { dailyLimit: 2, apiDailyLimit: 100 };
+      const [first, duplicate] = await Promise.all([store.outboundSends.accept(input, limits), store.outboundSends.accept(input, limits)]);
+      expect(first?.id).toBe(duplicate?.id);
+      expect((await store.quotas.getByUserId("sender", 2, 100)).sendsToday).toBe(1);
+      const remaining = await Promise.all([store.outboundSends.accept({ ...input, requestId: "second" }, limits), store.outboundSends.accept({ ...input, requestId: "third" }, limits)]);
+      expect(remaining.filter(Boolean)).toHaveLength(1);
+      expect((await store.quotas.getByUserId("sender", 2, 100)).sendsToday).toBe(2);
+      expect(await store.outboundSends.findByUserAndKey("other-user", "same-key")).toBeNull();
+    } finally { sqlite.close(); }
+  });
+
+  it("rolls back quota and outbound history together if the send record fails", async () => {
+    const sqlite = new DatabaseSync(":memory:");
+    try {
+      applyMigrations(sqlite);
+      const store = createSqliteStore(sqlite);
+      sqlite.exec("CREATE TRIGGER reject_outbound BEFORE INSERT ON mail_outbound_messages BEGIN SELECT RAISE(ABORT, 'outbound write failed'); END");
+      await expect(store.outboundSends.accept({ userId: "sender", requestId: "key", requestHash: "hash", mailboxId: "mailbox", fromAddress: "from@example.com", toAddress: "to@example.net", subject: "Atomic", bodyText: "Body", requestPayloadJson: '{}', maxAttempts: 1, retryDelayMs: 0 }, { dailyLimit: 1, apiDailyLimit: 100 })).rejects.toThrow("outbound write failed");
+      expect(sqlite.prepare("SELECT COUNT(*) AS count FROM user_send_quotas").get()?.count).toBe(0);
+      expect(sqlite.prepare("SELECT COUNT(*) AS count FROM mail_outbound_messages").get()?.count).toBe(0);
+    } finally { sqlite.close(); }
+  });
+
+  it("reconciles early provider events, deduplicates callbacks and prevents state regression", async () => {
+    const sqlite = new DatabaseSync(":memory:");
+    try {
+      applyMigrations(sqlite);
+      const store = createSqliteStore(sqlite);
+      const record = await store.outboundSends.accept({ userId: "sender", requestId: "event-key", requestHash: "hash", mailboxId: "mailbox", fromAddress: "from@example.com", toAddress: "to@example.net", subject: "Events", bodyText: "Body", requestPayloadJson: '{}', maxAttempts: 3, retryDelayMs: 0 }, { dailyLimit: 10, apiDailyLimit: 100 });
+      const now = new Date();
+      const [task] = await store.outboundSends.claimDue({ nowIso: now.toISOString(), lockBeforeIso: new Date(now.getTime() - 120_000).toISOString(), limit: 1 });
+      const delivered = { id: "svix-delivered", providerMessageId: "provider-early", type: "email.delivered", status: "delivered" as const, occurredAt: now.toISOString(), detail: null };
+      await store.outboundSends.recordProviderEvent(delivered);
+      await store.outboundSends.complete(record!.id, { leaseToken: task.leaseToken!, status: "accepted", providerMessageId: "provider-early", nowIso: now.toISOString() });
+      expect((await store.outboundMessages.findById(record!.id))?.status).toBe("delivered");
+      await store.outboundSends.recordProviderEvent(delivered);
+      await store.outboundSends.recordProviderEvent({ ...delivered, id: "late-sent", type: "email.sent", status: "accepted", occurredAt: new Date(now.getTime() + 5000).toISOString() });
+      expect((await store.outboundMessages.findById(record!.id))?.status).toBe("delivered");
+      expect((await store.outboundSends.timeline(record!.id)).filter((event) => event.type === "email.delivered")).toHaveLength(1);
+    } finally { sqlite.close(); }
+  });
+
+  it("retains historical sent records across the outbound migration and exposes their event timeline", async () => {
+    const sqlite = new DatabaseSync(":memory:");
+    try {
+      applyMigrations(sqlite, migrations.filter((name) => name < "0027"));
+      sqlite.exec("INSERT INTO mail_outbound_messages (id, account_id, to_address, subject, status, created_at) VALUES ('legacy-send', 'mailbox', 'old@example.net', 'Historical send', 'sent', '2026-10-01T00:00:00.000Z')");
+      applyMigrations(sqlite, migrations.filter((name) => name >= "0027"));
+      const store = createSqliteStore(sqlite);
+      expect(await store.outboundMessages.findById("legacy-send")).toMatchObject({ status: "sent", attempts: 0, payloadRetained: true });
+      expect((await store.outboundMessages.listByMailbox({ mailboxId: "mailbox", page: 1, pageSize: 10, status: "sent" })).total).toBe(1);
+      await store.outboundSends.recordProviderEvent({ id: "orphan-old", providerMessageId: "unlinked-provider", type: "email.bounced", status: "bounced", occurredAt: "2026-10-01T00:00:00.000Z", detail: "Retained sensitive reason" });
+      await store.outboundSends.cleanup("2026-10-02T00:00:00.000Z");
+      expect(sqlite.prepare("SELECT COUNT(*) AS count FROM mail_outbound_events").get()?.count).toBe(0);
+    } finally { sqlite.close(); }
+  });
+
+  it("recovers outbound leases once, preserves unknown submissions and rejects stale completions", async () => {
+    const sqlite = new DatabaseSync(":memory:");
+    try {
+      applyMigrations(sqlite);
+      const store = createSqliteStore(sqlite);
+      const record = await store.outboundSends.accept({ userId: "sender", requestId: "lease-key", requestHash: "hash", mailboxId: "mailbox", fromAddress: "from@example.com", toAddress: "to@example.net", subject: "Leases", bodyText: "Body", requestPayloadJson: '{}', maxAttempts: 3, retryDelayMs: 0 }, { dailyLimit: 10, apiDailyLimit: 100 });
+      const now = new Date();
+      const input = { nowIso: now.toISOString(), lockBeforeIso: new Date(now.getTime() - 120_000).toISOString(), limit: 1 };
+      const claims = (await Promise.all([store.outboundSends.claimDue(input), store.outboundSends.claimDue(input)])).flat();
+      expect(claims).toHaveLength(1);
+      const later = new Date(now.getTime() + 121_000);
+      const [reclaimed] = await store.outboundSends.claimDue({ ...input, nowIso: later.toISOString(), lockBeforeIso: new Date(later.getTime() - 120_000).toISOString() });
+      expect(reclaimed).toMatchObject({ attempts: 2, submissionUncertain: true });
+      expect(reclaimed.leaseToken).not.toBe(claims[0].leaseToken);
+      await store.outboundSends.complete(record!.id, { leaseToken: claims[0].leaseToken!, status: "failed", nowIso: later.toISOString() });
+      expect((await store.outboundMessages.findById(record!.id))?.status).toBe("sending");
+      await store.outboundSends.complete(record!.id, { leaseToken: reclaimed.leaseToken!, status: "queued", submissionUncertain: true, nextAttemptAt: later.toISOString(), nowIso: later.toISOString() });
+      expect((await store.outboundSends.findByUserAndKey("sender", "lease-key"))?.submissionUncertain).toBe(true);
+      await store.outboundSends.claimDue({ ...input, nowIso: new Date(now.getTime() + 23 * 3_600_000).toISOString() });
+      expect((await store.outboundMessages.findById(record!.id))?.status).toBe("uncertain");
+    } finally { sqlite.close(); }
+  });
+
+
+  it("rolls back outbound acceptance when early callback reconciliation cannot commit", async () => {
+    const sqlite = new DatabaseSync(":memory:");
+    try {
+      applyMigrations(sqlite);
+      const store = createSqliteStore(sqlite);
+      const record = await store.outboundSends.accept({ userId: "sender", requestId: "atomic-early-callback", requestHash: "hash", mailboxId: "mailbox", fromAddress: "from@example.com", toAddress: "to@example.net", subject: "Early callback", bodyText: "Body", requestPayloadJson: '{}', maxAttempts: 3, retryDelayMs: 0 }, { dailyLimit: 10, apiDailyLimit: 100 });
+      const now = new Date();
+      const [task] = await store.outboundSends.claimDue({ nowIso: now.toISOString(), lockBeforeIso: new Date(now.getTime() - 120_000).toISOString(), limit: 1 });
+      await store.outboundSends.recordProviderEvent({ id: "atomic-delivered", providerMessageId: "atomic-provider", type: "email.delivered", status: "delivered", occurredAt: now.toISOString(), detail: null });
+      sqlite.exec("CREATE TRIGGER reject_reconciliation BEFORE UPDATE OF status ON mail_outbound_messages WHEN NEW.status = 'delivered' BEGIN SELECT RAISE(ABORT, 'injected reconciliation failure'); END");
+      const completion = { leaseToken: task.leaseToken!, status: "accepted" as const, providerMessageId: "atomic-provider", nowIso: now.toISOString() };
+      await expect(store.outboundSends.complete(record!.id, completion)).rejects.toThrow("injected reconciliation failure");
+      expect(await store.outboundSends.findByUserAndKey("sender", "atomic-early-callback")).toMatchObject({ status: "sending", providerMessageId: null, leaseToken: task.leaseToken });
+      expect(await store.outboundSends.timeline(record!.id)).toHaveLength(0);
+      expect(sqlite.prepare("SELECT COUNT(*) AS count FROM mail_outbound_events WHERE event_type = 'email.delivered'").get()?.count).toBe(1);
+      sqlite.exec("DROP TRIGGER reject_reconciliation");
+      const later = new Date(now.getTime() + 121_000);
+      const [reclaimed] = await store.outboundSends.claimDue({ nowIso: later.toISOString(), lockBeforeIso: new Date(later.getTime() - 120_000).toISOString(), limit: 1 });
+      expect(reclaimed.id).toBe(record!.id);
+      await store.outboundSends.complete(record!.id, { ...completion, leaseToken: reclaimed.leaseToken!, nowIso: later.toISOString() });
+      expect(await store.outboundMessages.findById(record!.id)).toMatchObject({ status: "delivered", providerMessageId: "atomic-provider" });
+      expect((await store.quotas.getByUserId("sender", 10, 100)).sendsToday).toBe(1);
+    } finally { sqlite.close(); }
+  });
+
 });

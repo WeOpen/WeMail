@@ -1,6 +1,8 @@
 import { MonitorCog, MoonStar, Palette, ShieldCheck, SunMedium, type LucideIcon } from "lucide-react";
 import type {
   FeatureToggles,
+  DataReliabilitySummary,
+  SystemDiagnosticsSummary,
   RuntimeSettings,
   RuntimeSettingsUpdateInput
 } from "@wemail/shared";
@@ -10,6 +12,7 @@ import { FeatureTogglesPanel } from "../features/admin/FeatureTogglesPanel";
 import { SystemDomainSettingsPanel } from "../features/settings/SystemDomainSettingsPanel";
 import { SystemRuntimeSettingsPanel } from "../features/settings/SystemRuntimeSettingsPanel";
 import { NotificationDeliveryPanel } from "../features/settings/NotificationDeliveryPanel";
+import { SetupDiagnosticsPanel } from "../features/settings/SetupDiagnosticsPanel";
 import { Badge } from "../shared/badge";
 import { Button } from "../shared/button";
 import { Page } from "../shared/page-layout";
@@ -19,6 +22,8 @@ type SystemSettingsPageProps = {
   canManageDomains?: boolean;
   canManageRuntimeSettings?: boolean;
   runtimeSettings: RuntimeSettings | null;
+  systemDiagnostics?: SystemDiagnosticsSummary | null;
+  systemReliability?: DataReliabilitySummary | null;
   resolvedTheme: WorkspaceTheme;
   themePreference: WorkspaceThemePreference;
   onSelectThemePreference: (preference: WorkspaceThemePreference) => void;
@@ -71,6 +76,8 @@ export function SystemSettingsPage({
   canManageDomains = false,
   canManageRuntimeSettings = false,
   runtimeSettings,
+  systemDiagnostics = null,
+  systemReliability = null,
   resolvedTheme,
   themePreference,
   onSelectThemePreference,
@@ -176,6 +183,7 @@ export function SystemSettingsPage({
             />
           ) : null}
           {canManageDomains ? <SystemDomainSettingsPanel /> : null}
+          {canManageRuntimeSettings ? <SetupDiagnosticsPanel diagnostics={systemDiagnostics} reliability={systemReliability} /> : null}
         </div>
       </div>
       {canManageRuntimeSettings ? <NotificationDeliveryPanel admin /> : null}

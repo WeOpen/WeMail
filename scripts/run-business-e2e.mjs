@@ -67,7 +67,7 @@ try {
   await writeFile(configPath, JSON.stringify({
     name: "wemail-business-test", main: join(root, "apps/worker/tests/business/test-entry.ts"),
     compatibility_date: "2025-04-01", compatibility_flags: ["nodejs_compat"],
-    vars: { ENVIRONMENT: "local", APP_NAME: "WeMail", COOKIE_NAME: "wemail_session", COOKIE_SECURE: "false", CORS_ALLOWED_ORIGINS: webUrl, RESEND_API_KEY: "business-test-provider-key", ENABLE_AI: "false" },
+    vars: { ENVIRONMENT: "local", APP_NAME: "WeMail", COOKIE_NAME: "wemail_session", COOKIE_SECURE: "false", CORS_ALLOWED_ORIGINS: webUrl, RESEND_API_KEY: "business-test-provider-key", RESEND_WEBHOOK_SECRET: "whsec_YnVzaW5lc3MtdGVzdC1zaWduaW5nLWtleQ==", ENABLE_AI: "false" },
     d1_databases: [{ binding: "DB", database_name: "wemail-business", database_id: "business-local", migrations_dir: join(root, "apps/worker/src/infrastructure/db/migrations") }],
     kv_namespaces: [{ binding: "CACHE", id: "business-local-cache" }],
     r2_buckets: [{ binding: "ATTACHMENTS", bucket_name: "business-local-attachments" }]

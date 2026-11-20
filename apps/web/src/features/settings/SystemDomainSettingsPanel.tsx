@@ -135,7 +135,7 @@ export function SystemDomainSettingsPanel() {
   }
 
   return (
-    <section className="panel workspace-card page-panel system-domain-settings-panel">
+    <section className="panel workspace-card page-panel system-domain-settings-panel" id="setup-domains">
       <div className="system-domain-settings-head">
         <div className="system-domain-settings-copy">
           <p className="panel-kicker">邮箱域名</p>

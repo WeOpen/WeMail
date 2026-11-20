@@ -5,7 +5,7 @@ export function readRetryAfter(value: string | null, now = Date.now()) {
   return Number.isFinite(delay) && delay >= 0 ? Math.min(delay, 3_600_000) : undefined;
 }
 
-export async function readProviderBody(response: Response, maxBytes = 16_384) {
+export async function readProviderBody(response: Pick<Response, "body">, maxBytes = 16_384) {
   if (!response.body) return "";
   const reader = response.body.getReader();
   const decoder = new TextDecoder();

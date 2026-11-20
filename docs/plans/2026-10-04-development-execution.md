@@ -8,13 +8,13 @@
 | --- | --- | --- |
 | DEV-01 聊天渠道修复 | 本地验收通过 | 31 个重放/内容/响应/超时回归通过；2 个空库/升级/D1 保存回归通过；完整批次检查通过；迁移 0024 与 schema 同步 |
 | DEV-02 基线与文档 | 本地验收通过 | 完整 lint/typecheck/test/build/E2E 复验通过；overlay 竞态与 API Key 复制计时器泄漏修复；历史状态与部署/恢复文档已纠偏 |
-| DEV-03 真实业务 E2E | 本地验收通过，等待 CI | `pnpm test:e2e:business` 6/6 通过，涵盖浏览器注册/密码登录/建邮箱/收件/提取、Key 撤销、越权/scope/额度、幂等、HTML/R2 附件、通知重放与发件；CI job 已配置，待远端验证 |
-| DEV-04 持久化通知 | 本地验收通过，等待 CI | 事务内任务、原子领取/租约、退避/Retry-After、失败/抑制终态、手动重放、保留期与删除清理已验证；ADR 0003 已记录 |
-| DEV-05 状态与规则解释 | 本地验收通过，等待 CI | Webhook/Telegram 状态、管理员统计、重放、规则试运行、UTC 兼容/IANA 时区/跨午夜与权限验证通过；桌面和 375px 手机验证通过 |
-| DEV-06 发件闭环 | 待执行 | 实际重试、请求幂等、额度语义、供应商事件、状态 UI 与 DNS 来源尚待实现 |
-| DEV-07 提取质量 | 待执行 | 50 封去敏样本、指标、UI 与认证头信任来源尚待验证 |
-| DEV-08 首次使用 | 待执行 | 首封邮件引导、诊断修复入口、三条任务文档尚待实现 |
-| 发布验收 | 待执行 | 全套本地与 CI、迁移/恢复、真实 staging 链路与 production 观察均需独立证据 |
+| DEV-03 真实业务 E2E | 本地与 CI 通过 | 本地与 Linux CI 的真实业务 E2E 7/7，通过浏览器主流程、权限/额度、幂等、HTML/R2、通知重放/恢复与发件；供应商仍为受控适配器 |
+| DEV-04 持久化通知 | 本地与 CI 通过 | 事务内任务、原子领取/租约、退避/Retry-After、失败/抑制终态、重放和保留期/删除清理已验证；ADR 0003 已记录；真实外部平台待发布阶段验收 |
+| DEV-05 状态与规则解释 | 本地与 CI 通过 | 状态面板、管理员统计、重放、规则试运行、UTC/IANA 时区/跨午夜与权限验证通过；桌面与 375px 手机验证通过 |
+| DEV-06 发件闭环 | 本地验收通过，待本批 CI | 持久化请求/额度事务、稳定幂等键、实际延迟重试、签名事件/早到关联/乱序、旧记录兼容、投递时间线和独立 DNS 检查完成；真实供应商待 staging |
+| DEV-07 提取质量 | 本地验收通过，真实 AI 待验证 | 60 封固定合成样本，精确率 68.97% → 100%、召回率 85.11% → 100%；认证头可信来源、多结果复制、有效期提示与 AI 原文依据护栏完成；真实模型指标/费用待 staging |
+| DEV-08 首次使用 | 本地验收通过，待本批 CI | 首信创建/收件/复制/通知引导、管理员诊断与修复入口、三条任务指南及应用内阅读完成；实际 Worker/D1 浏览器流程与手机页面通过 |
+| 发布验收 | 本地完成，staging 环境待配置 | 本地四工作区与两套 E2E 通过，迁移空库/升级/事务故障恢复通过；staging secrets/variables 当前为空，真实服务、隔离备份恢复与 production 观察待执行 |
 | 团队与商业模型候选 | 后续候选 | 本轮只纠正部署级摘要含义；完整团队功能不计入当前实现承诺 |
 
 ## 阶段一发现与修复
@@ -49,3 +49,28 @@
 - DEV-04/05 真实业务 E2E 已扩展到 7 项并通过，包含 UI 重放、规则解释、自动到期恢复与手机宽度检查；桌面/手机截图在 `/tmp/wemail-notification-status-{desktop,mobile}.png`，接口目录与 OpenAPI 已同步。
 - 全量检查中修复了预检输出的兼容断言和新增规则标题导致的旧测试歧义；未移除原有行为断言。一次环境中 pnpm 11 的自动安装检查失败，已使用项目指定的 pnpm 10.18.2 重跑，未新增依赖。
 - 2026-10-06 通知批次：四个 workspace 的 lint/typecheck/test/build 通过；shared 30、Worker 220、Web 339 个测试通过，Docs assert 测试通过；原浏览器 smoke 13 通过/2 个既有视觉脚手架跳过；真实业务 E2E 7/7。最后的计数与规则文案调整也通过定向和业务回归。
+
+## 远端验证
+
+- 草稿 PR：[WeOpen/WeMail #41](https://github.com/WeOpen/WeMail/pull/41)。阶段一至通知状态批次已提交并推送；未合并或发布 production。
+- 验证 commit：`eb83e65d87010d6fc962037f17833874ee4d5f93`。
+- [CI 37411974396](https://github.com/WeOpen/WeMail/actions/runs/37411974396)：verify 成功。
+- [E2E 37411974386](https://github.com/WeOpen/WeMail/actions/runs/37411974386)：页面 smoke 与 business-playwright 两个 job 成功。
+- [Preview Build 37411974371](https://github.com/WeOpen/WeMail/actions/runs/37411974371)：前端预览构建成功；文档 Vercel preview 状态也为成功。
+- 2026-10-06 交接时下一项为 DEV-06；后续实现与验证见下方 2026-11-20 续接批次。
+
+
+## 2026-11-20 续接批次
+
+从原会话保留的 DEV-06 未提交工作继续，完成 DEV-06/07/08 本地实现。根 `HANDOFF.MD` 记录新的恢复、认证、文档和工具链踩坑。
+
+- 单元/集成最新统计为 shared 42、Worker 247、Web 358，共 647 项；Docs assert 测试通过。Worker 最后增加早到事件关联事务故障注入后完整复跑通过。
+- 四个 workspace 的 lint、typecheck、build 通过。文档依赖添加时本地 pnpm 11 store 与项目 pnpm 10 链接不一致，曾导致 Docs CLI 入口失效；已用项目指定 pnpm 10.18.2 frozen-lockfile 重建依赖，随后重跑全部检查。
+- 浏览器 smoke 13 通过，2 个已有视觉脚手架显式跳过。真实本地业务 E2E 9/9，新增提前到达的签名回调、幂等键复用、最终时间线、首信收件/复制、应用内任务文档及管理员修复入口。
+- ego lite 实际检查了发件页、收件详情、系统诊断和任务阅读页，375px 无页面横向溢出；修复了筛选标签竖排和终态显示下一次重试的误导。收件页显示原始认证头为未验证、规则提取及两个独立链接。
+- 本地日志 `/tmp/wemail-verified-{lint,typecheck,build,test,worker-final,business,smoke}.log`；E2E 截图在 `apps/web/test-results/business/`。ego 截图 `/tmp/wemail-final-{outbound-mobile,diagnostics,inbox-auth}.png`。
+- 发件恢复每批最多10任务、4并发，域名检查15秒总预算、最多24个外部请求、4并发且显式触发并限流。提取最多32项，AI prompt最多16k字符。指南正文各自懒加载，Markdown chunk约47.5 kB gzip且未进入入口modulepreload。线上P50/P95、D1行读写和真实AI费用仍需实际测量。
+- 2026-11-20通过GitHub API确认 staging Environment 的 repository secrets和variables均为0；现配置中的staging D1/KV ID仍是部署时注入占位符。当前没有可用的隔离环境证据，真实Email Routing、Resend、聊天平台及Workers AI验收保持待完成。
+- 最后审查发现并修复D1早到事件关联的P1：发送完成与已缓存回调的状态合并必须同一batch，否则第二次写失败后可能永久停在accepted。触发器注入证明整个事务回滚保留lease，并能恢复到delivered且只扣一次额度。
+
+本批 commit 和远端 CI 结果在推送后补充。

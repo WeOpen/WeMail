@@ -1,0 +1,10 @@
+.setup-diagnostics { display: grid; gap: 12px; scroll-margin-top: 24px; }
+.setup-diagnostics h2,
+.setup-diagnostics p { margin: 0; }
+.setup-diagnostics p { color: var(--text-muted); line-height: 1.6; overflow-wrap: anywhere; }
+.setup-diagnostics small { color: var(--text-muted); }
+.setup-diagnostics-heading { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
+.setup-diagnostics-heading h2 { font-size: 1.15rem; }
+.setup-diagnostics-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; list-style: none; padding: 0; margin: 0; }
+.setup-diagnostics-list li { display: grid; justify-items: start; align-content: start; gap: 10px; padding: 16px; border: 1px solid var(--border); border-radius: 16px; min-width: 0; }
+@media (max-width: 760px) { .setup-diagnostics-list { grid-template-columns: minmax(0, 1fr); } }

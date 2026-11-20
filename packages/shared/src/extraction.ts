@@ -9,7 +9,7 @@ import type { AuthenticationSummary, ExtractionResult, ExtractionType, MessageEx
 // single best result so chips, webhooks, and legacy rows stay compatible.
 // ---------------------------------------------------------------------------
 
-const linkPattern = /https?:\/\/[^\s)"'<>]+/gi;
+const linkPattern = /https?:\/\/[^\s)"'<>，。；！？、]+/gi;
 
 // Keyword-anchored captures (English and Chinese). A keyword directly before
 // or after the candidate is the strongest signal a digit run is a code.
@@ -31,7 +31,7 @@ const codeBeforeKeywordPatterns = [
 // run to count. This is what rejects prices, dates, and order numbers.
 const codeContextWindow = 40;
 const codeContextKeywords =
-  /\b(?:code|otp|passcode|pin|password)\b|verification|verify|security|one[-\s]?time|登录|登入|验证|校验|动态|口令/i;
+  /\b(?:code|otp|passcode|pin|password)\b|验证码|校验码|动态码|动态密码|登录码|登入码|口令/i;
 
 const bareDigitPattern = /\b[0-9]{4,10}\b/g;
 
@@ -52,12 +52,13 @@ const expiryPatterns: Array<{ pattern: RegExp; units: Record<string, string> }> 
 ];
 
 const linkClassifiers: Array<{ type: ExtractionType; label: string; matcher: RegExp }> = [
+  { type: "subscription_link", label: "Subscription link", matcher: /(unsubscribe|opt-?out|preferences|subscription)/i },
   { type: "auth_link", label: "Verification link", matcher: /(verify|activate|confirm|signin|login|reset|auth)/i },
-  { type: "service_link", label: "Service link", matcher: /(github|gitlab|deploy|issue|pull|commit|docs|dashboard)/i },
-  { type: "subscription_link", label: "Subscription link", matcher: /(unsubscribe|opt-?out|preferences|subscription)/i }
+  { type: "service_link", label: "Service link", matcher: /(github|gitlab|deploy|issue|pull|commit|docs|dashboard)/i }
 ];
 
 const primaryTypeOrder: ExtractionType[] = ["auth_code", "auth_link", "service_link", "subscription_link", "other_link"];
+const maxExtractionItems = 32;
 
 function normalizeCodeCandidate(value: string) {
   return value.replace(/[\s-]/g, "");
@@ -68,17 +69,28 @@ function isLikelyCodeCandidate(value: string) {
   return /^[A-Z0-9]{4,10}$/i.test(normalized) && /\d/.test(normalized);
 }
 
+function isNonCodeNumber(text: string, index: number, value: string) {
+  const before = text.slice(Math.max(0, index - 32), index);
+  const after = text.slice(index + value.length, index + value.length + 16);
+  return /(?:\d[-/.]|[$€£¥]|\b(?:USD|EUR|CNY)\s*)$/i.test(before) ||
+    /^(?:[-/.]\d|年|\s*(?:USD|EUR|CNY)\b)/i.test(after) ||
+    /(?:order(?: number)?|invoice|phone|call|订单|电话)\s*[:#：]?\s*$/i.test(before);
+}
+
 function collectCodeCandidates(text: string): string[] {
+  // URL tokens, quoted replies, prices and dates are not one-time codes even
+  // when a nearby subject happens to mention security or verification.
+  text = text.replace(linkPattern, " ").normalize("NFKC");
   const found: string[] = [];
 
   for (const pattern of codeAfterKeywordPatterns) {
     for (const match of text.matchAll(new RegExp(pattern.source, pattern.flags.includes("g") ? pattern.flags : pattern.flags + "g"))) {
-      if (match?.[1] && isLikelyCodeCandidate(match[1])) found.push(match[1]);
+      if (match?.[1] && isLikelyCodeCandidate(match[1]) && !isNonCodeNumber(text, match.index + match[0].lastIndexOf(match[1]), match[1])) found.push(match[1]);
     }
   }
   for (const pattern of codeBeforeKeywordPatterns) {
     for (const match of text.matchAll(new RegExp(pattern.source, pattern.flags.includes("g") ? pattern.flags : pattern.flags + "g"))) {
-      if (match?.[1] && isLikelyCodeCandidate(match[1])) found.push(match[1]);
+      if (match?.[1] && isLikelyCodeCandidate(match[1]) && !isNonCodeNumber(text, match.index, match[1])) found.push(match[1]);
     }
   }
 
@@ -86,31 +98,34 @@ function collectCodeCandidates(text: string): string[] {
   for (const match of text.matchAll(bareDigitPattern)) {
     const candidate = match[0];
     if (!isLikelyCodeCandidate(candidate)) continue;
+    if (isNonCodeNumber(text, match.index, candidate)) continue;
     const start = Math.max(0, match.index - codeContextWindow);
     const end = Math.min(text.length, match.index + candidate.length + codeContextWindow);
     if (codeContextKeywords.test(text.slice(start, end))) found.push(candidate);
   }
 
   const unique: string[] = [];
+  const seen = new Set<string>();
   for (const value of found) {
     const normalized = normalizeCodeCandidate(value);
-    if (!unique.some((existing) => normalizeCodeCandidate(existing) === normalized)) unique.push(value);
+    if (!seen.has(normalized)) {
+      seen.add(normalized);
+      unique.push(value);
+    }
+    if (unique.length >= maxExtractionItems) break;
   }
   return unique;
 }
 
 function collectLinkItems(text: string): ExtractionResult[] {
-  const links = Array.from(new Set(text.match(linkPattern) ?? []));
+  const links = Array.from(new Set((text.match(linkPattern) ?? []).map((value) => value.replace(/[.,;:!?]+$/, ""))));
   const items: ExtractionResult[] = [];
 
-  for (const classifier of linkClassifiers) {
-    const link = links.find((value) => classifier.matcher.test(value));
-    if (link) items.push({ method: "regex", type: classifier.type, value: link, label: classifier.label, source: "body" });
-  }
-
-  const unmatched = links.find((value) => !linkClassifiers.some((classifier) => classifier.matcher.test(value)));
-  if (unmatched) {
-    items.push({ method: "regex", type: "other_link", value: unmatched, label: "Useful link", source: "body" });
+  for (const link of links) {
+    if (link.length > 2_048) continue;
+    const classifier = linkClassifiers.find((entry) => entry.matcher.test(link));
+    items.push({ method: "regex", type: classifier?.type ?? "other_link", value: link, label: classifier?.label ?? "Useful link", source: "body" });
+    if (items.length >= maxExtractionItems) break;
   }
   return items;
 }
@@ -136,15 +151,15 @@ function findExpiresHint(text: string): string | null {
   return null;
 }
 
-const authVerdictPatterns: Array<{ key: keyof AuthenticationSummary; pattern: RegExp }> = [
-  { key: "spf", pattern: /\bspf=(pass|fail|softfail|none)\b/i },
-  { key: "dkim", pattern: /\bdkim=(pass|fail|none)\b/i },
-  { key: "dmarc", pattern: /\bdmarc=(pass|fail|quarantine|reject|none)\b/i }
+const authVerdictPatterns: Array<{ key: "spf" | "dkim" | "dmarc"; pattern: RegExp }> = [
+  { key: "spf", pattern: /(?:^|;)\s*spf=(pass|fail|softfail|none)\b/i },
+  { key: "dkim", pattern: /(?:^|;)\s*dkim=(pass|fail|none)\b/i },
+  { key: "dmarc", pattern: /(?:^|;)\s*dmarc=(pass|fail|quarantine|reject|none)\b/i }
 ];
 
 export function parseAuthenticationResults(raw: string | null | undefined): AuthenticationSummary | null {
   if (!raw) return null;
-  const summary: AuthenticationSummary = { spf: "unknown", dkim: "unknown", dmarc: "unknown", raw: raw.slice(0, 500) };
+  const summary: AuthenticationSummary = { spf: "unknown", dkim: "unknown", dmarc: "unknown", raw: raw.slice(0, 500), source: "unverified_header" };
 
   for (const { key, pattern } of authVerdictPatterns) {
     const match = raw.match(pattern);
@@ -185,9 +200,15 @@ export function buildMessageExtraction(input: {
   listUnsubscribe?: string | null;
   authenticationResults?: string | null;
 }): MessageExtraction {
-  const text = [input.subject ?? "", input.text ?? "", input.html ?? ""].filter(Boolean).join("\n");
+  const html = (input.html ?? "").replace(/<(script|style)\b[^>]*>[\s\S]*?<\/\1\s*>/gi, " ");
+  const decodedHtml = html.replace(/&amp;/gi, "&").replace(/&quot;/gi, '"').replace(/&nbsp;/gi, " ");
+  const content = [input.subject ?? "", input.text ?? "", decodedHtml].filter(Boolean).join("\n");
+  const withoutQuotes = content.split("\n").filter((line) => !/^\s*>/.test(line)).join("\n");
+  const text = withoutQuotes.replace(/<[^>]*>/g, " ");
 
-  const items = dedupeItems([
+  // Bound persisted/UI findings even for mail with thousands of distinct
+  // links. Primary code precedence and header unsubscribe still apply.
+  const allItems = dedupeItems([
     ...collectCodeCandidates(text).map<ExtractionResult>((value) => ({
       method: "regex",
       type: "auth_code",
@@ -195,12 +216,15 @@ export function buildMessageExtraction(input: {
       label: "Verification code",
       source: "body"
     })),
-    ...collectLinkItems(text),
+    ...collectLinkItems(withoutQuotes),
     ...(parseListUnsubscribe(input.listUnsubscribe) ? [parseListUnsubscribe(input.listUnsubscribe)!] : [])
   ]);
+  const primary = pickPrimaryExtraction(allItems);
+  const items = allItems.slice(0, maxExtractionItems);
+  if (primary.type !== "none" && !items.includes(primary)) items[items.length - 1] = primary;
 
   return {
-    primary: pickPrimaryExtraction(items),
+    primary,
     items,
     expiresHint: findExpiresHint(text),
     authSummary: parseAuthenticationResults(input.authenticationResults)
@@ -237,7 +261,7 @@ export function parseMessageExtraction(json: string | null | undefined): Message
       primary: envelope.primary ?? pickPrimaryExtraction(items),
       items,
       expiresHint: envelope.expiresHint ?? null,
-      authSummary: envelope.authSummary ?? null
+      authSummary: envelope.authSummary ? { ...envelope.authSummary, source: envelope.authSummary.source === "trusted_upstream" ? "trusted_upstream" : "unverified_header" } : null
     };
   }
 

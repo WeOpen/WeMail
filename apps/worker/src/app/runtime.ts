@@ -1,7 +1,7 @@
 import { parseAccountPolicyRecord } from "@wemail/shared";
 
 import type { AppBindings, AppStore, MailboxRecord, PersistedMessageRecord } from "../core/bindings";
-import { buildMessageExtraction, createPreview, maybeRunAiFallback, parseRawEmail } from "../shared/mail";
+import { buildMessageExtraction, createPreview, maybeRunAiFallback, parseRawEmail, readTrustedRoutingAuthentication } from "../shared/mail";
 import { recordAudit } from "./services/audit-service";
 import { defaultFeatureToggles } from "./services/config-service";
 import { getRuntimeSettings } from "./services/runtime-settings-service";
@@ -196,6 +196,7 @@ async function processInboundForMailbox(
     messageId?: string | null;
     listUnsubscribe?: string | null;
     authenticationResults?: string | null;
+    trustedAuthentication?: ReturnType<typeof readTrustedRoutingAuthentication>;
     fromAddress: string;
     subject: string;
     text: string;
@@ -209,6 +210,7 @@ async function processInboundForMailbox(
     listUnsubscribe: parsed.listUnsubscribe,
     authenticationResults: parsed.authenticationResults
   });
+  if (parsed.trustedAuthentication) extraction.authSummary = parsed.trustedAuthentication;
   const featureToggles = await getFeatureToggles(store, env);
   const settings = await getRuntimeSettings(store, env);
   const aiUsageToday = await store.audit.countByActorSince(
@@ -261,23 +263,23 @@ async function processInboundForMailbox(
 export async function processInboundEmail(
   env: AppBindings,
   store: AppStore,
-  message: { to: string; raw: ReadableStream<Uint8Array> },
+  message: { to: string; raw: ReadableStream<Uint8Array>; headers?: Headers },
   options: InboundProcessingOptions = {}
 ) {
   const toAddress = normalizeRecipientAddress(message.to);
-  const parsed = await parseRawEmail(message.raw);
+  const parsed = { ...await parseRawEmail(message.raw), trustedAuthentication: readTrustedRoutingAuthentication(message.headers) };
   const mailbox = await store.mailboxes.findByAddress(toAddress);
   if (!mailbox) {
     const { message: unmatchedMessage } = await saveInboundMessage(store, env, {
       mailboxId: buildUnmatchedMailboxId(toAddress),
       toAddress,
       parsed,
-      extraction: buildMessageExtraction({
+      extraction: { ...buildMessageExtraction({
         subject: parsed.subject,
         bodyText: parsed.text,
         listUnsubscribe: parsed.listUnsubscribe,
         authenticationResults: parsed.authenticationResults
-      })
+      }), ...(parsed.trustedAuthentication ? { authSummary: parsed.trustedAuthentication } : {}) }
     });
     return unmatchedMessage;
   }
