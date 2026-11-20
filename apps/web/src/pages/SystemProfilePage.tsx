@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import {
   CalendarClock,
   Languages,
@@ -139,6 +139,8 @@ export function SystemProfilePage({
   const [density, setDensity] = useState(profile.preferences.density);
   const [profileSubmitError, setProfileSubmitError] = useState<string | null>(null);
   const [preferencesSubmitError, setPreferencesSubmitError] = useState<string | null>(null);
+  const previousProfileRef = useRef(profile);
+  const isSaving = isSavingProfile || isSavingPreferences;
   const roleLabel = formatRole(profile.user.role);
   const displayEmail = formatDisplayEmail(profile.user.email);
   const hasOtherSessions = sessions.some((session) => !session.isCurrent);
@@ -151,20 +153,28 @@ export function SystemProfilePage({
     density !== profile.preferences.density;
 
   useEffect(() => {
-    setDisplayName(resolveDisplayName(profile));
-    setBio(profile.preferences.bio);
-    setLocale(profile.preferences.locale);
-    setTimezone(profile.preferences.timezone);
-    setDateFormat(profile.preferences.dateFormat);
-    setLandingPage(profile.preferences.landingPage);
-    setDensity(profile.preferences.density);
-    setProfileSubmitError(null);
-    setPreferencesSubmitError(null);
+    const previous = previousProfileRef.current;
+    if (previous === profile) return;
+    previousProfileRef.current = profile;
+    const hasSameUser = previous.user.id === profile.user.id;
+    // Background reads may finish after typing starts. Only hydrate fields
+    // that still match the previous server snapshot, preserving unsaved edits.
+    setDisplayName((current) => hasSameUser && current !== resolveDisplayName(previous) ? current : resolveDisplayName(profile));
+    setBio((current) => hasSameUser && current !== previous.preferences.bio ? current : profile.preferences.bio);
+    setLocale((current) => hasSameUser && current !== previous.preferences.locale ? current : profile.preferences.locale);
+    setTimezone((current) => hasSameUser && current !== previous.preferences.timezone ? current : profile.preferences.timezone);
+    setDateFormat((current) => hasSameUser && current !== previous.preferences.dateFormat ? current : profile.preferences.dateFormat);
+    setLandingPage((current) => hasSameUser && current !== previous.preferences.landingPage ? current : profile.preferences.landingPage);
+    setDensity((current) => hasSameUser && current !== previous.preferences.density ? current : profile.preferences.density);
+    if (!hasSameUser) {
+      setProfileSubmitError(null);
+      setPreferencesSubmitError(null);
+    }
   }, [profile]);
 
   async function handleProfileSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!hasProfileChanges) return;
+    if (!hasProfileChanges || isSaving) return;
 
     setProfileSubmitError(null);
     try {
@@ -181,7 +191,7 @@ export function SystemProfilePage({
 
   async function handlePreferencesSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!hasPreferenceChanges) return;
+    if (!hasPreferenceChanges || isSaving) return;
 
     setPreferencesSubmitError(null);
     try {
@@ -290,7 +300,7 @@ export function SystemProfilePage({
                   isLoading={isSavingProfile}
                   leadingIcon={<Save size={16} strokeWidth={1.8} />}
                   loadingLabel="保存中"
-                  disabled={!hasProfileChanges}
+                  disabled={!hasProfileChanges || isSaving}
                   type="submit"
                   variant="primary"
                 >
@@ -397,7 +407,7 @@ export function SystemProfilePage({
                   isLoading={isSavingPreferences}
                   leadingIcon={<Save size={16} strokeWidth={1.8} />}
                   loadingLabel="保存中"
-                  disabled={!hasPreferenceChanges}
+                  disabled={!hasPreferenceChanges || isSaving}
                   type="submit"
                   variant="primary"
                 >

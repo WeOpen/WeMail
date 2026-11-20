@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { SessionSummary, UserProfileSummary, UserProfileUpdateInput, UserSessionSummary } from "@wemail/shared";
 
@@ -32,17 +32,26 @@ export function useProfileData({ session, onSessionUpdated, onToast }: UseProfil
   const [profileSessions, setProfileSessions] = useState<UserSessionSummary[]>([]);
   const [profileError, setProfileError] = useState<string | null>(null);
   const [hasLoadedProfile, setHasLoadedProfile] = useState(false);
+  const sessionUserId = session?.user.id ?? null;
+  const currentSessionUserIdRef = useRef(sessionUserId);
+  currentSessionUserIdRef.current = sessionUserId;
+  const requestVersionRef = useRef(0);
+  const pendingUpdateRef = useRef<{ userId: string | null } | null>(null);
 
   useEffect(() => {
-    if (session) return;
+    requestVersionRef.current += 1;
     setProfile(null);
     setProfileSessions([]);
     setProfileError(null);
     setHasLoadedProfile(false);
-  }, [session]);
+    setIsLoadingProfile(false);
+    setIsSavingProfile(false);
+    setIsSavingPreferences(false);
+  }, [sessionUserId]);
 
   const refreshProfileData = useCallback(async () => {
-    if (!session) {
+    const requestVersion = ++requestVersionRef.current;
+    if (!sessionUserId) {
       setProfile(null);
       setProfileSessions([]);
       setProfileError(null);
@@ -52,39 +61,62 @@ export function useProfileData({ session, onSessionUpdated, onToast }: UseProfil
 
     setIsLoadingProfile(true);
     setProfileError(null);
+    const canApplyResult = () => requestVersionRef.current === requestVersion
+      && currentSessionUserIdRef.current === sessionUserId && pendingUpdateRef.current?.userId !== sessionUserId;
     try {
       const [profilePayload, sessionsPayload] = await Promise.all([fetchUserProfile(), fetchProfileSessions()]);
+      if (!canApplyResult()) return;
       setProfile(profilePayload.profile ?? null);
       setProfileSessions(sessionsPayload.sessions ?? []);
     } catch (error) {
+      if (!canApplyResult()) return;
       const message = readErrorMessage(error);
       setProfile(null);
       setProfileSessions([]);
       setProfileError(message);
       onToast({ message: `个人设置同步失败：${message}`, tone: "error" });
     } finally {
-      setIsLoadingProfile(false);
-      setHasLoadedProfile(true);
+      if (requestVersionRef.current === requestVersion && currentSessionUserIdRef.current === sessionUserId) {
+        setIsLoadingProfile(false);
+        setHasLoadedProfile(true);
+      }
     }
-  }, [onToast, session]);
+  }, [onToast, sessionUserId]);
 
   const commitProfileUpdate = useCallback(
     async (payload: UserProfileUpdateInput) => {
-      const result = await updateUserProfile(payload);
-      setProfile(result.profile);
-      if (session) {
-        onSessionUpdated({
-          ...session,
-          user: result.profile.user
-        });
+      if (pendingUpdateRef.current?.userId === sessionUserId) throw new Error("已有个人设置正在保存，请等待完成后重试。");
+      // Reads from before or during a write cannot replace its committed result.
+      requestVersionRef.current += 1;
+      const update = { userId: sessionUserId };
+      pendingUpdateRef.current = update;
+      try {
+        const result = await updateUserProfile(payload);
+        if (currentSessionUserIdRef.current !== sessionUserId) return result.profile;
+        setProfile(result.profile);
+        setHasLoadedProfile(true);
+        setProfileError(null);
+        if (session) {
+          onSessionUpdated({
+            ...session,
+            user: result.profile.user
+          });
+        }
+        return result.profile;
+      } finally {
+        if (pendingUpdateRef.current === update) pendingUpdateRef.current = null;
+        if (currentSessionUserIdRef.current === sessionUserId) {
+          requestVersionRef.current += 1;
+          setIsLoadingProfile(false);
+        }
       }
-      return result.profile;
     },
-    [onSessionUpdated, session]
+    [onSessionUpdated, session, sessionUserId]
   );
 
   const saveProfile = useCallback(
     async (payload: UserProfileUpdateInput) => {
+      if (pendingUpdateRef.current?.userId === sessionUserId) throw new Error("已有个人设置正在保存，请等待完成后重试。");
       setIsSavingProfile(true);
       try {
         await commitProfileUpdate(payload);
@@ -94,14 +126,15 @@ export function useProfileData({ session, onSessionUpdated, onToast }: UseProfil
         onToast({ message: `个人资料保存失败：${message}`, tone: "error" });
         throw error;
       } finally {
-        setIsSavingProfile(false);
+        if (currentSessionUserIdRef.current === sessionUserId) setIsSavingProfile(false);
       }
     },
-    [commitProfileUpdate, onToast]
+    [commitProfileUpdate, onToast, sessionUserId]
   );
 
   const savePreferences = useCallback(
     async (payload: UserProfileUpdateInput) => {
+      if (pendingUpdateRef.current?.userId === sessionUserId) throw new Error("已有个人设置正在保存，请等待完成后重试。");
       setIsSavingPreferences(true);
       try {
         await commitProfileUpdate(payload);
@@ -111,10 +144,10 @@ export function useProfileData({ session, onSessionUpdated, onToast }: UseProfil
         onToast({ message: `个人偏好保存失败：${message}`, tone: "error" });
         throw error;
       } finally {
-        setIsSavingPreferences(false);
+        if (currentSessionUserIdRef.current === sessionUserId) setIsSavingPreferences(false);
       }
     },
-    [commitProfileUpdate, onToast]
+    [commitProfileUpdate, onToast, sessionUserId]
   );
 
   const revokeSession = useCallback(

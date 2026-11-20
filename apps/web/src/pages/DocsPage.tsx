@@ -35,10 +35,16 @@ export function DocsPage() {
     }
     return () => { isStale = true; };
   }, [slug]);
+
   useEffect(() => {
-    if (content?.slug === slug && window.location.hash) {
-      document.getElementById(decodeURIComponent(window.location.hash.slice(1)))?.scrollIntoView();
+    if (content?.slug !== slug || !window.location.hash) return;
+    let fragment: string;
+    try {
+      fragment = decodeURIComponent(window.location.hash.slice(1));
+    } catch {
+      return;
     }
+    document.getElementById(fragment)?.scrollIntoView();
   }, [content, slug]);
 
   if (slug) return (

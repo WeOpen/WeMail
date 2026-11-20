@@ -16,6 +16,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Preserved unsaved personal settings during delayed profile refreshes, rejected stale reads after saves, and coordinated profile/preferences submissions so concurrent responses cannot silently restore older values.
+- Handled malformed documentation URL fragments without interrupting the guide reader.
 - Pinned browser CI jobs to Ubuntu 24.04 so the locked Playwright 1.59.1 can install Chromium after `ubuntu-latest` moved to an unsupported Ubuntu 26.04 image.
 - Kept uncertain outbound submissions recoverable with the original provider key after network, ambiguous HTTP, and local storage failures; prevented duplicate quota charges, incorrect success labels, edited-draft key reuse, and concurrent compose submissions.
 - Stopped treating sender-supplied Authentication-Results or fabricated confidence percentages as verified identity or measured extraction quality. Trusted verdicts now come only from Cloudflare's platform-provided first authentication header.

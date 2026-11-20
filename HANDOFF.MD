@@ -20,3 +20,7 @@
 - 2026-11-20 GitHub ubuntu-latest 已切到26.04，项目Playwright1.59.1的安装器不支持该OS。E2E两个job已固定ubuntu-24.04；浏览器安装失败不能算产品用例失败，也不能通过重复重跑解决。
 
 - 早到供应商事件合并与发送完成必须同一个 D1 batch。先 accepted 清 lease 后单独合并，第二写失败会永久漏掉已保存 delivered。已用触发器故障注入验证回滚、lease 接管与单次额度。
+
+- 用户于2026-11-20确认尚无隔离Cloudflare/Resend staging资源与专用测试收件地址。先完成本地/CI交付，真实邮件与发布验收待环境准备后执行。
+
+- CI个人设置姓名回退源于真实竞态，不能仅延长测试等待。SystemProfilePage的profile对象effect曾无条件重置草稿，useProfileData旧GET也能覆盖PATCH结果。以可控Promise先复现失败，修为逐字段保留dirty值、按用户/请求代次丢弃过期结果与互斥保存；会话同用户资料更新不再重复触发首次加载。
